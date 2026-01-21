@@ -1,7 +1,7 @@
 // app/categories/page.jsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -20,7 +20,8 @@ import ProductCard from "../components/ProductCard";
 
 const ITEMS_PER_PAGE = 18;
 
-export default function CategoriesPage() {
+// Ana bileşeni iç içe fonksiyon olarak tanımla
+function CategoriesContent() {
   const searchParams = useSearchParams();
   const groupFromUrl = searchParams.get("group");
   const { t } = useLang();
@@ -78,30 +79,29 @@ export default function CategoriesPage() {
      ÜRÜN FİLTRELEME (ANA KATEGORİYE GÖRE)
      ===================================================== */
   const filteredProducts = useMemo(() => {
-  return allProducts
-    .filter((p) => {
-      const slug = Object.keys(categoryMap).find(
-        (k) =>
-          categoryMap[k].main === p.main_category &&
-          categoryMap[k].sub === p.sub_category
-      );
-      if (!slug) return false;
+    return allProducts
+      .filter((p) => {
+        const slug = Object.keys(categoryMap).find(
+          (k) =>
+            categoryMap[k].main === p.main_category &&
+            categoryMap[k].sub === p.sub_category
+        );
+        if (!slug) return false;
 
-      const belongsToGroup = Object.values(
-        categoryData[selectedGroup].mainCategories
-      ).some((list) => list.includes(slug));
-      if (!belongsToGroup) return false;
+        const belongsToGroup = Object.values(
+          categoryData[selectedGroup].mainCategories
+        ).some((list) => list.includes(slug));
+        if (!belongsToGroup) return false;
 
-      if (selectedMainCategories.length === 0) return true;
+        if (selectedMainCategories.length === 0) return true;
 
-      return selectedMainCategories.some((mainKey) =>
-        mainCategories[mainKey]?.includes(slug)
-      );
-    })
-    // 🔴 İŞTE ASIL OLAY BURASI
-    .sort((a, b) => a.order - b.order);
-}, [allProducts, selectedGroup, selectedMainCategories, mainCategories]);
-
+        return selectedMainCategories.some((mainKey) =>
+          mainCategories[mainKey]?.includes(slug)
+        );
+      })
+      // 🔴 İŞTE ASIL OLAY BURASI
+      .sort((a, b) => a.order - b.order);
+  }, [allProducts, selectedGroup, selectedMainCategories, mainCategories]);
 
   const totalPages = Math.ceil(
     filteredProducts.length / ITEMS_PER_PAGE
@@ -132,8 +132,8 @@ export default function CategoriesPage() {
           </h1>
 
           <p className="text-gray-600 mt-1">
-  {filteredProducts.length} {t("common.product")}
-</p>
+            {filteredProducts.length} {t("common.product")}
+          </p>
         </div>
       </div>
 
@@ -145,8 +145,8 @@ export default function CategoriesPage() {
           {/* ÜRÜN GRUPLARI */}
           <div className="mb-6">
             <h4 className="font-semibold mb-3">
-  {t("filters.product_groups")}
-</h4>
+              {t("filters.product_groups")}
+            </h4>
             {Object.keys(categoryData).map((g) => (
               <button
                 key={g}
@@ -168,8 +168,8 @@ export default function CategoriesPage() {
           {/* ANA KATEGORİLER */}
           <div>
             <h4 className="font-semibold mb-3">
-  {t("filters.categories")}
-</h4>
+              {t("filters.categories")}
+            </h4>
             {mainCategoryKeys.map((mainKey) => (
               <label key={mainKey} className="flex gap-2 text-sm mb-2">
                 <input
@@ -222,5 +222,21 @@ export default function CategoriesPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+// Ana export - Suspense ile sarmala
+export default function CategoriesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Yükleniyor...</p>
+        </div>
+      </div>
+    }>
+      <CategoriesContent />
+    </Suspense>
   );
 }

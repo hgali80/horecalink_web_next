@@ -2,14 +2,15 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import ProductList from "../components/ProductList";
 
 import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
 import { useLang } from "../context/LanguageContext";
 
-export default function ProductsPage() {
+// Mevcut bileşeni iç içe fonksiyon olarak tanımla
+function ProductsContent() {
   const searchParams = useSearchParams();
   const { t } = useLang();
 
@@ -105,5 +106,21 @@ export default function ProductsPage() {
         currentUserId={user?.uid}
       />
     </main>
+  );
+}
+
+// Ana export - Suspense ile sarmala
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Yükleniyor...</p>
+        </div>
+      </div>
+    }>
+      <ProductsContent />
+    </Suspense>
   );
 }
