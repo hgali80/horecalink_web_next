@@ -1,0 +1,811 @@
+{
+  "alt.logo": "HorecaLink Logo",
+
+  "menu.home": "Home",
+  "menu.about": "About",
+  "menu.products": "Products",
+  "menu.contact": "Contact",
+
+  "language": "Language",
+  "languageSelect": "Select Language",
+
+  "search.placeholder": "Search...",
+  "search.alert": "Search: {value}",
+
+  "topbar.lang.tr": "TR",
+  "topbar.lang.ru": "RU",
+  "topbar.lang.kz": "KZ",
+  "topbar.lang.en": "EN",
+
+  "usermenu.login": "Login",
+  "usermenu.register": "Register",
+  "usermenu.profile": "My Profile",
+  "usermenu.logout": "Logout",
+
+  "productlist.loading": "Loading...",
+  "productlist.error": "An error occurred while loading products.",
+  "productlist.empty": "No products yet.",
+
+  "productcard.noImage": "No Image",
+  "productcard.loginFavorite": "Login to add to favorites",
+  "productcard.loginCart": "Login to add to cart",
+  "productcard.noPrice": "No Price",
+  "productcard.unit": "Unit",
+  "productcard.addToCart": "Add to Cart",
+
+  "hero.loading": "Loading...",
+  "hero.noImage": "No Image",
+  "hero.getOffer": "Get Offer on WhatsApp",
+  "hero.viewProducts": "View Products",
+
+  "header.alt.logo": "HorecaLink Logo",
+  "header.menu.home": "Home",
+  "header.menu.about": "About",
+  "header.menu.products": "Products",
+  "header.menu.contact": "Contact",
+  "header.language": "Language",
+  "header.languageSelect": "Select Language",
+  "header.search.placeholder": "Search...",
+  "header.search.alert": "Search: {value}",
+
+  "categoryTabs.institutional": "Institutional",
+  "categoryTabs.equipment": "Equipment",
+  "categoryTabs.stainless_steel": "Stainless Steel",
+
+  "categoryGrid.loading": "Loading...",
+  "categoryGrid.noProducts": "No products yet.",
+  "categoryGrid.noImage": "No Image",
+  "categoryGrid.otherCategory": "Other",
+
+  "categoryGrid.main.institutional": "Institutional",
+  "categoryGrid.main.equipment": "Equipment",
+  "categoryGrid.main.stainless_steel": "Stainless Steel",
+
+  "category": {
+    "group": {
+      "institutional": "Institutional",
+      "equipment": "Equipment",
+      "stainless_steel": "Stainless Steel"
+    },
+    "main": {
+      "paper_products": "Paper Products",
+      "personal_care_hygiene": "Personal Care & Hygiene",
+      "cleaning_equipment": "Cleaning Equipment",
+      "cleaning_chemicals": "Cleaning Chemicals",
+      "personal_protective_equipment": "Personal Protective Equipment",
+      "portion_products": "Portion Products",
+      "disposable_products": "Disposable Products",
+      "dispensers": "Dispensers",
+      "packaging_products": "Packaging Products",
+      "storage_transport": "Storage & Transport Products",
+
+      "chef_knives": "Chef Knives",
+      "tea_coffee_equipment": "Tea & Coffee Equipment",
+      "cooking_equipment": "Cooking Equipment",
+      "cooling_equipment": "Cooling Equipment",
+      "service_equipment": "Service Equipment",
+      "dishwashers": "Dishwashers",
+      "preparation_equipment": "Preparation Equipment",
+
+      "work_tables": "Work Tables",
+      "sink_units": "Sink Units",
+      "dishwasher_tables": "Dishwasher Tables",
+      "pot_vegetable_washing_units": "Pot & Vegetable Washing Units",
+      "shelving_cabinets": "Shelving & Cabinet Systems",
+      "trolley_systems": "Tray & Trolley Systems",
+      "service_lines": "Service Lines",
+      "service_shelves": "Service Shelves",
+      "oven_stands": "Oven Stands",
+      "bar_counters": "Bar Counters",
+      "cabinets": "Cabinets",
+      "ventilation_lighting": "Ventilation & Lighting Systems"
+    }
+  },
+
+  "categories": {
+    "breadcrumb": {
+      "home": "Home"
+    },
+    "subPage": {
+      "description": "You can find products for this subcategory below.",
+      "empty": "No products have been added to this subcategory yet."
+    },
+    "sub": {
+      "toilet_paper": "Toilet Paper",
+      "paper_towels": "Paper Towels",
+      "napkins": "Napkins",
+      "toilet_seat_hygiene_covers": "Toilet Seat Hygiene Covers",
+
+      "liquid_foam_soap": "Liquid & Foam Soaps",
+      "shampoo_shower_gel": "Shampoo & Shower Gels",
+      "air_fresheners": "Air Fresheners",
+      "wet_wipes": "Wet Wipes & Towels",
+      "disinfectants": "Disinfectants",
+
+      "kitchen_cleaning_equipment": "Kitchen Cleaning Equipment",
+      "surface_cleaning_cloths": "Surface Cleaning Cloths",
+      "floor_cleaning_equipment": "Floor Cleaning Equipment",
+      "glass_cleaning_equipment": "Glass Cleaning Equipment",
+      "wc_bathroom_cleaning_equipment": "WC & Bathroom Cleaning Equipment",
+
+      "kitchen_cleaning_chemicals": "Kitchen Cleaning Products",
+      "floor_cleaning_chemicals": "Floor Cleaning Products",
+      "laundry_products": "Laundry Products",
+      "wc_bathroom_cleaning_chemicals": "WC & Bathroom Cleaning Chemicals",
+      "glass_cleaning_chemicals": "Glass Cleaning Products",
+      "pool_chemicals": "Pool Products",
+
+      "masks": "Masks",
+      "hair_nets": "Hair Nets",
+      "aprons": "Aprons",
+      "shoe_covers": "Shoe Covers",
+      "gloves": "Gloves",
+
+      "sugar_packets": "Sugar",
+      "wet_wipes_portion": "Wet Wipes (Portion)",
+
+      "cups": "Cups",
+      "aluminum_containers": "Aluminum Containers",
+      "toothpicks": "Toothpicks",
+      "cutlery_sets": "Cutlery Sets",
+      "stirrers_straws": "Straws & Stirrers",
+
+      "liquid_soap_dispensers": "Liquid Soap Dispensers",
+      "foam_soap_dispensers": "Foam Soap Dispensers",
+      "toilet_seat_cover_dispensers": "Toilet Seat Cover Dispensers",
+      "air_freshener_dispensers": "Air Freshener Dispensers",
+      "toilet_paper_dispensers": "Toilet Paper Dispensers",
+      "paper_towel_dispensers": "Paper Towel Dispensers",
+      "tabletop_napkin_dispensers": "Tabletop Napkin Dispensers",
+
+      "aluminum_foils": "Aluminum Foils",
+      "stretch_films": "Stretch Films",
+      "baking_paper": "Baking Paper",
+      "trash_bags": "Trash Bags & Bags",
+
+      "packaging_stretch_films": "Packaging Stretch Films",
+      "packing_tapes": "Packing Tapes",
+
+      "butcher_knives": "Butcher Knives",
+      "boning_knives": "Boning Knives",
+      "slicing_knives": "Slicing Knives",
+      "meat_chopping_knives": "Meat Chopping Knives",
+      "chef_knives": "Chef Knives",
+      "vegetable_knives": "Vegetable Knives",
+      "cheese_knives": "Cheese Knives",
+      "bread_knives": "Bread Knives",
+      "cleavers": "Cleaver Knives",
+      "zirh_knives": "Zirh Knives",
+      "knife_sharpeners": "Knife Sharpeners",
+      "cake_spatulas": "Cake Spatulas",
+      "pizza_knives": "Pizza Knives",
+      "doner_knives": "Doner Knives",
+      "meat_tenderizers": "Meat Tenderizers",
+
+      "tea_machines": "Tea Machines",
+      "coffee_stoves": "Coffee Stoves",
+      "coffee_machines": "Coffee Machines",
+      "double_wall_tea_machines": "Double Wall Tea Machines",
+      "copper_teapots": "Copper Teapots",
+
+      "toasters": "Toasters",
+      "doner_grills": "Doner Grills",
+      "grills": "Grills",
+      "ovens_and_ranges": "Ovens & Ranges",
+      "waffle_machines": "Waffle Machines",
+      "fryers": "Fryers",
+      "crepe_machines": "Crepe Machines",
+      "pancake_machines": "Pancake Machines",
+      "sausage_cookers": "Sausage Cookers",
+      "pasta_cookers": "Pasta Cookers",
+
+      "juice_ayran_coolers": "Juice & Ayran Coolers",
+      "slush_machines": "Slush Machines",
+      "ice_machines": "Ice Machines",
+      "refrigerators": "Refrigerators",
+
+      "soup_warmers": "Soup Warmers",
+      "bain_marie": "Bain Marie",
+      "heated_sauce_warmers": "Heated Sauce Warmers",
+
+      "hood_type_dishwashers": "Hood Type Dishwashers",
+      "undercounter_dishwashers": "Undercounter Dishwashers",
+
+      "orange_juicers": "Orange Juicers",
+      "onion_choppers": "Onion Choppers",
+      "potato_slicers": "Potato Slicers",
+      "bar_blenders": "Bar Blenders",
+      "burger_presses": "Burger Presses",
+      "mixers": "Mixers",
+      "dough_kneaders": "Dough Kneaders",
+      "dough_rollers": "Dough Rollers",
+      "meat_grinders": "Meat Grinders",
+
+      "flat_tables": "Flat Tables",
+      "bottom_shelf_tables": "Bottom Shelf Tables",
+      "mid_shelf_tables": "Middle Shelf Tables",
+      "single_drawer_tables": "Single Drawer Tables",
+      "drawer_block_tables": "Drawer Block Tables",
+      "sliding_door_cabinets": "Sliding Door Cabinets",
+      "swing_door_cabinets": "Swing Door Cabinets",
+      "heated_cabinet_tables": "Heated Cabinet Tables",
+      "marble_top_tables": "Marble Top Tables",
+      "polyethylene_top_tables": "Polyethylene Top Tables",
+      "mobile_tables": "Mobile Tables",
+
+      "cabinet_sink_units": "Cabinet Sink Units",
+      "single_sink_units": "Single Sink Units",
+      "double_sink_units": "Double Sink Units",
+      "triple_sink_units": "Triple Sink Units",
+      "welded_single_sink_units": "Welded Single Sink Units",
+      "welded_double_sink_units": "Welded Double Sink Units",
+      "welded_triple_sink_units": "Welded Triple Sink Units",
+      "cleaning_sinks": "Cleaning Sinks",
+      "knee_control_handwash_units": "Knee Control Handwash Units",
+
+      "dishwasher_inlet_tables": "Dishwasher Inlet Tables",
+      "dishwasher_outlet_tables": "Dishwasher Outlet Tables",
+      "scrap_tables": "Scrap Tables",
+      "dishwasher_basket_shelves": "Dishwasher Basket Shelves",
+
+      "pot_washing_tables": "Pot Washing Tables",
+      "pot_washing_service_tables": "Pot Washing Service Tables",
+      "vegetable_washing_tables": "Vegetable Washing Tables",
+      "fish_processing_tables": "Fish Processing Tables",
+
+      "wall_cabinets": "Wall Cabinets",
+      "wall_shelves": "Wall Shelves",
+      "cutting_board_shelves": "Cutting Board Shelves",
+      "industrial_shelving_systems": "Industrial Shelving Systems",
+      "stacking_shelves": "Stacking Shelves",
+      "pot_shelves": "Pot Shelves",
+      "plate_drying_shelves": "Plate Drying Shelves",
+
+      "storage_platform_trolleys": "Storage Platform Trolleys",
+      "plate_trolleys": "Plate Trolleys",
+      "pot_trolleys": "Pot Trolleys",
+      "two_tier_service_trolleys": "Two Tier Service Trolleys",
+      "three_tier_service_trolleys": "Three Tier Service Trolleys",
+      "platform_trolleys": "Platform Trolleys",
+      "gn_container_trolleys": "Gastro Container Trolleys",
+      "tray_trolleys": "Tray Trolleys",
+
+      "cutlery_units": "Cutlery Units",
+      "soup_units": "Soup Units",
+      "hot_service_units": "Hot Service Units",
+      "cold_service_units": "Cold Service Units",
+      "neutral_service_units": "Neutral Service Units",
+      "cashier_units": "Cashier Units",
+
+      "single_tier_service_shelves": "Single Tier Service Shelves",
+      "double_tier_service_shelves": "Double Tier Service Shelves",
+      "heated_double_tier_service_shelves": "Heated Double Tier Service Shelves",
+
+      "oven_stands": "Oven Stands",
+      "pizza_oven_stands": "Pizza Oven Stands",
+      "equipment_stands": "Equipment Stands",
+
+      "cocktail_preparation_counters": "Cocktail Preparation Counters",
+      "coffee_preparation_counters": "Coffee Preparation Counters",
+
+      "bread_cabinets": "Bread Cabinets",
+      "storage_cabinets": "Storage Cabinets",
+
+      "wall_type_hoods": "Wall Type Hoods",
+      "island_type_hoods": "Island Type Hoods",
+      "hood_shelves": "Hood Shelves",
+      "hood_lighting": "Hood Lighting"
+    }
+  },
+
+  "profile": {
+    "loading": "Loading...",
+    "title": "Account Management",
+    "card": {
+      "defaultName": "User",
+      "registerDate": "Registration Date"
+    },
+    "menu": {
+      "title": "Quick Menu",
+      "personalInfo": "Personal Information",
+      "orders": "My Orders",
+      "basket": "My Cart",
+      "favorites": "My Favorites",
+      "addresses": "My Addresses",
+      "history": "Purchase History",
+      "rewards": "Points & Campaigns",
+      "settings": "Settings",
+      "logout": "Logout"
+    },
+    "sidebar": {
+      "title": "Account Center",
+      "personalInfo": "Personal Information",
+      "addresses": "My Addresses",
+      "orders": "My Orders",
+      "basket": "My Cart",
+      "favorites": "My Favorites",
+      "history": "Purchase History",
+      "support": "My Support Requests",
+      "security": "Security",
+      "rewards": "Points / Campaigns",
+      "settings": "Settings",
+      "admin": "Admin Panel",
+      "logout": "Logout",
+      "menu": "Menu"
+    },
+    "details": {
+      "title": "Personal Information",
+      "edit": "Edit",
+      "fullName": "Full Name",
+      "email": "Email",
+      "phone": "Phone",
+      "city": "City",
+      "activeAddress": "Active Address",
+      "noAddress": "No address added yet.",
+      "companyInfo": "Company Information",
+      "companyName": "Company Name",
+      "companyType": "Company Type",
+      "position": "Position",
+      "accountInfo": "Account Information",
+      "registerDate": "Registration Date",
+      "role": "Role",
+      "security": "Password & Security Settings"
+    }
+  },
+
+  "breadcrumb": {
+    "home": "Home",
+    "categories": "Categories"
+  },
+
+  "products": {
+    "allPrefix": "All",
+    "allProducts": "All Products",
+    "sort": {
+      "label": "Sort",
+      "default": "Default",
+      "priceAsc": "Price: Low to High",
+      "priceDesc": "Price: High to Low",
+      "nameAsc": "Name (A-Z)"
+    }
+  },
+
+  "productDetail": {
+    "loading": "Loading product...",
+    "loadError": "Error loading product.",
+    "notFound": "Product not found.",
+    "noImage": "No image",
+    "favorite": "Add/remove from favorites",
+    "loginToFavorite": "You must login to add to favorites.",
+    "loginToBasket": "You must login to add to cart.",
+    "unit": "Unit",
+    "addToBasket": "Add to Cart",
+    "backToCategories": "Back to Categories",
+    "related": "Similar Products",
+    "noDescription": "No description.",
+    "noSpecs": "No technical specifications.",
+    "tabs": {
+      "description": "Description",
+      "specs": "Technical Specifications"
+    },
+    "thumbnailAlt": "Product thumbnail",
+    "openImage": "Open image {{index}}",
+    "increase": "Increase",
+    "decrease": "Decrease"
+  },
+
+  "heroAbout": {
+    "badge": "Reliable supply solution partner for HoReCa",
+    "title": {
+      "before": "For HoReCa businesses:",
+      "highlight": "wholesale supply, projects and stainless steel solutions"
+    },
+    "text1": {
+      "before": "Across Kazakhstan",
+      "highlight": "professional HoReCa solutions"
+    },
+    "text2": {
+      "before": "Continuous communication and needs tracking",
+      "highlight": "even after sale"
+    },
+    "text3": {
+      "before": "Flexible and controlled purchasing",
+      "highlight": "through cart and quotation system"
+    },
+    "buttons": {
+      "products": "View Products",
+      "contact": "Contact Us"
+    },
+    "imageAlt": "Horecalink HoReCa supply and project solutions"
+  },
+
+  "stats": {
+    "item1": { "value": "10+ years", "label": "Industry experience" },
+    "item2": { "value": "Hundreds", "label": "Active partners" },
+    "item3": { "value": "Long-term", "label": "Customer relationships" }
+  },
+
+  "values": {
+    "title": "Our Values",
+    "subtitle": "Core principles that shape all our processes",
+    "integrity": {
+      "title": "Transparency and Trust",
+      "description": "Open communication, correct products and clear processes"
+    },
+    "innovation": {
+      "title": "Solution Orientation",
+      "description": "Product and project solutions tailored to needs"
+    },
+    "customer": {
+      "title": "Customer-Centric Approach",
+      "description": "Post-sale tracking and regular communication"
+    },
+    "excellence": {
+      "title": "Operational Excellence",
+      "description": "Right product, right time, right delivery"
+    },
+    "sustainability": {
+      "title": "Sustainable Partnership",
+      "description": "Long-term relationships creating mutual value"
+    }
+  },
+
+  "who": {
+    "title": "Who We Are?",
+    "text1": {
+      "before": "Horecalink was established to provide",
+      "highlight": "specialized for the HoReCa sector",
+      "after": "wholesale supply and project solutions."
+    },
+    "text2": {
+      "before": "We bring together",
+      "highlight": "wholesale product supply, stainless steel manufacturing and project processes",
+      "after": "under one roof."
+    },
+    "text3": "For us, a sale is not an end, but the beginning of a long-term business partnership."
+  },
+
+  "mission": {
+    "title": "Our Mission",
+    "text": "To simplify procurement processes for businesses by providing the right product at the right time and maintaining active communication in post-sale stages."
+  },
+
+  "vision": {
+    "title": "Our Vision",
+    "text": {
+      "before": "To become a strong solution platform that",
+      "highlight": "sets HoReCa supply standards",
+      "after": "across Kazakhstan."
+    }
+  },
+
+  "story": {
+    "title": "Our Story"
+  },
+
+  "milestones": {
+    "step1": { "title": "Beginning", "event": "Gathering industry experience under one roof" },
+    "step2": { "title": "Growth", "event": "Expansion of product range and supply network" },
+    "step3": { "title": "Project", "event": "Addition of stainless steel and project-based solutions" },
+    "step4": { "title": "Digitalization", "event": "Launch of online catalog and quotation system" }
+  },
+
+  "quality": {
+    "title": "Our Quality Approach",
+    "point1": "Controlled and selected product range",
+    "point2": "Reliable supply chain",
+    "point3": "Professional logistics and transportation",
+    "point4": "Post-sale support and tracking"
+  },
+
+  "operations": {
+    "title": "Our Operations",
+    "subtitle": "We manage the entire process from supply to delivery",
+    "cta": "Contact Us",
+    "items": {
+      "stock": {
+        "title": "Product and Inventory Management",
+        "text": "Wide product range and regular inventory management",
+        "alt": "Warehouse and product storage area"
+      },
+      "logistics": {
+        "title": "Logistics and Transportation",
+        "text": "Safe delivery across Kazakhstan",
+        "alt": "Transportation and delivery process"
+      },
+      "project": {
+        "title": "Project and Installation",
+        "text": "Project-based solutions and on-site applications",
+        "alt": "Project and assembly works"
+      },
+      "stainless": {
+        "title": "Stainless Steel Manufacturing",
+        "text": "Professional stainless steel manufacturing and application",
+        "alt": "Stainless steel manufacturing area"
+      }
+    },
+    "badges": {
+      "b1": { "title": "B2B Focused", "text": "Specialized solutions for corporate businesses" },
+      "b2": { "title": "Long-term", "text": "Continuous communication and needs tracking" },
+      "b3": { "title": "Reliable", "text": "Transparent and controlled processes" }
+    }
+  },
+
+  "contact": {
+    "title": "Contact",
+    "subtitle": "You can use the form below to contact us.",
+    "form": {
+      "title": "Send us a Message",
+      "name": "Your Name and Surname",
+      "email": "Your Email Address",
+      "phone": "Phone Number",
+      "message": "Your Message",
+      "submit": "Send"
+    }
+  },
+
+  "cta": {
+    "title": "Contact us for HoReCa solutions",
+    "text": "We provide tailored equipment and supply solutions for your business.",
+    "button": "Contact Us",
+    "secondaryButton": "View Products",
+    "trustText": "Transparent processes, reliable supply and long-term partnership"
+  },
+
+  "home": {
+    "cta": {
+      "title": "Get in touch with us",
+      "button": "Contact us"
+    },
+    "why": {
+      "title": "Why Choose Us?",
+      "items": {
+        "fast": {
+          "title": "Fast Delivery",
+          "desc": "Your orders are delivered to your address in the shortest time."
+        },
+        "price": {
+          "title": "Affordable Prices",
+          "desc": "Competitive and transparent pricing policy."
+        },
+        "expert": {
+          "title": "HoReCa Expertise",
+          "desc": "Specialized solutions for hotels, restaurants and cafes."
+        },
+        "range": {
+          "title": "Wide Product Range",
+          "desc": "All needs from a single source."
+        }
+      }
+    },
+    "brands": {
+      "title": "Brands We Work With",
+      "alt": "Brand logo"
+    },
+    "featured": {
+      "title": "Featured Products",
+      "loading": "Loading products...",
+      "empty": "There are currently no featured products.",
+      "detail": "View Product"
+    },
+    "footer": {
+      "about": "Horecalink provides professional products and solutions for the horeca sector.",
+      "infoTitle": "Information",
+      "privacy": "Privacy Policy",
+      "shipping": "Delivery Information",
+      "payment": "Payment Options",
+      "addressTitle": "Address",
+      "rights": "All rights reserved."
+    },
+    "blog": {
+      "empty": "No blog posts yet."
+    },
+    "hero": {
+      "loading": "Loading...",
+      "noImage": "Image not found",
+      "viewProducts": "View Products",
+      "prev": "Previous",
+      "next": "Next",
+      "category": {
+        "kurumsal": "Institutional",
+        "yatirim": "Investment",
+        "paslanmaz": "Stainless Steel",
+        "kimyasallar": "Chemicals",
+        "ambalaj": "Packaging"
+      }
+    }
+  }, 
+  "register": {
+    "title": "Sign Up",
+    "subtitle": "Choose a registration method",
+    "email_disabled": "Sign up with email (coming soon)",
+    "phone": "Sign up with phone (SMS)"
+    
+  },
+  "hero": {
+    "buttons": {
+      "products": "View Products",
+      "contact": "Contact Us"
+    }
+  },
+"shipping": {
+  "title": "Shipping Information",
+  "subtitle": "Important details about the delivery process of your order",
+
+  "general": {
+    "title": "General Information",
+    "text": "All orders placed through Horecalink are prepared based on product availability. The shipping process begins after order confirmation."
+  },
+
+  "time": {
+    "title": "Delivery Time",
+    "text": "Products in stock are usually delivered within 1–3 business days. Delivery times may vary for custom-made or project-based products."
+  },
+
+  "region": {
+    "title": "Delivery Regions",
+    "text": "Deliveries are made throughout Kazakhstan, primarily in Almaty. Delivery conditions may vary depending on the region."
+  },
+
+  "control": {
+    "title": "Delivery Inspection",
+    "text": "We recommend checking the condition and packaging of the products upon delivery. Any damage should be reported at the time of delivery."
+  }
+},
+  "productcard": {
+    "noImage": "No image",
+    "noPrice": "Price not available",
+    "unit": "Unit",
+    "addToCart": "Add to cart",
+    "loginFavorite": "Please log in to add to favorites.",
+    "loginCart": "Please log in to add to cart."
+  },
+
+  "filters": {
+    "product_groups": "Product Groups",
+    "categories": "Categories"
+  },
+
+
+  "privacy.title": "Horecalink Privacy Policy",
+  "privacy.lastUpdate": "Last Updated: 01.01.2026",
+  "privacy.intro": "At Horecalink, the security and confidentiality of our guests’ and customers’ personal data are extremely important to us.",
+  "privacy.section1.title": "Collected Information (Minimum Level)",
+  "privacy.section1.name": "Full Name: to personalize your account and communicate with you.",
+  "privacy.section1.phone": "Phone Number: for account security, SMS verification, and delivery notifications.",
+  "privacy.section1.password": "Password: to securely access your account (stored in encrypted form).",
+  "privacy.section1.address": "Address: requested only when product delivery is required.",
+  "privacy.section2.title": "Payment Information",
+  "privacy.section2.text": "We do not request or store credit or debit card information. Payments are made via cash or bank transfer (EFT).",
+  "privacy.section3.title": "Purposes of Data Usage",
+  "privacy.section3.item1": "Account creation and verification",
+  "privacy.section3.item2": "Order and delivery management",
+  "privacy.section3.item3": "Customer support services",
+  "privacy.section3.item4": "Legal obligations",
+  "privacy.section3.item5": "Platform security",
+  "privacy.section4.title": "Data Sharing",
+  "privacy.section4.logistic": "Logistics companies (name, phone, address)",
+  "privacy.section4.sms": "SMS service providers (phone number)",
+  "privacy.section4.legal": "Legal authorities (when required)",
+  "privacy.section5.title": "Data Security",
+  "privacy.section5.text": "Your data is protected using secure infrastructure and technical measures.",
+  "privacy.section6.title": "Cookies",
+  "privacy.section6.text": "Our website may use cookies to improve user experience.",
+  "privacy.section7.title": "User Rights",
+  "privacy.section7.item1": "Request information",
+  "privacy.section7.item2": "Request correction",
+  "privacy.section7.item3": "Request deletion",
+  "privacy.section8.title": "Policy Updates",
+  "privacy.section8.text": "This policy may be updated when necessary.",
+  "privacy.section9.title": "Contact",
+  "privacy.contactEmail": "Email",
+  
+  "payment.title": "Payment Options",
+  "payment.lastUpdate": "Last Updated: 01.01.2026",
+  "payment.intro": "At Horecalink, transparency and security in payment processes are our top priorities.",
+  "payment.section1.title": "Card Information",
+  "payment.section1.text": "We do not request, collect, or store any credit card, debit card, CVV, or similar payment information through our website.",
+  "payment.section2.title": "Available Payment Methods",
+  "payment.section2.item1": "Bank transfer / EFT",
+  "payment.section2.item2": "Cash payment (after contact)",
+  "payment.section3.title": "Order and Payment Process",
+  "payment.section3.text": "To place an order, simply contact us. The payment method is determined by mutual agreement based on order details.",
+
+ 
+
+  "basket": {
+    "title": "My Basket",
+    "empty": "Your basket is empty.",
+    "unitPrice": "Unit Price",
+    "itemTotal": "Total",
+    "remove": "Remove",
+    "subtotal": "Subtotal",
+    "discount": "Discount (%{rate})",
+    "total": "Grand Total",
+    "createOrder": "Create Order",
+    "creatingOrder": "Creating order...",
+    "success": "Order created successfully! Order No:",
+    "error": {
+      "noAddress": "Please select a delivery address.",
+      "createOrder": "An error occurred while creating the order."
+    }
+  },
+
+  "address": {
+    "title": "My Addresses",
+    "new": "New Address",
+    "empty": "No addresses added yet.",
+    "loading": "Loading addresses...",
+    "default": "Default",
+    "defaultTitle": "Address",
+    "delete": "Delete",
+    "confirmDelete": "Delete this address?",
+    "note": "Note",
+        "newTitle": "Add New Address",
+    "region": "Region",
+    "city": "City",
+    "district": "District",
+    "street": "Street / Building",
+    "apartment": "Apartment",
+    "noteOptional": "Note (optional)",
+    "makeDefault": "Set as default address",
+    "address": {
+    "editTitle": "Edit Address",
+    "titleLabel": "Address Title",
+    "receiver": "Receiver Name",
+    "phone": "Phone",
+    "loadingSingle": "Loading address..."
+  },
+
+  "common": {
+    "select": "Select",
+    "product": "products",
+    "save": "Save"
+  }
+},
+  "orders": {
+    "title": "My Orders",
+    "empty": "You have no orders yet.",
+    "orderNo": "Order No",
+    "status": "Status",
+    "detailTitle": "Order Details",
+    "all": "All orders",
+    "statusTitle": "Order Status",
+    "deliveryAddress": "Delivery Address",
+    "paymentSummary": "Payment Summary",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "total": "Total",
+    "products": "Products",
+    "noProducts": "No products found in this order.",
+    "quantity": "Quantity",
+    "unit": "Unit price",
+    "itemTotal": "Total",
+    "notFound": "Order not found.",
+    "loadError": "An error occurred while loading the order.",
+    "statusLabels": {
+      "pending": "Order received",
+      "preparing": "Preparing",
+      "on_the_way": "On the way",
+      "delivered": "Delivered"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "back": "Back"
+  },
+
+  "favorites": {
+    "title": "Favorite Products",
+    "loading": "Loading favorites...",
+    "empty": "No favorite products found.",
+    "loginRequired": "Please log in to view your favorites."
+  },
+  
+  "notFound": {
+    "title": "This page is under construction",
+    "text": "This section is not active yet. It will be available soon.",
+    "goHome": "Home",
+    "goBack": "Go back"
+  }
+}

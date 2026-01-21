@@ -1,0 +1,808 @@
+{
+  "alt.logo": "HorecaLink Logo",
+
+  "menu.home": "Ana Sayfa",
+  "menu.about": "Hakkımızda",
+  "menu.products": "Ürünler",
+  "menu.contact": "İletişim",
+
+  "language": "Dil",
+  "languageSelect": "Dil Seç",
+
+  "search.placeholder": "Ara...",
+  "search.alert": "Arama: {value}",
+
+  "topbar.lang.tr": "TR",
+  "topbar.lang.ru": "RU",
+  "topbar.lang.kz": "KZ",
+  "topbar.lang.en": "EN",
+
+  "usermenu.login": "Giriş Yap",
+  "usermenu.register": "Kayıt Ol",
+  "usermenu.profile": "Profilim",
+  "usermenu.logout": "Çıkış Yap",
+
+  "productlist.loading": "Yükleniyor...",
+  "productlist.error": "Ürünler yüklenirken bir hata oluştu.",
+  "productlist.empty": "Henüz ürün yok.",
+
+  "productcard.noImage": "Görsel Yok",
+  "productcard.loginFavorite": "Favorilere eklemek için giriş yapın",
+  "productcard.loginCart": "Sepete eklemek için giriş yapın",
+  "productcard.noPrice": "Fiyat Yok",
+  "productcard.unit": "Birim",
+  "productcard.addToCart": "Sepete Ekle",
+
+  "hero.loading": "Yükleniyor...",
+  "hero.noImage": "Görsel Yok",
+  "hero.getOffer": "WhatsApp'tan Teklif Al",
+  "hero.viewProducts": "Ürünleri Gör",
+
+  "header.alt.logo": "HorecaLink Logo",
+  "header.menu.home": "Ana Sayfa",
+  "header.menu.about": "Hakkımızda",
+  "header.menu.products": "Ürünler",
+  "header.menu.contact": "İletişim",
+  "header.language": "Dil",
+  "header.languageSelect": "Dil Seç",
+  "header.search.placeholder": "Ara...",
+  "header.search.alert": "Arama: {value}",
+
+  "categoryTabs.institutional": "Kurumsal",
+  "categoryTabs.equipment": "Ekipman",
+  "categoryTabs.stainless_steel": "Paslanmaz",
+
+  "categoryGrid.loading": "Yükleniyor...",
+  "categoryGrid.noProducts": "Henüz ürün yok.",
+  "categoryGrid.noImage": "Görsel Yok",
+  "categoryGrid.otherCategory": "Diğer",
+
+  "categoryGrid.main.institutional": "Kurumsal",
+  "categoryGrid.main.equipment": "Ekipman",
+  "categoryGrid.main.stainless_steel": "Paslanmaz",
+
+  "category": {
+    "group": {
+      "institutional": "Kurumsal",
+      "equipment": "Ekipman",
+      "stainless_steel": "Paslanmaz"
+    },
+    "main": {
+      "paper_products": "Kağıt Ürünler",
+      "personal_care_hygiene": "Kişisel Bakım ve Hijyen",
+      "cleaning_equipment": "Temizlik Ekipmanları",
+      "cleaning_chemicals": "Temizlik Kimyasalları",
+      "personal_protective_equipment": "Personel Koruyucu Ürünler",
+      "portion_products": "Porsiyon Ürünler",
+      "disposable_products": "Tek Kullanımlık Ürünler",
+      "dispensers": "Dispenserler",
+      "packaging_products": "Ambalaj Ürünleri",
+      "storage_transport": "Depolama & Taşıma Ürünleri",
+
+      "chef_knives": "Şef Bıçakları",
+      "tea_coffee_equipment": "Çay & Kahve Ekipmanları",
+      "cooking_equipment": "Pişirme Ekipmanları",
+      "cooling_equipment": "Soğutma Ekipmanları",
+      "service_equipment": "Servis Ekipmanları",
+      "dishwashers": "Bulaşık Makineleri",
+      "preparation_equipment": "Hazırlık Ekipmanları",
+
+      "work_tables": "Tezgahlar",
+      "sink_units": "Evyeli Tezgahlar",
+      "dishwasher_tables": "Bulaşık Tezgahları",
+      "pot_vegetable_washing_units": "Kazan & Sebze Yıkama Tezgahları",
+      "shelving_cabinets": "Raf & Dolap Sistemleri",
+      "trolley_systems": "Tabla & Tepsi Arabaları",
+      "service_lines": "Servis Hatları",
+      "service_shelves": "Servis Rafları",
+      "oven_stands": "Fırın Standları",
+      "bar_counters": "Bar Tezgahları",
+      "cabinets": "Dolaplar",
+      "ventilation_lighting": "Aspiratör & Aydınlatma Sistemleri"
+    }
+  },
+
+  "categories": {
+    "breadcrumb": {
+      "home": "Ana Sayfa"
+    },
+    "subPage": {
+      "description": "Bu alt kategoriye ait ürünleri aşağıda bulabilirsiniz.",
+      "empty": "Bu alt kategori için henüz ürün eklenmedi."
+    },
+    "sub": {
+      "toilet_paper": "Tuvalet Kağıtları",
+      "paper_towels": "Kağıt Havlular",
+      "napkins": "Peçeteler",
+      "toilet_seat_hygiene_covers": "Klozet Kapak Hijyen Kağıtları",
+
+      "liquid_foam_soap": "Sıvı & Köpük Sabunlar",
+      "shampoo_shower_gel": "Şampuan & Duş Jelleri",
+      "air_fresheners": "Oda Kokuları",
+      "wet_wipes": "Islak Havlu & Mendiller",
+      "disinfectants": "Dezenfektanlar",
+
+      "kitchen_cleaning_equipment": "Mutfak Temizlik Ekipmanları",
+      "surface_cleaning_cloths": "Yüzey Temizlik Bezleri",
+      "floor_cleaning_equipment": "Zemin Temizlik Ekipmanları",
+      "glass_cleaning_equipment": "Cam Temizlik Ekipmanları",
+      "wc_bathroom_cleaning_equipment": "WC & Banyo Temizlik Ekipmanları",
+
+      "kitchen_cleaning_chemicals": "Mutfak Temizlik Ürünleri",
+      "floor_cleaning_chemicals": "Zemin Temizlik Ürünleri",
+      "laundry_products": "Çamaşırhane Ürünleri",
+      "wc_bathroom_cleaning_chemicals": "WC & Banyo Temizlik Kimyasalları",
+      "glass_cleaning_chemicals": "Cam Temizlik Ürünleri",
+      "pool_chemicals": "Havuz Ürünleri",
+
+      "masks": "Maskeler",
+      "hair_nets": "Boneler",
+      "aprons": "Önlükler",
+      "shoe_covers": "Galoşlar",
+      "gloves": "Eldivenler",
+
+      "sugar_packets": "Şekerler",
+      "wet_wipes_portion": "Islak Mendiller",
+
+      "cups": "Bardaklar",
+      "aluminum_containers": "Alüminyum Konteynerler",
+      "toothpicks": "Kürdanlar",
+      "cutlery_sets": "Çatal - Bıçak - Kaşık",
+      "stirrers_straws": "Pipet & Karıştırıcı",
+
+      "liquid_soap_dispensers": "Sıvı Sabun Dispenserleri",
+      "foam_soap_dispensers": "Köpük Sabun Dispenserleri",
+      "toilet_seat_cover_dispensers": "Klozet Kapak Dispenserleri",
+      "air_freshener_dispensers": "Oda Kokusu Dispenserleri",
+      "toilet_paper_dispensers": "Tuvalet Kağıdı Dispenseri",
+      "paper_towel_dispensers": "Kağıt Havlu Dispenseri",
+      "tabletop_napkin_dispensers": "Masaüstü Peçete Dispenseri",
+
+      "aluminum_foils": "Alüminyum Folyolar",
+      "stretch_films": "Streç Filmler",
+      "baking_paper": "Pişirme Kağıtları",
+      "trash_bags": "Çöp Torbaları & Poşetler",
+
+      "packaging_stretch_films": "Paketleme Streç Filmleri",
+      "packing_tapes": "Koli Bantları",
+
+      "butcher_knives": "Kasap Bıçakları",
+      "boning_knives": "Kemik Sıyırma Bıçakları",
+      "slicing_knives": "Dilimleme Bıçakları",
+      "meat_chopping_knives": "Et Doğrama Bıçakları",
+      "chef_knives": "Şef Bıçakları",
+      "vegetable_knives": "Sebze Bıçakları",
+      "cheese_knives": "Peynir Bıçakları",
+      "bread_knives": "Ekmek Bıçakları",
+      "cleavers": "Satır Bıçakları",
+      "zirh_knives": "Zırh Bıçakları",
+      "knife_sharpeners": "Masatlar",
+      "cake_spatulas": "Pasta Paletleri",
+      "pizza_knives": "Pizza Bıçakları",
+      "doner_knives": "Döner Bıçakları",
+      "meat_tenderizers": "Et Dövecekleri",
+
+      "tea_machines": "Çay Makineleri",
+      "coffee_stoves": "Kahveci Ocakları",
+      "coffee_machines": "Kahve Makineleri",
+      "double_wall_tea_machines": "Çift Cidarlı Çay Makineleri",
+      "copper_teapots": "Bakır Çaydanlıklar",
+
+      "toasters": "Tost Makineleri",
+      "doner_grills": "Döner Ocakları",
+      "grills": "Izgaralar",
+      "ovens_and_ranges": "Ocak & Fırınlar",
+      "waffle_machines": "Waffle Makineleri",
+      "fryers": "Fritözler",
+      "crepe_machines": "Krep Makineleri",
+      "pancake_machines": "Pankek Makineleri",
+      "sausage_cookers": "Sosis Pişiriciler",
+      "pasta_cookers": "Makarna Haşlama Makineleri",
+
+      "juice_ayran_coolers": "Meyve Suyu & Ayran Soğutucular",
+      "slush_machines": "Slush (Buzlaş) Makineleri",
+      "ice_machines": "Buz Makineleri",
+      "refrigerators": "Soğutucu Dolaplar",
+
+      "soup_warmers": "Çorba Isıtıcılar",
+      "bain_marie": "Benmariler",
+      "heated_sauce_warmers": "Isıtıcılı Sosluklar",
+
+      "hood_type_dishwashers": "Giyotin Tip Bulaşık Makineleri",
+      "undercounter_dishwashers": "Tezgah Altı Bulaşık Makineleri",
+
+      "orange_juicers": "Portakal Sıkma Makineleri",
+      "onion_choppers": "Soğan Doğrama Makineleri",
+      "potato_slicers": "Patates Dilimleme Makineleri",
+      "bar_blenders": "Bar Blender",
+      "burger_presses": "Hamburger Köfte Presi",
+      "mixers": "Mikserler",
+      "dough_kneaders": "Hamur Yoğurma Makineleri",
+      "dough_rollers": "Hamur Açma Makineleri",
+      "meat_grinders": "Kıyma Makineleri",
+
+      "flat_tables": "Düz Tezgahlar",
+      "bottom_shelf_tables": "Taban Raflı Tezgahlar",
+      "mid_shelf_tables": "Taban Ara Raflı Tezgahlar",
+      "single_drawer_tables": "Tek Çekmeceli Tezgahlar",
+      "drawer_block_tables": "Çekmece Bloğu Tezgahlar",
+      "sliding_door_cabinets": "Sürgülü Kapılı Dolaplar",
+      "swing_door_cabinets": "Çarpma Kapılı Dolaplar",
+      "heated_cabinet_tables": "Isıtmalı Dolaplı Tezgahlar",
+      "marble_top_tables": "Mermer Tablalı Tezgahlar",
+      "polyethylene_top_tables": "PE Tablalı Tezgahlar",
+      "mobile_tables": "Tekerlekli Tezgahlar",
+
+      "cabinet_sink_units": "Dolaplı Evyeli Tezgahlar",
+      "single_sink_units": "Tek Evyeli Tezgahlar",
+      "double_sink_units": "Çift Evyeli Tezgahlar",
+      "triple_sink_units": "Üç Evyeli Tezgahlar",
+      "welded_single_sink_units": "Kaynaklı Tek Evyeli Tezgahlar",
+      "welded_double_sink_units": "Kaynaklı Çift Evyeli Tezgahlar",
+      "welded_triple_sink_units": "Kaynaklı Üç Evyeli Tezgahlar",
+      "cleaning_sinks": "Temizlik Evyeleri",
+      "knee_control_handwash_units": "Diz Kontrollü El Yıkama Üniteleri",
+
+      "dishwasher_inlet_tables": "Bulaşık Makinesi Giriş Tezgahları",
+      "dishwasher_outlet_tables": "Bulaşık Makinesi Çıkış Tezgahları",
+      "scrap_tables": "Bulaşık Sıyırma Tezgahları",
+      "dishwasher_basket_shelves": "Bulaşık Makinesi Basket Rafları",
+
+      "pot_washing_tables": "Kazan Yıkama Tezgahları",
+      "pot_washing_service_tables": "Kazan Yıkama Servis Masaları",
+      "vegetable_washing_tables": "Sebze Yıkama Tezgahları",
+      "fish_processing_tables": "Balık İşleme Tezgahları",
+
+      "wall_cabinets": "Duvar Dolapları",
+      "wall_shelves": "Duvar Rafları",
+      "cutting_board_shelves": "Kesme Tahtası Rafları",
+      "industrial_shelving_systems": "Endüstriyel Raf Sistemleri",
+      "stacking_shelves": "İstif Rafları",
+      "pot_shelves": "Kazan Rafları",
+      "plate_drying_shelves": "Tabak Kurutma Rafları",
+
+      "storage_platform_trolleys": "Depo İstif Arabaları",
+      "plate_trolleys": "Tabak Arabaları",
+      "pot_trolleys": "Kazan Arabaları",
+      "two_tier_service_trolleys": "2 Katlı Servis Arabaları",
+      "three_tier_service_trolleys": "3 Katlı Servis Arabaları",
+      "platform_trolleys": "Platform Arabaları",
+      "gn_container_trolleys": "Gastro Kap Arabaları",
+      "tray_trolleys": "Tepsi Arabaları",
+
+      "cutlery_units": "Küver Üniteleri",
+      "soup_units": "Çorba Üniteleri",
+      "hot_service_units": "Sıcak Servis Üniteleri",
+      "cold_service_units": "Soğuk Servis Üniteleri",
+      "neutral_service_units": "Nötr Servis Üniteleri",
+      "cashier_units": "Kasa Üniteleri",
+
+      "single_tier_service_shelves": "Tek Katlı Servis Rafları",
+      "double_tier_service_shelves": "Çift Katlı Servis Rafları",
+      "heated_double_tier_service_shelves": "Isıtmalı Çift Katlı Servis Rafları",
+
+      "oven_stands": "Fırın Standları",
+      "pizza_oven_stands": "Pizza Fırını Standları",
+      "equipment_stands": "Ekipman Standları",
+
+      "cocktail_preparation_counters": "Kokteyl Hazırlama Tezgahları",
+      "coffee_preparation_counters": "Kahve Hazırlama Tezgahları",
+
+      "bread_cabinets": "Ekmek Dolapları",
+      "storage_cabinets": "Depolama Dolapları",
+
+      "wall_type_hoods": "Duvar Tipi Davlumbazlar",
+      "island_type_hoods": "Ada Tipi Davlumbazlar",
+      "hood_shelves": "Davlumbaz Rafları",
+      "hood_lighting": "Davlumbaz Aydınlatmaları"
+    }
+  },
+
+  "profile": {
+    "loading": "Yükleniyor...",
+    "title": "Hesap Yönetimi",
+    "card": {
+      "defaultName": "Kullanıcı",
+      "registerDate": "Kayıt Tarihi"
+    },
+    "menu": {
+      "title": "Hızlı Menü",
+      "personalInfo": "Kişisel Bilgiler",
+      "orders": "Siparişlerim",
+      "basket": "Sepetim",
+      "favorites": "Favorilerim",
+      "addresses": "Adreslerim",
+      "history": "Alışveriş Geçmişi",
+      "rewards": "Puan & Kampanyalar",
+      "settings": "Ayarlar",
+      "logout": "Çıkış Yap"
+    },
+    "sidebar": {
+      "title": "Hesap Merkezi",
+      "personalInfo": "Kişisel Bilgiler",
+      "addresses": "Adreslerim",
+      "orders": "Siparişlerim",
+      "basket": "Sepetim",
+      "favorites": "Favorilerim",
+      "history": "Alışveriş Geçmişi",
+      "support": "Destek Taleplerim",
+      "security": "Güvenlik",
+      "rewards": "Puan / Kampanyalar",
+      "settings": "Ayarlar",
+      "admin": "Admin Paneli",
+      "logout": "Çıkış Yap",
+      "menu": "Menü"
+    },
+    "details": {
+      "title": "Kişisel Bilgiler",
+      "edit": "Düzenle",
+      "fullName": "Ad Soyad",
+      "email": "E-posta",
+      "phone": "Telefon",
+      "city": "Şehir",
+      "activeAddress": "Aktif Adres",
+      "noAddress": "Henüz adres eklenmemiş.",
+      "companyInfo": "Firma Bilgileri",
+      "companyName": "Firma Adı",
+      "companyType": "Firma Türü",
+      "position": "Pozisyon",
+      "accountInfo": "Hesap Bilgileri",
+      "registerDate": "Kayıt Tarihi",
+      "role": "Rol",
+      "security": "Şifre & Güvenlik Ayarları"
+    }
+  },
+
+  "breadcrumb": {
+    "home": "Ana Sayfa",
+    "categories": "Kategoriler"
+  },
+
+  "products": {
+    "allPrefix": "Tüm",
+    "allProducts": "Tüm Ürünler",
+    "sort": {
+      "label": "Sırala",
+      "default": "Varsayılan",
+      "priceAsc": "Fiyata Göre Artan",
+      "priceDesc": "Fiyata Göre Azalan",
+      "nameAsc": "İsme Göre (A-Z)"
+    }
+  },
+
+  "productDetail": {
+    "loading": "Ürün yükleniyor...",
+    "loadError": "Ürün yüklenirken hata oluştu.",
+    "notFound": "Ürün bulunamadı.",
+    "noImage": "Görsel yok",
+    "favorite": "Favorilere ekle / çıkar",
+    "loginToFavorite": "Favorilere eklemek için giriş yapmalısınız.",
+    "loginToBasket": "Sepete eklemek için giriş yapmalısınız.",
+    "unit": "Birim",
+    "addToBasket": "Sepete Ekle",
+    "backToCategories": "Kategorilere Dön",
+    "related": "Benzer Ürünler",
+    "noDescription": "Açıklama yok.",
+    "noSpecs": "Teknik özellik yok.",
+    "tabs": {
+      "description": "Açıklama",
+      "specs": "Teknik Özellikler"
+    },
+    "thumbnailAlt": "Ürün küçük görseli",
+    "openImage": "Görsel {{index}} aç",
+    "increase": "Arttır",
+    "decrease": "Azalt"
+  },
+
+  "heroAbout": {
+    "badge": "HoReCa tedarikte güvenilir çözüm ortağı",
+    "title": {
+      "before": "HoReCa işletmeleri için",
+      "highlight": "toptan tedarik, proje ve paslanmaz çözümler"
+    },
+    "text1": {
+      "before": "Kazakistan genelinde",
+      "highlight": "profesyonel HoReCa çözümleri"
+    },
+    "text2": {
+      "before": "Satıştan sonra da devam eden",
+      "highlight": "sürekli iletişim ve ihtiyaç takibi"
+    },
+    "text3": {
+      "before": "Sepet ve teklif sistemiyle",
+      "highlight": "esnek ve kontrollü satın alma"
+    },
+    "buttons": {
+      "products": "Ürünleri İncele",
+      "contact": "Bizimle İletişime Geç"
+    },
+    "imageAlt": "Horecalink HoReCa tedarik ve proje çözümleri"
+  },
+
+  "stats": {
+    "item1": { "value": "10+ yıl", "label": "Sektör tecrübesi" },
+    "item2": { "value": "Yüzlerce", "label": "Aktif iş ortağı" },
+    "item3": { "value": "Uzun vadeli", "label": "Müşteri ilişkileri" }
+  },
+
+  "values": {
+    "title": "Değerlerimiz",
+    "subtitle": "Tüm süreçlerimizi şekillendiren temel ilkelerimiz",
+    "integrity": {
+      "title": "Şeffaflık ve Güven",
+      "description": "Açık iletişim, doğru ürün ve net süreçler"
+    },
+    "innovation": {
+      "title": "Çözüm Odaklılık",
+      "description": "İhtiyaca uygun ürün ve proje çözümleri"
+    },
+    "customer": {
+      "title": "Müşteri Odaklı Yaklaşım",
+      "description": "Satış sonrası takip ve düzenli iletişim"
+    },
+    "excellence": {
+      "title": "Operasyonel Mükemmellik",
+      "description": "Doğru ürün, doğru zaman, doğru teslimat"
+    },
+    "sustainability": {
+      "title": "Sürdürülebilir İş Ortaklığı",
+      "description": "Uzun vadeli ve karşılıklı değer üreten ilişkiler"
+    }
+  },
+
+  "who": {
+    "title": "Biz Kimiz?",
+    "text1": {
+      "before": "Horecalink,",
+      "highlight": "HoReCa sektörüne özel",
+      "after": "toptan tedarik ve proje çözümleri sunmak amacıyla kurulmuştur."
+    },
+    "text2": {
+      "before": "Toptan ürün tedariki,",
+      "highlight": "paslanmaz üretim ve proje süreçlerini",
+      "after": "tek çatı altında toplar."
+    },
+    "text3": "Bizim için satış bir son değil, uzun vadeli bir iş ortaklığının başlangıcıdır."
+  },
+
+  "mission": {
+    "title": "Misyonumuz",
+    "text": "İşletmelerin tedarik süreçlerini sadeleştirerek doğru ürünü doğru zamanda sunmak ve satış sonrası süreçlerde aktif iletişim kurmak."
+  },
+
+  "vision": {
+    "title": "Vizyonumuz",
+    "text": {
+      "before": "Kazakistan genelinde",
+      "highlight": "HoReCa tedarik standartlarını belirleyen",
+      "after": "güçlü bir çözüm platformu olmak."
+    }
+  },
+
+  "story": {
+    "title": "Hikayemiz"
+  },
+
+  "milestones": {
+    "step1": { "title": "Başlangıç", "event": "Sektör tecrübesinin tek çatı altında toplanması" },
+    "step2": { "title": "Büyüme", "event": "Ürün gamının ve tedarik ağının genişlemesi" },
+    "step3": { "title": "Proje", "event": "Paslanmaz ve proje bazlı çözümlerin eklenmesi" },
+    "step4": { "title": "Dijitalleşme", "event": "Online katalog ve teklif sisteminin devreye alınması" }
+  },
+
+  "quality": {
+    "title": "Kalite Yaklaşımımız",
+    "point1": "Kontrollü ve seçilmiş ürün gamı",
+    "point2": "Güvenilir tedarik zinciri",
+    "point3": "Profesyonel lojistik ve nakliye",
+    "point4": "Satış sonrası destek ve takip"
+  },
+
+  "operations": {
+    "title": "Operasyonlarımız",
+    "subtitle": "Tedarikten teslimata kadar tüm süreci yönetiyoruz",
+    "cta": "Bizimle iletişime geçin",
+    "items": {
+      "stock": {
+        "title": "Ürün ve Stok Yönetimi",
+        "text": "Geniş ürün gamı ve düzenli stok yönetimi",
+        "alt": "Depo ve ürün stok alanı"
+      },
+      "logistics": {
+        "title": "Lojistik ve Nakliye",
+        "text": "Kazakistan geneline güvenli teslimat",
+        "alt": "Nakliye ve teslimat süreci"
+      },
+      "project": {
+        "title": "Proje ve Kurulum",
+        "text": "Proje bazlı çözümler ve saha uygulamaları",
+        "alt": "Proje ve montaj çalışmaları"
+      },
+      "stainless": {
+        "title": "Paslanmaz Üretim",
+        "text": "Profesyonel paslanmaz üretim ve uygulama",
+        "alt": "Paslanmaz üretim alanı"
+      }
+    },
+    "badges": {
+      "b1": { "title": "B2B Odaklı", "text": "Kurumsal işletmelere özel çözümler" },
+      "b2": { "title": "Uzun Vadeli", "text": "Sürekli iletişim ve ihtiyaç takibi" },
+      "b3": { "title": "Güvenilir", "text": "Şeffaf ve kontrollü süreçler" }
+    }
+  },
+
+  "contact": {
+    "title": "İletişim",
+    "subtitle": "Bizimle iletişime geçmek için aşağıdaki formu kullanabilirsiniz.",
+    "form": {
+      "title": "Bize Mesaj Gönderin",
+      "name": "Adınız Soyadınız",
+      "email": "E-posta Adresiniz",
+      "phone": "Telefon Numaranız",
+      "message": "Mesajınız",
+      "submit": "Gönder"
+    }
+  },
+
+  "cta": {
+    "title": "Horeca Çözümleri İçin Bizimle İletişime Geçin",
+    "button": "İletişime Geç",
+    "text": "İşletmenizin ihtiyaçlarına özel ekipman ve tedarik çözümleri sunalım.",
+    "secondaryButton": "Ürünleri İncele",
+    "trustText": "Şeffaf süreçler, güvenilir tedarik ve uzun vadeli iş ortaklığı"
+  },
+
+"home": {
+    "cta": {
+      "title": "Bizimle iletişime geçin",
+      "button": "İletişim"
+    },
+    "why": {
+      "title": "Neden Bizi Seçmelisiniz?",
+      "items": {
+        "fast": {
+          "title": "Hızlı Teslimat",
+          "desc": "Siparişleriniz en kısa sürede adresinize ulaştırılır."
+        },
+        "price": {
+          "title": "Uygun Fiyat",
+          "desc": "Rekabetçi ve şeffaf fiyat politikası."
+        },
+        "expert": {
+          "title": "Horeca Uzmanlığı",
+          "desc": "Otel, restoran ve kafe sektörüne özel çözümler."
+        },
+        "range": {
+          "title": "Geniş Ürün Yelpazesi",
+          "desc": "Tek noktadan tüm ihtiyaçlar."
+        }
+      }
+    },
+    "brands": {
+      "title": "Çalıştığımız Markalar",
+      "alt": "Marka logosu"
+    },
+    "featured": {
+      "title": "Öne Çıkan Ürünler",
+      "loading": "Ürünler yükleniyor...",
+      "empty": "Şu anda öne çıkan ürün bulunmamaktadır.",
+      "detail": "Ürünü İncele"
+    },
+    "footer": {
+      "about": "Horecalink, horeca sektörü için profesyonel ürün ve çözümler sunar.",
+      "infoTitle": "Bilgilendirme",
+      "privacy": "Gizlilik Politikası",
+      "shipping": "Teslimat Bilgileri",
+      "payment": "Ödeme Seçenekleri",
+      "addressTitle": "Adres",
+      "rights": "Tüm hakları saklıdır."
+    },
+    "blog": {
+      "empty": "Henüz blog yazısı bulunmamaktadır."
+    },
+    "hero": {
+      "loading": "Yükleniyor...",
+      "noImage": "Görsel bulunamadı",
+      "viewProducts": "Ürünleri Görüntüle",
+      "prev": "Önceki",
+      "next": "Sonraki",
+      "category": {
+        "kurumsal": "Kurumsal",
+        "yatirim": "Yatırım",
+        "paslanmaz": "Paslanmaz",
+        "kimyasallar": "Kimyasallar",
+        "ambalaj": "Ambalaj"
+      }
+    }
+  },
+  "register": {
+    "title": "Kayıt Ol",
+    "subtitle": "Kayıt yöntemini seç",
+    "email_disabled": "E-posta ile Kayıt (yakında)",
+    "phone": "Telefon (SMS) ile Kayıt"
+  },
+  "hero": {
+    "buttons": {
+      "products": "Ürünleri İncele",
+      "contact": "İletişime Geç"
+
+    } 
+  },
+  "shipping": {
+    "title": "Teslimat Bilgileri",
+    "subtitle": "Siparişlerinizin teslimat süreci hakkında bilmeniz gerekenler",
+
+    "general": {
+      "title": "Genel Bilgilendirme",
+      "text": "Siparişleriniz ürün uygunluğuna göre hazırlanır ve onay sonrası teslimat süreci başlatılır."
+    },
+
+    "time": {
+      "title": "Teslimat Süresi",
+      "text": "Stokta bulunan ürünler 1–3 iş günü içerisinde teslim edilir. Özel üretim ürünlerde teslim süresi değişebilir."
+    },
+
+    "region": {
+      "title": "Teslimat Bölgeleri",
+      "text": "Teslimatlar Kazakistan genelinde yapılmaktadır. Bölgeye göre teslimat süresi ve koşulları farklılık gösterebilir."
+    },
+
+    "control": {
+      "title": "Teslimat Kontrolü",
+      "text": "Teslimat sırasında ürünleri kontrol etmenizi, hasarlı ürünleri teslim anında bildirmenizi öneririz."
+    }
+  },
+  
+  "productcard": {
+    "noImage": "Görsel yok",
+    "noPrice": "Fiyat bilgisi yok",
+    "unit": "Birim",
+    "addToCart": "Sepete Ekle",
+    "loginFavorite": "Favorilere eklemek için giriş yapmalısınız.",
+    "loginCart": "Sepete eklemek için giriş yapmalısınız."
+  },
+
+  "filters": {
+    "product_groups": "Ürün Grupları",
+    "categories": "Kategoriler"
+  },
+
+  "privacy.title": "Horecalink Gizlilik Politikası",
+  "privacy.lastUpdate": "Son Güncelleme: 01.01.2026",
+  "privacy.intro": "Horecalink olarak, misafirlerimizin ve müşterilerimizin kişisel bilgilerinin güvenliği ve gizliliği bizim için çok önemlidir.",
+  "privacy.section1.title": "Topladığımız Bilgiler (Minimum Düzeyde)",
+  "privacy.section1.name": "Ad ve Soyad: Hesabınızı kişiselleştirmek ve iletişim kurmak için.",
+  "privacy.section1.phone": "Telefon Numarası: Hesap güvenliği, SMS doğrulama ve teslimat bilgilendirmeleri için.",
+  "privacy.section1.password": "Şifre: Hesabınıza güvenli giriş yapabilmeniz için (şifrelenmiş olarak saklanır).",
+  "privacy.section1.address": "Adres: Yalnızca ürün teslimatı gereken durumlarda talep edilir.",
+  "privacy.section2.title": "Ödeme Bilgileri Hakkında",
+  "privacy.section2.text": "Kredi kartı veya banka kartı bilgileri talep edilmez ve saklanmaz. Ödemeler havale/EFT veya nakit olarak gerçekleştirilir.",
+  "privacy.section3.title": "Bilgilerin Kullanım Amaçları",
+  "privacy.section3.item1": "Hesap oluşturma ve doğrulama",
+  "privacy.section3.item2": "Sipariş ve teslimat süreçleri",
+  "privacy.section3.item3": "Müşteri desteği",
+  "privacy.section3.item4": "Yasal yükümlülükler",
+  "privacy.section3.item5": "Platform güvenliği",
+  "privacy.section4.title": "Bilgi Paylaşımı",
+  "privacy.section4.logistic": "Kargo firmaları (ad, telefon, adres)",
+  "privacy.section4.sms": "SMS hizmet sağlayıcıları (telefon numarası)",
+  "privacy.section4.legal": "Yasal merciler (zorunlu hallerde)",
+  "privacy.section5.title": "Veri Güvenliği",
+  "privacy.section5.text": "Verileriniz güvenli altyapılar ve teknik önlemlerle korunur.",
+  "privacy.section6.title": "Çerezler",
+  "privacy.section6.text": "Web sitemiz kullanıcı deneyimini geliştirmek için çerezler kullanabilir.",
+  "privacy.section7.title": "Kullanıcı Hakları",
+  "privacy.section7.item1": "Bilgi talep etme",
+  "privacy.section7.item2": "Düzeltme isteme",
+  "privacy.section7.item3": "Silinme talebi",
+  "privacy.section8.title": "Politika Güncellemeleri",
+  "privacy.section8.text": "Bu politika gerektiğinde güncellenebilir.",
+  "privacy.section9.title": "İletişim",
+  "privacy.contactEmail": "E-posta",
+
+  "payment.title": "Ödeme Seçenekleri",
+  "payment.lastUpdate": "Son Güncelleme: 01.01.2026",
+  "payment.intro": "Horecalink olarak ödeme süreçlerinde şeffaflık ve güvenliği ön planda tutarız.",
+  "payment.section1.title": "Kart Bilgileri Hakkında",
+  "payment.section1.text": "Web sitemiz üzerinden kredi kartı, banka kartı, CVV kodu veya benzeri herhangi bir ödeme bilgisi talep etmiyor, toplamıyor ve saklamıyoruz.",
+  "payment.section2.title": "Kullanılan Ödeme Yöntemleri",
+  "payment.section2.item1": "Banka havalesi / EFT",
+  "payment.section2.item2": "Nakit ödeme (iletişim sonrası)",
+  "payment.section3.title": "Sipariş ve Ödeme Süreci",
+  "payment.section3.text": "Siparişleriniz için bizimle iletişime geçmeniz yeterlidir. Ödeme yöntemi, sipariş detaylarına göre karşılıklı mutabakat ile belirlenir.",
+
+  
+
+  "basket": {
+    "title": "Sepetim",
+    "empty": "Sepetiniz boş.",
+    "unitPrice": "Birim Fiyat",
+    "itemTotal": "Toplam",
+    "remove": "Sil",
+    "subtotal": "Ara Toplam",
+    "discount": "İndirim (%{rate})",
+    "total": "Genel Toplam",
+    "createOrder": "Siparişi Oluştur",
+    "creatingOrder": "Sipariş oluşturuluyor...",
+    "success": "Sipariş başarılı! Sipariş No:",
+    "error": {
+      "noAddress": "Lütfen bir teslimat adresi seçin.",
+      "createOrder": "Sipariş oluşturulurken hata oluştu."
+    }
+  },
+
+  "address": {
+    "title": "Adreslerim",
+    "new": "Yeni Adres",
+    "empty": "Henüz adres eklenmemiş.",
+    "loading": "Adresler yükleniyor...",
+    "default": "Varsayılan",
+    "defaultTitle": "Adres",
+    "delete": "Sil",
+    "confirmDelete": "Bu adres silinsin mi?",
+    "note": "Not",
+    "newTitle": "Yeni Adres Ekle",
+    "region": "Bölge",
+    "city": "Şehir",
+    "district": "İlçe",
+    "street": "Sokak / Bina",
+    "apartment": "Daire",
+    "noteOptional": "Not (opsiyonel)",
+    "makeDefault": "Varsayılan adres yap",
+    "editTitle": "Adresi Düzenle",
+    "titleLabel": "Adres Başlığı",
+    "receiver": "Alıcı Adı",
+    "phone": "Telefon",
+    "loadingSingle": "Adres yükleniyor..."
+  },
+
+  "common": {
+    "select": "Seçiniz",
+    "product": "ürün",
+    "save": "Kaydet",
+    "loading": "Yükleniyor...",
+    "back": "Geri"
+  },
+
+  "orders": {
+    "title": "Siparişlerim",
+    "empty": "Henüz bir siparişiniz yok.",
+    "orderNo": "Sipariş No",
+    "status": "Durum",
+    "detailTitle": "Sipariş Detayı",
+    "all": "Tüm siparişler",
+    "statusTitle": "Sipariş Durumu",
+    "deliveryAddress": "Teslimat Adresi",
+    "paymentSummary": "Ödeme Özeti",
+    "subtotal": "Ara toplam",
+    "discount": "İndirim",
+    "total": "Genel toplam",
+    "products": "Ürünler",
+    "noProducts": "Bu siparişte ürün bulunamadı.",
+    "quantity": "Adet",
+    "unit": "Birim",
+    "itemTotal": "Toplam",
+    "notFound": "Sipariş bulunamadı.",
+    "loadError": "Sipariş yüklenirken bir hata oluştu.",
+    "statusLabels": {
+      "pending": "Sipariş alındı",
+      "preparing": "Hazırlanıyor",
+      "on_the_way": "Yolda",
+      "delivered": "Teslim edildi"
+    }
+  },
+
+  "favorites": {
+    "title": "Favori Ürünler",
+    "loading": "Favoriler yükleniyor...",
+    "empty": "Favori ürün bulunmamaktadır.",
+    "loginRequired": "Favorileri görmek için giriş yapmalısınız."
+  },
+  
+  "notFound": {
+    "title": "Bu sayfa hazırlanıyor",
+    "text": "Bu alan henüz aktif değil. Çok yakında kullanıma açılacaktır.",
+    "goHome": "Ana Sayfa",
+    "goBack": "Geri Dön"
+  }
+}

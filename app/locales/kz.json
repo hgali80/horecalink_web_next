@@ -1,0 +1,808 @@
+{
+  "alt.logo": "HorecaLink Логотипі",
+
+  "menu.home": "Басты бет",
+  "menu.about": "Біз туралы",
+  "menu.products": "Өнімдер",
+  "menu.contact": "Байланыс",
+
+  "language": "Тіл",
+  "languageSelect": "Тілді таңдау",
+
+  "search.placeholder": "Іздеу...",
+  "search.alert": "Іздеу: {value}",
+
+  "topbar.lang.tr": "TR",
+  "topbar.lang.ru": "RU",
+  "topbar.lang.kz": "KZ",
+  "topbar.lang.en": "EN",
+
+  "usermenu.login": "Кіру",
+  "usermenu.register": "Тіркелу",
+  "usermenu.profile": "Менің профилім",
+  "usermenu.logout": "Шығу",
+
+  "productlist.loading": "Жүктелуде...",
+  "productlist.error": "Өнімдер жүктелу кезінде қате орын алды.",
+  "productlist.empty": "Әзірше өнім жоқ.",
+
+  "productcard.noImage": "Сурет жоқ",
+  "productcard.loginFavorite": "Таңдаулыға қосу үшін кіріңіз",
+  "productcard.loginCart": "Себетке қосу үшін кіріңіз",
+  "productcard.noPrice": "Бағасы жоқ",
+  "productcard.unit": "Өлшем бірлігі",
+  "productcard.addToCart": "Себетке қосу",
+
+  "hero.loading": "Жүктелуде...",
+  "hero.noImage": "Сурет жоқ",
+  "hero.getOffer": "WhatsApp арқылы ұсыныс алу",
+  "hero.viewProducts": "Өнімдерді Көру",
+
+  "header.alt.logo": "HorecaLink Логотипі",
+  "header.menu.home": "Басты бет",
+  "header.menu.about": "Біз туралы",
+  "header.menu.products": "Өнімдер",
+  "header.menu.contact": "Байланыс",
+  "header.language": "Тіл",
+  "header.languageSelect": "Тілді таңдау",
+  "header.search.placeholder": "Іздеу...",
+  "header.search.alert": "Іздеу: {value}",
+
+  "categoryTabs.institutional": "Мекемелік",
+  "categoryTabs.equipment": "Жабдық",
+  "categoryTabs.stainless_steel": "Тот баспайтын болат",
+
+  "categoryGrid.loading": "Жүктелуде...",
+  "categoryGrid.noProducts": "Әзірше өнім жоқ.",
+  "categoryGrid.noImage": "Сурет жоқ",
+  "categoryGrid.otherCategory": "Басқа",
+
+  "categoryGrid.main.institutional": "Мекемелік",
+  "categoryGrid.main.equipment": "Жабдық",
+  "categoryGrid.main.stainless_steel": "Тот баспайтын болат",
+
+  "category": {
+    "group": {
+      "institutional": "Мекемелік",
+      "equipment": "Жабдық",
+      "stainless_steel": "Тот баспайтын болат"
+    },
+    "main": {
+      "paper_products": "Қағаз өнімдер",
+      "personal_care_hygiene": "Жеке гигиена",
+      "cleaning_equipment": "Тазалау жабдықтары",
+      "cleaning_chemicals": "Тазалау химиясы",
+      "personal_protective_equipment": "Қызметкерлерді қорғайтын өнімдер",
+      "portion_products": "Порциялық өнімдер",
+      "disposable_products": "Бір реттік өнімдер",
+      "dispensers": "Диспенсерлер",
+      "packaging_products": "Орау материалдары",
+      "storage_transport": "Сақтау және тасымалдау",
+
+      "chef_knives": "Аспаз пышақтары",
+      "tea_coffee_equipment": "Шай & Кофе жабдықтары",
+      "cooking_equipment": "Пісіру жабдықтары",
+      "cooling_equipment": "Суыту жабдықтары",
+      "service_equipment": "Қызмет көрсету жабдықтары",
+      "dishwashers": "Ыдыс жуғыш машиналар",
+      "preparation_equipment": "Дайындық жабдықтары",
+
+      "work_tables": "Жұмыс үстелдері",
+      "sink_units": "Жуғыш үстелдер",
+      "dishwasher_tables": "Ыдыс жуғыш үстелдері",
+      "pot_vegetable_washing_units": "Казан & Көкөніс жуғыш үстелдер",
+      "shelving_cabinets": "Сөре & Шкаф жүйелері",
+      "trolley_systems": "Табақ & Табақша арбалары",
+      "service_lines": "Қызмет көрсету желілері",
+      "service_shelves": "Қызмет көрсету сөрелері",
+      "oven_stands": "Пеш тұғырлары",
+      "bar_counters": "Бар үстелдері",
+      "cabinets": "Шкафтар",
+      "ventilation_lighting": "Аспиратор & Жарықтандыру жүйелері"
+    }
+  },
+
+  "categories": {
+    "breadcrumb": {
+      "home": "Басты бет"
+    },
+    "subPage": {
+      "description": "Осы ішкі санатқа жататын өнімдерді төменнен таба аласыз.",
+      "empty": "Осы ішкі санатқа әзірше өнім қосылған жоқ."
+    },
+    "sub": {
+      "toilet_paper": "Дәрет қағазы",
+      "paper_towels": "Қағаз орамалдар",
+      "napkins": "Ас орамалдар",
+      "toilet_seat_hygiene_covers": "Дәрет орыны қақпағының гигиеналық қағазы",
+
+      "liquid_foam_soap": "Сұйық & Көбік сабындар",
+      "shampoo_shower_gel": "Шампунь & Душ гельдері",
+      "air_fresheners": "Бөлме хош иістері",
+      "wet_wipes": "Дымқыл орамалдар",
+      "disinfectants": "Дезинфектанттар",
+
+      "kitchen_cleaning_equipment": "Ас үй тазалау жабдықтары",
+      "surface_cleaning_cloths": "Бетті тазалау маталары",
+      "floor_cleaning_equipment": "Еден тазалау жабдықтары",
+      "glass_cleaning_equipment": "Әйнек тазалау жабдықтары",
+      "wc_bathroom_cleaning_equipment": "Дәретхана & Жуынатын бөлме тазалау жабдықтары",
+
+      "kitchen_cleaning_chemicals": "Ас үй тазалау өнімдері",
+      "floor_cleaning_chemicals": "Еден тазалау өнімдері",
+      "laundry_products": "Кир жуу өнімдері",
+      "wc_bathroom_cleaning_chemicals": "Дәретхана & Жуынатын бөлме тазалау химиясы",
+      "glass_cleaning_chemicals": "Әйнек тазалау өнімдері",
+      "pool_chemicals": "Бассейн өнімдері",
+
+      "masks": "Маскалар",
+      "hair_nets": "Бонелер",
+      "aprons": "Көйлектер",
+      "shoe_covers": "Галоштар",
+      "gloves": "Қолғаптар",
+
+      "sugar_packets": "Қанттар",
+      "wet_wipes_portion": "Дымқыл орамалдар (порциялық)",
+
+      "cups": "Стақандар",
+      "aluminum_containers": "Алюминий контейнерлер",
+      "toothpicks": "Тіс шағыштар",
+      "cutlery_sets": "Шәйнек - Пышақ - Қасық",
+      "stirrers_straws": "Сорапша & Араластырғыш",
+
+      "liquid_soap_dispensers": "Сұйық сабын диспенсерлері",
+      "foam_soap_dispensers": "Көбік сабын диспенсерлері",
+      "toilet_seat_cover_dispensers": "Дәрет орыны қақпағы диспенсерлері",
+      "air_freshener_dispensers": "Бөлме хош иіс диспенсерлері",
+      "toilet_paper_dispensers": "Дәрет қағазы диспенсері",
+      "paper_towel_dispensers": "Қағаз орамал диспенсері",
+      "tabletop_napkin_dispensers": "Үстел ас орамал диспенсері",
+
+      "aluminum_foils": "Алюминий фольгалар",
+      "stretch_films": "Стретч пленкалар",
+      "baking_paper": "Пісіру қағазы",
+      "trash_bags": "Қоқыс сөмкелері & Пакеттер",
+
+      "packaging_stretch_films": "Орау стретч пленкалары",
+      "packing_tapes": "Жеңіл таспалар",
+
+      "butcher_knives": "Қасапшы пышақтары",
+      "boning_knives": "Сүйек айыру пышақтары",
+      "slicing_knives": "Тілу пышақтары",
+      "meat_chopping_knives": "Ет турау пышақтары",
+      "chef_knives": "Аспаз пышақтары",
+      "vegetable_knives": "Көкөніс пышақтары",
+      "cheese_knives": "Ірімшік пышақтары",
+      "bread_knives": "Нан пышақтары",
+      "cleavers": "Сатыр пышақтары",
+      "zirh_knives": "Zirh пышақтары",
+      "knife_sharpeners": "Масарлар",
+      "cake_spatulas": "Торт палеттері",
+      "pizza_knives": "Пицца пышақтары",
+      "doner_knives": "Дөнер пышақтары",
+      "meat_tenderizers": "Ет соққыштары",
+
+      "tea_machines": "Шай машиналары",
+      "coffee_stoves": "Кофеші оттары",
+      "coffee_machines": "Кофе машиналары",
+      "double_wall_tea_machines": "Қос қабырғалы шай машиналары",
+      "copper_teapots": "Мыс шәйнектер",
+
+      "toasters": "Тостерлер",
+      "doner_grills": "Дөнер оттары",
+      "grills": "Грильдер",
+      "ovens_and_ranges": "От пен пештер",
+      "waffle_machines": "Вафль машиналары",
+      "fryers": "Фритюрлер",
+      "crepe_machines": "Креп машиналары",
+      "pancake_machines": "Панкейк машиналары",
+      "sausage_cookers": "Шұжық пісіргіштер",
+      "pasta_cookers": "Макарон дайындау машиналары",
+
+      "juice_ayran_coolers": "Шырын & Айран суытқыштары",
+      "slush_machines": "Slush (Мұздаған) машиналары",
+      "ice_machines": "Мұз машиналары",
+      "refrigerators": "Суытқыш шкафтар",
+
+      "soup_warmers": "Сорпа жылытқыштар",
+      "bain_marie": "Бенмарилер",
+      "heated_sauce_warmers": "Жылытылатын соустықтар",
+
+      "hood_type_dishwashers": "Гильотиналы ыдыс жуғыш машиналар",
+      "undercounter_dishwashers": "Үстел асты ыдыс жуғыш машиналар",
+
+      "orange_juicers": "Апельсин сығымдағыш машиналар",
+      "onion_choppers": "Пияз турағыш машиналар",
+      "potato_slicers": "Картоп тілгіш машиналар",
+      "bar_blenders": "Бар блендерлер",
+      "burger_presses": "Гамбургер котлет пресі",
+      "mixers": "Миксерлер",
+      "dough_kneaders": "Қамыр илегіш машиналар",
+      "dough_rollers": "Қамыр ашатын машиналар",
+      "meat_grinders": "Турағыш машиналар",
+
+      "flat_tables": "Тегіс үстелдер",
+      "bottom_shelf_tables": "Төменгі сөрелі үстелдер",
+      "mid_shelf_tables": "Ортаңғы сөрелі үстелдер",
+      "single_drawer_tables": "Бір сырғытпалы үстелдер",
+      "drawer_block_tables": "Сырғытпа блогы үстелдер",
+      "sliding_door_cabinets": "Сырғыма есікті шкафтар",
+      "swing_door_cabinets": "Соқпа есікті шкафтар",
+      "heated_cabinet_tables": "Жылытылатын шкафты үстелдер",
+      "marble_top_tables": "Мәрмәр үстелдіктер",
+      "polyethylene_top_tables": "PE үстелдіктер",
+      "mobile_tables": "Дөңгелекті үстелдер",
+
+      "cabinet_sink_units": "Шкафты жуғыш үстелдер",
+      "single_sink_units": "Бір жуғышты үстелдер",
+      "double_sink_units": "Екі жуғышты үстелдер",
+      "triple_sink_units": "Үш жуғышты үстелдер",
+      "welded_single_sink_units": "Дәнекерленген бір жуғышты үстелдер",
+      "welded_double_sink_units": "Дәнекерленген екі жуғышты үстелдер",
+      "welded_triple_sink_units": "Дәнекерленген үш жуғышты үстелдер",
+      "cleaning_sinks": "Тазалау жуғыштары",
+      "knee_control_handwash_units": "Тізе басқарулы қол жуу үстелдері",
+
+      "dishwasher_inlet_tables": "Ыдыс жуғыш машинасы кіру үстелдері",
+      "dishwasher_outlet_tables": "Ыдыс жуғыш машинасы шығу үстелдері",
+      "scrap_tables": "Ыдыс сыпыру үстелдері",
+      "dishwasher_basket_shelves": "Ыдыс жуғыш машинасы себет сөрелері",
+
+      "pot_washing_tables": "Казан жуу үстелдері",
+      "pot_washing_service_tables": "Казан жуу қызмет үстелдері",
+      "vegetable_washing_tables": "Көкөніс жуу үстелдері",
+      "fish_processing_tables": "Балық өңдеу үстелдері",
+
+      "wall_cabinets": "Қабырға шкафтары",
+      "wall_shelves": "Қабырға сөрелері",
+      "cutting_board_shelves": "Турау тақтасы сөрелері",
+      "industrial_shelving_systems": "Өнеркәсіптік сөре жүйелері",
+      "stacking_shelves": "Үйінділеу сөрелері",
+      "pot_shelves": "Казан сөрелері",
+      "plate_drying_shelves": "Табақ кептіру сөрелері",
+
+      "storage_platform_trolleys": "Қойма үйінді арбалары",
+      "plate_trolleys": "Табақ арбалары",
+      "pot_trolleys": "Казан арбалары",
+      "two_tier_service_trolleys": "2 қабатты қызмет арбалары",
+      "three_tier_service_trolleys": "3 қабатты қызмет арбалары",
+      "platform_trolleys": "Платформа арбалары",
+      "gn_container_trolleys": "Gastro ыдыс арбалары",
+      "tray_trolleys": "Табақша арбалары",
+
+      "cutlery_units": "Ас құралдары үстелдері",
+      "soup_units": "Сорпа үстелдері",
+      "hot_service_units": "Ыстық қызмет үстелдері",
+      "cold_service_units": "Суық қызмет үстелдері",
+      "neutral_service_units": "Бейтарап қызмет үстелдері",
+      "cashier_units": "Касса үстелдері",
+
+      "single_tier_service_shelves": "Бір қабатты қызмет сөрелері",
+      "double_tier_service_shelves": "Екі қабатты қызмет сөрелері",
+      "heated_double_tier_service_shelves": "Жылытылатын екі қабатты қызмет сөрелері",
+
+      "oven_stands": "Пеш тұғырлары",
+      "pizza_oven_stands": "Пицца пеші тұғырлары",
+      "equipment_stands": "Жабдық тұғырлары",
+
+      "cocktail_preparation_counters": "Коктейль дайындау үстелдері",
+      "coffee_preparation_counters": "Кофе дайындау үстелдері",
+
+      "bread_cabinets": "Нан шкафтары",
+      "storage_cabinets": "Сақтау шкафтары",
+
+      "wall_type_hoods": "Қабырға типті аспираторлар",
+      "island_type_hoods": "Арал типті аспираторлар",
+      "hood_shelves": "Аспиратор сөрелері",
+      "hood_lighting": "Аспиратор жарықтандырулары"
+    }
+  },
+
+  "profile": {
+    "loading": "Жүктелуде...",
+    "title": "Есептік жазбаны басқару",
+    "card": {
+      "defaultName": "Пайдаланушы",
+      "registerDate": "Тіркеу күні"
+    },
+    "menu": {
+      "title": "Жылдам мәзір",
+      "personalInfo": "Жеке ақпарат",
+      "orders": "Менің тапсырыстарым",
+      "basket": "Менің себетім",
+      "favorites": "Таңдаулыларым",
+      "addresses": "Менің мекенжайларым",
+      "history": "Сатып алу тарихы",
+      "rewards": "Ұпай & Науқандар",
+      "settings": "Параметрлер",
+      "logout": "Шығу"
+    },
+    "sidebar": {
+      "title": "Есептік жазба орталығы",
+      "personalInfo": "Жеке ақпарат",
+      "addresses": "Менің мекенжайларым",
+      "orders": "Менің тапсырыстарым",
+      "basket": "Менің себетім",
+      "favorites": "Таңдаулыларым",
+      "history": "Сатып алу тарихы",
+      "support": "Менің қолдау сұранымдарым",
+      "security": "Қауіпсіздік",
+      "rewards": "Ұпай / Науқандар",
+      "settings": "Параметрлер",
+      "admin": "Әкімші панелі",
+      "logout": "Шығу",
+      "menu": "Мәзір"
+    },
+    "details": {
+      "title": "Жеке ақпарат",
+      "edit": "Өңдеу",
+      "fullName": "Аты-жөні",
+      "email": "Электрондық пошта",
+      "phone": "Телефон",
+      "city": "Қала",
+      "activeAddress": "Белсенді мекенжай",
+      "noAddress": "Әзірше мекенжай қосылған жоқ.",
+      "companyInfo": "Фирма ақпараты",
+      "companyName": "Фирма аты",
+      "companyType": "Фирма түрі",
+      "position": "Қызметі",
+      "accountInfo": "Есептік жазба ақпараты",
+      "registerDate": "Тіркеу күні",
+      "role": "Рөлі",
+      "security": "Құпиясөз & Қауіпсіздік параметрлері"
+    }
+  },
+
+  "breadcrumb": {
+    "home": "Басты бет",
+    "categories": "Санаттар"
+  },
+
+  "products": {
+    "allPrefix": "Барлық",
+    "allProducts": "Барлық өнімдер",
+    "sort": {
+      "label": "Сұрыптау",
+      "default": "Әдепкі",
+      "priceAsc": "Баға: өсу ретімен",
+      "priceDesc": "Баға: кему ретімен",
+      "nameAsc": "Атауы (А-Я)"
+    }
+  },
+
+  "productDetail": {
+    "loading": "Өнім жүктелуде...",
+    "loadError": "Өнім жүктелу кезінде қате орын алды.",
+    "notFound": "Өнім табылмады.",
+    "noImage": "Сурет жоқ",
+    "favorite": "Таңдаулыға қосу / алып тастау",
+    "loginToFavorite": "Таңдаулыға қосу үшін кіруіңіз керек.",
+    "loginToBasket": "Себетке қосу үшін кіруіңіз керек.",
+    "unit": "Өлшем бірлігі",
+    "addToBasket": "Себетке қосу",
+    "backToCategories": "Санаттарға оралу",
+    "related": "Ұқсас өнімдер",
+    "noDescription": "Сипаттама жоқ.",
+    "noSpecs": "Техникалық сипаттама жоқ.",
+    "tabs": {
+      "description": "Сипаттама",
+      "specs": "Техникалық сипаттама"
+    },
+    "thumbnailAlt": "Өнімнің кішкентай суреті",
+    "openImage": "{{index}} суретін ашу",
+    "increase": "Өсіру",
+    "decrease": "Азайту"
+  },
+
+  "heroAbout": {
+    "badge": "HoReCa жеткізуде сенімді шешім серіктесі",
+    "title": {
+      "before": "HoReCa кәсіпорындары үшін",
+      "highlight": "Кең өнім ассортиментімен жабдықтау, жоба және тот баспайтын өнім шешімдері"
+    },
+    "text1": {
+      "before": "Қазақстан бойынша",
+      "highlight": "кәсіби HoReCa шешімдері"
+    },
+    "text2": {
+      "before": "Сатылымнан кейін де жалғасатын",
+      "highlight": "үздіксіз байланыс және қажеттіліктерді бақылау"
+    },
+    "text3": {
+      "before": "Себет және ұсыныс жүйесі арқылы",
+      "highlight": "икемді және бақыланатын сатып алу"
+    },
+    "buttons": {
+      "products": "Өнімдерді Қарау",
+      "contact": "Бізбен Байланысу"
+    },
+    "imageAlt": "Horecalink HoReCa жеткізу және жоба шешімдері"
+  },
+
+  "stats": {
+    "item1": { "value": "10+ жыл", "label": "Сала тәжірибесі" },
+    "item2": { "value": "Жүздеген", "label": "Белсенді серіктестер" },
+    "item3": { "value": "Ұзақ мерзімді", "label": "Тұтынушы қарым-қатынастары" }
+  },
+
+  "values": {
+    "title": "Біздің құндылықтарымыз",
+    "subtitle": "Барлық үдерістерімізді қалыптастыратын негізгі принциптеріміз",
+    "integrity": {
+      "title": "Ашықтық және Сенім",
+      "description": "Ашық байланыс, дұрыс өнім және түсінікті үдерістер"
+    },
+    "innovation": {
+      "title": "Шешімге бағытталғандық",
+      "description": "Қажеттілікке сәйкес өнім және жоба шешімдері"
+    },
+    "customer": {
+      "title": "Тұтынушыға бағытталған көзқарас",
+      "description": "Сатылымнан кейінгі бақылау және тұрақты байланыс"
+    },
+    "excellence": {
+      "title": "Операциялық тамаша",
+      "description": "Дұрыс өнім, дұрыс уақыт, дұрыс жеткізу"
+    },
+    "sustainability": {
+      "title": "Тұрақты серіктестік",
+      "description": "Ұзақ мерзімді және өзара құнды қарым-қатынастар"
+    }
+  },
+
+  "who": {
+    "title": "Біз кімбіз?",
+    "text1": {
+      "before": "Horecalink,",
+      "highlight": "HoReCa саласына арнайы",
+      "after": "кең топтамалы жеткізу және жоба шешімдерін ұсыну мақсатында құрылды."
+    },
+    "text2": {
+      "before": "Кең топтамалы өнім жеткізу,",
+      "highlight": "Біз тот баспайтын жабдықтарды өндіруді және жоба үдерістерін жүзеге асырамыз.",
+      "after": "бір шатыр астына жинайды."
+    },
+    "text3": "Біз үшін сатылым аяқталған нәрсе емес, ұзақ мерзімді серіктестіктің басталуы."
+  },
+
+  "mission": {
+    "title": "Миссиямыз",
+    "text": "Кәсіпорындардың жеткізу үдерістерін жеңілдету арқылы дұрыс өнімді дұрыс уақытта ұсыну және сатылымнан кейінгі үдерістерде белсенді байланысты құру."
+  },
+
+  "vision": {
+    "title": "Болашағымыз",
+    "text": {
+      "before": "Қазақстан бойынша",
+      "highlight": "HoReCa жеткізу стандарттарын анықтайтын",
+      "after": "күшті шешім платформасы болу."
+    }
+  },
+
+  "story": {
+    "title": "Біздің тарихымыз"
+  },
+
+  "milestones": {
+    "step1": { "title": "Бастау", "event": "Сала тәжірибесін бір шатыр астына жинау" },
+    "step2": { "title": "Өсу", "event": "Өнім құрамы мен жеткізу желісінің кеңеюі" },
+    "step3": { "title": "Жоба", "event": "Тот баспайтын жабдықтар және жобаға негізделген шешімдер" },
+    "step4": { "title": "Цифрландыру", "event": "Онлайн каталог пен ұсыныс жүйесінің іске қосуы" }
+  },
+
+  "quality": {
+    "title": "Сапаға деген көзқарасымыз",
+    "point1": "Бақыланатын және таңдалған өнім құрамы",
+    "point2": "Сенімді жеткізу тізбегі",
+    "point3": "Кәсіби логистика және тасымалдау",
+    "point4": "Сатылымнан кейінгі қолдау және бақылау"
+  },
+
+  "operations": {
+    "title": "Операцияларымыз",
+    "subtitle": "Жеткізуден табыстауға дейінгі барлық үдеріс басқарамыз",
+    "cta": "Бізбен байланысыңыз",
+    "items": {
+      "stock": {
+        "title": "Өнім және қойманы басқару",
+        "text": "Кең өнім құрамы және тұрақты қойма басқару",
+        "alt": "Қойма және өнім сақтау алаңы"
+      },
+      "logistics": {
+        "title": "Логистика және тасымалдау",
+        "text": "Қазақстан бойынша қауіпсіз жеткізу",
+        "alt": "Тасымалдау және жеткізу үдерісі"
+      },
+      "project": {
+        "title": "Жоба және Орнату",
+        "text": "Жоба негізіндегі шешімдер және далалық қолданулар",
+        "alt": "Жоба және монтаж жұмыстары"
+      },
+      "stainless": {
+        "title": "Тот баспайтын болат өндірісі",
+        "text": "Кәсіби тот баспайтын болаттан өндіру және қолдану",
+        "alt": "Тот баспайтын болат өндіріс алаңы"
+      }
+    },
+    "badges": {
+      "b1": { "title": "B2B-бағытталған", "text": "Корпоративтік кәсіпорындарға арнайы шешімдер" },
+      "b2": { "title": "Ұзақ мерзімді", "text": "Үздіксіз байланыс және қажеттіліктерді бақылау" },
+      "b3": { "title": "Сенімді", "text": "Ашық және бақыланатын үдерістер" }
+    }
+  },
+
+  "contact": {
+    "title": "Байланыс",
+    "subtitle": "Бізбен байланысу үшін төмендегі форманы пайдалана аласыз.",
+    "form": {
+      "title": "Бізге хабарлама жіберіңіз",
+      "name": "Атыңыз және тегіңіз",
+      "email": "Электрондық пошта мекенжайыңыз",
+      "phone": "Телефон нөміріңіз",
+      "message": "Хабарламаңыз",
+      "submit": "Жіберу"
+    }
+  },
+
+  "cta": {
+    "title": "HoReCa шешімдері үшін бізбен байланысыңыз",
+    "text": "Бизнесіңізге сай жабдықтар мен жеткізу шешімдерін ұсынамыз.",
+    "button": "Байланысу",
+    "secondaryButton": "Өнімдерді көру",
+    "trustText": "Ашық процесс, сенімді жеткізу және ұзақ мерзімді серіктестік"
+  },
+
+  "home": {
+    "cta": {
+      "title": "Бізбен байланысыңыз",
+      "button": "Байланысу"
+    },
+    "why": {
+      "title": "Неліктен бізді таңдау керек?",
+      "items": {
+        "fast": {
+          "title": "Жылдам жеткізу",
+          "desc": "Тапсырыстарыңыз ең қысқа уақытта мекенжайыңызға жеткізіледі."
+        },
+        "price": {
+          "title": "Қол жетімді баға",
+          "desc": "Бәсекелес және ашық баға саясаты."
+        },
+        "expert": {
+          "title": "HoReCa сарапшылығы",
+          "desc": "Қонақ үй, мейрамхана және кафе саласына арнайы шешімдер."
+        },
+        "range": {
+          "title": "Кең өнім құрамы",
+          "desc": "Барлық қажеттіліктер бір нүктеден."
+        }
+      }
+    },
+    "brands": {
+      "title": "Бізбен жұмыс істейтін брендтер",
+      "alt": "Бренд логотипі"
+    },
+    "featured": {
+      "title": "Таңдаулы өнімдер",
+      "loading": "Өнімдер жүктелуде...",
+      "empty": "Қазіргі уақытта таңдаулы өнімдер жоқ.",
+      "detail": "Өнімді Қарау"
+    },
+    "footer": {
+      "about": "Horecalink horeca саласына кәсіби өнімдер мен шешімдер ұсынады.",
+      "infoTitle": "Ақпарат",
+      "privacy": "Құпиялылық саясаты",
+      "shipping": "Жеткізу туралы ақпарат",
+      "payment": "Төлем опциялары",
+      "addressTitle": "Мекенжай",
+      "rights": "Барлық құқықтар қорғалған."
+    },
+    "blog": {
+      "empty": "Әзірше блог жазбалары жоқ."
+    },
+    "hero": {
+      "loading": "Жүктелуде...",
+      "noImage": "Сурет табылмады",
+      "viewProducts": "Өнімдерді Көру",
+      "prev": "Алдыңғы",
+      "next": "Келесі",
+      "category": {
+        "kurumsal": "Мекемелік",
+        "yatirim": "Инвестиция",
+        "paslanmaz": "Тот баспайтын болат",
+        "kimyasallar": "Химия",
+        "ambalaj": "Орау"
+      }
+    }
+  }, 
+  "register": {
+    "title": "Тіркелу",
+    "subtitle": "Тіркелу әдісін таңдаңыз",
+    "email_disabled": "E-mail арқылы тіркелу (жақында)",
+    "phone": "Телефон (SMS) арқылы тіркелу"
+    
+  },
+  "hero": {
+    "buttons": {
+      "products": "Өнімдерді көру",
+      "contact": "Байланысу"
+    }
+  },
+
+"shipping": {
+  "title": "Жеткізу туралы ақпарат",
+  "subtitle": "Тапсырыстарыңыздың жеткізу процесі туралы маңызды мәліметтер",
+
+  "general": {
+    "title": "Жалпы ақпарат",
+    "text": "Horecalink арқылы берілген барлық тапсырыстар өнімнің қолжетімділігіне байланысты дайындалады. Тапсырыс расталғаннан кейін жеткізу процесі басталады."
+  },
+
+  "time": {
+    "title": "Жеткізу мерзімі",
+    "text": "Қоймада бар өнімдер әдетте 1–3 жұмыс күні ішінде жеткізіледі. Арнайы немесе жобалық өнімдер үшін жеткізу мерзімі өзгеруі мүмкін."
+  },
+
+  "region": {
+    "title": "Жеткізу аймақтары",
+    "text": "Жеткізу қызметі Қазақстан бойынша, негізінен Алматы қаласында жүзеге асырылады. Аймаққа байланысты жеткізу шарттары өзгеруі мүмкін."
+  },
+
+  "control": {
+    "title": "Жеткізу кезінде тексеру",
+    "text": "Өнімді алған кезде оның қаптамасы мен күйін тексеруді ұсынамыз. Зақым анықталған жағдайда оны жеткізу сәтінде хабарлау қажет."
+  }
+},
+
+  "productcard": {
+    "noImage": "Сурет жоқ",
+    "noPrice": "Баға көрсетілмеген",
+    "unit": "Бірлік",
+    "addToCart": "Себетке қосу",
+    "loginFavorite": "Таңдаулыларға қосу үшін жүйеге кіріңіз.",
+    "loginCart": "Себетке қосу үшін жүйеге кіріңіз."
+  },
+
+  "filters": {
+    "product_groups": "Өнім топтары",
+    "categories": "Санаттар"
+  },
+  "common": {
+    "product": "өнім",
+    "select": "Таңдаңыз",
+    "save": "Сақтау",
+    "loading": "Жүктелуде...",
+    "back": "Артқа"
+  },
+
+  "privacy.title": "Horecalink құпиялылық саясаты",
+  "privacy.lastUpdate": "Соңғы жаңарту күні: 01.01.2026",
+  "privacy.intro": "Horecalink үшін қонақтарымыз бен клиенттеріміздің жеке деректерінің қауіпсіздігі мен құпиялылығы аса маңызды.",
+  "privacy.section1.title": "Жиналатын ақпарат (ең аз көлемде)",
+  "privacy.section1.name": "Аты-жөні: аккаунтты жекелендіру және байланыс үшін.",
+  "privacy.section1.phone": "Телефон нөмірі: аккаунт қауіпсіздігі, SMS арқылы растау және жеткізу туралы хабарламалар үшін.",
+  "privacy.section1.password": "Құпиясөз: аккаунтқа қауіпсіз кіру үшін (шифрланған түрде сақталады).",
+  "privacy.section1.address": "Мекенжай: тауарды жеткізу қажет болған жағдайда ғана сұралады.",
+  "privacy.section2.title": "Төлем туралы ақпарат",
+  "privacy.section2.text": "Банк картасы немесе кредит картасы деректері сұралмайды және сақталмайды. Төлем қолма-қол немесе банк аударымы (EFT) арқылы жүзеге асырылады.",
+  "privacy.section3.title": "Деректерді пайдалану мақсаттары",
+  "privacy.section3.item1": "Аккаунтты тіркеу және растау",
+  "privacy.section3.item2": "Тапсырыс пен жеткізу үдерістерін басқару",
+  "privacy.section3.item3": "Клиенттерге қолдау көрсету",
+  "privacy.section3.item4": "Заңды міндеттемелерді орындау",
+  "privacy.section3.item5": "Платформа қауіпсіздігін қамтамасыз ету",
+  "privacy.section4.title": "Деректерді беру",
+  "privacy.section4.logistic": "Логистикалық компаниялар (аты-жөні, телефон, мекенжай)",
+  "privacy.section4.sms": "SMS қызмет көрсетушілер (телефон нөмірі)",
+  "privacy.section4.legal": "Мемлекеттік органдар (міндетті жағдайларда)",
+  "privacy.section5.title": "Деректер қауіпсіздігі",
+  "privacy.section5.text": "Сіздің деректеріңіз қауіпсіз инфрақұрылым мен техникалық шаралар арқылы қорғалады.",
+  "privacy.section6.title": "Cookie файлдары",
+  "privacy.section6.text": "Пайдаланушы тәжірибесін жақсарту үшін сайтта cookie файлдары қолданылуы мүмкін.",
+  "privacy.section7.title": "Пайдаланушы құқықтары",
+  "privacy.section7.item1": "Ақпарат сұрату",
+  "privacy.section7.item2": "Түзету енгізуді сұрау",
+  "privacy.section7.item3": "Жоюды талап ету",
+  "privacy.section8.title": "Саясаттағы өзгерістер",
+  "privacy.section8.text": "Бұл саясат қажет болған жағдайда жаңартылуы мүмкін.",
+  "privacy.section9.title": "Байланыс",
+  "privacy.contactEmail": "Электрондық пошта",
+  
+  "payment.title": "Төлем тәсілдері",
+  "payment.lastUpdate": "Соңғы жаңарту күні: 01.01.2026",
+  "payment.intro": "Horecalink компаниясында төлем үдерістерінің ашықтығы мен қауіпсіздігі басты назарда.",
+  "payment.section1.title": "Банк карталары туралы",
+  "payment.section1.text": "Біз сайт арқылы банк картасының деректерін, CVV кодтарын немесе кез келген төлем ақпаратын сұрамаймыз, жинамаймыз және сақтамаймыз.",
+  "payment.section2.title": "Қолданылатын төлем тәсілдері",
+  "payment.section2.item1": "Банк аударымы / EFT",
+  "payment.section2.item2": "Қолма-қол төлем (байланыс арқылы)",
+  "payment.section3.title": "Тапсырыс және төлем үдерісі",
+  "payment.section3.text": "Тапсырыс беру үшін бізбен байланысу жеткілікті. Төлем тәсілі тапсырыс мәліметтеріне қарай өзара келісіммен анықталады.",
+
+
+  "basket": {
+    "title": "Себет",
+    "empty": "Себетіңіз бос.",
+    "unitPrice": "Бірлік бағасы",
+    "itemTotal": "Жиынтығы",
+    "remove": "Өшіру",
+    "subtotal": "Аралық сома",
+    "discount": "Жеңілдік (%{rate})",
+    "total": "Жалпы сома",
+    "createOrder": "Тапсырысты рәсімдеу",
+    "creatingOrder": "Тапсырыс құрылуда...",
+    "success": "Тапсырыс сәтті құрылды! №",
+    "error": {
+      "noAddress": "Жеткізу мекенжайын таңдаңыз.",
+      "createOrder": "Тапсырыс құру кезінде қате шықты."
+    }
+  },
+
+  "address": {
+    "title": "Менің мекенжайларым",
+    "new": "Жаңа мекенжай",
+    "empty": "Әзірге мекенжай қосылмаған.",
+    "loading": "Мекенжайлар жүктелуде...",
+    "default": "Негізгі",
+    "defaultTitle": "Мекенжай",
+    "delete": "Өшіру",
+    "confirmDelete": "Бұл мекенжай өшірілсін бе?",
+    "note": "Ескертпе",
+    "newTitle": "Жаңа мекенжай қосу",
+    "region": "Аймақ",
+    "city": "Қала",
+    "district": "Аудан",
+    "street": "Көше / Үй",
+    "apartment": "Пәтер",
+    "noteOptional": "Ескертпе (міндетті емес)",
+    "makeDefault": "Негізгі мекенжай ету",
+    "editTitle": "Мекенжайды өңдеу",
+    "titleLabel": "Мекенжай атауы",
+    "receiver": "Алушының аты",
+    "phone": "Телефон",
+    "loadingSingle": "Мекенжай жүктелуде..."
+  },
+
+  "orders": {
+    "title": "Тапсырыстарым",
+    "empty": "Әзірге тапсырыстарыңыз жоқ.",
+    "orderNo": "Тапсырыс №",
+    "status": "Күйі",
+    "detailTitle": "Тапсырыс мәліметі",
+    "all": "Барлық тапсырыстар",
+    "statusTitle": "Тапсырыс күйі",
+    "deliveryAddress": "Жеткізу мекенжайы",
+    "paymentSummary": "Төлем қорытындысы",
+    "subtotal": "Аралық сома",
+    "discount": "Жеңілдік",
+    "total": "Жалпы сома",
+    "products": "Өнімдер",
+    "noProducts": "Бұл тапсырыста өнімдер жоқ.",
+    "quantity": "Саны",
+    "unit": "Бірлік",
+    "itemTotal": "Жиынтық",
+    "notFound": "Тапсырыс табылмады.",
+    "loadError": "Тапсырысты жүктеу қатесі.",
+    "statusLabels": {
+      "pending": "Тапсырыс қабылданды",
+      "preparing": "Дайындалуда",
+      "on_the_way": "Жолда",
+      "delivered": "Жеткізілді"
+    }
+  },
+
+  "favorites": {
+    "title": "Таңдаулы өнімдер",
+    "loading": "Таңдаулылар жүктелуде...",
+    "empty": "Таңдаулы өнімдер жоқ.",
+    "loginRequired": "Таңдаулыларды көру үшін жүйеге кіріңіз."
+  },
+  
+  "notFound": {
+    "title": "Бұл бет әзірлену үстінде",
+    "text": "Бұл бөлім әлі белсенді емес. Жақында қолжетімді болады.",
+    "goHome": "Басты бет",
+    "goBack": "Артқа қайту"
+  }
+}
+
