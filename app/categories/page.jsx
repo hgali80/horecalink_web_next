@@ -137,10 +137,25 @@ function CategoriesContent() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 flex gap-8">
+      <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6 lg:gap-8">
         {/* SOL FİLTRE */}
-        <aside className="w-72 bg-white border rounded-xl p-6
-          sticky top-24 h-[calc(100vh-140px)] overflow-y-auto">
+        <aside
+  className="
+    w-full
+    lg:w-72
+    bg-white
+    border
+    rounded-xl
+    p-4
+    lg:p-6
+    lg:sticky
+    lg:top-24
+    lg:h-[calc(100vh-140px)]
+    overflow-x-hidden
+    lg:overflow-y-auto
+  "
+>
+
 
           {/* ÜRÜN GRUPLARI */}
           <div className="mb-6">
