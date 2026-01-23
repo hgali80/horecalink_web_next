@@ -87,7 +87,7 @@ export default function ProfileHome() {
         {/* MENU GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           <ProfileMenuCard icon={<User size={20} />} title={t("profile.menu.personalInfo")} href="/profile/details" />
-          <ProfileMenuCard icon={<ShoppingBag size={20} />} title={t("profile.menu.orders")} href="/orders" />
+          <ProfileMenuCard icon={<ShoppingBag size={20} />} title={t("profile.menu.orders")} href="/profile/orders" />
           <ProfileMenuCard icon={<ShoppingBag size={20} />} title={t("profile.menu.basket")} href="/profile/basket" />
           <ProfileMenuCard icon={<Heart size={20} />} title={t("profile.menu.favorites")} href="/profile/favorites" />
           <ProfileMenuCard icon={<MapPin size={20} />} title={t("profile.menu.addresses")} href="/profile/address" />
