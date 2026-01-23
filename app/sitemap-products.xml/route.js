@@ -4,23 +4,22 @@ import { collection, getDocs } from "firebase/firestore";
 
 export async function GET() {
   const baseUrl = "https://horecalink.kz";
-  const now = new Date().toISOString().split("T")[0];
 
   const snap = await getDocs(collection(db, "products"));
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${snap.docs
-  .map(
-    (doc) => `
+  const urls = snap.docs.map((doc) => {
+    return `
   <url>
     <loc>${baseUrl}/products/${doc.id}</loc>
-    <lastmod>${now}</lastmod>
+    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
-  </url>`
-  )
-  .join("")}
+  </url>`;
+  });
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.join("")}
 </urlset>`;
 
   return new Response(xml, {
