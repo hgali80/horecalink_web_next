@@ -1,6 +1,4 @@
 // app/layout.tsx
-"use client";
-
 import "./globals.css";
 import type { ReactNode } from "react";
 
@@ -9,6 +7,13 @@ import Header from "./components/Header";
 
 import { AuthProvider } from "./context/AuthContext";
 import { LanguageProvider } from "./context/LanguageContext";
+
+export const metadata = {
+  title: "HorecaLink",
+  icons: {
+    icon: "/favicon.ico",
+  },
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
