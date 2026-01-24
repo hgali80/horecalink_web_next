@@ -1,18 +1,44 @@
 //app/satissitok/admin/purchases/new/components/PurchaseForm.jsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PurchaseItemsTable from "./PurchaseItemsTable";
+import { getSettings } from "@/app/satissitok/services/settingsService";
 
 export default function PurchaseForm({ onSubmit }) {
-  const [purchaseType, setPurchaseType] = useState("official"); // official | actual
+  const [purchaseType, setPurchaseType] = useState("official");
+
   const [supplierName, setSupplierName] = useState("");
   const [documentNo, setDocumentNo] = useState("");
   const [documentDate, setDocumentDate] = useState("");
-  const [taxRate, setTaxRate] = useState(12); // varsayılan KDV
+
   const [items, setItems] = useState([]);
 
-  // Toplam hesapları
+  // AYARLARDAN GELENLER
+  const [vatRates, setVatRates] = useState([]);
+  const [selectedVat, setSelectedVat] = useState(0);
+
+  // Ayarları yükle
+  useEffect(() => {
+    const loadSettings = async () => {
+      const settings = await getSettings();
+      const vats = settings?.taxes?.vat || [];
+      setVatRates(vats);
+
+      const def = vats.find((v) => v.default === true);
+      setSelectedVat(def ? def.rate : 0);
+    };
+    loadSettings();
+  }, []);
+
+  // Fiili seçilince KDV sıfırlansın
+  useEffect(() => {
+    if (purchaseType === "actual") {
+      setSelectedVat(0);
+    }
+  }, [purchaseType]);
+
+  // Toplamlar
   const netTotal = items.reduce(
     (sum, item) => sum + (item.lineTotal || 0),
     0
@@ -20,7 +46,7 @@ export default function PurchaseForm({ onSubmit }) {
 
   const taxTotal =
     purchaseType === "official"
-      ? (netTotal * Number(taxRate || 0)) / 100
+      ? (netTotal * Number(selectedVat || 0)) / 100
       : 0;
 
   const grossTotal = netTotal + taxTotal;
@@ -38,7 +64,7 @@ export default function PurchaseForm({ onSubmit }) {
       documentNo,
       documentDate,
       purchaseType,
-      taxRate: purchaseType === "official" ? Number(taxRate) : 0,
+      taxRate: purchaseType === "official" ? selectedVat : 0,
       items,
       totals: {
         net: netTotal,
@@ -63,7 +89,6 @@ export default function PurchaseForm({ onSubmit }) {
             <label className="flex items-center gap-1">
               <input
                 type="radio"
-                value="official"
                 checked={purchaseType === "official"}
                 onChange={() => setPurchaseType("official")}
               />
@@ -72,7 +97,6 @@ export default function PurchaseForm({ onSubmit }) {
             <label className="flex items-center gap-1">
               <input
                 type="radio"
-                value="actual"
                 checked={purchaseType === "actual"}
                 onChange={() => setPurchaseType("actual")}
               />
@@ -120,18 +144,23 @@ export default function PurchaseForm({ onSubmit }) {
           />
         </div>
 
-        {/* KDV */}
+        {/* KDV ORANI (AYARLARDAN) */}
         {purchaseType === "official" && (
           <div>
             <label className="block text-sm font-medium mb-1">
-              KDV Oranı (%)
+              KDV Oranı
             </label>
-            <input
-              type="number"
+            <select
               className="w-full border rounded px-2 py-1"
-              value={taxRate}
-              onChange={(e) => setTaxRate(e.target.value)}
-            />
+              value={selectedVat}
+              onChange={(e) => setSelectedVat(Number(e.target.value))}
+            >
+              {vatRates.map((v, i) => (
+                <option key={i} value={v.rate}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
           </div>
         )}
       </div>
@@ -141,8 +170,12 @@ export default function PurchaseForm({ onSubmit }) {
 
       {/* TOPLAMLAR */}
       <div className="border-t pt-4 space-y-2 text-right">
-        <div>Net Toplam: <strong>{netTotal.toLocaleString()} ₸</strong></div>
-        <div>KDV: <strong>{taxTotal.toLocaleString()} ₸</strong></div>
+        <div>
+          Net Toplam: <strong>{netTotal.toLocaleString()} ₸</strong>
+        </div>
+        <div>
+          KDV: <strong>{taxTotal.toLocaleString()} ₸</strong>
+        </div>
         <div className="text-lg">
           Genel Toplam:{" "}
           <strong>{grossTotal.toLocaleString()} ₸</strong>
