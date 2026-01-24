@@ -9,39 +9,67 @@ import {
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
+
   const [units, setUnits] = useState([]);
   const [vatRates, setVatRates] = useState([]);
   const [incomeRates, setIncomeRates] = useState([]);
 
   useEffect(() => {
+    let alive = true;
+
     const load = async () => {
-      const s = await getSettings();
-      setUnits(s.units || []);
-      setVatRates(s.taxes?.vat || []);
-      setIncomeRates(s.taxes?.income || []);
-      setLoading(false);
+      try {
+        const s = await getSettings();
+
+        if (!alive) return;
+
+        setUnits(Array.isArray(s.units) ? s.units : []);
+        setVatRates(Array.isArray(s.taxes?.vat) ? s.taxes.vat : []);
+        setIncomeRates(
+          Array.isArray(s.taxes?.income) ? s.taxes.income : []
+        );
+      } catch (err) {
+        console.error("SETTINGS PAGE LOAD ERROR:", err);
+        alert("Ayarlar yüklenemedi. Varsayılan değerler gösteriliyor.");
+      } finally {
+        if (alive) setLoading(false);
+      }
     };
+
     load();
+
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const save = async () => {
-    await saveSettings({
-      units,
-      taxes: {
-        vat: vatRates,
-        income: incomeRates,
-      },
-    });
-    alert("Ayarlar kaydedildi");
+    try {
+      await saveSettings({
+        units,
+        taxes: {
+          vat: vatRates,
+          income: incomeRates,
+        },
+      });
+      alert("Ayarlar kaydedildi");
+    } catch (err) {
+      console.error("SETTINGS SAVE ERROR:", err);
+      alert("Ayarlar kaydedilirken hata oluştu");
+    }
   };
 
-  if (loading) return <div className="p-6">Yükleniyor…</div>;
+  if (loading) {
+    return <div className="p-6">Yükleniyor…</div>;
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-10">
       <h1 className="text-2xl font-bold">Satış & Stok Ayarları</h1>
 
-      {/* BİRİMLER */}
+      {/* ===================== */}
+      {/* ÜRÜN BİRİMLERİ */}
+      {/* ===================== */}
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">Ürün Birimleri</h2>
 
@@ -50,30 +78,30 @@ export default function SettingsPage() {
             <input
               className="border px-2 py-1 w-32"
               placeholder="key"
-              value={u.key}
+              value={u.key || ""}
               onChange={(e) => {
                 const x = [...units];
-                x[i].key = e.target.value;
+                x[i] = { ...x[i], key: e.target.value };
                 setUnits(x);
               }}
             />
             <input
               className="border px-2 py-1"
               placeholder="Etiket"
-              value={u.label}
+              value={u.label || ""}
               onChange={(e) => {
                 const x = [...units];
-                x[i].label = e.target.value;
+                x[i] = { ...x[i], label: e.target.value };
                 setUnits(x);
               }}
             />
             <label className="text-sm flex items-center gap-1">
               <input
                 type="checkbox"
-                checked={u.active}
+                checked={u.active === true}
                 onChange={(e) => {
                   const x = [...units];
-                  x[i].active = e.target.checked;
+                  x[i] = { ...x[i], active: e.target.checked };
                   setUnits(x);
                 }}
               />
@@ -92,7 +120,9 @@ export default function SettingsPage() {
         </button>
       </section>
 
-      {/* KDV */}
+      {/* ===================== */}
+      {/* KDV ORANLARI */}
+      {/* ===================== */}
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">KDV Oranları</h2>
 
@@ -101,10 +131,10 @@ export default function SettingsPage() {
             <input
               className="border px-2 py-1"
               placeholder="Etiket"
-              value={v.label}
+              value={v.label || ""}
               onChange={(e) => {
                 const x = [...vatRates];
-                x[i].label = e.target.value;
+                x[i] = { ...x[i], label: e.target.value };
                 setVatRates(x);
               }}
             />
@@ -112,10 +142,10 @@ export default function SettingsPage() {
               type="number"
               className="border px-2 py-1 w-24"
               placeholder="%"
-              value={v.rate}
+              value={v.rate ?? 0}
               onChange={(e) => {
                 const x = [...vatRates];
-                x[i].rate = Number(e.target.value);
+                x[i] = { ...x[i], rate: Number(e.target.value) };
                 setVatRates(x);
               }}
             />
@@ -147,7 +177,9 @@ export default function SettingsPage() {
         </button>
       </section>
 
+      {/* ===================== */}
       {/* GELİR VERGİSİ */}
+      {/* ===================== */}
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">Gelir Vergisi Oranları</h2>
 
@@ -156,10 +188,10 @@ export default function SettingsPage() {
             <input
               className="border px-2 py-1"
               placeholder="Etiket"
-              value={r.label}
+              value={r.label || ""}
               onChange={(e) => {
                 const x = [...incomeRates];
-                x[i].label = e.target.value;
+                x[i] = { ...x[i], label: e.target.value };
                 setIncomeRates(x);
               }}
             />
@@ -167,10 +199,10 @@ export default function SettingsPage() {
               type="number"
               className="border px-2 py-1 w-24"
               placeholder="%"
-              value={r.rate}
+              value={r.rate ?? 0}
               onChange={(e) => {
                 const x = [...incomeRates];
-                x[i].rate = Number(e.target.value);
+                x[i] = { ...x[i], rate: Number(e.target.value) };
                 setIncomeRates(x);
               }}
             />
@@ -187,6 +219,9 @@ export default function SettingsPage() {
         </button>
       </section>
 
+      {/* ===================== */}
+      {/* KAYDET */}
+      {/* ===================== */}
       <div className="text-right">
         <button
           onClick={save}
