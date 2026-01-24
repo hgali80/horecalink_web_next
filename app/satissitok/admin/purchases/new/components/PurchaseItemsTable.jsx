@@ -1,13 +1,14 @@
 //app/satissitok/admin/purchases/new/components/PurchaseItemsTable.jsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/firebase"; // projendeki doğru firebase path buysa kalsın
+import { db } from "@/firebase";
 
 export default function PurchaseItemsTable({ onChange }) {
   const [products, setProducts] = useState([]);
   const [items, setItems] = useState([]);
+  const [search, setSearch] = useState("");
 
   // Ürünleri çek
   useEffect(() => {
@@ -26,7 +27,17 @@ export default function PurchaseItemsTable({ onChange }) {
   // Parent’a bildir
   useEffect(() => {
     onChange(items);
-  }, [items]);
+  }, [items, onChange]);
+
+  // Arama filtreleme (kiril + latin, parçalı)
+  const filteredProducts = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return products;
+
+    return products.filter((p) =>
+      (p.name || "").toLowerCase().includes(q)
+    );
+  }, [products, search]);
 
   const addRow = () => {
     setItems([
@@ -57,8 +68,14 @@ export default function PurchaseItemsTable({ onChange }) {
     setItems(updated);
   };
 
+  const getUnitByProductId = (productId) => {
+    const product = products.find((p) => p.id === productId);
+    return product?.unit || "";
+  };
+
   return (
     <div className="space-y-4">
+      {/* Başlık + Ekle */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Satınalma Kalemleri</h3>
         <button
@@ -70,6 +87,18 @@ export default function PurchaseItemsTable({ onChange }) {
         </button>
       </div>
 
+      {/* Ürün Arama */}
+      <div>
+        <input
+          type="text"
+          placeholder="Ürün ara (örn: Туалетна, Jumbo)"
+          className="w-full border rounded px-2 py-1"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {/* Tablo */}
       <table className="w-full border text-sm">
         <thead className="bg-gray-100">
           <tr>
@@ -83,6 +112,7 @@ export default function PurchaseItemsTable({ onChange }) {
         <tbody>
           {items.map((row, index) => (
             <tr key={index}>
+              {/* Ürün */}
               <td className="border px-2 py-1">
                 <select
                   className="w-full border rounded px-1 py-1"
@@ -92,7 +122,7 @@ export default function PurchaseItemsTable({ onChange }) {
                   }
                 >
                   <option value="">Seçiniz</option>
-                  {products.map((p) => (
+                  {filteredProducts.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
@@ -100,18 +130,25 @@ export default function PurchaseItemsTable({ onChange }) {
                 </select>
               </td>
 
+              {/* Miktar + Birim */}
               <td className="border px-2 py-1">
-                <input
-                  type="number"
-                  min="0"
-                  className="w-full border rounded px-1 py-1"
-                  value={row.qty}
-                  onChange={(e) =>
-                    updateRow(index, "qty", e.target.value)
-                  }
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-20 border rounded px-1 py-1"
+                    value={row.qty}
+                    onChange={(e) =>
+                      updateRow(index, "qty", e.target.value)
+                    }
+                  />
+                  <span className="text-gray-500 text-xs">
+                    {getUnitByProductId(row.productId)}
+                  </span>
+                </div>
               </td>
 
+              {/* Birim Maliyet */}
               <td className="border px-2 py-1">
                 <input
                   type="number"
@@ -124,10 +161,12 @@ export default function PurchaseItemsTable({ onChange }) {
                 />
               </td>
 
+              {/* Satır Toplam */}
               <td className="border px-2 py-1 text-right">
                 {row.lineTotal.toLocaleString()} ₸
               </td>
 
+              {/* Sil */}
               <td className="border px-2 py-1 text-center">
                 <button
                   type="button"
