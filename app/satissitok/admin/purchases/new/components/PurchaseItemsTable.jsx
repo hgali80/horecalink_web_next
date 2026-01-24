@@ -4,20 +4,24 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
+import { getSettings } from "@/app/satissitok/services/settingsService";
 
 export default function PurchaseItemsTable({ onChange }) {
   const [products, setProducts] = useState([]);
   const [items, setItems] = useState([]);
   const [openIndex, setOpenIndex] = useState(null);
+  const [vatRate, setVatRate] = useState(0);
 
   useEffect(() => {
-    const loadProducts = async () => {
-      const snap = await getDocs(collection(db, "products"));
-      setProducts(
-        snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      );
+    const load = async () => {
+      const pSnap = await getDocs(collection(db, "products"));
+      setProducts(pSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      const settings = await getSettings();
+      const defVat = settings?.taxes?.vat?.find(v => v.default);
+      setVatRate(defVat ? defVat.rate : 0);
     };
-    loadProducts();
+    load();
   }, []);
 
   useEffect(() => {
@@ -25,60 +29,67 @@ export default function PurchaseItemsTable({ onChange }) {
   }, [items, onChange]);
 
   const addRow = () => {
-    setItems([
-      ...items,
-      {
-        productId: "",
-        productName: "",
-        unit: "",
-        qty: 1,
-        unitCost: 0,
-        lineTotal: 0,
-        search: "",
-      },
-    ]);
+    setItems([...items, {
+      productId: "",
+      productName: "",
+      unit: "",
+      qty: 1,
+      unitCost: 0,
+      vatType: "exclusive", // exclusive | inclusive
+      vatAmount: 0,
+      lineTotal: 0,
+      search: "",
+    }]);
   };
 
-  const removeRow = (i) => {
+  const calcRow = (row) => {
+    const qty = Number(row.qty) || 0;
+    const cost = Number(row.unitCost) || 0;
+    const net = qty * cost;
+
+    let vat = 0;
+    let total = net;
+
+    if (row.vatType === "exclusive") {
+      vat = net * vatRate / 100;
+      total = net + vat;
+    } else {
+      vat = net - (net / (1 + vatRate / 100));
+      total = net;
+    }
+
+    row.vatAmount = Math.round(vat);
+    row.lineTotal = Math.round(total);
+  };
+
+  const updateRow = (i, field, value) => {
     const x = [...items];
-    x.splice(i, 1);
+    x[i][field] = value;
+    calcRow(x[i]);
     setItems(x);
   };
 
-  const updateTotals = (x, i) => {
-    const qty = Number(x[i].qty) || 0;
-    const cost = Number(x[i].unitCost) || 0;
-    x[i].lineTotal = qty * cost;
-  };
-
-  const selectProduct = (rowIndex, product) => {
+  const selectProduct = (i, p) => {
     const x = [...items];
-    x[rowIndex].productId = product.id;
-    x[rowIndex].productName = product.name;
-    x[rowIndex].unit = product.unit || "";
-    x[rowIndex].search = product.name;
-    updateTotals(x, rowIndex);
+    x[i].productId = p.id;
+    x[i].productName = p.name;
+    x[i].unit = p.unit || "";
+    x[i].search = p.name;
+    calcRow(x[i]);
     setItems(x);
     setOpenIndex(null);
   };
 
-  const filteredProducts = (search) => {
-    if (!search) return products;
-    const q = search.toLowerCase();
-    return products.filter((p) =>
-      (p.name || "").toLowerCase().includes(q)
+  const filtered = (q) =>
+    !q ? products : products.filter(p =>
+      (p.name || "").toLowerCase().includes(q.toLowerCase())
     );
-  };
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between">
         <h3 className="text-lg font-semibold">Satınalma Kalemleri</h3>
-        <button
-          type="button"
-          onClick={addRow}
-          className="px-3 py-1 bg-blue-600 text-white rounded"
-        >
+        <button onClick={addRow} className="px-3 py-1 bg-blue-600 text-white rounded">
           + Ürün Ekle
         </button>
       </div>
@@ -86,104 +97,82 @@ export default function PurchaseItemsTable({ onChange }) {
       <table className="w-full border text-sm">
         <thead className="bg-gray-100">
           <tr>
-            <th className="border px-2 py-1 w-1/3">Ürün</th>
-            <th className="border px-2 py-1">Miktar</th>
-            <th className="border px-2 py-1">Birim</th>
-            <th className="border px-2 py-1">Birim Maliyet</th>
-            <th className="border px-2 py-1">Toplam</th>
-            <th className="border px-2 py-1"></th>
+            <th className="border w-[35%]">Ürün</th>
+            <th className="border w-[8%]">Miktar</th>
+            <th className="border w-[8%]">Birim</th>
+            <th className="border w-[12%]">Birim Maliyet</th>
+            <th className="border w-[10%]">KDV Tipi</th>
+            <th className="border w-[12%]">KDV Tutarı</th>
+            <th className="border w-[15%]">Toplam</th>
+            <th className="border w-[5%]"></th>
           </tr>
         </thead>
 
         <tbody>
-          {items.map((row, i) => (
+          {items.map((r, i) => (
             <tr key={i}>
-              {/* ÜRÜN – AUTOCOMPLETE */}
-              <td className="border px-2 py-1 relative">
+              <td className="border relative">
                 <input
-                  type="text"
-                  className="w-full border rounded px-2 py-1"
+                  className="w-full border px-2 py-1"
+                  value={r.search}
                   placeholder="Ürün yazın..."
-                  value={row.search}
                   onFocus={() => setOpenIndex(i)}
-                  onChange={(e) => {
-                    const x = [...items];
-                    x[i].search = e.target.value;
-                    setItems(x);
-                    setOpenIndex(i);
-                  }}
+                  onChange={e => updateRow(i, "search", e.target.value)}
                 />
-
                 {openIndex === i && (
-                  <div className="absolute z-10 bg-white border w-full max-h-48 overflow-y-auto">
-                    {filteredProducts(row.search).map((p) => (
+                  <div className="absolute bg-white border w-full z-10 max-h-48 overflow-y-auto">
+                    {filtered(r.search).map(p => (
                       <div
                         key={p.id}
                         className="px-2 py-1 hover:bg-blue-100 cursor-pointer"
-                        onMouseDown={() =>
-                          selectProduct(i, p)
-                        }
+                        onMouseDown={() => selectProduct(i, p)}
                       >
                         {p.name}
                       </div>
                     ))}
-
-                    {filteredProducts(row.search).length === 0 && (
-                      <div className="px-2 py-1 text-gray-400">
-                        Sonuç yok
-                      </div>
-                    )}
                   </div>
                 )}
               </td>
 
-              {/* MİKTAR */}
-              <td className="border px-2 py-1">
-                <input
-                  type="number"
-                  className="w-full border rounded px-1 py-1"
-                  value={row.qty}
-                  onChange={(e) => {
-                    const x = [...items];
-                    x[i].qty = e.target.value;
-                    updateTotals(x, i);
-                    setItems(x);
-                  }}
-                />
+              <td className="border">
+                <input type="number" className="w-full px-1"
+                  value={r.qty}
+                  onChange={e => updateRow(i, "qty", e.target.value)} />
               </td>
 
-              {/* BİRİM */}
-              <td className="border px-2 py-1 text-center">
-                {row.unit || "-"}
+              <td className="border text-center">{r.unit}</td>
+
+              <td className="border">
+                <input type="number" className="w-full px-1"
+                  value={r.unitCost}
+                  onChange={e => updateRow(i, "unitCost", e.target.value)} />
               </td>
 
-              {/* BİRİM MALİYET */}
-              <td className="border px-2 py-1">
-                <input
-                  type="number"
-                  className="w-full border rounded px-1 py-1"
-                  value={row.unitCost}
-                  onChange={(e) => {
-                    const x = [...items];
-                    x[i].unitCost = e.target.value;
-                    updateTotals(x, i);
-                    setItems(x);
-                  }}
-                />
-              </td>
-
-              {/* TOPLAM */}
-              <td className="border px-2 py-1 text-right">
-                {row.lineTotal.toLocaleString()} ₸
-              </td>
-
-              {/* SİL */}
-              <td className="border px-2 py-1 text-center">
-                <button
-                  type="button"
-                  className="text-red-600"
-                  onClick={() => removeRow(i)}
+              <td className="border">
+                <select
+                  className="w-full"
+                  value={r.vatType}
+                  onChange={e => updateRow(i, "vatType", e.target.value)}
                 >
+                  <option value="exclusive">Hariç</option>
+                  <option value="inclusive">Dahil</option>
+                </select>
+              </td>
+
+              <td className="border text-right">
+                {r.vatAmount.toLocaleString()} ₸
+              </td>
+
+              <td className="border text-right font-semibold">
+                {r.lineTotal.toLocaleString()} ₸
+              </td>
+
+              <td className="border text-center">
+                <button className="text-red-600" onClick={() => {
+                  const x = [...items];
+                  x.splice(i, 1);
+                  setItems(x);
+                }}>
                   Sil
                 </button>
               </td>
@@ -191,12 +180,6 @@ export default function PurchaseItemsTable({ onChange }) {
           ))}
         </tbody>
       </table>
-
-      {items.length === 0 && (
-        <div className="text-sm text-gray-500">
-          Henüz ürün eklenmedi.
-        </div>
-      )}
     </div>
   );
 }
