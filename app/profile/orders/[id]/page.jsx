@@ -111,14 +111,15 @@ export default function OrderDetailPage() {
     : 0;
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4">
+    <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
         <div>
           <h1 className="text-2xl font-semibold">
             {t("orders.detailTitle")}
           </h1>
           {order && (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 break-all">
               {t("orders.orderNo")}{" "}
               <span className="font-medium">{order.orderNumber}</span>
               {" · "}
@@ -127,17 +128,17 @@ export default function OrderDetailPage() {
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full md:w-auto">
           <button
             onClick={() => router.back()}
-            className="px-3 py-2 text-sm border rounded-lg"
+            className="flex-1 md:flex-none px-3 py-2 text-sm border rounded-lg"
           >
             {t("common.back")}
           </button>
 
           <Link
             href="/profile/orders"
-            className="px-3 py-2 text-sm border rounded-lg"
+            className="flex-1 md:flex-none px-3 py-2 text-sm border rounded-lg text-center"
           >
             {t("orders.all")}
           </Link>
@@ -151,12 +152,13 @@ export default function OrderDetailPage() {
 
       {!loading && order && (
         <>
+          {/* STATUS */}
           <div className="bg-white p-4 rounded-xl shadow">
             <h2 className="font-semibold mb-3">
               {t("orders.statusTitle")}
             </h2>
 
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-2">
               {steps.map((step, index) => {
                 const isActive = index <= currentStepIndex;
                 const isPassed = index < currentStepIndex;
@@ -164,7 +166,7 @@ export default function OrderDetailPage() {
                 return (
                   <div
                     key={step.key}
-                    className="flex-1 flex items-center min-w-0"
+                    className="w-full md:flex-1 flex items-center min-w-0"
                   >
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold border ${
@@ -182,7 +184,7 @@ export default function OrderDetailPage() {
 
                     {index < steps.length - 1 && (
                       <div
-                        className={`flex-1 h-[2px] mx-2 ${
+                        className={`hidden md:block flex-1 h-[2px] mx-2 ${
                           isPassed ? "bg-emerald-600" : "bg-gray-200"
                         }`}
                       ></div>
@@ -193,7 +195,8 @@ export default function OrderDetailPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          {/* CONTENT */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-4 md:col-span-1">
               {order.address && (
                 <div className="bg-white p-4 rounded-xl shadow space-y-1">
@@ -202,23 +205,26 @@ export default function OrderDetailPage() {
                   </h2>
 
                   {order.address.fullName && (
-                    <p className="font-medium">{order.address.fullName}</p>
+                    <p className="font-medium break-words">
+                      {order.address.fullName}
+                    </p>
                   )}
 
                   {order.address.phone && (
-                    <p className="text-sm text-gray-700">
+                    <p className="text-sm text-gray-700 break-all">
                       {t("orders.phone")}: {order.address.phone}
                     </p>
                   )}
 
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-gray-700 break-words">
                     {order.address.city && `${order.address.city}, `}
                     {order.address.street}
-                    {order.address.building && ` ${order.address.building}`}
+                    {order.address.building &&
+                      ` ${order.address.building}`}
                   </p>
 
                   {order.address.details && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 mt-1 break-words">
                       {order.address.details}
                     </p>
                   )}
@@ -253,24 +259,19 @@ export default function OrderDetailPage() {
               </div>
             </div>
 
+            {/* PRODUCTS */}
             <div className="md:col-span-2">
               <div className="bg-white p-4 rounded-xl shadow">
                 <h2 className="font-semibold mb-3">
                   {t("orders.products")}
                 </h2>
 
-                {(!order.items || order.items.length === 0) && (
-                  <p className="text-sm text-gray-500">
-                    {t("orders.noProducts")}
-                  </p>
-                )}
-
                 {order.items && order.items.length > 0 && (
                   <div className="space-y-3">
                     {order.items.map((item, idx) => (
                       <div
                         key={`${item.productId}-${idx}`}
-                        className="flex items-center justify-between gap-4 border-b pb-3 last:border-b-0"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-3 last:border-b-0"
                       >
                         <div className="flex items-center gap-4 flex-1 min-w-0">
                           <img
@@ -279,7 +280,7 @@ export default function OrderDetailPage() {
                             className="w-16 h-16 rounded-lg object-contain bg-gray-100 flex-shrink-0"
                           />
                           <div className="min-w-0">
-                            <p className="font-medium truncate">
+                            <p className="font-medium break-words">
                               {item.name}
                             </p>
                             <p className="text-xs text-gray-500">
@@ -288,7 +289,7 @@ export default function OrderDetailPage() {
                           </div>
                         </div>
 
-                        <div className="text-right text-sm flex-shrink-0">
+                        <div className="text-left sm:text-right text-sm flex-shrink-0">
                           <p className="text-gray-700">
                             {t("orders.unit")}:{" "}
                             {item.price?.toLocaleString()} ₸
