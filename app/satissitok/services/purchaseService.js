@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase";
 // import { addPurchaseStockMovements } from "./stockService"; // şimdilik kapalı
+import { addPurchaseStockMovements, applyPurchaseToStockBalances } from "./stockService";
 
 function formatInvoiceNo(type, seq) {
   const year = new Date().getFullYear().toString().slice(-2);
@@ -19,7 +20,9 @@ export async function createPurchase(payload) {
   return await runTransaction(db, async (transaction) => {
     const type = payload.purchaseType; // official | actual
 
-    let invoiceNo = payload.invoiceNo?.trim();
+    // ✅ UI tarafı documentNo gönderiyor, servis invoiceNo bekliyordu
+    // İkisini de destekle (bozmadan)
+    let invoiceNo = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
 
     // 🔢 SADECE BOŞSA SAYAÇTAN ÜRET
     if (!invoiceNo) {
@@ -45,6 +48,10 @@ export async function createPurchase(payload) {
     const purchaseData = {
       supplierName: payload.supplierName || "",
       invoiceNo, // ✅ ARTIK GERÇEK FATURA NO
+
+      // ✅ UI tarafındaki PurchaseForm documentNo ile sorguluyor; geriye uyum için aynısını da yaz.
+      documentNo: invoiceNo,
+
       documentDate: payload.documentDate
         ? new Date(payload.documentDate)
         : null,
@@ -80,6 +87,26 @@ export async function createPurchase(payload) {
     };
 
     transaction.set(purchaseRef, purchaseData);
+
+    // ✅ STOK ENTEGRASYONU (aynı transaction içinde)
+    // 1) stock_movements (ledger)
+    await addPurchaseStockMovements({
+      transaction,
+      purchaseId: purchaseRef.id,
+      purchaseType: type,
+      items: payload.items || [],
+      supplierName: payload.supplierName || "",
+      invoiceNo,
+      documentDate: payload.documentDate || null,
+      currency: "KZT",
+    });
+
+    // 2) stock_balances (official/actual ayrı weighted average)
+    await applyPurchaseToStockBalances({
+      transaction,
+      purchaseType: type,
+      items: payload.items || [],
+    });
 
     // stok hareketleri sonra açılacak
     // await addPurchaseStockMovements(...)
