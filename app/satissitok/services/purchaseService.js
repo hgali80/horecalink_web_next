@@ -1,7 +1,7 @@
 //app/satissitok/services/purchaseService.js
+// app/satissitok/services/purchaseService.js
 import {
   collection,
-  addDoc,
   doc,
   serverTimestamp,
   runTransaction,
@@ -25,15 +25,34 @@ export async function createPurchase(payload) {
       documentDate: payload.documentDate
         ? new Date(payload.documentDate)
         : null,
+
       purchaseType: payload.purchaseType, // official | actual
+      vatMode: payload.vatMode || "inclusive",
       taxRate: payload.taxRate || 0,
-      items: payload.items.map((item) => ({
+
+      items: (payload.items || []).map((item) => ({
         productId: item.productId,
-        qty: Number(item.qty),
-        unitCost: Number(item.unitCost),
-        lineTotal: Number(item.lineTotal),
+        productName: item.productName || "",
+        unit: item.unit || "",
+        qty: Number(item.qty) || 0,
+
+        // Kullanıcının girdiği birim fiyat (vatMode'a göre net/brüt anlamı var)
+        unitPrice: Number(item.unitPrice) || 0,
+
+        // Hesaplananlar
+        netUnitPrice: Number(item.netUnitPrice) || 0,
+        vatUnitPrice: Number(item.vatUnitPrice) || 0,
+        grossUnitPrice: Number(item.grossUnitPrice) || 0,
+
+        netLineTotal: Number(item.netLineTotal) || 0,
+        vatLineTotal: Number(item.vatLineTotal) || 0,
+        grossLineTotal: Number(item.grossLineTotal) || 0,
+
+        // Geriye dönük uyumluluk (bazı yerlerde lineTotal kullanılıyor olabilir)
+        lineTotal: Number(item.grossLineTotal) || 0,
       })),
-      totals: payload.totals,
+
+      totals: payload.totals, // { net, tax, gross }
       createdAt: serverTimestamp(),
     };
 
