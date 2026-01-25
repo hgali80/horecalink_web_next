@@ -1,25 +1,42 @@
 //app/satissitok/admin/purchases/new/components/PurchaseItemsTable.jsx
+// app/satissitok/admin/purchases/new/components/PurchaseItemsTable.jsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
-import { getSettings } from "@/app/satissitok/services/settingsService";
 
-export default function PurchaseItemsTable({ onChange }) {
+function round2(n) {
+  const x = Number(n) || 0;
+  return Math.round(x * 100) / 100;
+}
+
+function fmt(n) {
+  const x = Number(n) || 0;
+  return x.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+/**
+ * Props:
+ * - onChange(items)
+ * - vatRate: number (e.g. 16)
+ * - vatMode: "inclusive" | "exclusive"
+ * - hideVat: boolean (true when purchaseType === "actual")
+ */
+export default function PurchaseItemsTable({
+  onChange,
+  vatRate = 0,
+  vatMode = "inclusive",
+  hideVat = false,
+}) {
   const [products, setProducts] = useState([]);
   const [items, setItems] = useState([]);
   const [openIndex, setOpenIndex] = useState(null);
-  const [vatRate, setVatRate] = useState(0);
 
   useEffect(() => {
     const load = async () => {
       const pSnap = await getDocs(collection(db, "products"));
-      setProducts(pSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
-      const settings = await getSettings();
-      const defVat = settings?.taxes?.vat?.find(v => v.default);
-      setVatRate(defVat ? defVat.rate : 0);
+      setProducts(pSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
     load();
   }, []);
@@ -28,18 +45,24 @@ export default function PurchaseItemsTable({ onChange }) {
     onChange(items);
   }, [items, onChange]);
 
+  const effectiveVatRate = hideVat ? 0 : Number(vatRate || 0);
+
   const addRow = () => {
-    setItems(prev => [
+    setItems((prev) => [
       ...prev,
       {
         productId: "",
         productName: "",
         unit: "",
         qty: 1,
-        unitCost: 0,
-        vatType: "exclusive", // exclusive | inclusive
-        vatAmount: 0,
-        lineTotal: 0,
+        unitPrice: 0, // Kullanıcının girdiği fiyat (KDV tipi üstte seçili)
+        // Hesaplananlar:
+        netUnitPrice: 0,
+        vatUnitPrice: 0,
+        grossUnitPrice: 0,
+        netLineTotal: 0,
+        vatLineTotal: 0,
+        grossLineTotal: 0,
         search: "",
       },
     ]);
@@ -47,22 +70,38 @@ export default function PurchaseItemsTable({ onChange }) {
 
   const calcRow = (row) => {
     const qty = Number(row.qty) || 0;
-    const cost = Number(row.unitCost) || 0;
-    const net = qty * cost;
+    const unitPrice = Number(row.unitPrice) || 0;
+    const r = Number(effectiveVatRate) || 0;
+    const factor = 1 + r / 100;
 
-    let vat = 0;
-    let total = net;
+    let netUnit = 0;
+    let vatUnit = 0;
+    let grossUnit = 0;
 
-    if (row.vatType === "exclusive") {
-      vat = (net * vatRate) / 100;
-      total = net + vat;
+    if (r === 0) {
+      // Fiili veya KDV 0
+      netUnit = unitPrice;
+      vatUnit = 0;
+      grossUnit = unitPrice;
+    } else if (vatMode === "exclusive") {
+      // Girilen fiyat: NET
+      netUnit = unitPrice;
+      vatUnit = unitPrice * (r / 100);
+      grossUnit = netUnit + vatUnit;
     } else {
-      vat = net - net / (1 + vatRate / 100);
-      total = net;
+      // vatMode === "inclusive" -> Girilen fiyat: BRÜT
+      grossUnit = unitPrice;
+      netUnit = grossUnit / factor;
+      vatUnit = grossUnit - netUnit;
     }
 
-    row.vatAmount = Math.round(vat);
-    row.lineTotal = Math.round(total);
+    row.netUnitPrice = round2(netUnit);
+    row.vatUnitPrice = round2(vatUnit);
+    row.grossUnitPrice = round2(grossUnit);
+
+    row.netLineTotal = round2(qty * row.netUnitPrice);
+    row.vatLineTotal = round2(qty * row.vatUnitPrice);
+    row.grossLineTotal = round2(qty * row.grossUnitPrice);
   };
 
   const updateRow = (i, field, value) => {
@@ -75,27 +114,30 @@ export default function PurchaseItemsTable({ onChange }) {
   const selectProduct = (i, p) => {
     const x = [...items];
     x[i].productId = p.id;
-    x[i].productName = p.name;
+    x[i].productName = p.name || "";
     x[i].unit = p.unit || "";
-    x[i].search = p.name;
+    x[i].search = p.name || "";
     calcRow(x[i]);
     setItems(x);
     setOpenIndex(null);
   };
 
-  const filtered = (q) =>
-    !q
-      ? products
-      : products.filter(p =>
-          (p.name || "").toLowerCase().includes(q.toLowerCase())
-        );
+  const filtered = useMemo(() => {
+    return (q) =>
+      !q
+        ? products
+        : products.filter((p) =>
+            (p.name || "").toLowerCase().includes(q.toLowerCase())
+          );
+  }, [products]);
+
+  const isVatVisible = !hideVat;
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Satınalma Kalemleri</h3>
 
-        {/* 🔴 KRİTİK FIX */}
         <button
           type="button"
           onClick={addRow}
@@ -105,114 +147,148 @@ export default function PurchaseItemsTable({ onChange }) {
         </button>
       </div>
 
-      <table className="w-full border text-sm">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="border w-[35%]">Ürün</th>
-            <th className="border w-[8%]">Miktar</th>
-            <th className="border w-[8%]">Birim</th>
-            <th className="border w-[12%]">Birim Maliyet</th>
-            <th className="border w-[10%]">KDV Tipi</th>
-            <th className="border w-[12%]">KDV Tutarı</th>
-            <th className="border w-[15%]">Toplam</th>
-            <th className="border w-[5%]"></th>
-          </tr>
-        </thead>
+      <div className="w-full overflow-x-auto">
+        <table className="min-w-[1100px] w-full border text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="border w-[28%]">Ürün</th>
+              <th className="border w-[7%]">Miktar</th>
+              <th className="border w-[7%]">Birim</th>
+              <th className="border w-[10%]">Birim Fiyat</th>
 
-        <tbody>
-          {items.map((r, i) => (
-            <tr key={i}>
-              {/* ÜRÜN */}
-              <td className="border relative">
-                <input
-                  type="text"
-                  className="w-full border px-2 py-1"
-                  value={r.search}
-                  placeholder="Ürün yazın..."
-                  onFocus={() => setOpenIndex(i)}
-                  onChange={e => updateRow(i, "search", e.target.value)}
-                />
+              {isVatVisible && (
+                <>
+                  <th className="border w-[10%]">KDV’siz Birim</th>
+                  <th className="border w-[10%]">KDV Birim</th>
+                  <th className="border w-[10%]">Toplam Birim</th>
+                  <th className="border w-[10%]">KDV’siz Toplam</th>
+                  <th className="border w-[10%]">KDV Toplam</th>
+                </>
+              )}
 
-                {openIndex === i && (
-                  <div className="absolute bg-white border w-full z-10 max-h-48 overflow-y-auto">
-                    {filtered(r.search).map(p => (
-                      <div
-                        key={p.id}
-                        className="px-2 py-1 hover:bg-blue-100 cursor-pointer"
-                        onMouseDown={() => selectProduct(i, p)}
-                      >
-                        {p.name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </td>
-
-              {/* MİKTAR */}
-              <td className="border">
-                <input
-                  type="number"
-                  className="w-full px-1"
-                  value={r.qty}
-                  onChange={e => updateRow(i, "qty", e.target.value)}
-                />
-              </td>
-
-              {/* BİRİM */}
-              <td className="border text-center">
-                {r.unit || "-"}
-              </td>
-
-              {/* BİRİM MALİYET */}
-              <td className="border">
-                <input
-                  type="number"
-                  className="w-full px-1"
-                  value={r.unitCost}
-                  onChange={e => updateRow(i, "unitCost", e.target.value)}
-                />
-              </td>
-
-              {/* KDV TİPİ */}
-              <td className="border">
-                <select
-                  className="w-full"
-                  value={r.vatType}
-                  onChange={e => updateRow(i, "vatType", e.target.value)}
-                >
-                  <option value="exclusive">Hariç</option>
-                  <option value="inclusive">Dahil</option>
-                </select>
-              </td>
-
-              {/* KDV TUTARI */}
-              <td className="border text-right">
-                {r.vatAmount.toLocaleString()} ₸
-              </td>
-
-              {/* TOPLAM */}
-              <td className="border text-right font-semibold">
-                {r.lineTotal.toLocaleString()} ₸
-              </td>
-
-              {/* SİL */}
-              <td className="border text-center">
-                <button
-                  type="button"
-                  className="text-red-600"
-                  onClick={() => {
-                    const x = [...items];
-                    x.splice(i, 1);
-                    setItems(x);
-                  }}
-                >
-                  Sil
-                </button>
-              </td>
+              <th className="border w-[12%]">
+                {vatMode === "exclusive" ? "Toplam (KDV Dahil)" : "Toplam"}
+              </th>
+              <th className="border w-[4%]"></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {items.map((r, i) => (
+              <tr key={i}>
+                {/* ÜRÜN */}
+                <td className="border relative">
+                  <input
+                    type="text"
+                    className="w-full border px-2 py-1"
+                    value={r.search}
+                    placeholder="Ürün yazın..."
+                    onFocus={() => setOpenIndex(i)}
+                    onChange={(e) => updateRow(i, "search", e.target.value)}
+                  />
+
+                  {openIndex === i && (
+                    <div className="absolute bg-white border w-full z-10 max-h-48 overflow-y-auto">
+                      {filtered(r.search).map((p) => (
+                        <div
+                          key={p.id}
+                          className="px-2 py-1 hover:bg-blue-100 cursor-pointer"
+                          onMouseDown={() => selectProduct(i, p)}
+                        >
+                          {p.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </td>
+
+                {/* MİKTAR */}
+                <td className="border">
+                  <input
+                    type="number"
+                    className="w-full px-2 py-1"
+                    value={r.qty}
+                    min={0}
+                    onChange={(e) => updateRow(i, "qty", e.target.value)}
+                  />
+                </td>
+
+                {/* BİRİM */}
+                <td className="border text-center">{r.unit || "-"}</td>
+
+                {/* BİRİM FİYAT */}
+                <td className="border">
+                  <input
+                    type="number"
+                    className="w-full px-2 py-1"
+                    value={r.unitPrice}
+                    min={0}
+                    onChange={(e) => updateRow(i, "unitPrice", e.target.value)}
+                  />
+                </td>
+
+                {isVatVisible && (
+                  <>
+                    <td className="border text-right px-2">
+                      {fmt(r.netUnitPrice)} ₸
+                    </td>
+                    <td className="border text-right px-2">
+                      {fmt(r.vatUnitPrice)} ₸
+                    </td>
+                    <td className="border text-right px-2 font-medium">
+                      {fmt(r.grossUnitPrice)} ₸
+                    </td>
+
+                    <td className="border text-right px-2">
+                      {fmt(r.netLineTotal)} ₸
+                    </td>
+                    <td className="border text-right px-2">
+                      {fmt(r.vatLineTotal)} ₸
+                    </td>
+                  </>
+                )}
+
+                {/* SATIR TOPLAM (her durumda) */}
+                <td className="border text-right px-2 font-semibold">
+                  {fmt(r.grossLineTotal)} ₸
+                </td>
+
+                {/* SİL */}
+                <td className="border text-center">
+                  <button
+                    type="button"
+                    className="text-red-600"
+                    onClick={() => {
+                      const x = [...items];
+                      x.splice(i, 1);
+                      setItems(x);
+                    }}
+                  >
+                    Sil
+                  </button>
+                </td>
+              </tr>
+            ))}
+
+            {items.length === 0 && (
+              <tr>
+                <td
+                  colSpan={isVatVisible ? 11 : 6}
+                  className="border text-center py-6 text-gray-500"
+                >
+                  Henüz ürün eklenmedi.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Alt küçük bilgi */}
+      <div className="text-xs text-gray-600">
+        Kullanıcı sadece <strong>Miktar</strong> ve <strong>Birim Fiyat</strong>{" "}
+        girer. Diğer alanlar sistem tarafından hesaplanır.
+      </div>
     </div>
   );
 }
