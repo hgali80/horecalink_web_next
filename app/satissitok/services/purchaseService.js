@@ -1,46 +1,50 @@
 // app/satissitok/services/purchaseService.js
+// app/satissitok/services/purchaseService.js
 import {
   collection,
   doc,
   serverTimestamp,
   runTransaction,
-  addDoc,
 } from "firebase/firestore";
 import { db } from "@/firebase";
-import { addPurchaseStockMovements } from "./stockService";
+// import { addPurchaseStockMovements } from "./stockService"; // şimdilik kapalı
 
-function formatDocumentNo(type, seq) {
+function formatInvoiceNo(type, seq) {
   const year = new Date().getFullYear().toString().slice(-2);
-  return `${type === "official" ? "R" : "F"}-${year}${String(seq).padStart(6, "0")}`;
+  const prefix = type === "official" ? "R" : "F";
+  return `${prefix}-${year}${String(seq).padStart(6, "0")}`;
 }
 
 export async function createPurchase(payload) {
-  let purchaseId = null;
+  return await runTransaction(db, async (transaction) => {
+    const type = payload.purchaseType; // official | actual
 
-  // 1️⃣ SADECE SATINALMA + SAYAÇ TRANSACTION
-  purchaseId = await runTransaction(db, async (transaction) => {
-    const counterRef = doc(db, "purchase_counters", "main");
-    const counterSnap = await transaction.get(counterRef);
+    let invoiceNo = payload.invoiceNo?.trim();
 
-    const counters = counterSnap.exists()
-      ? counterSnap.data()
-      : { official: 0, actual: 0 };
+    // 🔢 SADECE BOŞSA SAYAÇTAN ÜRET
+    if (!invoiceNo) {
+      const counterRef = doc(db, "purchase_counters", "main");
+      const counterSnap = await transaction.get(counterRef);
 
-    const type = payload.purchaseType;
-    const nextSeq = (counters[type] || 0) + 1;
-    const documentNo = formatDocumentNo(type, nextSeq);
+      const counters = counterSnap.exists()
+        ? counterSnap.data()
+        : { official: 0, actual: 0 };
 
-    transaction.set(
-      counterRef,
-      { [type]: nextSeq },
-      { merge: true }
-    );
+      const nextSeq = (counters[type] || 0) + 1;
+      invoiceNo = formatInvoiceNo(type, nextSeq);
+
+      transaction.set(
+        counterRef,
+        { [type]: nextSeq },
+        { merge: true }
+      );
+    }
 
     const purchaseRef = doc(collection(db, "purchases"));
 
     const purchaseData = {
       supplierName: payload.supplierName || "",
-      documentNo,
+      invoiceNo, // ✅ ARTIK GERÇEK FATURA NO
       documentDate: payload.documentDate
         ? new Date(payload.documentDate)
         : null,
@@ -54,6 +58,7 @@ export async function createPurchase(payload) {
         productName: item.productName || "",
         unit: item.unit || "",
         qty: Number(item.qty) || 0,
+
         unitPrice: Number(item.unitPrice) || 0,
 
         netUnitPrice: Number(item.netUnitPrice) || 0,
@@ -76,15 +81,9 @@ export async function createPurchase(payload) {
 
     transaction.set(purchaseRef, purchaseData);
 
+    // stok hareketleri sonra açılacak
+    // await addPurchaseStockMovements(...)
+
     return purchaseRef.id;
   });
-
-  // 2️⃣ TRANSACTION DIŞINDA STOK HAREKETLERİ
-  //await addPurchaseStockMovements({
-  //  purchaseId,
-  //  purchaseType: payload.purchaseType,
-  //  items: payload.items,
- // });
-
-  return purchaseId;
 }
