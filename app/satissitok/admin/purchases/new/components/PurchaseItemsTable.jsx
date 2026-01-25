@@ -29,17 +29,20 @@ export default function PurchaseItemsTable({ onChange }) {
   }, [items, onChange]);
 
   const addRow = () => {
-    setItems([...items, {
-      productId: "",
-      productName: "",
-      unit: "",
-      qty: 1,
-      unitCost: 0,
-      vatType: "exclusive", // exclusive | inclusive
-      vatAmount: 0,
-      lineTotal: 0,
-      search: "",
-    }]);
+    setItems(prev => [
+      ...prev,
+      {
+        productId: "",
+        productName: "",
+        unit: "",
+        qty: 1,
+        unitCost: 0,
+        vatType: "exclusive", // exclusive | inclusive
+        vatAmount: 0,
+        lineTotal: 0,
+        search: "",
+      },
+    ]);
   };
 
   const calcRow = (row) => {
@@ -51,10 +54,10 @@ export default function PurchaseItemsTable({ onChange }) {
     let total = net;
 
     if (row.vatType === "exclusive") {
-      vat = net * vatRate / 100;
+      vat = (net * vatRate) / 100;
       total = net + vat;
     } else {
-      vat = net - (net / (1 + vatRate / 100));
+      vat = net - net / (1 + vatRate / 100);
       total = net;
     }
 
@@ -81,15 +84,23 @@ export default function PurchaseItemsTable({ onChange }) {
   };
 
   const filtered = (q) =>
-    !q ? products : products.filter(p =>
-      (p.name || "").toLowerCase().includes(q.toLowerCase())
-    );
+    !q
+      ? products
+      : products.filter(p =>
+          (p.name || "").toLowerCase().includes(q.toLowerCase())
+        );
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between">
+      <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Satınalma Kalemleri</h3>
-        <button onClick={addRow} className="px-3 py-1 bg-blue-600 text-white rounded">
+
+        {/* 🔴 KRİTİK FIX */}
+        <button
+          type="button"
+          onClick={addRow}
+          className="px-3 py-1 bg-blue-600 text-white rounded"
+        >
           + Ürün Ekle
         </button>
       </div>
@@ -111,14 +122,17 @@ export default function PurchaseItemsTable({ onChange }) {
         <tbody>
           {items.map((r, i) => (
             <tr key={i}>
+              {/* ÜRÜN */}
               <td className="border relative">
                 <input
+                  type="text"
                   className="w-full border px-2 py-1"
                   value={r.search}
                   placeholder="Ürün yazın..."
                   onFocus={() => setOpenIndex(i)}
                   onChange={e => updateRow(i, "search", e.target.value)}
                 />
+
                 {openIndex === i && (
                   <div className="absolute bg-white border w-full z-10 max-h-48 overflow-y-auto">
                     {filtered(r.search).map(p => (
@@ -134,20 +148,32 @@ export default function PurchaseItemsTable({ onChange }) {
                 )}
               </td>
 
+              {/* MİKTAR */}
               <td className="border">
-                <input type="number" className="w-full px-1"
+                <input
+                  type="number"
+                  className="w-full px-1"
                   value={r.qty}
-                  onChange={e => updateRow(i, "qty", e.target.value)} />
+                  onChange={e => updateRow(i, "qty", e.target.value)}
+                />
               </td>
 
-              <td className="border text-center">{r.unit}</td>
+              {/* BİRİM */}
+              <td className="border text-center">
+                {r.unit || "-"}
+              </td>
 
+              {/* BİRİM MALİYET */}
               <td className="border">
-                <input type="number" className="w-full px-1"
+                <input
+                  type="number"
+                  className="w-full px-1"
                   value={r.unitCost}
-                  onChange={e => updateRow(i, "unitCost", e.target.value)} />
+                  onChange={e => updateRow(i, "unitCost", e.target.value)}
+                />
               </td>
 
+              {/* KDV TİPİ */}
               <td className="border">
                 <select
                   className="w-full"
@@ -159,20 +185,27 @@ export default function PurchaseItemsTable({ onChange }) {
                 </select>
               </td>
 
+              {/* KDV TUTARI */}
               <td className="border text-right">
                 {r.vatAmount.toLocaleString()} ₸
               </td>
 
+              {/* TOPLAM */}
               <td className="border text-right font-semibold">
                 {r.lineTotal.toLocaleString()} ₸
               </td>
 
+              {/* SİL */}
               <td className="border text-center">
-                <button className="text-red-600" onClick={() => {
-                  const x = [...items];
-                  x.splice(i, 1);
-                  setItems(x);
-                }}>
+                <button
+                  type="button"
+                  className="text-red-600"
+                  onClick={() => {
+                    const x = [...items];
+                    x.splice(i, 1);
+                    setItems(x);
+                  }}
+                >
                   Sil
                 </button>
               </td>
