@@ -80,11 +80,11 @@ export async function createPurchase(payload) {
   });
 
   // 2️⃣ TRANSACTION DIŞINDA STOK HAREKETLERİ
-  await addPurchaseStockMovements({
-    purchaseId,
-    purchaseType: payload.purchaseType,
-    items: payload.items,
-  });
+  //await addPurchaseStockMovements({
+  //  purchaseId,
+  //  purchaseType: payload.purchaseType,
+  //  items: payload.items,
+ // });
 
   return purchaseId;
 }
