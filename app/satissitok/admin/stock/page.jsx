@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
+import Link from "next/link";
 import { db } from "@/firebase";
 
 function fmtMoney(n) {
@@ -90,7 +91,7 @@ export default function AdminStockPage() {
               <th className="border px-3 py-2">Fiili Stok</th>
               <th className="border px-3 py-2">Fiili Ort. Maliyet</th>
 
-              <th className="border px-3 py-2"></th>
+              <th className="border px-3 py-2">Detay</th>
             </tr>
           </thead>
 
@@ -122,13 +123,12 @@ export default function AdminStockPage() {
                 </td>
 
                 <td className="border px-3 py-2 text-center">
-                  <button
-                    disabled
-                    className="text-blue-600 opacity-50 cursor-not-allowed"
-                    title="Stok hareketleri (bir sonraki adım)"
+                  <Link
+                    href={`/satissitok/admin/stock/${r.id}`}
+                    className="text-blue-600 underline"
                   >
                     Detay
-                  </button>
+                  </Link>
                 </td>
               </tr>
             ))}
