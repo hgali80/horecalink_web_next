@@ -1,5 +1,4 @@
 // app/satissitok/admin/purchases/new/page.jsx
-// app/satissitok/admin/purchases/new/page.jsx
 "use client";
 
 import PurchaseForm from "./components/PurchaseForm";
@@ -8,11 +7,21 @@ import { createPurchase } from "@/app/satissitok/services/purchaseService";
 export default function NewPurchasePage() {
   const savePurchase = async (payload) => {
     try {
+      console.log("SUBMIT PAYLOAD >>>", payload);
+
       const id = await createPurchase(payload);
+
       alert(`Satınalma kaydedildi. ID: ${id}`);
     } catch (e) {
-      console.error(e);
-      alert("Kayıt sırasında hata oluştu.");
+      // 🔴 GERÇEK HATAYI SAKLAMA
+      console.error("PURCHASE ERROR >>>", e);
+
+      const message =
+        e?.message ||
+        e?.code ||
+        (typeof e === "string" ? e : JSON.stringify(e));
+
+      alert(`HATA:\n${message}`);
     }
   };
 
