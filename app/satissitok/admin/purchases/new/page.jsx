@@ -2,46 +2,61 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import PurchaseForm from "./components/PurchaseForm";
-import { createPurchase } from "@/app/satissitok/services/purchaseService";
+import PurchaseItemsTable from "./components/PurchaseItemsTable";
 
 export default function NewPurchasePage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState([]);
 
-  const handleSubmit = async (payload) => {
-    try {
-      setLoading(true);
+  // 🔹 SATIR BAZLI TOPLAMLAR
+  const netToplam = items.reduce(
+    (sum, i) => sum + (i.lineTotal - i.vatAmount),
+    0
+  );
 
-      await createPurchase(payload);
+  const kdvToplam = items.reduce(
+    (sum, i) => sum + i.vatAmount,
+    0
+  );
 
-      alert("Satınalma başarıyla kaydedildi.");
-      router.push("/satissitok/admin"); // ileride liste sayfasına yönlendirilebilir
-    } catch (error) {
-      console.error(error);
-      alert("Satınalma kaydedilirken hata oluştu.");
-    } finally {
-      setLoading(false);
+  const genelToplam = items.reduce(
+    (sum, i) => sum + i.lineTotal,
+    0
+  );
+
+  const savePurchase = async () => {
+    if (items.length === 0) {
+      alert("En az bir ürün eklemelisiniz.");
+      return;
     }
+
+    // Burada sadece KAYDETME yapılacak
+    // KDV HESABI YOK
+    alert("Satınalma kaydedildi (demo).");
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Yeni Satınalma</h1>
-        <p className="text-sm text-gray-500">
-          Resmi veya fiili satınalma faturası oluşturun.
-        </p>
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <h1 className="text-2xl font-bold">Yeni Satınalma</h1>
+
+      <PurchaseItemsTable onChange={setItems} />
+
+      {/* 🔽 TOPLAM ALANI */}
+      <div className="text-right space-y-1 text-lg">
+        <div>Net Toplam: {netToplam.toLocaleString()} ₸</div>
+        <div>KDV: {kdvToplam.toLocaleString()} ₸</div>
+        <div className="font-bold">
+          Genel Toplam: {genelToplam.toLocaleString()} ₸
+        </div>
       </div>
 
-      {loading && (
-        <div className="text-blue-600 text-sm">
-          Kaydediliyor, lütfen bekleyin...
-        </div>
-      )}
-
-      <PurchaseForm onSubmit={handleSubmit} />
+      <div className="text-right">
+        <button
+          onClick={savePurchase}
+          className="px-6 py-2 bg-green-600 text-white rounded"
+        >
+          Satınalma Kaydet
+        </button>
+      </div>
     </div>
   );
 }
