@@ -8,14 +8,36 @@ import {
 import { db } from "@/firebase";
 import { addPurchaseStockMovements } from "./stockService";
 
+/**
+ * Evrak numarası üretir
+ * R-26000001 / F-26000001
+ */
 function formatDocumentNo(type, seq) {
   const year = new Date().getFullYear().toString().slice(-2);
-  return `${type === "official" ? "R" : "F"}-${year}${String(seq).padStart(6, "0")}`;
+  const prefix = type === "official" ? "R" : "F";
+  return `${prefix}-${year}${String(seq).padStart(6, "0")}`;
+}
+
+/**
+ * ISO tarih güvenli parse
+ */
+function safeDate(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 export async function createPurchase(payload) {
-  return await runTransaction(db, async (transaction) => {
-    // 1️⃣ Sayaç oku
+  // 🔒 purchaseType doğrulama
+  const rawType = String(payload.purchaseType || "").trim();
+  if (!["official", "actual"].includes(rawType)) {
+    throw new Error("Geçersiz purchaseType");
+  }
+  const type = rawType;
+
+  // 1️⃣ TRANSACTION: sayaç + purchase
+  const purchaseId = await runTransaction(db, async (transaction) => {
+    // Sayaç
     const counterRef = doc(db, "purchase_counters", "main");
     const counterSnap = await transaction.get(counterRef);
 
@@ -23,26 +45,22 @@ export async function createPurchase(payload) {
       ? counterSnap.data()
       : { official: 0, actual: 0 };
 
-    const type = payload.purchaseType; // official | actual
-    const nextSeq = (counters[type] || 0) + 1;
+    const nextSeq = Number(counters[type] || 0) + 1;
     const documentNo = formatDocumentNo(type, nextSeq);
 
-    // 2️⃣ Sayaç güncelle
     transaction.set(
       counterRef,
       { [type]: nextSeq },
       { merge: true }
     );
 
-    // 3️⃣ Satınalma belgesi
+    // Purchase belgesi
     const purchaseRef = doc(collection(db, "purchases"));
 
-    const purchaseData = {
+    transaction.set(purchaseRef, {
       supplierName: payload.supplierName || "",
       documentNo,
-      documentDate: payload.documentDate
-        ? new Date(payload.documentDate) // ISO beklenir: YYYY-MM-DD
-        : null,
+      documentDate: safeDate(payload.documentDate),
 
       purchaseType: type,
       taxRate: type === "official" ? Number(payload.taxRate || 0) : 0,
@@ -72,18 +90,17 @@ export async function createPurchase(payload) {
       },
 
       createdAt: serverTimestamp(),
-    };
-
-    transaction.set(purchaseRef, purchaseData);
-
-    // 4️⃣ Stok hareketleri
-    await addPurchaseStockMovements({
-      transaction,
-      purchaseId: purchaseRef.id,
-      purchaseType: type,
-      items: payload.items,
     });
 
     return purchaseRef.id;
   });
+
+  // 2️⃣ TRANSACTION DIŞI: stok hareketleri
+  await addPurchaseStockMovements({
+    purchaseId,
+    purchaseType: type,
+    items: payload.items,
+  });
+
+  return purchaseId;
 }
