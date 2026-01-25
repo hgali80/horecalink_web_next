@@ -15,13 +15,6 @@ function fmt(n) {
   return x.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-/**
- * Props:
- * - onChange(items)
- * - vatRate: number (e.g. 16)
- * - vatMode: "inclusive" | "exclusive"
- * - hideVat: boolean (true when purchaseType === "actual")
- */
 export default function PurchaseItemsTable({
   onChange,
   vatRate = 0,
@@ -34,8 +27,8 @@ export default function PurchaseItemsTable({
 
   useEffect(() => {
     const load = async () => {
-      const pSnap = await getDocs(collection(db, "products"));
-      setProducts(pSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const snap = await getDocs(collection(db, "products"));
+      setProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
     load();
   }, []);
@@ -132,7 +125,6 @@ export default function PurchaseItemsTable({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Satınalma Kalemleri</h3>
-
         <button
           type="button"
           onClick={addRow}
@@ -142,9 +134,9 @@ export default function PurchaseItemsTable({
         </button>
       </div>
 
-      {/* 🔴 KRİTİK DÜZELTME BURADA */}
-      <div className="w-full overflow-x-auto overflow-y-visible">
-        <table className="min-w-[1100px] w-full border text-sm">
+      {/* ✅ TABLOYU SARAN ALAN VAR, AMA OVERFLOW YOK */}
+      <div className="w-full">
+        <table className="w-full border text-sm table-fixed border-collapse">
           <thead className="bg-gray-100">
             <tr>
               <th className="border w-[28%]">Ürün</th>
@@ -162,9 +154,7 @@ export default function PurchaseItemsTable({
                 </>
               )}
 
-              <th className="border w-[12%]">
-                {vatMode === "exclusive" ? "Toplam (KDV Dahil)" : "Toplam"}
-              </th>
+              <th className="border w-[12%]">Toplam</th>
               <th className="border w-[4%]"></th>
             </tr>
           </thead>
@@ -175,20 +165,24 @@ export default function PurchaseItemsTable({
                 <td className="border relative">
                   <input
                     type="text"
-                    className="w-full border px-2 py-1"
+                    className="w-full h-9 px-2 text-sm border"
                     value={r.search}
                     placeholder="Ürün yazın..."
                     onFocus={() => setOpenIndex(i)}
+                    onBlur={() => setTimeout(() => setOpenIndex(null), 150)}
                     onChange={(e) => updateRow(i, "search", e.target.value)}
                   />
 
                   {openIndex === i && (
-                    <div className="absolute bg-white border w-full z-10 max-h-48 overflow-y-auto">
+                    <div className="absolute left-0 top-full mt-1 bg-white border w-full z-50 max-h-64 overflow-y-auto shadow">
                       {filtered(r.search).map((p) => (
                         <div
                           key={p.id}
-                          className="px-2 py-1 hover:bg-blue-100 cursor-pointer"
-                          onMouseDown={() => selectProduct(i, p)}
+                          className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            selectProduct(i, p);
+                          }}
                         >
                           {p.name}
                         </div>
@@ -200,7 +194,7 @@ export default function PurchaseItemsTable({
                 <td className="border">
                   <input
                     type="number"
-                    className="w-full px-2 py-1"
+                    className="w-full h-9 px-2 text-sm border-0"
                     value={r.qty}
                     min={0}
                     onChange={(e) => updateRow(i, "qty", e.target.value)}
@@ -212,7 +206,7 @@ export default function PurchaseItemsTable({
                 <td className="border">
                   <input
                     type="number"
-                    className="w-full px-2 py-1"
+                    className="w-full h-9 px-2 text-sm border-0"
                     value={r.unitPrice}
                     min={0}
                     onChange={(e) => updateRow(i, "unitPrice", e.target.value)}
@@ -223,9 +217,7 @@ export default function PurchaseItemsTable({
                   <>
                     <td className="border text-right px-2">{fmt(r.netUnitPrice)} ₸</td>
                     <td className="border text-right px-2">{fmt(r.vatUnitPrice)} ₸</td>
-                    <td className="border text-right px-2 font-medium">
-                      {fmt(r.grossUnitPrice)} ₸
-                    </td>
+                    <td className="border text-right px-2">{fmt(r.grossUnitPrice)} ₸</td>
                     <td className="border text-right px-2">{fmt(r.netLineTotal)} ₸</td>
                     <td className="border text-right px-2">{fmt(r.vatLineTotal)} ₸</td>
                   </>
@@ -253,10 +245,7 @@ export default function PurchaseItemsTable({
 
             {items.length === 0 && (
               <tr>
-                <td
-                  colSpan={isVatVisible ? 11 : 6}
-                  className="border text-center py-6 text-gray-500"
-                >
+                <td colSpan={isVatVisible ? 11 : 6} className="border text-center py-6 text-gray-500">
                   Henüz ürün eklenmedi.
                 </td>
               </tr>
@@ -266,9 +255,8 @@ export default function PurchaseItemsTable({
       </div>
 
       <div className="text-xs text-gray-600">
-        Kullanıcı sadece <strong>Miktar</strong> ve{" "}
-        <strong>Birim Fiyat</strong> girer. Diğer alanlar sistem tarafından
-        hesaplanır.
+        Kullanıcı sadece <strong>Miktar</strong> ve <strong>Birim Fiyat</strong> girer.
+        Diğer alanlar sistem tarafından hesaplanır.
       </div>
     </div>
   );

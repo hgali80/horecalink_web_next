@@ -1,4 +1,5 @@
 // app/satissitok/admin/purchases/new/page.jsx
+// app/satissitok/admin/purchases/new/page.jsx
 "use client";
 
 import PurchaseForm from "./components/PurchaseForm";
