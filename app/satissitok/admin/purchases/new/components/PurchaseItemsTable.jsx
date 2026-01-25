@@ -1,5 +1,4 @@
 //app/satissitok/admin/purchases/new/components/PurchaseItemsTable.jsx
-// app/satissitok/admin/purchases/new/components/PurchaseItemsTable.jsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -55,8 +54,7 @@ export default function PurchaseItemsTable({
         productName: "",
         unit: "",
         qty: 1,
-        unitPrice: 0, // Kullanıcının girdiği fiyat (KDV tipi üstte seçili)
-        // Hesaplananlar:
+        unitPrice: 0,
         netUnitPrice: 0,
         vatUnitPrice: 0,
         grossUnitPrice: 0,
@@ -79,17 +77,14 @@ export default function PurchaseItemsTable({
     let grossUnit = 0;
 
     if (r === 0) {
-      // Fiili veya KDV 0
       netUnit = unitPrice;
       vatUnit = 0;
       grossUnit = unitPrice;
     } else if (vatMode === "exclusive") {
-      // Girilen fiyat: NET
       netUnit = unitPrice;
       vatUnit = unitPrice * (r / 100);
       grossUnit = netUnit + vatUnit;
     } else {
-      // vatMode === "inclusive" -> Girilen fiyat: BRÜT
       grossUnit = unitPrice;
       netUnit = grossUnit / factor;
       vatUnit = grossUnit - netUnit;
@@ -147,7 +142,8 @@ export default function PurchaseItemsTable({
         </button>
       </div>
 
-      <div className="w-full overflow-x-auto">
+      {/* 🔴 KRİTİK DÜZELTME BURADA */}
+      <div className="w-full overflow-x-auto overflow-y-visible">
         <table className="min-w-[1100px] w-full border text-sm">
           <thead className="bg-gray-100">
             <tr>
@@ -176,7 +172,6 @@ export default function PurchaseItemsTable({
           <tbody>
             {items.map((r, i) => (
               <tr key={i}>
-                {/* ÜRÜN */}
                 <td className="border relative">
                   <input
                     type="text"
@@ -202,7 +197,6 @@ export default function PurchaseItemsTable({
                   )}
                 </td>
 
-                {/* MİKTAR */}
                 <td className="border">
                   <input
                     type="number"
@@ -213,10 +207,8 @@ export default function PurchaseItemsTable({
                   />
                 </td>
 
-                {/* BİRİM */}
                 <td className="border text-center">{r.unit || "-"}</td>
 
-                {/* BİRİM FİYAT */}
                 <td className="border">
                   <input
                     type="number"
@@ -229,31 +221,20 @@ export default function PurchaseItemsTable({
 
                 {isVatVisible && (
                   <>
-                    <td className="border text-right px-2">
-                      {fmt(r.netUnitPrice)} ₸
-                    </td>
-                    <td className="border text-right px-2">
-                      {fmt(r.vatUnitPrice)} ₸
-                    </td>
+                    <td className="border text-right px-2">{fmt(r.netUnitPrice)} ₸</td>
+                    <td className="border text-right px-2">{fmt(r.vatUnitPrice)} ₸</td>
                     <td className="border text-right px-2 font-medium">
                       {fmt(r.grossUnitPrice)} ₸
                     </td>
-
-                    <td className="border text-right px-2">
-                      {fmt(r.netLineTotal)} ₸
-                    </td>
-                    <td className="border text-right px-2">
-                      {fmt(r.vatLineTotal)} ₸
-                    </td>
+                    <td className="border text-right px-2">{fmt(r.netLineTotal)} ₸</td>
+                    <td className="border text-right px-2">{fmt(r.vatLineTotal)} ₸</td>
                   </>
                 )}
 
-                {/* SATIR TOPLAM (her durumda) */}
                 <td className="border text-right px-2 font-semibold">
                   {fmt(r.grossLineTotal)} ₸
                 </td>
 
-                {/* SİL */}
                 <td className="border text-center">
                   <button
                     type="button"
@@ -284,10 +265,10 @@ export default function PurchaseItemsTable({
         </table>
       </div>
 
-      {/* Alt küçük bilgi */}
       <div className="text-xs text-gray-600">
-        Kullanıcı sadece <strong>Miktar</strong> ve <strong>Birim Fiyat</strong>{" "}
-        girer. Diğer alanlar sistem tarafından hesaplanır.
+        Kullanıcı sadece <strong>Miktar</strong> ve{" "}
+        <strong>Birim Fiyat</strong> girer. Diğer alanlar sistem tarafından
+        hesaplanır.
       </div>
     </div>
   );
