@@ -7,10 +7,33 @@ import {
 import { db } from "@/firebase";
 
 /**
- * Satınalma sonrası stok hareketlerini oluşturur
- * Her ürün için +qty ledger kaydı
+ * READ PHASE
+ * Gerekli stock_balances dokümanlarını okur
  */
-export async function addPurchaseStockMovements({
+export async function readStockBalancesForPurchase({
+  transaction,
+  items,
+}) {
+  const map = {};
+
+  for (const item of items || []) {
+    if (!item?.productId) continue;
+    if (map[item.productId]) continue;
+
+    const ref = doc(db, "stock_balances", item.productId);
+    const snap = await transaction.get(ref);
+
+    map[item.productId] = snap.exists() ? snap.data() : {};
+  }
+
+  return map;
+}
+
+/**
+ * WRITE PHASE
+ * Satınalma stok hareketlerini yazar
+ */
+export function writePurchaseStockMovements({
   transaction,
   purchaseId,
   purchaseType,
@@ -26,29 +49,25 @@ export async function addPurchaseStockMovements({
     if (!item.productId || !item.qty) return;
 
     const qty = Number(item.qty) || 0;
-
-    // NET maliyet (KDV hariç) — PurchaseItemsTable zaten netUnitPrice hesaplıyor
-    const unitCost = Number(
-      item.netUnitPrice ?? item.unitPrice ?? 0
-    ) || 0;
+    const unitCost =
+      Number(item.netUnitPrice ?? item.unitPrice ?? 0) || 0;
 
     const totalCost = Math.round(qty * unitCost * 100) / 100;
 
-    const stockRef = doc(stockCollection);
+    const ref = doc(stockCollection);
 
-    transaction.set(stockRef, {
+    transaction.set(ref, {
       productId: item.productId,
       productName: item.productName || "",
       unit: item.unit || "",
 
-      qty: Number(item.qty), // + stok
+      qty,
       type: "purchase",
       purchaseId,
-      purchaseType, // official | actual
+      purchaseType,
 
-      // 🔥 Maliyet + meta (sonradan rapor/ekstre için)
-      unitCost,            // NET birim maliyet
-      totalCost,           // qty * unitCost
+      unitCost,
+      totalCost,
       currency,
 
       supplierName: supplierName || "",
@@ -61,13 +80,15 @@ export async function addPurchaseStockMovements({
 }
 
 /**
- * Satınalma sonrası stok özetini günceller (weighted average cost)
- * Resmi ve Fiili ayrı havuz: stock_balances/{productId}.{official|actual}
+ * WRITE PHASE
+ * Ortalama maliyet (weighted average)
+ * official / actual ayrı havuz
  */
-export async function applyPurchaseToStockBalances({
+export function writeStockBalancesWithAvgCost({
   transaction,
-  purchaseType, // official | actual
+  purchaseType,
   items,
+  existingBalances,
 }) {
   const bucketKey = purchaseType === "official" ? "official" : "actual";
 
@@ -77,32 +98,27 @@ export async function applyPurchaseToStockBalances({
     const inQty = Number(item.qty) || 0;
     if (!inQty) continue;
 
-    const unitCost = Number(item.netUnitPrice ?? item.unitPrice ?? 0) || 0;
+    const unitCost =
+      Number(item.netUnitPrice ?? item.unitPrice ?? 0) || 0;
 
-    const balanceRef = doc(db, "stock_balances", item.productId);
-    const balanceSnap = await transaction.get(balanceRef);
-    const balanceData = balanceSnap.exists() ? balanceSnap.data() : {};
-
-    const bucket = balanceData?.[bucketKey] || {};
-    const oldQty = Number(bucket.qty) || 0;
-    const oldAvg = Number(bucket.avgCost) || 0;
+    const prev = existingBalances[item.productId]?.[bucketKey] || {};
+    const oldQty = Number(prev.qty) || 0;
+    const oldAvg = Number(prev.avgCost) || 0;
 
     const newQty = oldQty + inQty;
 
-    // Weighted Average:
-    // newAvg = (oldQty*oldAvg + inQty*unitCost) / newQty
     let newAvg = 0;
     if (newQty > 0) {
-      newAvg = (oldQty * oldAvg + inQty * unitCost) / newQty;
-    } else {
-      newAvg = 0;
+      newAvg =
+        (oldQty * oldAvg + inQty * unitCost) / newQty;
     }
 
-    // rounding (2 decimals)
     newAvg = Math.round(newAvg * 100) / 100;
 
+    const ref = doc(db, "stock_balances", item.productId);
+
     transaction.set(
-      balanceRef,
+      ref,
       {
         [bucketKey]: {
           qty: newQty,
@@ -112,8 +128,5 @@ export async function applyPurchaseToStockBalances({
       },
       { merge: true }
     );
-
-    // İstersen toplam stok görebilmek için genel alanlar da yazabiliriz (opsiyonel).
-    // Şimdilik dokunmuyoruz.
   }
 }
