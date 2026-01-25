@@ -19,7 +19,7 @@ export default function PurchaseItemsTable({
   onChange,
   vatRate = 0,
   vatMode = "inclusive",
-  hideVat = false,
+  hideVat = false, // fiili fatura = true
 }) {
   const [products, setProducts] = useState([]);
   const [items, setItems] = useState([]);
@@ -37,8 +37,6 @@ export default function PurchaseItemsTable({
     onChange(items);
   }, [items, onChange]);
 
-  const effectiveVatRate = hideVat ? 0 : Number(vatRate || 0);
-
   const addRow = () => {
     setItems((prev) => [
       ...prev,
@@ -48,32 +46,46 @@ export default function PurchaseItemsTable({
         unit: "",
         qty: 1,
         unitPrice: 0,
+
         netUnitPrice: 0,
         vatUnitPrice: 0,
         grossUnitPrice: 0,
+
         netLineTotal: 0,
         vatLineTotal: 0,
         grossLineTotal: 0,
+
         search: "",
       },
     ]);
   };
 
+  // 🔴 KRİTİK DÜZELTME: FİİLİ / RESMİ AYRIMI
   const calcRow = (row) => {
     const qty = Number(row.qty) || 0;
     const unitPrice = Number(row.unitPrice) || 0;
-    const r = Number(effectiveVatRate) || 0;
+
+    // ✅ FİİLİ FATURA → KDV YOK
+    if (hideVat === true) {
+      row.netUnitPrice = round2(unitPrice);
+      row.vatUnitPrice = 0;
+      row.grossUnitPrice = round2(unitPrice);
+
+      row.netLineTotal = round2(qty * unitPrice);
+      row.vatLineTotal = 0;
+      row.grossLineTotal = round2(qty * unitPrice);
+      return;
+    }
+
+    // ✅ RESMİ FATURA → KDV VAR
+    const r = Number(vatRate || 0);
     const factor = 1 + r / 100;
 
     let netUnit = 0;
     let vatUnit = 0;
     let grossUnit = 0;
 
-    if (r === 0) {
-      netUnit = unitPrice;
-      vatUnit = 0;
-      grossUnit = unitPrice;
-    } else if (vatMode === "exclusive") {
+    if (vatMode === "exclusive") {
       netUnit = unitPrice;
       vatUnit = unitPrice * (r / 100);
       grossUnit = netUnit + vatUnit;
@@ -134,28 +146,27 @@ export default function PurchaseItemsTable({
         </button>
       </div>
 
-      {/* ✅ TABLOYU SARAN ALAN VAR, AMA OVERFLOW YOK */}
       <div className="w-full">
-        <table className="w-full border text-sm table-fixed border-collapse">
+        <table className="w-full border text-sm border-collapse">
           <thead className="bg-gray-100">
             <tr>
-              <th className="border w-[28%]">Ürün</th>
-              <th className="border w-[7%]">Miktar</th>
-              <th className="border w-[7%]">Birim</th>
-              <th className="border w-[10%]">Birim Fiyat</th>
+              <th className="border w-[30%]">Ürün</th>
+              <th className="border">Miktar</th>
+              <th className="border">Birim</th>
+              <th className="border">Birim Fiyat</th>
 
               {isVatVisible && (
                 <>
-                  <th className="border w-[10%]">KDV’siz Birim</th>
-                  <th className="border w-[10%]">KDV Birim</th>
-                  <th className="border w-[10%]">Toplam Birim</th>
-                  <th className="border w-[10%]">KDV’siz Toplam</th>
-                  <th className="border w-[10%]">KDV Toplam</th>
+                  <th className="border">KDV’siz Birim</th>
+                  <th className="border">KDV Birim</th>
+                  <th className="border">Toplam Birim</th>
+                  <th className="border">KDV’siz Toplam</th>
+                  <th className="border">KDV Toplam</th>
                 </>
               )}
 
-              <th className="border w-[12%]">Toplam</th>
-              <th className="border w-[4%]"></th>
+              <th className="border">Toplam</th>
+              <th className="border"></th>
             </tr>
           </thead>
 
@@ -165,7 +176,7 @@ export default function PurchaseItemsTable({
                 <td className="border relative">
                   <input
                     type="text"
-                    className="w-full h-9 px-2 text-sm border"
+                    className="w-full px-2 py-1 border"
                     value={r.search}
                     placeholder="Ürün yazın..."
                     onFocus={() => setOpenIndex(i)}
@@ -174,11 +185,11 @@ export default function PurchaseItemsTable({
                   />
 
                   {openIndex === i && (
-                    <div className="absolute left-0 top-full mt-1 bg-white border w-full z-50 max-h-64 overflow-y-auto shadow">
+                    <div className="absolute left-0 top-full mt-1 bg-white border w-full z-50 max-h-64 overflow-y-auto">
                       {filtered(r.search).map((p) => (
                         <div
                           key={p.id}
-                          className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
+                          className="px-2 py-2 hover:bg-blue-100 cursor-pointer"
                           onMouseDown={(e) => {
                             e.preventDefault();
                             selectProduct(i, p);
@@ -194,7 +205,7 @@ export default function PurchaseItemsTable({
                 <td className="border">
                   <input
                     type="number"
-                    className="w-full h-9 px-2 text-sm border-0"
+                    className="w-full px-2 py-1"
                     value={r.qty}
                     min={0}
                     onChange={(e) => updateRow(i, "qty", e.target.value)}
@@ -206,7 +217,7 @@ export default function PurchaseItemsTable({
                 <td className="border">
                   <input
                     type="number"
-                    className="w-full h-9 px-2 text-sm border-0"
+                    className="w-full px-2 py-1"
                     value={r.unitPrice}
                     min={0}
                     onChange={(e) => updateRow(i, "unitPrice", e.target.value)}
@@ -242,21 +253,8 @@ export default function PurchaseItemsTable({
                 </td>
               </tr>
             ))}
-
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={isVatVisible ? 11 : 6} className="border text-center py-6 text-gray-500">
-                  Henüz ürün eklenmedi.
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
-      </div>
-
-      <div className="text-xs text-gray-600">
-        Kullanıcı sadece <strong>Miktar</strong> ve <strong>Birim Fiyat</strong> girer.
-        Diğer alanlar sistem tarafından hesaplanır.
       </div>
     </div>
   );
