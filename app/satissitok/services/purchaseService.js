@@ -1,4 +1,6 @@
 // app/satissitok/services/purchaseService.js
+// app/satissitok/services/purchaseService.js
+
 import {
   collection,
   doc,
@@ -26,11 +28,11 @@ export async function createPurchase(payload) {
     // 🔵 invoiceNo / documentNo uyumu
     let invoiceNo = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
 
-    // =====================
-    // READ PHASE
-    // =====================
+    /* =====================
+       READ PHASE
+    ===================== */
 
-    // sayaç oku
+    // 🔹 Sayaç oku
     let nextSeq = null;
     if (!invoiceNo) {
       const counterRef = doc(db, "purchase_counters", "main");
@@ -44,17 +46,18 @@ export async function createPurchase(payload) {
       invoiceNo = formatInvoiceNo(type, nextSeq);
     }
 
-    // stock balances oku
+    // 🔹 Stok bakiyeleri oku
     const existingBalances =
       await readStockBalancesForPurchase({
         transaction,
         items: payload.items || [],
       });
 
-    // =====================
-    // WRITE PHASE
-    // =====================
+    /* =====================
+       WRITE PHASE
+    ===================== */
 
+    // 🔹 Sayaç güncelle
     if (nextSeq !== null) {
       const counterRef = doc(db, "purchase_counters", "main");
       transaction.set(
@@ -64,10 +67,13 @@ export async function createPurchase(payload) {
       );
     }
 
+    // 🔹 Satınalma kaydı
     const purchaseRef = doc(collection(db, "purchases"));
 
     transaction.set(purchaseRef, {
       supplierName: payload.supplierName || "",
+      supplierCariId: payload.supplierCariId || null,
+
       invoiceNo,
       documentNo: invoiceNo,
 
@@ -85,6 +91,7 @@ export async function createPurchase(payload) {
       createdAt: serverTimestamp(),
     });
 
+    // 🔹 STOK HAREKETLERİ
     writePurchaseStockMovements({
       transaction,
       purchaseId: purchaseRef.id,
@@ -96,12 +103,45 @@ export async function createPurchase(payload) {
       currency: "KZT",
     });
 
+    // 🔹 STOK BAKİYELERİ (ORT. MALİYET)
     writeStockBalancesWithAvgCost({
       transaction,
       purchaseType: type,
       items: payload.items || [],
       existingBalances,
     });
+
+    // 🔹 CARİ HAREKET (OPSİYONEL – GÜVENLİ)
+    if (payload.supplierCariId) {
+      const cariTxRef = doc(collection(db, "cari_transactions"));
+
+      transaction.set(cariTxRef, {
+        cariId: payload.supplierCariId,
+
+        operationDate: payload.documentDate
+          ? new Date(payload.documentDate)
+          : null,
+
+        dueDate: null,
+
+        operationType: "purchase_invoice",
+        operationCategory:
+          payload.operationCategory || "trade_goods",
+
+        documentNo: invoiceNo,
+
+        debit: 0,
+        credit: Number(payload.totals?.gross || 0),
+
+        currency: "KZT",
+
+        description:
+          payload.description ||
+          "Satınalma faturası",
+
+        createdAt: serverTimestamp(),
+      });
+    }
 
     return purchaseRef.id;
   });
