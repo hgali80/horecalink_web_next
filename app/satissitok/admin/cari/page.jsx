@@ -46,7 +46,12 @@ export default function CariListPage() {
           {rows.map((r) => (
             <tr key={r.id} className="hover:bg-gray-50">
               <td className="border px-3 py-2 font-medium">
-                {r.firm}
+                <Link
+                  href={`/satissitok/admin/cari/${r.id}`}
+                  className="text-blue-600 underline"
+                >
+                  {r.firm}
+                </Link>
               </td>
               <td className="border px-3 py-2 text-center">
                 {r.type}
