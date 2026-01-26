@@ -17,9 +17,11 @@ function fmtMoney(n) {
 export default function AdminStockPage() {
   const [products, setProducts] = useState([]);
   const [balances, setBalances] = useState({});
+  const [movementCounts, setMovementCounts] = useState({});
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Ürünleri yükle
+  // 🔹 Ürünler
   useEffect(() => {
     const loadProducts = async () => {
       const snap = await getDocs(collection(db, "products"));
@@ -30,11 +32,10 @@ export default function AdminStockPage() {
         }))
       );
     };
-
     loadProducts();
   }, []);
 
-  // 🔹 Stok bakiyelerini yükle
+  // 🔹 Stok bakiyeleri
   useEffect(() => {
     const loadBalances = async () => {
       const snap = await getDocs(collection(db, "stock_balances"));
@@ -43,28 +44,51 @@ export default function AdminStockPage() {
         map[d.id] = d.data();
       });
       setBalances(map);
-      setLoading(false);
     };
-
     loadBalances();
   }, []);
 
+  // 🔹 Stok hareket sayıları (SEÇENEK A)
+  useEffect(() => {
+    const loadMovements = async () => {
+      const snap = await getDocs(collection(db, "stock_movements"));
+      const counts = {};
+      snap.docs.forEach((d) => {
+        const { productId } = d.data();
+        if (!productId) return;
+        counts[productId] = (counts[productId] || 0) + 1;
+      });
+      setMovementCounts(counts);
+      setLoading(false);
+    };
+    loadMovements();
+  }, []);
+
   const rows = useMemo(() => {
-    return products.map((p) => {
-      const b = balances[p.id] || {};
-      return {
-        id: p.id,
-        name: p.name || "-",
-        unit: p.unit || "-",
+    return products
+      .map((p) => {
+        const b = balances[p.id] || {};
+        return {
+          id: p.id,
+          name: p.name || "-",
+          unit: p.unit || "-",
 
-        officialQty: b?.official?.qty || 0,
-        officialAvg: b?.official?.avgCost || 0,
+          officialQty: b?.official?.qty || 0,
+          officialAvg: b?.official?.avgCost || 0,
 
-        actualQty: b?.actual?.qty || 0,
-        actualAvg: b?.actual?.avgCost || 0,
-      };
-    });
-  }, [products, balances]);
+          actualQty: b?.actual?.qty || 0,
+          actualAvg: b?.actual?.avgCost || 0,
+
+          movementCount: movementCounts[p.id] || 0,
+        };
+      })
+      // 🔍 Arama
+      .filter((r) =>
+        r.name.toLowerCase().includes(search.toLowerCase())
+      )
+      // 🔽 Hareket sayısına göre sırala
+      .sort((a, b) => b.movementCount - a.movementCount);
+  }, [products, balances, movementCounts, search]);
 
   if (loading) {
     return (
@@ -77,6 +101,15 @@ export default function AdminStockPage() {
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <h1 className="text-2xl font-bold">Stok Durumu</h1>
+
+      {/* 🔍 Arama */}
+      <input
+        type="text"
+        placeholder="Ürün ara (örn: tuvalet)"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full max-w-md border px-3 py-2 rounded"
+      />
 
       <div className="overflow-x-auto">
         <table className="w-full border border-collapse text-sm">
@@ -91,6 +124,7 @@ export default function AdminStockPage() {
               <th className="border px-3 py-2">Fiili Stok</th>
               <th className="border px-3 py-2">Fiili Ort. Maliyet</th>
 
+              <th className="border px-3 py-2">Hareket</th>
               <th className="border px-3 py-2">Detay</th>
             </tr>
           </thead>
@@ -123,6 +157,10 @@ export default function AdminStockPage() {
                 </td>
 
                 <td className="border px-3 py-2 text-center">
+                  {r.movementCount}
+                </td>
+
+                <td className="border px-3 py-2 text-center">
                   <Link
                     href={`/satissitok/admin/stock/${r.id}`}
                     className="text-blue-600 underline"
@@ -136,10 +174,10 @@ export default function AdminStockPage() {
             {rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="border px-3 py-6 text-center text-gray-500"
                 >
-                  Stok kaydı bulunamadı.
+                  Kayıt bulunamadı.
                 </td>
               </tr>
             )}
