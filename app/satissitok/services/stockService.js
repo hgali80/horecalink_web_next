@@ -138,7 +138,7 @@ export function writeStockBalancesWithAvgCost({
 export async function readStockBalancesForSale({
   transaction,
   items,
-  saleType,
+  saleType, // "official" | "actual"
 }) {
   const map = {};
   const bucketKey = saleType === "official" ? "official" : "actual";
@@ -185,10 +185,9 @@ export function writeSaleStockMovements({
 
     transaction.set(ref, {
       productId: item.productId,
-      qty: -qty,
+      qty: -qty, // 🔴 satış = negatif
       type: "sale",
       saleId,
-      saleType, // 🔴 normalize edildi
       bucket: bucketKey,
 
       unitCost: item.costAtSale || 0,
@@ -207,7 +206,7 @@ export function writeStockBalancesAfterSale({
   transaction,
   saleType,
   items,
-  saleBalances,
+  existingBalances,
 }) {
   const bucketKey = saleType === "official" ? "official" : "actual";
 
@@ -217,7 +216,7 @@ export function writeStockBalancesAfterSale({
     const outQty = Number(item.quantity) || 0;
     if (!outQty) continue;
 
-    const prev = saleBalances[item.productId] || {};
+    const prev = existingBalances[item.productId] || {};
     const oldQty = Number(prev.qty) || 0;
 
     if (oldQty < outQty) {
@@ -232,7 +231,7 @@ export function writeStockBalancesAfterSale({
       {
         [bucketKey]: {
           qty: newQty,
-          avgCost: prev.avgCost,
+          avgCost: prev.avgCost, // 🔴 satışta avg değişmez
           updatedAt: serverTimestamp(),
         },
       },
@@ -249,7 +248,7 @@ export function writeStockBalancesAfterReturn({
   transaction,
   saleType,
   items,
-  saleBalances,
+  existingBalances,
 }) {
   const bucketKey = saleType === "official" ? "official" : "actual";
 
@@ -259,7 +258,7 @@ export function writeStockBalancesAfterReturn({
     const qty = Number(item.quantity) || 0;
     if (!qty) continue;
 
-    const prev = saleBalances[item.productId] || {};
+    const prev = existingBalances[item.productId] || {};
     const oldQty = Number(prev.qty) || 0;
 
     const newQty = oldQty + qty;

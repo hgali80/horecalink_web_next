@@ -1,16 +1,14 @@
-//app/satissitok/admin/settings/page.jsx
+// app/satissitok/admin/settings/page.jsx
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  getSettings,
-  saveSettings,
-} from "@/app/satissitok/services/settingsService";
+import { getSettings, saveSettings } from "@/app/satissitok/services/settingsService";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
 
   const [units, setUnits] = useState([]);
+  const [platforms, setPlatforms] = useState([]);
   const [vatRates, setVatRates] = useState([]);
   const [incomeRates, setIncomeRates] = useState([]);
 
@@ -20,37 +18,30 @@ export default function SettingsPage() {
     const load = async () => {
       try {
         const s = await getSettings();
-
         if (!alive) return;
 
         setUnits(Array.isArray(s.units) ? s.units : []);
+        setPlatforms(Array.isArray(s.platforms) ? s.platforms : []);
         setVatRates(Array.isArray(s.taxes?.vat) ? s.taxes.vat : []);
-        setIncomeRates(
-          Array.isArray(s.taxes?.income) ? s.taxes.income : []
-        );
+        setIncomeRates(Array.isArray(s.taxes?.income) ? s.taxes.income : []);
       } catch (err) {
         console.error("SETTINGS PAGE LOAD ERROR:", err);
-        alert("Ayarlar yüklenemedi. Varsayılan değerler gösteriliyor.");
+        alert("Ayarlar yüklenemedi.");
       } finally {
         if (alive) setLoading(false);
       }
     };
 
     load();
-
-    return () => {
-      alive = false;
-    };
+    return () => (alive = false);
   }, []);
 
   const save = async () => {
     try {
       await saveSettings({
         units,
-        taxes: {
-          vat: vatRates,
-          income: incomeRates,
-        },
+        platforms,
+        taxes: { vat: vatRates, income: incomeRates },
       });
       alert("Ayarlar kaydedildi");
     } catch (err) {
@@ -59,13 +50,75 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) {
-    return <div className="p-6">Yükleniyor…</div>;
-  }
+  if (loading) return <div className="p-6">Yükleniyor…</div>;
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-10">
       <h1 className="text-2xl font-bold">Satış & Stok Ayarları</h1>
+
+      {/* ===================== */}
+      {/* SATIŞ PLATFORMLARI */}
+      {/* ===================== */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold">Satış Platformları</h2>
+
+        {platforms.map((p, i) => (
+          <div key={i} className="flex flex-wrap gap-2 items-center">
+            <input
+              className="border px-2 py-1 w-36"
+              placeholder="key (kaspi)"
+              value={p.key || ""}
+              onChange={(e) => {
+                const x = [...platforms];
+                x[i] = { ...x[i], key: e.target.value };
+                setPlatforms(x);
+              }}
+            />
+            <input
+              className="border px-2 py-1"
+              placeholder="Etiket"
+              value={p.label || ""}
+              onChange={(e) => {
+                const x = [...platforms];
+                x[i] = { ...x[i], label: e.target.value };
+                setPlatforms(x);
+              }}
+            />
+            <label className="text-sm flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={p.active !== false}
+                onChange={(e) => {
+                  const x = [...platforms];
+                  x[i] = { ...x[i], active: e.target.checked };
+                  setPlatforms(x);
+                }}
+              />
+              Aktif
+            </label>
+
+            <label className="text-sm flex items-center gap-1">
+              <input
+                type="radio"
+                name="defaultPlatform"
+                checked={p.default === true}
+                onChange={() => {
+                  const x = platforms.map((r, idx) => ({ ...r, default: idx === i }));
+                  setPlatforms(x);
+                }}
+              />
+              Varsayılan
+            </label>
+          </div>
+        ))}
+
+        <button
+          onClick={() => setPlatforms([...platforms, { key: "", label: "", active: true }])}
+          className="text-blue-600 text-sm"
+        >
+          + Platform ekle
+        </button>
+      </section>
 
       {/* ===================== */}
       {/* ÜRÜN BİRİMLERİ */}
@@ -74,9 +127,9 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold">Ürün Birimleri</h2>
 
         {units.map((u, i) => (
-          <div key={i} className="flex gap-2 items-center">
+          <div key={i} className="flex flex-wrap gap-2 items-center">
             <input
-              className="border px-2 py-1 w-32"
+              className="border px-2 py-1 w-36"
               placeholder="key"
               value={u.key || ""}
               onChange={(e) => {
@@ -98,7 +151,7 @@ export default function SettingsPage() {
             <label className="text-sm flex items-center gap-1">
               <input
                 type="checkbox"
-                checked={u.active === true}
+                checked={u.active !== false}
                 onChange={(e) => {
                   const x = [...units];
                   x[i] = { ...x[i], active: e.target.checked };
@@ -107,13 +160,24 @@ export default function SettingsPage() {
               />
               Aktif
             </label>
+
+            <label className="text-sm flex items-center gap-1">
+              <input
+                type="radio"
+                name="defaultUnit"
+                checked={u.default === true}
+                onChange={() => {
+                  const x = units.map((r, idx) => ({ ...r, default: idx === i }));
+                  setUnits(x);
+                }}
+              />
+              Varsayılan
+            </label>
           </div>
         ))}
 
         <button
-          onClick={() =>
-            setUnits([...units, { key: "", label: "", active: true }])
-          }
+          onClick={() => setUnits([...units, { key: "", label: "", active: true }])}
           className="text-blue-600 text-sm"
         >
           + Birim ekle
@@ -127,7 +191,7 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold">KDV Oranları</h2>
 
         {vatRates.map((v, i) => (
-          <div key={i} className="flex gap-2 items-center">
+          <div key={i} className="flex flex-wrap gap-2 items-center">
             <input
               className="border px-2 py-1"
               placeholder="Etiket"
@@ -155,10 +219,7 @@ export default function SettingsPage() {
                 name="defaultVat"
                 checked={v.default === true}
                 onChange={() => {
-                  const x = vatRates.map((r, idx) => ({
-                    ...r,
-                    default: idx === i,
-                  }));
+                  const x = vatRates.map((r, idx) => ({ ...r, default: idx === i }));
                   setVatRates(x);
                 }}
               />
@@ -168,9 +229,7 @@ export default function SettingsPage() {
         ))}
 
         <button
-          onClick={() =>
-            setVatRates([...vatRates, { label: "", rate: 0 }])
-          }
+          onClick={() => setVatRates([...vatRates, { label: "", rate: 0, active: true }])}
           className="text-blue-600 text-sm"
         >
           + KDV ekle
@@ -184,7 +243,7 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold">Gelir Vergisi Oranları</h2>
 
         {incomeRates.map((r, i) => (
-          <div key={i} className="flex gap-2">
+          <div key={i} className="flex flex-wrap gap-2">
             <input
               className="border px-2 py-1"
               placeholder="Etiket"
@@ -210,23 +269,15 @@ export default function SettingsPage() {
         ))}
 
         <button
-          onClick={() =>
-            setIncomeRates([...incomeRates, { label: "", rate: 0 }])
-          }
+          onClick={() => setIncomeRates([...incomeRates, { label: "", rate: 0, active: true }])}
           className="text-blue-600 text-sm"
         >
           + Gelir vergisi ekle
         </button>
       </section>
 
-      {/* ===================== */}
-      {/* KAYDET */}
-      {/* ===================== */}
       <div className="text-right">
-        <button
-          onClick={save}
-          className="px-4 py-2 bg-green-600 text-white rounded"
-        >
+        <button onClick={save} className="px-4 py-2 bg-green-600 text-white rounded">
           Kaydet
         </button>
       </div>
