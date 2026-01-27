@@ -3,41 +3,26 @@
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   runTransaction,
   serverTimestamp,
-  query,
-  where,
 } from "firebase/firestore";
 import { db } from "@/firebase";
 
 import {
-  writeStockMovement,
-  updateStockBalanceAfterSale,
-  updateStockBalanceAfterReturn,
-  getAverageCost,
-} from "./stockService";
+  readStockBalancesForSale,
+  writeSaleStockMovements,
+  writeStockBalancesAfterSale,
+  writeStockBalancesAfterReturn,
+} from "@/app/satissitok/services/stockService";
 
+// ⚠️ createCariTransaction burada (admin/cari) dosyasında duruyor demiştin
 import {
   createCariTransaction,
-} from "./cariService";
+} from "@/app/satissitok/admin/cari/services/cariService";
 
-/**
- * saleType:
- * - "actual"   => KDV YOK, stok düşer
- * - "official" => KDV VAR, stok düşer
- *
- * Kurallar:
- * - Her satış cariye yazılır
- * - Maliyet = satış anındaki ortalama maliyet
- * - İptal / iade desteklenir
- */
-
-// -------------------------
-// Utils
-// -------------------------
-const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+const round2 = (n) =>
+  Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
 async function getNextSaleNumber(tx) {
   const counterRef = doc(db, "sale_counters", "main");
@@ -54,165 +39,178 @@ async function getNextSaleNumber(tx) {
   return String(next).padStart(6, "0");
 }
 
-// -------------------------
-// CREATE SALE
-// -------------------------
 export async function createSale({
-  saleType,          // "actual" | "official"
+  saleType, // "actual" | "official"
   cariId,
-  items,             // [{ productId, quantity, unitPrice, vatRate }]
+  items, // [{ productId, productName, quantity, unitPrice, vatRate }]
   note = "",
 }) {
-  if (!saleType || !cariId || !items?.length) {
+  if (!saleType || !cariId || !Array.isArray(items) || items.length === 0) {
     throw new Error("Eksik satış bilgisi");
   }
 
-  return await runTransaction(db, async (tx) => {
-    const saleNo = await getNextSaleNumber(tx);
+  return await runTransaction(db, async (transaction) => {
+    const saleNo = await getNextSaleNumber(transaction);
     const saleRef = doc(collection(db, "sales"));
 
+    // 1) Stok balanslarını oku (avgCost + qty) → satış maliyetini buradan kilitle
+    const saleBalances = await readStockBalancesForSale({
+      transaction,
+      items,
+      saleType,
+    });
+
+    // 2) Kalemleri normalize + hesapla
     let netTotal = 0;
     let vatTotal = 0;
     let grossTotal = 0;
+    let totalCost = 0;
 
-    const saleItems = [];
+    const normalizedItems = items.map((row) => {
+      const productId = row.productId;
+      const productName = row.productName || "";
+      const quantity = Number(row.quantity || 0);
+      const unitPrice = Number(row.unitPrice || 0);
+      const vatRate = saleType === "official" ? Number(row.vatRate || 0) : 0;
 
-    for (const row of items) {
-      const { productId, quantity, unitPrice, vatRate = 0 } = row;
-
+      if (!productId) throw new Error("productId boş olamaz");
       if (quantity <= 0) throw new Error("Miktar sıfır olamaz");
 
-      // 🔴 Satış anındaki ortalama maliyet
-      const avgCost = await getAverageCost(tx, productId, saleType);
-      const costAtSale = round2(avgCost);
+      const bal = saleBalances[productId] || { qty: 0, avgCost: 0 };
+      if (bal.qty < quantity) throw new Error("Yetersiz stok");
+
+      const costAtSale = round2(Number(bal.avgCost || 0));
 
       const lineNet = round2(quantity * unitPrice);
-      const lineVat =
-        saleType === "official"
-          ? round2(lineNet * (vatRate / 100))
-          : 0;
-
+      const lineVat = round2(lineNet * (vatRate / 100));
       const lineTotal = round2(lineNet + lineVat);
+
+      const lineCost = round2(quantity * costAtSale);
 
       netTotal += lineNet;
       vatTotal += lineVat;
       grossTotal += lineTotal;
+      totalCost += lineCost;
 
-      saleItems.push({
+      return {
         productId,
+        productName,
         quantity,
         unitPrice,
-        vatRate: saleType === "official" ? vatRate : 0,
+        vatRate,
         net: lineNet,
         vat: lineVat,
         total: lineTotal,
-        costAtSale,
-      });
-    }
+        costAtSale, // 🔥 kilit maliyet
+      };
+    });
 
-    // 1️⃣ SALES
-    tx.set(saleRef, {
+    netTotal = round2(netTotal);
+    vatTotal = round2(vatTotal);
+    grossTotal = round2(grossTotal);
+    totalCost = round2(totalCost);
+
+    const grossProfit = round2(grossTotal - totalCost);
+    const grossMargin = grossTotal > 0 ? round2((grossProfit / grossTotal) * 100) : 0;
+
+    // 3) SALES (CACHE alanları dahil)
+    transaction.set(saleRef, {
       saleNo,
       saleType,
       cariId,
-      netTotal: round2(netTotal),
-      vatTotal: round2(vatTotal),
-      grossTotal: round2(grossTotal),
+
+      netTotal,
+      vatTotal,
+      grossTotal,
+
+      // ✅ PERF CACHE
+      totalCost,
+      grossProfit,
+      grossMargin, // %
+
       note,
       status: "completed",
       createdAt: serverTimestamp(),
     });
 
-    // 2️⃣ SALE ITEMS + STOCK
-    for (const item of saleItems) {
+    // 4) ITEMS yaz
+    normalizedItems.forEach((it) => {
       const itemRef = doc(collection(saleRef, "items"));
-      tx.set(itemRef, item);
-
-      // stok düş
-      await writeStockMovement(tx, {
-        productId: item.productId,
-        quantity: -item.quantity,
-        type: "sale",
-        refId: saleRef.id,
-        cost: item.costAtSale,
-        bucket: saleType,
-      });
-
-      await updateStockBalanceAfterSale(tx, {
-        productId: item.productId,
-        quantity: item.quantity,
-        cost: item.costAtSale,
-        bucket: saleType,
-      });
-    }
-
-    // 3️⃣ CARI (zorunlu)
-    await createCariTransaction(tx, {
-      cariId,
-      type: "debit", // müşteri borçlanır
-      source: "sale",
-      refId: saleRef.id,
-      amount: round2(grossTotal),
+      transaction.set(itemRef, it);
     });
 
-    return {
+    // 5) STOCK movement + balance düş
+    writeSaleStockMovements({
+      transaction,
       saleId: saleRef.id,
-      saleNo,
-    };
+      saleType,
+      items: normalizedItems,
+    });
+
+    writeStockBalancesAfterSale({
+      transaction,
+      saleType,
+      items: normalizedItems,
+      saleBalances,
+    });
+
+    // 6) CARI zorunlu (satış → debit)
+    await createCariTransaction(transaction, {
+      cariId,
+      type: "debit",
+      source: "sale",
+      refId: saleRef.id,
+      amount: grossTotal,
+    });
+
+    return { saleId: saleRef.id, saleNo };
   });
 }
 
-// -------------------------
-// CANCEL SALE
-// -------------------------
 export async function cancelSale({ saleId, reason = "" }) {
   if (!saleId) throw new Error("saleId gerekli");
 
-  return await runTransaction(db, async (tx) => {
+  return await runTransaction(db, async (transaction) => {
     const saleRef = doc(db, "sales", saleId);
-    const saleSnap = await tx.get(saleRef);
+    const saleSnap = await transaction.get(saleRef);
 
     if (!saleSnap.exists()) throw new Error("Satış bulunamadı");
 
     const sale = saleSnap.data();
-    if (sale.status !== "completed") {
-      throw new Error("Bu satış zaten iptal edilmiş");
-    }
+    if (sale.status !== "completed") throw new Error("Bu satış iptal edilemez");
 
-    const itemsSnap = await getDocs(
-      collection(db, "sales", saleId, "items")
-    );
+    // items oku
+    const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
+    const items = itemsSnap.docs.map((d) => d.data());
 
-    // stok geri ekle
-    for (const docSnap of itemsSnap.docs) {
-      const item = docSnap.data();
+    // stok geri eklemek için önce mevcut balansları oku
+    const saleBalances = await readStockBalancesForSale({
+      transaction,
+      items,
+      saleType: sale.saleType,
+    });
 
-      await writeStockMovement(tx, {
-        productId: item.productId,
-        quantity: item.quantity,
-        type: "sale_cancel",
-        refId: saleId,
-        cost: item.costAtSale,
-        bucket: sale.saleType,
-      });
+    // stok geri (qty +)
+    writeStockBalancesAfterReturn({
+      transaction,
+      saleType: sale.saleType,
+      items,
+      saleBalances,
+    });
 
-      await updateStockBalanceAfterReturn(tx, {
-        productId: item.productId,
-        quantity: item.quantity,
-        bucket: sale.saleType,
-      });
-    }
+    // movement (opsiyonel; istersen stock_movements’a cancel kaydı da yazabiliriz)
+    // burada minimum müdahale: balans düzelt + cari ters kayıt
 
-    // cari ters kayıt
-    await createCariTransaction(tx, {
+    // cari ters kayıt (credit)
+    await createCariTransaction(transaction, {
       cariId: sale.cariId,
       type: "credit",
       source: "sale_cancel",
       refId: saleId,
-      amount: sale.grossTotal,
+      amount: Number(sale.grossTotal || 0),
     });
 
-    tx.update(saleRef, {
+    transaction.update(saleRef, {
       status: "cancelled",
       cancelReason: reason,
       cancelledAt: serverTimestamp(),
@@ -222,55 +220,47 @@ export async function cancelSale({ saleId, reason = "" }) {
   });
 }
 
-// -------------------------
-// RETURN SALE (IADE)
-// -------------------------
 export async function returnSale({ saleId, reason = "" }) {
   if (!saleId) throw new Error("saleId gerekli");
 
-  return await runTransaction(db, async (tx) => {
+  return await runTransaction(db, async (transaction) => {
     const saleRef = doc(db, "sales", saleId);
-    const saleSnap = await tx.get(saleRef);
+    const saleSnap = await transaction.get(saleRef);
 
     if (!saleSnap.exists()) throw new Error("Satış bulunamadı");
 
     const sale = saleSnap.data();
-    if (sale.status !== "completed") {
-      throw new Error("İade edilemez durumda");
-    }
+    if (sale.status !== "completed") throw new Error("Bu satış iade edilemez");
 
-    const itemsSnap = await getDocs(
-      collection(db, "sales", saleId, "items")
-    );
+    // items oku
+    const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
+    const items = itemsSnap.docs.map((d) => d.data());
 
-    for (const docSnap of itemsSnap.docs) {
-      const item = docSnap.data();
+    // stok geri eklemek için balansları oku
+    const saleBalances = await readStockBalancesForSale({
+      transaction,
+      items,
+      saleType: sale.saleType,
+    });
 
-      await writeStockMovement(tx, {
-        productId: item.productId,
-        quantity: item.quantity,
-        type: "sale_return",
-        refId: saleId,
-        cost: item.costAtSale,
-        bucket: sale.saleType,
-      });
+    // stok geri (qty +)
+    writeStockBalancesAfterReturn({
+      transaction,
+      saleType: sale.saleType,
+      items,
+      saleBalances,
+    });
 
-      await updateStockBalanceAfterReturn(tx, {
-        productId: item.productId,
-        quantity: item.quantity,
-        bucket: sale.saleType,
-      });
-    }
-
-    await createCariTransaction(tx, {
+    // cari ters kayıt (credit)
+    await createCariTransaction(transaction, {
       cariId: sale.cariId,
       type: "credit",
       source: "sale_return",
       refId: saleId,
-      amount: sale.grossTotal,
+      amount: Number(sale.grossTotal || 0),
     });
 
-    tx.update(saleRef, {
+    transaction.update(saleRef, {
       status: "returned",
       returnReason: reason,
       returnedAt: serverTimestamp(),
