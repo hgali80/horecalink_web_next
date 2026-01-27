@@ -130,3 +130,151 @@ export function writeStockBalancesWithAvgCost({
     );
   }
 }
+
+/**
+ * READ PHASE
+ * Satış öncesi stok kontrolü ve avgCost okuma
+ */
+export async function readStockBalancesForSale({
+  transaction,
+  items,
+  saleType,
+}) {
+  const map = {};
+  const bucketKey = saleType === "official" ? "official" : "actual";
+
+  for (const item of items || []) {
+    if (!item?.productId) continue;
+    if (map[item.productId]) continue;
+
+    const ref = doc(db, "stock_balances", item.productId);
+    const snap = await transaction.get(ref);
+
+    const data = snap.exists() ? snap.data() : {};
+    const bucket = data[bucketKey] || {};
+
+    map[item.productId] = {
+      qty: Number(bucket.qty) || 0,
+      avgCost: Number(bucket.avgCost) || 0,
+    };
+  }
+
+  return map;
+}
+
+/**
+ * WRITE PHASE
+ * Satış stok hareketleri (negatif qty)
+ */
+export function writeSaleStockMovements({
+  transaction,
+  saleId,
+  saleType,
+  items,
+}) {
+  const bucketKey = saleType === "official" ? "official" : "actual";
+  const stockCollection = collection(db, "stock_movements");
+
+  items.forEach((item) => {
+    if (!item.productId || !item.quantity) return;
+
+    const qty = Number(item.quantity) || 0;
+    if (qty <= 0) return;
+
+    const ref = doc(stockCollection);
+
+    transaction.set(ref, {
+      productId: item.productId,
+      qty: -qty,
+      type: "sale",
+      saleId,
+      saleType, // 🔴 normalize edildi
+      bucket: bucketKey,
+
+      unitCost: item.costAtSale || 0,
+      totalCost: Math.round(qty * (item.costAtSale || 0) * 100) / 100,
+
+      createdAt: serverTimestamp(),
+    });
+  });
+}
+
+/**
+ * WRITE PHASE
+ * Satış sonrası stok düş
+ */
+export function writeStockBalancesAfterSale({
+  transaction,
+  saleType,
+  items,
+  saleBalances,
+}) {
+  const bucketKey = saleType === "official" ? "official" : "actual";
+
+  for (const item of items || []) {
+    if (!item.productId) continue;
+
+    const outQty = Number(item.quantity) || 0;
+    if (!outQty) continue;
+
+    const prev = saleBalances[item.productId] || {};
+    const oldQty = Number(prev.qty) || 0;
+
+    if (oldQty < outQty) {
+      throw new Error("Yetersiz stok");
+    }
+
+    const newQty = oldQty - outQty;
+
+    const ref = doc(db, "stock_balances", item.productId);
+    transaction.set(
+      ref,
+      {
+        [bucketKey]: {
+          qty: newQty,
+          avgCost: prev.avgCost,
+          updatedAt: serverTimestamp(),
+        },
+      },
+      { merge: true }
+    );
+  }
+}
+
+/**
+ * WRITE PHASE
+ * Satış iade / iptal sonrası stok geri ekleme
+ */
+export function writeStockBalancesAfterReturn({
+  transaction,
+  saleType,
+  items,
+  saleBalances,
+}) {
+  const bucketKey = saleType === "official" ? "official" : "actual";
+
+  for (const item of items || []) {
+    if (!item.productId) continue;
+
+    const qty = Number(item.quantity) || 0;
+    if (!qty) continue;
+
+    const prev = saleBalances[item.productId] || {};
+    const oldQty = Number(prev.qty) || 0;
+
+    const newQty = oldQty + qty;
+
+    const ref = doc(db, "stock_balances", item.productId);
+    transaction.set(
+      ref,
+      {
+        [bucketKey]: {
+          qty: newQty,
+          avgCost: prev.avgCost,
+          updatedAt: serverTimestamp(),
+        },
+      },
+      { merge: true }
+    );
+  }
+}
