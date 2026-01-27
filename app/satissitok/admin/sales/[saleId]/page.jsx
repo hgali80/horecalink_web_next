@@ -2,173 +2,85 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-
-import {
-  doc,
-  getDoc,
-  getDocs,
-  collection,
-} from "firebase/firestore";
+import { useParams } from "next/navigation";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
-
-import {
-  cancelSale,
-  returnSale,
-} from "@/app/satissitok/services/saleService";
-
-function money(n) {
-  return Number(n || 0).toLocaleString("ru-RU", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatDate(ts) {
-  if (!ts?.toDate) return "-";
-  return ts.toDate().toLocaleString();
-}
+import { AlertTriangle } from "lucide-react";
 
 export default function SaleDetailPage() {
   const { saleId } = useParams();
-  const router = useRouter();
 
-  const [loading, setLoading] = useState(true);
   const [sale, setSale] = useState(null);
   const [items, setItems] = useState([]);
-  const [working, setWorking] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    load();
-  }, [saleId]);
+    if (!saleId) return;
 
-  async function load() {
-    setLoading(true);
+    const load = async () => {
+      const saleRef = doc(db, "sales", saleId);
+      const saleSnap = await getDoc(saleRef);
 
-    const saleRef = doc(db, "sales", saleId);
-    const saleSnap = await getDoc(saleRef);
+      if (!saleSnap.exists()) {
+        setSale(null);
+        setLoading(false);
+        return;
+      }
 
-    if (!saleSnap.exists()) {
+      const itemsSnap = await getDocs(
+        collection(db, "sales", saleId, "items")
+      );
+
+      setSale({ id: saleId, ...saleSnap.data() });
+      setItems(itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setLoading(false);
-      return;
-    }
+    };
 
-    setSale({ id: saleSnap.id, ...saleSnap.data() });
+    load();
+  }, [saleId]); // ✅ DOĞRU DEPENDENCY
 
-    const itemsSnap = await getDocs(
-      collection(db, "sales", saleId, "items")
-    );
-
-    setItems(
-      itemsSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }))
-    );
-
-    setLoading(false);
-  }
-
-  async function handleCancel() {
-    if (!confirm("Bu satışı iptal etmek istiyor musunuz?")) return;
-
-    setWorking(true);
-    try {
-      await cancelSale({ saleId });
-      await load();
-    } finally {
-      setWorking(false);
-    }
-  }
-
-  async function handleReturn() {
-    if (!confirm("Bu satışı iade almak istiyor musunuz?")) return;
-
-    setWorking(true);
-    try {
-      await returnSale({ saleId });
-      await load();
-    } finally {
-      setWorking(false);
-    }
-  }
-
-  if (loading) {
-    return <div className="p-6">Yükleniyor…</div>;
-  }
-
-  if (!sale) {
-    return <div className="p-6">Satış bulunamadı</div>;
-  }
+  if (loading) return <div className="p-6">Yükleniyor…</div>;
+  if (!sale) return <div className="p-6">Satış bulunamadı</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* ========================= */}
-      {/* BAŞLIK */}
-      {/* ========================= */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl font-semibold">
-          Satış Detayı
-        </h1>
-
-        <div className="flex gap-2">
-          {sale.status === "completed" && (
-            <>
-              <button
-                disabled={working}
-                onClick={handleCancel}
-                className="px-3 py-1 border rounded text-red-600"
-              >
-                İptal Et
-              </button>
-
-              <button
-                disabled={working}
-                onClick={handleReturn}
-                className="px-3 py-1 border rounded"
-              >
-                İade Al
-              </button>
-            </>
+    <div className="max-w-5xl mx-auto p-6 space-y-4">
+      <div className="border p-4 rounded space-y-2">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold">{sale.invoiceNo}</h1>
+          {sale.hasNegativeStock && (
+            <span className="text-red-600 flex items-center gap-1">
+              <AlertTriangle size={16} /> Negatif stok
+            </span>
           )}
+        </div>
+
+        <div className="text-sm text-gray-600">
+          Tür: {sale.saleType === "official" ? "Resmi" : "Fiili"} | Platform:{" "}
+          {sale.saleChannel}
         </div>
       </div>
 
-      {/* ========================= */}
-      {/* BELGE BİLGİLERİ */}
-      {/* ========================= */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
-        <Info label="Satış No" value={sale.saleNo} />
-        <Info
-          label="Satış Türü"
-          value={
-            sale.saleType === "official"
-              ? "Resmi"
-              : "Fiili"
-          }
-        />
-        <Info
-          label="Tarih"
-          value={formatDate(sale.createdAt)}
-        />
+      {sale.hasNegativeStock && (
+        <div className="border border-red-400 bg-red-50 p-3 rounded text-sm text-red-700">
+          <b>Negatif stoklu ürünler:</b>
+          <ul className="list-disc ml-5 mt-1">
+            {(sale.negativeStockItems || []).map((n, i) => (
+              <li key={i}>
+                {n.productId}: mevcut {n.available}, satılan {n.sold}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-        <Info label="Cari ID" value={sale.cariId} />
-        <Info
-          label="Durum"
-          value={sale.status}
-        />
-      </div>
-
-      {/* ========================= */}
-      {/* KALEMLER */}
-      {/* ========================= */}
-      <div className="overflow-x-auto border rounded">
-        <table className="w-full text-sm">
+      <div className="border rounded overflow-x-auto">
+        <table className="min-w-full text-sm">
           <thead className="bg-gray-100">
             <tr>
               <th className="p-2">Ürün</th>
-              <th className="p-2 text-right">Miktar</th>
-              <th className="p-2 text-right">Birim Fiyat</th>
+              <th className="p-2">Miktar</th>
+              <th className="p-2">Birim</th>
+              <th className="p-2 text-right">Fiyat</th>
               <th className="p-2 text-right">Net</th>
               <th className="p-2 text-right">KDV</th>
               <th className="p-2 text-right">Toplam</th>
@@ -177,23 +89,20 @@ export default function SaleDetailPage() {
           <tbody>
             {items.map((it) => (
               <tr key={it.id} className="border-t">
-                <td className="p-2">
-                  {it.productName}
+                <td className="p-2">{it.productName}</td>
+                <td className="p-2">{it.quantity}</td>
+                <td className="p-2">{it.unit}</td>
+                <td className="p-2 text-right">
+                  {Number(it.unitPrice || 0).toFixed(2)}
                 </td>
                 <td className="p-2 text-right">
-                  {it.quantity}
+                  {Number(it.net || 0).toFixed(2)}
                 </td>
                 <td className="p-2 text-right">
-                  {money(it.unitPrice)}
+                  {Number(it.vat || 0).toFixed(2)}
                 </td>
                 <td className="p-2 text-right">
-                  {money(it.net)}
-                </td>
-                <td className="p-2 text-right">
-                  {money(it.vat)}
-                </td>
-                <td className="p-2 text-right">
-                  {money(it.total)}
+                  {Number(it.total || 0).toFixed(2)}
                 </td>
               </tr>
             ))}
@@ -201,33 +110,10 @@ export default function SaleDetailPage() {
         </table>
       </div>
 
-      {/* ========================= */}
-      {/* TOPLAMLAR */}
-      {/* ========================= */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
-        <Info
-          label="Net Toplam"
-          value={money(sale.netTotal)}
-        />
-        <Info
-          label="KDV Toplam"
-          value={money(sale.vatTotal)}
-        />
-        <Info
-          label="Genel Toplam"
-          value={money(sale.grossTotal)}
-        />
-      </div>
-    </div>
-  );
-}
-
-function Info({ label, value }) {
-  return (
-    <div>
-      <div className="text-sm text-gray-500">{label}</div>
-      <div className="font-semibold">
-        {value ?? "-"}
+      <div className="border p-4 rounded grid grid-cols-3 gap-4 text-sm">
+        <div>Net: {Number(sale.netTotal || 0).toFixed(2)}</div>
+        <div>KDV: {Number(sale.vatTotal || 0).toFixed(2)}</div>
+        <div>Genel: {Number(sale.grossTotal || 0).toFixed(2)}</div>
       </div>
     </div>
   );

@@ -171,6 +171,9 @@ export function writeSaleStockMovements({
   saleId,
   saleType,
   items,
+  saleChannel,
+  invoiceNo,
+  invoiceDate,
 }) {
   const bucketKey = saleType === "official" ? "official" : "actual";
   const stockCollection = collection(db, "stock_movements");
@@ -181,17 +184,30 @@ export function writeSaleStockMovements({
     const qty = Number(item.quantity) || 0;
     if (qty <= 0) return;
 
+    const unitCost = Number(item.costAtSale || 0);
+    const totalCost = Math.round(qty * unitCost * 100) / 100;
+
     const ref = doc(stockCollection);
 
     transaction.set(ref, {
       productId: item.productId,
+      productName: item.productName || "",
+      unit: item.unit || "",
+
       qty: -qty, // 🔴 satış = negatif
+
       type: "sale",
       saleId,
+      saleType,
       bucket: bucketKey,
 
-      unitCost: item.costAtSale || 0,
-      totalCost: Math.round(qty * (item.costAtSale || 0) * 100) / 100,
+      unitCost,
+      totalCost,
+      currency: "KZT",
+
+      saleChannel: saleChannel || null,
+      invoiceNo: invoiceNo || "",
+      documentDate: invoiceDate ? new Date(invoiceDate) : null,
 
       createdAt: serverTimestamp(),
     });
@@ -200,7 +216,7 @@ export function writeSaleStockMovements({
 
 /**
  * WRITE PHASE
- * Satış sonrası stok düş
+ * Satış sonrası stok düş (NEGATİF STOĞA İZİN VAR)
  */
 export function writeStockBalancesAfterSale({
   transaction,
@@ -210,28 +226,29 @@ export function writeStockBalancesAfterSale({
 }) {
   const bucketKey = saleType === "official" ? "official" : "actual";
 
+  // 🔒 aynı üründen birden çok satır olabilir → aggregate
+  const outByProduct = {};
   for (const item of items || []) {
-    if (!item.productId) continue;
+    if (!item?.productId) continue;
+    const q = Number(item.quantity || 0);
+    if (!q) continue;
+    outByProduct[item.productId] = (outByProduct[item.productId] || 0) + q;
+  }
 
-    const outQty = Number(item.quantity) || 0;
-    if (!outQty) continue;
-
-    const prev = existingBalances[item.productId] || {};
+  for (const [productId, outQty] of Object.entries(outByProduct)) {
+    const prev = existingBalances?.[productId] || {};
     const oldQty = Number(prev.qty) || 0;
 
-    if (oldQty < outQty) {
-      throw new Error("Yetersiz stok");
-    }
+    // 🔴 NEGATİF STOĞA İZİN VAR (UYARI UI'DA)
+    const newQty = oldQty - Number(outQty || 0);
 
-    const newQty = oldQty - outQty;
-
-    const ref = doc(db, "stock_balances", item.productId);
+    const ref = doc(db, "stock_balances", productId);
     transaction.set(
       ref,
       {
         [bucketKey]: {
           qty: newQty,
-          avgCost: prev.avgCost, // 🔴 satışta avg değişmez
+          avgCost: prev.avgCost || 0, // satışta avg değişmez
           updatedAt: serverTimestamp(),
         },
       },
@@ -252,24 +269,28 @@ export function writeStockBalancesAfterReturn({
 }) {
   const bucketKey = saleType === "official" ? "official" : "actual";
 
+  // 🔒 aynı üründen birden çok satır olabilir → aggregate
+  const inByProduct = {};
   for (const item of items || []) {
-    if (!item.productId) continue;
+    if (!item?.productId) continue;
+    const q = Number(item.quantity || 0);
+    if (!q) continue;
+    inByProduct[item.productId] = (inByProduct[item.productId] || 0) + q;
+  }
 
-    const qty = Number(item.quantity) || 0;
-    if (!qty) continue;
-
-    const prev = existingBalances[item.productId] || {};
+  for (const [productId, qty] of Object.entries(inByProduct)) {
+    const prev = existingBalances?.[productId] || {};
     const oldQty = Number(prev.qty) || 0;
 
-    const newQty = oldQty + qty;
+    const newQty = oldQty + Number(qty || 0);
 
-    const ref = doc(db, "stock_balances", item.productId);
+    const ref = doc(db, "stock_balances", productId);
     transaction.set(
       ref,
       {
         [bucketKey]: {
           qty: newQty,
-          avgCost: prev.avgCost,
+          avgCost: prev.avgCost || 0,
           updatedAt: serverTimestamp(),
         },
       },
