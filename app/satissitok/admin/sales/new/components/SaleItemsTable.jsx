@@ -1,14 +1,14 @@
 //app/satissitok/admin/sales/new/components/SaleItemsTable.jsx
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 
 /**
  * props:
  * - items
  * - setItems
- * - products
+ * - products: [{ id, name, unit, price }]
  * - units
  * - vatRate
  * - vatMode ("include" | "exclude")
@@ -27,14 +27,10 @@ export default function SaleItemsTable({
   const round2 = (n) =>
     Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
+  // ---------- hesap ----------
   function calcRow(row) {
     if (!row.productId || !row.quantity) {
-      return {
-        ...row,
-        net: 0,
-        vat: 0,
-        total: 0,
-      };
+      return { ...row, net: 0, vat: 0, total: 0 };
     }
 
     const qty = Number(row.quantity || 0);
@@ -69,27 +65,18 @@ export default function SaleItemsTable({
         vat = round2(total - net);
       }
     } else {
-      // fiili satış → KDV yok
       net = round2(qty * effectiveUnitPrice);
       vat = 0;
       total = net;
     }
 
-    return {
-      ...row,
-      net,
-      vat,
-      total,
-    };
+    return { ...row, net, vat, total };
   }
 
   function updateRow(index, patch) {
     setItems((prev) => {
       const copy = [...prev];
-      copy[index] = calcRow({
-        ...copy[index],
-        ...patch,
-      });
+      copy[index] = calcRow({ ...copy[index], ...patch });
       return copy;
     });
   }
@@ -98,13 +85,15 @@ export default function SaleItemsTable({
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // ürün seçildiğinde varsayılanları doldur
-  function onProductSelect(index, productId) {
-    const product = products.find((p) => p.id === productId);
+  // ---------- ÜRÜN SEÇİMİ (AUTOCOMPLETE) ----------
+  function onProductPick(index, productName) {
+    const product = products.find(
+      (p) => p.name === productName
+    );
     if (!product) return;
 
     updateRow(index, {
-      productId,
+      productId: product.id,
       productName: product.name,
       unit: product.unit || "",
       unitPrice: Number(product.price || 0),
@@ -133,22 +122,22 @@ export default function SaleItemsTable({
         <tbody>
           {items.map((row, index) => (
             <tr key={index} className="border-t">
-              {/* ÜRÜN */}
+              {/* ÜRÜN – AUTOCOMPLETE */}
               <td className="p-2">
-                <select
+                <input
+                  list={`products-${index}`}
                   className="w-full border p-1"
-                  value={row.productId || ""}
+                  placeholder="Ürün ara…"
+                  value={row.productName || ""}
                   onChange={(e) =>
-                    onProductSelect(index, e.target.value)
+                    onProductPick(index, e.target.value)
                   }
-                >
-                  <option value="">Ürün seç</option>
+                />
+                <datalist id={`products-${index}`}>
                   {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
+                    <option key={p.id} value={p.name} />
                   ))}
-                </select>
+                </datalist>
               </td>
 
               {/* MİKTAR */}
