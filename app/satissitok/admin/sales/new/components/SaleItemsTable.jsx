@@ -1,19 +1,8 @@
 //app/satissitok/admin/sales/new/components/SaleItemsTable.jsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 
-/**
- * props:
- * - items
- * - setItems
- * - products: [{ id, name, unit, price }]
- * - units
- * - vatRate
- * - vatMode ("include" | "exclude")
- * - saleType ("official" | "actual")
- */
 export default function SaleItemsTable({
   items,
   setItems,
@@ -23,49 +12,44 @@ export default function SaleItemsTable({
   vatMode,
   saleType,
 }) {
-  // ---------- helpers ----------
   const round2 = (n) =>
     Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
-  // ---------- hesap ----------
   function calcRow(row) {
     if (!row.productId || !row.quantity) {
       return { ...row, net: 0, vat: 0, total: 0 };
     }
 
     const qty = Number(row.quantity || 0);
-    const baseUnitPrice = Number(row.unitPrice || 0);
+    const base = Number(row.unitPrice || 0);
 
-    // indirim
-    let effectiveUnitPrice = baseUnitPrice;
+    let price = base;
 
     if (row.discountType === "percent") {
-      const rate = Number(row.discountValue || 0);
-      effectiveUnitPrice = baseUnitPrice * (1 - rate / 100);
+      price = base * (1 - Number(row.discountValue || 0) / 100);
     }
-
     if (row.discountType === "manual") {
-      effectiveUnitPrice = Number(row.discountValue || 0);
+      price = Number(row.discountValue || 0);
     }
 
-    effectiveUnitPrice = round2(effectiveUnitPrice);
+    price = round2(price);
 
-    let net = 0;
-    let vat = 0;
-    let total = 0;
+    let net = 0,
+      vat = 0,
+      total = 0;
 
     if (saleType === "official") {
       if (vatMode === "exclude") {
-        net = round2(qty * effectiveUnitPrice);
+        net = round2(qty * price);
         vat = round2(net * (vatRate / 100));
-        total = round2(net + vat);
+        total = net + vat;
       } else {
-        total = round2(qty * effectiveUnitPrice);
+        total = round2(qty * price);
         net = round2(total / (1 + vatRate / 100));
         vat = round2(total - net);
       }
     } else {
-      net = round2(qty * effectiveUnitPrice);
+      net = round2(qty * price);
       vat = 0;
       total = net;
     }
@@ -73,30 +57,23 @@ export default function SaleItemsTable({
     return { ...row, net, vat, total };
   }
 
-  function updateRow(index, patch) {
+  function updateRow(i, patch) {
     setItems((prev) => {
       const copy = [...prev];
-      copy[index] = calcRow({ ...copy[index], ...patch });
+      copy[i] = calcRow({ ...copy[i], ...patch });
       return copy;
     });
   }
 
-  function removeRow(index) {
-    setItems((prev) => prev.filter((_, i) => i !== index));
-  }
+  function onProductSelect(i, name) {
+    const p = products.find((x) => x.name === name);
+    if (!p) return;
 
-  // ---------- ÜRÜN SEÇİMİ (AUTOCOMPLETE) ----------
-  function onProductPick(index, productName) {
-    const product = products.find(
-      (p) => p.name === productName
-    );
-    if (!product) return;
-
-    updateRow(index, {
-      productId: product.id,
-      productName: product.name,
-      unit: product.unit || "",
-      unitPrice: Number(product.price || 0),
+    updateRow(i, {
+      productId: p.id,
+      productName: p.name,
+      unit: p.unit || "",
+      unitPrice: Number(p.price || 0),
       discountType: "none",
       discountValue: 0,
     });
@@ -112,55 +89,52 @@ export default function SaleItemsTable({
             <th className="p-2">Birim</th>
             <th className="p-2">Birim Fiyat</th>
             <th className="p-2">İndirim</th>
-            <th className="p-2">Değer</th>
             <th className="p-2 text-right">KDV</th>
             <th className="p-2 text-right">Toplam</th>
-            <th className="p-2"></th>
+            <th />
           </tr>
         </thead>
 
         <tbody>
-          {items.map((row, index) => (
-            <tr key={index} className="border-t">
-              {/* ÜRÜN – AUTOCOMPLETE */}
+          {items.map((row, i) => (
+            <tr key={i} className="border-t">
               <td className="p-2">
                 <input
-                  list={`products-${index}`}
+                  list={`products-${i}`}
                   className="w-full border p-1"
-                  placeholder="Ürün ara…"
                   value={row.productName || ""}
+                  placeholder="Ürün ara…"
                   onChange={(e) =>
-                    onProductPick(index, e.target.value)
+                    updateRow(i, { productName: e.target.value })
+                  }
+                  onBlur={(e) =>
+                    onProductSelect(i, e.target.value)
                   }
                 />
-                <datalist id={`products-${index}`}>
+                <datalist id={`products-${i}`}>
                   {products.map((p) => (
                     <option key={p.id} value={p.name} />
                   ))}
                 </datalist>
               </td>
 
-              {/* MİKTAR */}
               <td className="p-2">
                 <input
                   type="number"
                   className="w-full border p-1"
                   value={row.quantity || ""}
                   onChange={(e) =>
-                    updateRow(index, {
-                      quantity: e.target.value,
-                    })
+                    updateRow(i, { quantity: e.target.value })
                   }
                 />
               </td>
 
-              {/* BİRİM */}
               <td className="p-2">
                 <select
                   className="w-full border p-1"
                   value={row.unit || ""}
                   onChange={(e) =>
-                    updateRow(index, { unit: e.target.value })
+                    updateRow(i, { unit: e.target.value })
                   }
                 >
                   <option value="">-</option>
@@ -172,27 +146,23 @@ export default function SaleItemsTable({
                 </select>
               </td>
 
-              {/* BİRİM FİYAT */}
               <td className="p-2">
                 <input
                   type="number"
                   className="w-full border p-1"
                   value={row.unitPrice || ""}
                   onChange={(e) =>
-                    updateRow(index, {
-                      unitPrice: e.target.value,
-                    })
+                    updateRow(i, { unitPrice: e.target.value })
                   }
                 />
               </td>
 
-              {/* İNDİRİM TÜRÜ */}
               <td className="p-2">
                 <select
                   className="w-full border p-1"
                   value={row.discountType || "none"}
                   onChange={(e) =>
-                    updateRow(index, {
+                    updateRow(i, {
                       discountType: e.target.value,
                       discountValue: 0,
                     })
@@ -204,37 +174,21 @@ export default function SaleItemsTable({
                 </select>
               </td>
 
-              {/* İNDİRİM DEĞERİ */}
-              <td className="p-2">
-                {row.discountType !== "none" && (
-                  <input
-                    type="number"
-                    className="w-full border p-1"
-                    value={row.discountValue || ""}
-                    onChange={(e) =>
-                      updateRow(index, {
-                        discountValue: e.target.value,
-                      })
-                    }
-                  />
-                )}
-              </td>
-
-              {/* KDV */}
               <td className="p-2 text-right">
-                {row.vat ? row.vat.toFixed(2) : "0.00"}
+                {row.vat?.toFixed(2) || "0.00"}
               </td>
 
-              {/* TOPLAM */}
               <td className="p-2 text-right">
-                {row.total ? row.total.toFixed(2) : "0.00"}
+                {row.total?.toFixed(2) || "0.00"}
               </td>
 
-              {/* SİL */}
               <td className="p-2 text-center">
                 <button
-                  onClick={() => removeRow(index)}
-                  className="text-red-600"
+                  onClick={() =>
+                    setItems((prev) =>
+                      prev.filter((_, x) => x !== i)
+                    )
+                  }
                 >
                   <Trash2 size={16} />
                 </button>
