@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+
 import {
   doc,
   getDoc,
@@ -16,11 +17,6 @@ import {
   returnSale,
 } from "@/app/satissitok/services/saleService";
 
-function formatDate(ts) {
-  if (!ts?.toDate) return "-";
-  return ts.toDate().toLocaleString();
-}
-
 function money(n) {
   return Number(n || 0).toLocaleString("ru-RU", {
     minimumFractionDigits: 2,
@@ -28,144 +24,175 @@ function money(n) {
   });
 }
 
+function formatDate(ts) {
+  if (!ts?.toDate) return "-";
+  return ts.toDate().toLocaleString();
+}
+
 export default function SaleDetailPage() {
   const { saleId } = useParams();
   const router = useRouter();
 
+  const [loading, setLoading] = useState(true);
   const [sale, setSale] = useState(null);
   const [items, setItems] = useState([]);
-  const [cari, setCari] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
+  const [working, setWorking] = useState(false);
 
   useEffect(() => {
-    loadData();
+    load();
   }, [saleId]);
 
-  async function loadData() {
+  async function load() {
     setLoading(true);
 
     const saleRef = doc(db, "sales", saleId);
     const saleSnap = await getDoc(saleRef);
 
     if (!saleSnap.exists()) {
-      alert("Satış bulunamadı");
-      router.push("/satissitok/admin/sales");
+      setLoading(false);
       return;
     }
 
-    const saleData = { id: saleSnap.id, ...saleSnap.data() };
-    setSale(saleData);
+    setSale({ id: saleSnap.id, ...saleSnap.data() });
 
     const itemsSnap = await getDocs(
       collection(db, "sales", saleId, "items")
     );
-    setItems(itemsSnap.docs.map((d) => d.data()));
 
-    if (saleData.cariId) {
-      const cariSnap = await getDoc(
-        doc(db, "caris", saleData.cariId)
-      );
-      setCari(cariSnap.exists() ? cariSnap.data() : null);
-    }
+    setItems(
+      itemsSnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }))
+    );
 
     setLoading(false);
   }
 
-  async function doCancel() {
-    if (!confirm("Satışı iptal etmek istiyor musun?")) return;
+  async function handleCancel() {
+    if (!confirm("Bu satışı iptal etmek istiyor musunuz?")) return;
 
-    setProcessing(true);
+    setWorking(true);
     try {
       await cancelSale({ saleId });
-      await loadData();
-    } catch (e) {
-      alert(e.message);
+      await load();
     } finally {
-      setProcessing(false);
+      setWorking(false);
     }
   }
 
-  async function doReturn() {
-    if (!confirm("Satışı iade almak istiyor musun?")) return;
+  async function handleReturn() {
+    if (!confirm("Bu satışı iade almak istiyor musunuz?")) return;
 
-    setProcessing(true);
+    setWorking(true);
     try {
       await returnSale({ saleId });
-      await loadData();
-    } catch (e) {
-      alert(e.message);
+      await load();
     } finally {
-      setProcessing(false);
+      setWorking(false);
     }
   }
 
-  if (loading) return <div className="p-6">Yükleniyor…</div>;
+  if (loading) {
+    return <div className="p-6">Yükleniyor…</div>;
+  }
+
+  if (!sale) {
+    return <div className="p-6">Satış bulunamadı</div>;
+  }
 
   return (
     <div className="p-6 space-y-6">
+      {/* ========================= */}
+      {/* BAŞLIK */}
+      {/* ========================= */}
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-semibold">
-          Satış Detayı #{sale.saleNo}
+          Satış Detayı
         </h1>
 
-        <button
-          onClick={() => router.back()}
-          className="underline"
-        >
-          Geri
-        </button>
-      </div>
+        <div className="flex gap-2">
+          {sale.status === "completed" && (
+            <>
+              <button
+                disabled={working}
+                onClick={handleCancel}
+                className="px-3 py-1 border rounded text-red-600"
+              >
+                İptal Et
+              </button>
 
-      {/* Genel Bilgi */}
-      <div className="border p-4 space-y-1">
-        <div>
-          <b>Tarih:</b> {formatDate(sale.createdAt)}
-        </div>
-        <div>
-          <b>Tip:</b>{" "}
-          {sale.saleType === "official"
-            ? "Resmi"
-            : "Fiili"}
-        </div>
-        <div>
-          <b>Durum:</b> {sale.status}
-        </div>
-        <div>
-          <b>Cari:</b> {cari?.firm || "-"}
+              <button
+                disabled={working}
+                onClick={handleReturn}
+                className="px-3 py-1 border rounded"
+              >
+                İade Al
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Ürünler */}
-      <div>
-        <h2 className="font-medium mb-2">Ürünler</h2>
+      {/* ========================= */}
+      {/* BELGE BİLGİLERİ */}
+      {/* ========================= */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
+        <Info label="Satış No" value={sale.saleNo} />
+        <Info
+          label="Satış Türü"
+          value={
+            sale.saleType === "official"
+              ? "Resmi"
+              : "Fiili"
+          }
+        />
+        <Info
+          label="Tarih"
+          value={formatDate(sale.createdAt)}
+        />
 
-        <table className="w-full border text-sm">
-          <thead>
+        <Info label="Cari ID" value={sale.cariId} />
+        <Info
+          label="Durum"
+          value={sale.status}
+        />
+      </div>
+
+      {/* ========================= */}
+      {/* KALEMLER */}
+      {/* ========================= */}
+      <div className="overflow-x-auto border rounded">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-100">
             <tr>
-              <th className="border p-1">Ürün</th>
-              <th className="border p-1">Miktar</th>
-              <th className="border p-1">Fiyat</th>
-              <th className="border p-1">KDV</th>
-              <th className="border p-1">Toplam</th>
+              <th className="p-2">Ürün</th>
+              <th className="p-2 text-right">Miktar</th>
+              <th className="p-2 text-right">Birim Fiyat</th>
+              <th className="p-2 text-right">Net</th>
+              <th className="p-2 text-right">KDV</th>
+              <th className="p-2 text-right">Toplam</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((it, i) => (
-              <tr key={i}>
-                <td className="border p-1">
-                  {it.productName || it.productId}
+            {items.map((it) => (
+              <tr key={it.id} className="border-t">
+                <td className="p-2">
+                  {it.productName}
                 </td>
-                <td className="border p-1 text-right">
+                <td className="p-2 text-right">
                   {it.quantity}
                 </td>
-                <td className="border p-1 text-right">
+                <td className="p-2 text-right">
                   {money(it.unitPrice)}
                 </td>
-                <td className="border p-1 text-right">
-                  {it.vat || 0}
+                <td className="p-2 text-right">
+                  {money(it.net)}
                 </td>
-                <td className="border p-1 text-right">
+                <td className="p-2 text-right">
+                  {money(it.vat)}
+                </td>
+                <td className="p-2 text-right">
                   {money(it.total)}
                 </td>
               </tr>
@@ -174,35 +201,34 @@ export default function SaleDetailPage() {
         </table>
       </div>
 
-      {/* Toplamlar */}
-      <div className="border p-4 space-y-1">
-        <div>Net: {money(sale.netTotal)}</div>
-        <div>KDV: {money(sale.vatTotal)}</div>
-        <div className="font-semibold">
-          Toplam: {money(sale.grossTotal)}
-        </div>
+      {/* ========================= */}
+      {/* TOPLAMLAR */}
+      {/* ========================= */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
+        <Info
+          label="Net Toplam"
+          value={money(sale.netTotal)}
+        />
+        <Info
+          label="KDV Toplam"
+          value={money(sale.vatTotal)}
+        />
+        <Info
+          label="Genel Toplam"
+          value={money(sale.grossTotal)}
+        />
       </div>
+    </div>
+  );
+}
 
-      {/* Aksiyonlar */}
-      {sale.status === "completed" && (
-        <div className="flex gap-4">
-          <button
-            onClick={doCancel}
-            disabled={processing}
-            className="px-4 py-2 border border-red-600 text-red-600 rounded"
-          >
-            Satışı İptal Et
-          </button>
-
-          <button
-            onClick={doReturn}
-            disabled={processing}
-            className="px-4 py-2 border rounded"
-          >
-            Satışı İade Al
-          </button>
-        </div>
-      )}
+function Info({ label, value }) {
+  return (
+    <div>
+      <div className="text-sm text-gray-500">{label}</div>
+      <div className="font-semibold">
+        {value ?? "-"}
+      </div>
     </div>
   );
 }
