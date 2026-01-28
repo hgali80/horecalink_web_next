@@ -9,6 +9,7 @@ import { AlertTriangle } from "lucide-react";
 
 export default function SalesListPage() {
   const [rows, setRows] = useState([]);
+  const [caris, setCaris] = useState({}); // Cari ID'lerini isimlerle eşleştirmek için object state
   const [loading, setLoading] = useState(true);
 
   const [saleType, setSaleType] = useState(""); // official | actual | ""
@@ -17,14 +18,29 @@ export default function SalesListPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      let q = query(collection(db, "sales"), orderBy("createdAt", "desc"));
+      try {
+        // 1. Satışları Getir
+        let q = query(collection(db, "sales"), orderBy("createdAt", "desc"));
+        if (saleType) q = query(q, where("saleType", "==", saleType));
+        if (platformId) q = query(q, where("saleChannel", "==", platformId));
 
-      if (saleType) q = query(q, where("saleType", "==", saleType));
-      if (platformId) q = query(q, where("saleChannel", "==", platformId));
+        const saleSnap = await getDocs(q);
+        const saleData = saleSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      const snap = await getDocs(q);
-      setRows(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoading(false);
+        // 2. Carileri Getir (Sadece bir kez çekip map'liyoruz)
+        const cariSnap = await getDocs(collection(db, "caris"));
+        const cariMap = {};
+        cariSnap.docs.forEach(doc => {
+          cariMap[doc.id] = doc.data().firm || doc.data().name || "İsimsiz Cari";
+        });
+
+        setCaris(cariMap);
+        setRows(saleData);
+      } catch (error) {
+        console.error("Yükleme hatası:", error);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [saleType, platformId]);
@@ -68,11 +84,11 @@ export default function SalesListPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-2">Fatura No</th>
-              <th className="p-2">Tür</th>
-              <th className="p-2">Platform</th>
-              <th className="p-2">Cari</th>
-              <th className="p-2">Tarih</th>
+              <th className="p-2 text-left">Fatura No</th>
+              <th className="p-2 text-left">Tür</th>
+              <th className="p-2 text-left">Platform</th>
+              <th className="p-2 text-left">Cari</th>
+              <th className="p-2 text-left">Tarih</th>
               <th className="p-2 text-right">Toplam</th>
               <th className="p-2 text-center">!</th>
             </tr>
@@ -82,14 +98,17 @@ export default function SalesListPage() {
               <tr key={r.id} className="border-t hover:bg-gray-50">
                 <td className="p-2">
                   <Link href={`/satissitok/admin/sales/${r.id}`} className="underline">
-                    {r.invoiceNo}
+                    {r.invoiceNo || "Belirtilmemiş"}
                   </Link>
                 </td>
                 <td className="p-2">
                   {r.saleType === "official" ? "Resmi" : "Fiili"}
                 </td>
                 <td className="p-2">{r.saleChannel}</td>
-                <td className="p-2">{r.cariId || "—"}</td>
+                {/* Cari ID yerine isim gösterimi burada yapılıyor */}
+                <td className="p-2 font-medium">
+                  {caris[r.cariId] || r.cariId || "—"}
+                </td>
                 <td className="p-2">
                   {r.invoiceDate?.toDate
                     ? r.invoiceDate.toDate().toLocaleDateString()
