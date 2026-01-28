@@ -1,11 +1,10 @@
 // app/satissitok/admin/sales/new/page.jsx
-// app/satissitok/admin/sales/new/page.jsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, runTransaction } from "firebase/firestore";
 import { db } from "@/firebase";
 
 import SaleForm from "./components/SaleForm";
@@ -53,16 +52,47 @@ export default function NewSalePage() {
 
     setSaving(true);
     try {
-      const res = await createSale(payload);
+      let finalInvoiceNo = payload.invoiceNo;
+
+      // Eğer kullanıcı manuel numara girmemişse, kayıt anında sayacı artırarak numara al
+      if (!payload.invoiceNoDirty) {
+        await runTransaction(db, async (transaction) => {
+          const counterRef = doc(db, "sale_counters", "main");
+          const counterSnap = await transaction.get(counterRef);
+
+          if (!counterSnap.exists()) {
+            throw new Error("Sayaç dökümanı (sale_counters/main) bulunamadı!");
+          }
+
+          const counters = counterSnap.data();
+          const nextSeq = (Number(counters[payload.saleType]) || 0) + 1;
+
+          // Yıl ve Format belirleme (SR-26000001 formatı için)
+          const yy = String(new Date().getFullYear()).slice(-2);
+          const prefix = payload.saleType === "official" ? "SR" : "SF";
+          finalInvoiceNo = `${prefix}-${yy}${String(nextSeq).padStart(6, "0")}`;
+
+          // Veritabanındaki sayacı hemen güncelle
+          transaction.update(counterRef, {
+            [payload.saleType]: nextSeq,
+          });
+        });
+      }
+
+      // Güncellenmiş veriyle satışı oluştur
+      const res = await createSale({
+        ...payload,
+        invoiceNo: finalInvoiceNo,
+      });
 
       if (!res?.saleId) {
-        throw new Error("Satış kaydı oluşturuldu ama saleId dönmedi (beklenmeyen durum).");
+        throw new Error("Satış kaydı oluşturuldu ama saleId dönmedi.");
       }
 
       router.push(`/satissitok/admin/sales/${res.saleId}`);
     } catch (e) {
       console.error("SALE_CREATE_ERROR:", e);
-      alert(e?.message || "Satış kaydedilemedi. Konsolu kontrol edin (SALE_CREATE_ERROR).");
+      alert(e?.message || "Satış kaydedilemedi.");
     } finally {
       setSaving(false);
     }

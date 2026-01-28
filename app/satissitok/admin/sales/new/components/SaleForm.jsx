@@ -169,20 +169,15 @@ export default function SaleForm({ products, caris, settings, onSubmit }) {
 
     setSubmitting(true);
     try {
+      // Sadece gerekli verileri yukarıdaki (page.jsx) onSubmit'e gönderiyoruz
       await onSubmit({
         saleType,
         invoiceDate,
-
         platformId,
         saleChannel: platformId,
-
         cariId,
-
         invoiceNo: invoiceNo.trim(),
-        invoiceNoAuto: invoiceNoAuto.trim(),
-        invoiceNoDirty,
-        invoiceNoManual: invoiceNoDirty,
-
+        invoiceNoDirty, // Otomatik numara mı kullanılsın kararı için kritik
         vatMode,
         vatRate,
         items,
