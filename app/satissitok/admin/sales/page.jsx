@@ -95,26 +95,36 @@ export default function SalesListPage() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id} className="border-t hover:bg-gray-50">
+              <tr 
+                key={r.id} 
+                className={`border-t hover:bg-gray-50 ${r.status === "cancelled" ? "bg-gray-50 opacity-70" : ""}`}
+              >
                 <td className="p-2">
-                  <Link href={`/satissitok/admin/sales/${r.id}`} className="underline">
-                    {r.invoiceNo || "Belirtilmemiş"}
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/satissitok/admin/sales/${r.id}`} className={`underline ${r.status === "cancelled" ? "text-red-800 line-through" : ""}`}>
+                      {r.invoiceNo || "Belirtilmemiş"}
+                    </Link>
+                    {r.status === "cancelled" && (
+                      <span className="text-[10px] font-bold text-red-600 border border-red-600 px-1 rounded bg-white">
+                        İPTAL
+                      </span>
+                    )}
+                  </div>
                 </td>
-                <td className="p-2">
+                <td className={`p-2 ${r.status === "cancelled" ? "line-through text-gray-400" : ""}`}>
                   {r.saleType === "official" ? "Resmi" : "Fiili"}
                 </td>
-                <td className="p-2">{r.saleChannel}</td>
+                <td className={`p-2 ${r.status === "cancelled" ? "line-through text-gray-400" : ""}`}>{r.saleChannel}</td>
                 {/* Cari ID yerine isim gösterimi burada yapılıyor */}
-                <td className="p-2 font-medium">
+                <td className={`p-2 font-medium ${r.status === "cancelled" ? "line-through text-gray-400" : ""}`}>
                   {caris[r.cariId] || r.cariId || "—"}
                 </td>
-                <td className="p-2">
+                <td className={`p-2 ${r.status === "cancelled" ? "line-through text-gray-400" : ""}`}>
                   {r.invoiceDate?.toDate
                     ? r.invoiceDate.toDate().toLocaleDateString()
                     : "—"}
                 </td>
-                <td className="p-2 text-right">
+                <td className={`p-2 text-right ${r.status === "cancelled" ? "line-through text-gray-400" : ""}`}>
                   {Number(r.grossTotal || 0).toFixed(2)}
                 </td>
                 <td className="p-2 text-center">
