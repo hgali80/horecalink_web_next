@@ -1,55 +1,79 @@
 // app/satissitok/admin/sales/new/components/SaleItemsTable.jsx
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Trash2 } from "lucide-react";
+
+/* ===============================
+   TEK MERKEZ SATIŞ HESABI
+   - product.price = KDV DAHİL (resmi)
+================================ */
+
+function round2(n) {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
+function calcSaleRow({
+  quantity,
+  unitPrice,        // KDV DAHİL fiyat (resmi satış)
+  discountRate,     // %
+  vatRate,          // %
+  saleType,         // official | actual
+}) {
+  const qty = Number(quantity || 0);
+  const price = Number(unitPrice || 0);
+  const disc = Number(discountRate || 0);
+  const vatR = Number(vatRate || 0);
+
+  // 1️⃣ İskonto BRÜT üzerinden
+  const discounted = round2(price * (1 - disc / 100) * qty);
+
+  // 2️⃣ Satış türüne göre ayrıştır
+  if (saleType === "official") {
+    // Fiyat KDV DAHİL → içinden ayır
+    const net = round2(discounted / (1 + vatR / 100));
+    const vat = round2(discounted - net);
+    const total = discounted;
+
+    return { net, vat, total };
+  }
+
+  // Fiili satış → KDV yok
+  return {
+    net: discounted,
+    vat: 0,
+    total: discounted,
+  };
+}
 
 export default function SaleItemsTable({
   items,
   setItems,
   products,
   vatRate,
-  vatMode,
+  vatMode,   // artık hesapta kullanılmıyor (ileride kaldırılabilir)
   saleType,
 }) {
-  const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-
-  function calcRow(row) {
-    if (!row.productId || !row.quantity) {
-      return { ...row, net: 0, vat: 0, total: 0 };
-    }
-
-    const qty = Number(row.quantity || 0);
-    const unitPrice = Number(row.unitPrice || 0);
-    const discountRate = Number(row.discountRate || 0);
-
-    const priceAfterDiscount = unitPrice * (1 - discountRate / 100);
-    let net = round2(qty * priceAfterDiscount);
-    let vat = 0;
-    let total = 0;
-
-    if (saleType === "official") {
-      if (vatMode === "exclude") {
-        vat = round2(net * (vatRate / 100));
-        total = round2(net + vat);
-      } else {
-        vat = round2(net - net / (1 + vatRate / 100));
-        total = net;
-        net = round2(total - vat);
-      }
-    } else {
-      total = net;
-    }
-
-    return { ...row, net, vat, total };
-  }
-
   function updateRow(idx, patch) {
     setItems((prev) =>
       prev.map((r, i) => {
         if (i !== idx) return r;
+
         const updated = { ...r, ...patch };
-        return calcRow(updated);
+
+        if (!updated.productId || !updated.quantity) {
+          return { ...updated, net: 0, vat: 0, total: 0 };
+        }
+
+        const { net, vat, total } = calcSaleRow({
+          quantity: updated.quantity,
+          unitPrice: updated.unitPrice,
+          discountRate: updated.discountRate,
+          vatRate,
+          saleType,
+        });
+
+        return { ...updated, net, vat, total };
       })
     );
   }
@@ -58,6 +82,9 @@ export default function SaleItemsTable({
     setItems((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  /* ===============================
+     STOK HARİTASI (RESMİ / FİİLİ)
+  ================================ */
   const stockMap = useMemo(() => {
     const map = {};
     for (const p of products || []) {
@@ -79,7 +106,7 @@ export default function SaleItemsTable({
             <th className="p-2">Ürün</th>
             <th className="p-2">Stok</th>
             <th className="p-2">Miktar</th>
-            <th className="p-2">Birim Fiyat</th>
+            <th className="p-2">Birim Fiyat (KDV dahil)</th>
             <th className="p-2">İsk.%</th>
             <th className="p-2">Net</th>
             <th className="p-2">KDV</th>
@@ -99,6 +126,7 @@ export default function SaleItemsTable({
                 key={idx}
                 className={insufficient ? "bg-red-50" : ""}
               >
+                {/* ÜRÜN */}
                 <td className="p-2">
                   <select
                     className="border p-1 w-full"
@@ -109,7 +137,7 @@ export default function SaleItemsTable({
                         productId: p?.id || "",
                         productName: p?.name || "",
                         unit: p?.unit || "",
-                        unitPrice: p?.price || "",
+                        unitPrice: p?.price || "", // KDV DAHİL
                       });
                     }}
                   >
@@ -122,10 +150,16 @@ export default function SaleItemsTable({
                   </select>
                 </td>
 
-                <td className={`p-2 ${insufficient ? "text-red-600 font-semibold" : ""}`}>
+                {/* STOK */}
+                <td
+                  className={`p-2 ${
+                    insufficient ? "text-red-600 font-semibold" : ""
+                  }`}
+                >
                   {available}
                 </td>
 
+                {/* MİKTAR */}
                 <td className="p-2">
                   <input
                     type="number"
@@ -142,6 +176,7 @@ export default function SaleItemsTable({
                   )}
                 </td>
 
+                {/* FİYAT */}
                 <td className="p-2">
                   <input
                     type="number"
@@ -153,6 +188,7 @@ export default function SaleItemsTable({
                   />
                 </td>
 
+                {/* İSKONTO */}
                 <td className="p-2">
                   <input
                     type="number"
@@ -164,10 +200,12 @@ export default function SaleItemsTable({
                   />
                 </td>
 
+                {/* NET / KDV / TOPLAM */}
                 <td className="p-2">{row.net?.toFixed(2)}</td>
                 <td className="p-2">{row.vat?.toFixed(2)}</td>
                 <td className="p-2">{row.total?.toFixed(2)}</td>
 
+                {/* SİL */}
                 <td className="p-2 text-center">
                   <button onClick={() => removeRow(idx)}>
                     <Trash2 size={16} />
