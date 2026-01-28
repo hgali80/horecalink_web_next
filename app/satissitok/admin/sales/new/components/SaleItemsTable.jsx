@@ -1,49 +1,39 @@
 // app/satissitok/admin/sales/new/components/SaleItemsTable.jsx
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 
 /* ===============================
-   TEK MERKEZ SATIŞ HESABI
-   - product.price = KDV DAHİL (resmi)
+   HESAP YARDIMCILARI
 ================================ */
-
 function round2(n) {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 }
 
 function calcSaleRow({
   quantity,
-  unitPrice,        // KDV DAHİL fiyat (resmi satış)
-  discountRate,     // %
-  vatRate,          // %
-  saleType,         // official | actual
+  unitPrice,        // KDV DAHİL (resmi satış)
+  discountRate,
+  vatRate,
+  saleType,
 }) {
   const qty = Number(quantity || 0);
   const price = Number(unitPrice || 0);
   const disc = Number(discountRate || 0);
   const vatR = Number(vatRate || 0);
 
-  // 1️⃣ İskonto BRÜT üzerinden
+  // Brüt (iskontolu)
   const discounted = round2(price * (1 - disc / 100) * qty);
 
-  // 2️⃣ Satış türüne göre ayrıştır
   if (saleType === "official") {
-    // Fiyat KDV DAHİL → içinden ayır
     const net = round2(discounted / (1 + vatR / 100));
     const vat = round2(discounted - net);
-    const total = discounted;
-
-    return { net, vat, total };
+    return { net, vat, total: discounted };
   }
 
-  // Fiili satış → KDV yok
-  return {
-    net: discounted,
-    vat: 0,
-    total: discounted,
-  };
+  // Fiili satış
+  return { net: discounted, vat: 0, total: discounted };
 }
 
 export default function SaleItemsTable({
@@ -51,9 +41,26 @@ export default function SaleItemsTable({
   setItems,
   products,
   vatRate,
-  vatMode,   // artık hesapta kullanılmıyor (ileride kaldırılabilir)
   saleType,
 }) {
+  const [openIndex, setOpenIndex] = useState(null);
+
+  /* ===============================
+     STOK HARİTASI
+  ================================ */
+  const stockMap = useMemo(() => {
+    const map = {};
+    for (const p of products || []) {
+      const bucket =
+        saleType === "official"
+          ? p?.stock_balances?.official
+          : p?.stock_balances?.actual;
+
+      map[p.id] = Number(bucket?.qty ?? 0);
+    }
+    return map;
+  }, [products, saleType]);
+
   function updateRow(idx, patch) {
     setItems((prev) =>
       prev.map((r, i) => {
@@ -83,20 +90,17 @@ export default function SaleItemsTable({
   }
 
   /* ===============================
-     STOK HARİTASI (RESMİ / FİİLİ)
+     FİLTRELENMİŞ ÜRÜNLER
+     (SATINALMA İLE AYNI MANTIK)
   ================================ */
-  const stockMap = useMemo(() => {
-    const map = {};
-    for (const p of products || []) {
-      const bucket =
-        saleType === "official"
-          ? p?.stock_balances?.official
-          : p?.stock_balances?.actual;
-
-      map[p.id] = Number(bucket?.qty ?? 0);
-    }
-    return map;
-  }, [products, saleType]);
+  const filteredProducts = useMemo(() => {
+    return (q) =>
+      !q
+        ? products
+        : products.filter((p) =>
+            (p.name || "").toLowerCase().includes(q.toLowerCase())
+          );
+  }, [products]);
 
   return (
     <div className="overflow-x-auto border rounded">
@@ -121,33 +125,61 @@ export default function SaleItemsTable({
             const qty = Number(row.quantity || 0);
             const insufficient = row.productId && qty > available;
 
+            const list = filteredProducts(row.search || "").slice(0, 20);
+
             return (
               <tr
                 key={idx}
                 className={insufficient ? "bg-red-50" : ""}
               >
-                {/* ÜRÜN */}
-                <td className="p-2">
-                  <select
+                {/* ÜRÜN ARAMA (SATINALMA İLE AYNI) */}
+                <td className="p-2 relative">
+                  <input
+                    type="text"
                     className="border p-1 w-full"
-                    value={row.productId}
-                    onChange={(e) => {
-                      const p = products.find((x) => x.id === e.target.value);
+                    placeholder="Ürün yaz..."
+                    value={row.search || ""}
+                    onFocus={() => setOpenIndex(idx)}
+                    onBlur={() =>
+                      setTimeout(() => setOpenIndex(null), 150)
+                    }
+                    onChange={(e) =>
                       updateRow(idx, {
-                        productId: p?.id || "",
-                        productName: p?.name || "",
-                        unit: p?.unit || "",
-                        unitPrice: p?.price || "", // KDV DAHİL
-                      });
-                    }}
-                  >
-                    <option value="">Seçiniz</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
+                        search: e.target.value,
+                        productId: "",
+                        productName: "",
+                      })
+                    }
+                  />
+
+                  {openIndex === idx && (
+                    <div className="absolute z-30 bg-white border w-full max-h-56 overflow-y-auto">
+                      {list.map((p) => (
+                        <div
+                          key={p.id}
+                          className="p-2 hover:bg-gray-100 cursor-pointer"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            updateRow(idx, {
+                              productId: p.id,
+                              productName: p.name,
+                              unit: p.unit,
+                              unitPrice: p.price, // KDV DAHİL
+                              search: p.name,
+                            });
+                          }}
+                        >
+                          {p.name}
+                        </div>
+                      ))}
+
+                      {list.length === 0 && (
+                        <div className="p-2 text-gray-400">
+                          Ürün bulunamadı
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </td>
 
                 {/* STOK */}
@@ -200,12 +232,10 @@ export default function SaleItemsTable({
                   />
                 </td>
 
-                {/* NET / KDV / TOPLAM */}
                 <td className="p-2">{row.net?.toFixed(2)}</td>
                 <td className="p-2">{row.vat?.toFixed(2)}</td>
                 <td className="p-2">{row.total?.toFixed(2)}</td>
 
-                {/* SİL */}
                 <td className="p-2 text-center">
                   <button onClick={() => removeRow(idx)}>
                     <Trash2 size={16} />
