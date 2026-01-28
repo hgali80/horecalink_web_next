@@ -1,4 +1,5 @@
 // app/satissitok/admin/sales/new/page.jsx
+// app/satissitok/admin/sales/new/page.jsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -15,6 +16,7 @@ export default function NewSalePage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [products, setProducts] = useState([]);
   const [caris, setCaris] = useState([]);
@@ -47,8 +49,23 @@ export default function NewSalePage() {
   }
 
   async function handleSubmit(payload) {
-    const res = await createSale(payload);
-    router.push(`/satissitok/admin/sales/${res.saleId}`);
+    if (saving) return;
+
+    setSaving(true);
+    try {
+      const res = await createSale(payload);
+
+      if (!res?.saleId) {
+        throw new Error("Satış kaydı oluşturuldu ama saleId dönmedi (beklenmeyen durum).");
+      }
+
+      router.push(`/satissitok/admin/sales/${res.saleId}`);
+    } catch (e) {
+      console.error("SALE_CREATE_ERROR:", e);
+      alert(e?.message || "Satış kaydedilemedi. Konsolu kontrol edin (SALE_CREATE_ERROR).");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) return <div className="p-6 text-sm">Yükleniyor…</div>;
@@ -57,7 +74,13 @@ export default function NewSalePage() {
     <div className="p-6 space-y-4">
       <h1 className="text-xl font-semibold">Yeni Satış</h1>
 
-      <SaleForm products={products} caris={caris} settings={settings} onSubmit={handleSubmit} />
+      <SaleForm
+        products={products}
+        caris={caris}
+        settings={settings}
+        onSubmit={handleSubmit}
+        disabled={saving}
+      />
     </div>
   );
 }
