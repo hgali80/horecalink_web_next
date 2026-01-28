@@ -27,13 +27,13 @@ export default function Header() {
         {/* LOGO */}
         <Link href="/">
           <Image
-            src="/horecalink_logoapp.png"
-            alt={t("header.alt.logo")}
-            width={140}
-            height={55}
-            className="object-contain"
-            priority
-          />
+  src="/horecalink_logoapp.png"
+  alt={t("header.alt.logo")}
+  width={140}
+  height={55}
+  className="object-contain w-24 h-auto md:w-32 lg:w-[140px]" 
+  priority
+/>
         </Link>
 
         {/* DESKTOP */}
