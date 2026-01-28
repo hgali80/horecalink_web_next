@@ -103,7 +103,7 @@ export default function SaleItemsTable({
   }, [products]);
 
   return (
-    <div className="overflow-x-auto border rounded">
+    <div className="border rounded">
       <table className="min-w-full text-sm">
         <thead className="bg-gray-100">
           <tr>
@@ -153,7 +153,13 @@ export default function SaleItemsTable({
                   />
 
                   {openIndex === idx && (
-                    <div className="absolute z-30 bg-white border w-full max-h-56 overflow-y-auto">
+  <div
+    className="fixed z-50 bg-white border max-h-56 overflow-y-auto shadow-lg"
+    style={{
+      width: "420px",
+    }}
+  >
+
                       {list.map((p) => (
                         <div
                           key={p.id}
