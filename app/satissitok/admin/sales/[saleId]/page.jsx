@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
-import { AlertTriangle, ChevronLeft, Printer, Trash2, Calendar, Hash, Tag, Layers } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Printer, Trash2, Calendar, Hash, Tag, Layers } from "lucide-center";
 import { cancelSale } from "@/app/satissitok/services/saleService";
 
 export default function SaleDetailPage() {
@@ -174,38 +174,40 @@ export default function SaleDetailPage() {
               <thead>
                 <tr className="text-[10px] uppercase font-bold text-gray-400 tracking-widest">
                   <th className="pb-3 text-left">Ürün Detayı</th>
-                  <th className="pb-3 text-center">Birim / Miktar</th>
-                  <th className="pb-3 text-right">Birim Fiyat</th>
-                  <th className="pb-3 text-right">Net Tutar</th>
-                  <th className="pb-3 text-right">KDV</th>
-                  <th className="pb-3 text-right">Genel Toplam</th>
+                  <th className="pb-3 text-center px-4">Birim / Miktar</th>
+                  <th className="pb-3 text-right px-4">Birim Fiyat</th>
+                  <th className="pb-3 text-right px-4">Net Tutar</th>
+                  <th className="pb-3 text-right px-4">KDV</th>
+                  <th className="pb-3 text-right pl-4">Genel Toplam</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {items.map((it) => (
                   <tr key={it.id} className="group hover:bg-gray-50/50 transition-colors">
-                    <td className="py-4">
+                    <td className="py-4 pr-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center text-gray-400">
+                        <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center text-gray-400 flex-shrink-0">
                           <Layers size={14} />
                         </div>
-                        <span className="text-sm font-semibold text-gray-800">{it.productName}</span>
+                        <span className="text-sm font-semibold text-gray-800 line-clamp-2">{it.productName}</span>
                       </div>
                     </td>
-                    <td className="py-4 text-center">
-                      <span className="text-sm text-gray-600 font-medium">{it.quantity}</span>
-                      <span className="text-[10px] ml-1 text-gray-400 uppercase">{it.unit}</span>
+                    <td className="py-4 text-center px-4">
+                      <div className="flex flex-col">
+                        <span className="text-sm text-gray-600 font-medium">{it.quantity}</span>
+                        <span className="text-[10px] text-gray-400 uppercase">{it.unit}</span>
+                      </div>
                     </td>
-                    <td className="py-4 text-right text-sm text-gray-600 font-mono">
+                    <td className="py-4 text-right text-sm text-gray-600 font-mono px-4">
                       {Number(it.unitPrice || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-4 text-right text-sm text-gray-600 font-mono">
+                    <td className="py-4 text-right text-sm text-gray-600 font-mono px-4">
                       {Number(it.net || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-4 text-right text-sm text-gray-500 font-mono">
+                    <td className="py-4 text-right text-sm text-gray-500 font-mono px-4">
                       {Number(it.vat || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-4 text-right text-sm font-bold text-gray-900 font-mono">
+                    <td className="py-4 text-right text-sm font-bold text-gray-900 font-mono pl-4">
                       {Number(it.total || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
@@ -218,19 +220,19 @@ export default function SaleDetailPage() {
         {/* TOPLAMLAR ALT ALAN */}
         <div className="bg-gray-50 p-6 md:p-8 border-t border-gray-100">
           <div className="flex flex-col items-end gap-3">
-            <div className="flex justify-between w-full md:w-64 text-sm">
+            <div className="flex justify-between items-center w-full md:w-80 text-sm">
               <span className="text-gray-500">Ara Toplam (Net)</span>
               <span className="font-mono text-gray-700">{Number(sale.netTotal || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</span>
             </div>
-            <div className="flex justify-between w-full md:w-64 text-sm border-b border-gray-200 pb-3">
+            <div className="flex justify-between items-center w-full md:w-80 text-sm border-b border-gray-200 pb-3">
               <span className="text-gray-500">Toplam KDV</span>
               <span className="font-mono text-gray-700">{Number(sale.vatTotal || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</span>
             </div>
-            <div className="flex justify-between w-full md:w-64 pt-2">
-              <span className="text-lg font-bold text-gray-900 uppercase">Genel Toplam</span>
-              <span className="text-2xl font-bold text-indigo-600 font-mono tracking-tighter">
+            <div className="flex justify-between items-center w-full md:w-80 pt-2 gap-4">
+              <span className="text-lg font-bold text-gray-900 uppercase whitespace-nowrap">Genel Toplam</span>
+              <span className="text-2xl font-bold text-indigo-600 font-mono tracking-tighter whitespace-nowrap">
                 {Number(sale.grossTotal || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} 
-                <span className="text-sm ml-1">TL</span>
+                <span className="text-sm ml-2">TL</span>
               </span>
             </div>
           </div>
