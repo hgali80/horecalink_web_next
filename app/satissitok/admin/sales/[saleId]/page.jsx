@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
-import { Something } from "lucide-react";
-import { AlertTriangle, ChevronLeft, Printer, Trash2, Calendar, Hash, Tag, Layers } from "lucide-center";
+import { AlertTriangle, ChevronLeft, Printer, Trash2, Calendar, Hash, Tag, Layers } from "lucide-react";
 import { cancelSale } from "@/app/satissitok/services/saleService";
 
 export default function SaleDetailPage() {
