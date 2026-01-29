@@ -16,7 +16,8 @@ import {
   Settings,
   Gift,
   History,
-  LogOut
+  LogOut,
+  Boxes, // 🆕 Satış & Stok icon
 } from "lucide-react";
 import { auth } from "../../firebase/index";
 
@@ -31,6 +32,16 @@ export default function ProfileHome() {
       </div>
     );
   }
+
+  /* 🔐 SATIŞ & STOK YETKİLİ MAİLLER */
+  const allowedEmails = [
+    "+77004446911@temporary.com",
+    "+77023940182@temporary.com",
+    "hasanaligunay@gmail.com",
+  ];
+
+  const canAccessSalesStock =
+    user?.email && allowedEmails.includes(user.email);
 
   const formatDate = (timestamp) => {
     try {
@@ -48,7 +59,7 @@ export default function ProfileHome() {
           {t("profile.title")}
         </h1>
 
-        {/* PROFİL KARTI */}
+        {/* ================= PROFİL KARTI ================= */}
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 bg-gray-50 rounded-lg border">
           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-indigo-200 flex items-center justify-center">
             <User className="w-8 h-8 sm:w-10 sm:h-10 text-indigo-700" />
@@ -84,16 +95,64 @@ export default function ProfileHome() {
           {t("profile.menu.title")}
         </h2>
 
-        {/* MENU GRID */}
+        {/* ================= MENU GRID ================= */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          <ProfileMenuCard icon={<User size={20} />} title={t("profile.menu.personalInfo")} href="/profile/details" />
-          <ProfileMenuCard icon={<ShoppingBag size={20} />} title={t("profile.menu.orders")} href="/profile/orders" />
-          <ProfileMenuCard icon={<ShoppingBag size={20} />} title={t("profile.menu.basket")} href="/profile/basket" />
-          <ProfileMenuCard icon={<Heart size={20} />} title={t("profile.menu.favorites")} href="/profile/favorites" />
-          <ProfileMenuCard icon={<MapPin size={20} />} title={t("profile.menu.addresses")} href="/profile/address" />
-          <ProfileMenuCard icon={<History size={20} />} title={t("profile.menu.history")} href="/profile/history" />
-          <ProfileMenuCard icon={<Gift size={20} />} title={t("profile.menu.rewards")} href="/profile/rewards" />
-          <ProfileMenuCard icon={<Settings size={20} />} title={t("profile.menu.settings")} href="/profile/edit" />
+          <ProfileMenuCard
+            icon={<User size={20} />}
+            title={t("profile.menu.personalInfo")}
+            href="/profile/details"
+          />
+
+          <ProfileMenuCard
+            icon={<ShoppingBag size={20} />}
+            title={t("profile.menu.orders")}
+            href="/profile/orders"
+          />
+
+          <ProfileMenuCard
+            icon={<ShoppingBag size={20} />}
+            title={t("profile.menu.basket")}
+            href="/profile/basket"
+          />
+
+          <ProfileMenuCard
+            icon={<Heart size={20} />}
+            title={t("profile.menu.favorites")}
+            href="/profile/favorites"
+          />
+
+          <ProfileMenuCard
+            icon={<MapPin size={20} />}
+            title={t("profile.menu.addresses")}
+            href="/profile/address"
+          />
+
+          <ProfileMenuCard
+            icon={<History size={20} />}
+            title={t("profile.menu.history")}
+            href="/profile/history"
+          />
+
+          <ProfileMenuCard
+            icon={<Gift size={20} />}
+            title={t("profile.menu.rewards")}
+            href="/profile/rewards"
+          />
+
+          <ProfileMenuCard
+            icon={<Settings size={20} />}
+            title={t("profile.menu.settings")}
+            href="/profile/edit"
+          />
+
+          {/* 🆕 SATIŞ & STOK – SADECE YETKİLİ KULLANICILAR */}
+          {canAccessSalesStock && (
+            <ProfileMenuCard
+              icon={<Boxes size={20} />}
+              title="Satış & Stok"
+              href="/satissitok/admin"
+            />
+          )}
 
           <LogoutButton label={t("profile.menu.logout")} />
         </div>
@@ -101,6 +160,8 @@ export default function ProfileHome() {
     </div>
   );
 }
+
+/* ================= ALT BİLEŞENLER ================= */
 
 function ProfileMenuCard({ icon, title, href }) {
   return (
@@ -119,11 +180,15 @@ function ProfileMenuCard({ icon, title, href }) {
 function LogoutButton({ label }) {
   return (
     <button
-      onClick={() => auth.signOut().then(() => (window.location.href = "/login"))}
+      onClick={() =>
+        auth.signOut().then(() => (window.location.href = "/login"))
+      }
       className="flex items-center gap-3 p-3 border rounded-xl bg-red-50 hover:bg-red-100 transition shadow-sm w-full"
     >
       <LogOut className="text-red-600 shrink-0" size={20} />
-      <span className="text-sm font-medium text-red-700">{label}</span>
+      <span className="text-sm font-medium text-red-700">
+        {label}
+      </span>
     </button>
   );
 }
