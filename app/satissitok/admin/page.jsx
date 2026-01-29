@@ -1,4 +1,4 @@
-//app/satissitok/admin/page.jsx
+// app/satissitok/admin/page.jsx
 "use client";
 
 import Link from "next/link";
@@ -8,6 +8,7 @@ import {
   Package,
   Settings,
   ClipboardList,
+  Users,
 } from "lucide-react";
 
 export default function SalesStockDashboard() {
@@ -48,7 +49,7 @@ export default function SalesStockDashboard() {
           Yönetim
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
           <DashboardCard
             title="Satışlar"
             desc="Satış faturalarını listele"
@@ -63,6 +64,14 @@ export default function SalesStockDashboard() {
             href="/satissitok/admin/purchases"
             color="blue"
             icon={<ClipboardList />}
+          />
+
+          <DashboardCard
+            title="Cariler"
+            desc="Müşteri ve tedarikçi kartları"
+            href="/satissitok/admin/cari"
+            color="orange"
+            icon={<Users />}
           />
 
           <DashboardCard
@@ -94,6 +103,7 @@ function DashboardCard({ title, desc, href, icon, color }) {
     blue: "border-blue-300 hover:border-blue-500 text-blue-700",
     purple: "border-purple-300 hover:border-purple-500 text-purple-700",
     gray: "border-gray-300 hover:border-gray-500 text-gray-700",
+    orange: "border-orange-300 hover:border-orange-500 text-orange-700",
   };
 
   return (
