@@ -21,18 +21,20 @@ function formatInvoiceNo(type, seq) {
   return `${prefix}-${year}${String(seq).padStart(6, "0")}`;
 }
 
+/* =========================================================
+   CREATE PURCHASE (MEVCUT – DOKUNULMADI)
+========================================================= */
+
 export async function createPurchase(payload) {
   return await runTransaction(db, async (transaction) => {
     const type = payload.purchaseType;
 
-    // 🔵 invoiceNo / documentNo uyumu
     let invoiceNo = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
 
     /* =====================
        READ PHASE
     ===================== */
 
-    // 🔹 Sayaç oku
     let nextSeq = null;
     if (!invoiceNo) {
       const counterRef = doc(db, "purchase_counters", "main");
@@ -46,7 +48,6 @@ export async function createPurchase(payload) {
       invoiceNo = formatInvoiceNo(type, nextSeq);
     }
 
-    // 🔹 Stok bakiyeleri oku
     const existingBalances =
       await readStockBalancesForPurchase({
         transaction,
@@ -57,17 +58,11 @@ export async function createPurchase(payload) {
        WRITE PHASE
     ===================== */
 
-    // 🔹 Sayaç güncelle
     if (nextSeq !== null) {
       const counterRef = doc(db, "purchase_counters", "main");
-      transaction.set(
-        counterRef,
-        { [type]: nextSeq },
-        { merge: true }
-      );
+      transaction.set(counterRef, { [type]: nextSeq }, { merge: true });
     }
 
-    // 🔹 Satınalma kaydı
     const purchaseRef = doc(collection(db, "purchases"));
 
     transaction.set(purchaseRef, {
@@ -88,10 +83,11 @@ export async function createPurchase(payload) {
       items: payload.items || [],
       totals: payload.totals || {},
 
+      status: "completed", // 🔵 EKLENDİ (liste/detay uyumu için)
+
       createdAt: serverTimestamp(),
     });
 
-    // 🔹 STOK HAREKETLERİ
     writePurchaseStockMovements({
       transaction,
       purchaseId: purchaseRef.id,
@@ -103,7 +99,6 @@ export async function createPurchase(payload) {
       currency: "KZT",
     });
 
-    // 🔹 STOK BAKİYELERİ (ORT. MALİYET)
     writeStockBalancesWithAvgCost({
       transaction,
       purchaseType: type,
@@ -111,7 +106,6 @@ export async function createPurchase(payload) {
       existingBalances,
     });
 
-    // 🔹 CARİ HAREKET (OPSİYONEL – GÜVENLİ)
     if (payload.supplierCariId) {
       const cariTxRef = doc(collection(db, "cari_transactions"));
 
@@ -136,13 +130,104 @@ export async function createPurchase(payload) {
         currency: "KZT",
 
         description:
-          payload.description ||
-          "Satınalma faturası",
+          payload.description || "Satınalma faturası",
 
         createdAt: serverTimestamp(),
       });
     }
 
     return purchaseRef.id;
+  });
+}
+
+/* =========================================================
+   CANCEL PURCHASE (YENİ – GÜVENLİ İPTAL)
+========================================================= */
+
+export async function cancelPurchase({ purchaseId }) {
+  if (!purchaseId) throw new Error("purchaseId zorunlu");
+
+  return await runTransaction(db, async (transaction) => {
+    const purchaseRef = doc(db, "purchases", purchaseId);
+    const snap = await transaction.get(purchaseRef);
+
+    if (!snap.exists()) throw new Error("Satınalma bulunamadı");
+
+    const purchase = snap.data();
+
+    if (purchase.status === "cancelled") return true;
+
+    const items = purchase.items || [];
+    const type = purchase.purchaseType;
+
+    /* =====================
+       STOK GERİ AL
+    ===================== */
+
+    const existingBalances =
+      await readStockBalancesForPurchase({
+        transaction,
+        items,
+      });
+
+    // 🔴 TERS STOK HAREKETLERİ
+    writePurchaseStockMovements({
+      transaction,
+      purchaseId,
+      purchaseType: type,
+      items,
+      supplierName: purchase.supplierName || "",
+      invoiceNo: purchase.invoiceNo,
+      documentDate: purchase.documentDate || null,
+      currency: "KZT",
+      reverse: true, // 🔴 ÖNEMLİ
+    });
+
+    // 🔴 BAKİYELERİ GERİ AL
+    writeStockBalancesWithAvgCost({
+      transaction,
+      purchaseType: type,
+      items,
+      existingBalances,
+      reverse: true, // 🔴 ÖNEMLİ
+    });
+
+    /* =====================
+       CARİ TERS KAYIT
+    ===================== */
+
+    if (purchase.supplierCariId) {
+      const cariTxRef = doc(collection(db, "cari_transactions"));
+
+      transaction.set(cariTxRef, {
+        cariId: purchase.supplierCariId,
+
+        operationDate: new Date(),
+
+        operationType: "purchase_cancel",
+
+        documentNo: purchase.invoiceNo,
+
+        debit: Number(purchase.totals?.gross || 0),
+        credit: 0,
+
+        currency: "KZT",
+
+        description: "Satınalma faturası iptali",
+
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    /* =====================
+       DURUM GÜNCELLE
+    ===================== */
+
+    transaction.update(purchaseRef, {
+      status: "cancelled",
+      cancelledAt: serverTimestamp(),
+    });
+
+    return true;
   });
 }
