@@ -30,9 +30,12 @@ export default function PurchaseDetailPage() {
       return;
     }
 
-    const itemsSnap = await getDocs(collection(db, "purchases", purchaseId, "items"));
+    const data = snap.data();
 
-    setPurchase({ id: purchaseId, ...snap.data() });
+setPurchase({ id: purchaseId, ...data });
+setItems(data.items || []);
+setLoading(false);
+
     setItems(itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     setLoading(false);
   }
