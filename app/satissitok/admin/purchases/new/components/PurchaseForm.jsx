@@ -58,7 +58,10 @@ export default function PurchaseForm({ onSubmit }) {
 
   const [supplierName, setSupplierName] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
-  const [documentDate, setDocumentDate] = useState("");
+  const [documentDate, setDocumentDate] = useState(
+  new Date().toISOString().slice(0, 10)
+);
+
 
   const [items, setItems] = useState([]);
 
