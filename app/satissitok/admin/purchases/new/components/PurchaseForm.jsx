@@ -20,10 +20,22 @@ import { db } from "@/firebase";
    YARDIMCI FONKSİYONLAR
 ================================ */
 
-// 🔵 Yeni sayaç yapına uygun format:
-function formatInvoiceNo(type, fullSeq) {
+function pad6(n) {
+  return String(Number(n) || 0).padStart(6, "0");
+}
+
+function year2FromDateISO(dateISO) {
+  if (!dateISO) return String(new Date().getFullYear()).slice(-2);
+  const d = new Date(dateISO);
+  return Number.isNaN(d.getTime())
+    ? String(new Date().getFullYear()).slice(-2)
+    : String(d.getFullYear()).slice(-2);
+}
+
+// 🔵 SATIŞ FATURASIYLA AYNI FORMAT
+function formatInvoiceNo(type, yy, seq) {
   const prefix = type === "official" ? "R" : "F";
-  return `${prefix}-${Number(fullSeq || 0)}`;
+  return `${prefix}-${yy}-${pad6(seq)}`;
 }
 
 /* ===============================
@@ -56,7 +68,6 @@ export default function PurchaseForm({ onSubmit }) {
 
   // Kullanıcı elle fatura no değiştirdiyse
   const [invoiceNoDirty, setInvoiceNoDirty] = useState(false);
-
   const loadingInvoiceRef = useRef(false);
 
   /* ===============================
@@ -76,7 +87,7 @@ export default function PurchaseForm({ onSubmit }) {
   }, []);
 
   /* ===============================
-      CARİ LİSTESİ (TEDARİKÇİ / BOTH)
+      CARİ LİSTESİ
   ================================ */
 
   useEffect(() => {
@@ -142,37 +153,38 @@ export default function PurchaseForm({ onSubmit }) {
       setSelectedVat(def ? Number(def.rate) : 16);
     }
 
-    // Fatura türü değişince, kullanıcı fatura no'yu elle yazmadıysa tekrar varsayılanı gösterelim
+    // satıştaki gibi
     setInvoiceNoDirty(false);
   }, [purchaseType, vatRates]);
 
   /* ===============================
-    FATURA NO ÖNİZLEME (DÜZELTİLDİ)
+      FATURA NO ÖNİZLEME (DÜZELTİLDİ)
   ================================ */
+
+  const yy = useMemo(
+    () => year2FromDateISO(documentDate),
+    [documentDate]
+  );
+
   useEffect(() => {
     const loadNextInvoiceNoPreview = async () => {
-      if (invoiceNoDirty) return; 
+      if (invoiceNoDirty) return;
       if (loadingInvoiceRef.current) return;
 
       loadingInvoiceRef.current = true;
 
       try {
-        const counterDocId =
-          purchaseType === "official"
-            ? "purchases_official"
-            : "purchases_actual";
-
-        const ref = doc(db, "counters", counterDocId);
+        const ref = doc(db, "counters", "purchases");
         const snap = await getDoc(ref);
 
-        let currentSeq = 0;
-        if (snap.exists()) {
-          currentSeq = Number(snap.data()?.seq || 0);
-        }
+        const data = snap.exists()
+          ? snap.data()
+          : { official: 0, actual: 0 };
 
-        const nextSeq = currentSeq + 1;
-        setInvoiceNo(formatInvoiceNo(purchaseType, nextSeq));
-        
+        const key = purchaseType === "official" ? "official" : "actual";
+        const nextSeq = Number(data[key] || 0) + 1;
+
+        setInvoiceNo(formatInvoiceNo(purchaseType, yy, nextSeq));
       } catch (e) {
         console.error("Fatura No Yükleme Hatası:", e);
         setInvoiceNo("");
@@ -182,8 +194,7 @@ export default function PurchaseForm({ onSubmit }) {
     };
 
     loadNextInvoiceNoPreview();
-    
-  }, [purchaseType, invoiceNoDirty]);
+  }, [purchaseType, yy, invoiceNoDirty]);
 
   /* ===============================
       TOPLAMLAR
