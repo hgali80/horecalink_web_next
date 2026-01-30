@@ -157,34 +157,40 @@ export default function PurchaseForm({ onSubmit }) {
   ================================ */
 
   useEffect(() => {
-    const loadNextInvoiceNoPreview = async () => {
-      if (invoiceNoDirty) return;
-      if (loadingInvoiceRef.current) return;
+  const loadNextInvoiceNoPreview = async () => {
+    if (invoiceNoDirty) return;
+    if (loadingInvoiceRef.current) return;
 
-      loadingInvoiceRef.current = true;
+    loadingInvoiceRef.current = true;
 
-      try {
-        const counterDocId =
-          purchaseType === "official" ? "purchases_official" : "purchases_actual";
+    try {
+      const counterDocId =
+        purchaseType === "official"
+          ? "purchases_official"
+          : "purchases_actual";
 
-        const ref = doc(db, "counters", counterDocId);
-        const snap = await getDoc(ref);
+      const ref = doc(db, "counters", counterDocId);
+      const snap = await getDoc(ref);
 
-        const currentSeq = snap.exists() ? Number(snap.data()?.seq || 0) : 0;
-        const nextSeq = currentSeq + 1;
+      const currentSeq = snap.exists()
+        ? Number(snap.data()?.seq || 0)
+        : 0;
 
-        setInvoiceNo(formatInvoiceNo(purchaseType, nextSeq));
-      } catch (e) {
-        console.error("COUNTER READ ERROR:", e);
-        // fallback: boş bırak (servis otomatik versin)
-        setInvoiceNo("");
-      } finally {
-        loadingInvoiceRef.current = false;
-      }
-    };
+      const nextSeq = currentSeq + 1;
 
-    loadNextInvoiceNoPreview();
-  }, [purchaseType, invoiceNoDirty]);
+      setInvoiceNo(formatInvoiceNo(purchaseType, nextSeq));
+    } catch (e) {
+      console.error("COUNTER READ ERROR:", e);
+      setInvoiceNo("");
+    } finally {
+      loadingInvoiceRef.current = false;
+    }
+  };
+
+  loadNextInvoiceNoPreview();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [purchaseType]);
+
 
   /* ===============================
      TOPLAMLAR
