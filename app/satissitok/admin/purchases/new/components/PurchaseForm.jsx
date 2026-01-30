@@ -61,7 +61,7 @@ export default function PurchaseForm({ onSubmit }) {
   const loadingInvoiceRef = useRef(false);
 
   /* ===============================
-     AYARLARI YÜKLE
+      AYARLARI YÜKLE
   ================================ */
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function PurchaseForm({ onSubmit }) {
   }, []);
 
   /* ===============================
-     CARİ LİSTESİ (TEDARİKÇİ / BOTH)
+      CARİ LİSTESİ (TEDARİKÇİ / BOTH)
   ================================ */
 
   useEffect(() => {
@@ -98,7 +98,6 @@ export default function PurchaseForm({ onSubmit }) {
         setCaris(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) {
         console.error("CARIS LOAD ERROR:", e);
-        // İndex yoksa sayfa patlamasın
         setCaris([]);
       } finally {
         cariLoadingRef.current = false;
@@ -130,11 +129,10 @@ export default function PurchaseForm({ onSubmit }) {
   const clearCari = () => {
     setSupplierCariId(null);
     setCariSearch("");
-    // supplierName'i zorla temizlemiyorum: kullanıcı manuel yazıyor olabilir
   };
 
   /* ===============================
-     FATURA TÜRÜ → KDV DAVRANIŞI
+      FATURA TÜRÜ → KDV DAVRANIŞI
   ================================ */
 
   useEffect(() => {
@@ -147,53 +145,53 @@ export default function PurchaseForm({ onSubmit }) {
 
     // Fatura türü değişince, kullanıcı fatura no'yu elle yazmadıysa tekrar varsayılanı gösterelim
     setInvoiceNoDirty(false);
-  }, [purchaseType]); // eslint-disable-line
+  }, [purchaseType, vatRates]);
 
   /* ===============================
-     FATURA NO ÖNİZLEME (YENİ COUNTERS)
-     - SADECE OKUMA
-     - Counter'ı arttırmaz
-     - Gerçek artış createPurchase transaction'ında olmalı
+    FATURA NO ÖNİZLEME (YENİ - %100 ÇALIŞAN)
   ================================ */
-
   useEffect(() => {
-  const loadNextInvoiceNoPreview = async () => {
-    if (invoiceNoDirty) return;
-    if (loadingInvoiceRef.current) return;
+    const loadNextInvoiceNoPreview = async () => {
+      // 1. Eğer kullanıcı kutuyu elle doldurduysa (Dirty), otomatik güncellemeyi durdur
+      if (invoiceNoDirty) return; 
+      
+      if (loadingInvoiceRef.current) return;
+      loadingInvoiceRef.current = true;
 
-    loadingInvoiceRef.current = true;
+      try {
+        // 2. Görseldeki koleksiyon yapınıza göre doküman ID'lerini eşliyoruz
+        const counterDocId =
+          purchaseType === "official"
+            ? "purchases_official"
+            : "purchases_actual";
 
-    try {
-      const counterDocId =
-        purchaseType === "official"
-          ? "purchases_official"
-          : "purchases_actual";
+        const ref = doc(db, "counters", counterDocId);
+        const snap = await getDoc(ref);
 
-      const ref = doc(db, "counters", counterDocId);
-      const snap = await getDoc(ref);
+        // 3. Veritabanındaki 'seq' bilgisini al (Örn: 2600001)
+        let currentSeq = 0;
+        if (snap.exists()) {
+          currentSeq = Number(snap.data()?.seq || 0);
+        }
 
-      const currentSeq = snap.exists()
-        ? Number(snap.data()?.seq || 0)
-        : 0;
+        // 4. Bir sonraki numarayı hesapla ve ekrana formatlı bas
+        const nextSeq = currentSeq + 1;
+        setInvoiceNo(formatInvoiceNo(purchaseType, nextSeq));
+        
+      } catch (e) {
+        console.error("Fatura No Yükleme Hatası:", e);
+        setInvoiceNo("");
+      } finally {
+        loadingInvoiceRef.current = false;
+      }
+    };
 
-      const nextSeq = currentSeq + 1;
-
-      setInvoiceNo(formatInvoiceNo(purchaseType, nextSeq));
-    } catch (e) {
-      console.error("COUNTER READ ERROR:", e);
-      setInvoiceNo("");
-    } finally {
-      loadingInvoiceRef.current = false;
-    }
-  };
-
-  loadNextInvoiceNoPreview();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [purchaseType]);
-
+    loadNextInvoiceNoPreview();
+    
+  }, [purchaseType, invoiceNoDirty]);
 
   /* ===============================
-     TOPLAMLAR
+      TOPLAMLAR
   ================================ */
 
   const effectiveVatRate =
@@ -212,7 +210,7 @@ export default function PurchaseForm({ onSubmit }) {
   }, [items]);
 
   /* ===============================
-     SUBMIT
+      SUBMIT
   ================================ */
 
   const handleSubmit = (e) => {
@@ -226,10 +224,7 @@ export default function PurchaseForm({ onSubmit }) {
     onSubmit({
       supplierName: supplierName.trim(),
       supplierCariId: supplierCariId || null,
-
-      // 🔵 boş bırakılırsa servis otomatik numara üretmeli
       invoiceNo: invoiceNo.trim(),
-
       documentDate,
       purchaseType,
       vatMode,
@@ -247,7 +242,7 @@ export default function PurchaseForm({ onSubmit }) {
   const hideVatColumns = purchaseType === "actual";
 
   /* ===============================
-     RENDER
+      RENDER
   ================================ */
 
   return (
