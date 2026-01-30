@@ -23,7 +23,7 @@ function formatInvoiceNo(type, seq) {
 }
 
 /* =========================================================
-   CREATE PURCHASE (MINIMUM MÜDAHALE)
+   CREATE PURCHASE (SADECE SAYAÇ DÜZELTİLDİ)
 ========================================================= */
 
 export async function createPurchase(payload) {
@@ -39,19 +39,17 @@ export async function createPurchase(payload) {
 
     // 🔵 OTOMATİK FATURA NUMARASI
     if (!invoiceNo) {
-      const counterId =
-        type === "official"
-          ? "purchases_official"
-          : "purchases_actual";
-
-      const counterRef = doc(db, "counters", counterId);
+      const counterRef = doc(db, "counters", "purchases");
       const counterSnap = await transaction.get(counterRef);
 
       if (!counterSnap.exists()) {
-        throw new Error(`Sayaç bulunamadı: counters/${counterId}`);
+        throw new Error("Sayaç bulunamadı: counters/purchases");
       }
 
-      const currentSeq = Number(counterSnap.data()?.seq || 0);
+      const data = counterSnap.data();
+      const key = type === "official" ? "official" : "actual";
+
+      const currentSeq = Number(data[key] || 0);
       nextSeq = currentSeq + 1;
 
       invoiceNo = formatInvoiceNo(type, nextSeq);
@@ -69,13 +67,12 @@ export async function createPurchase(payload) {
 
     // 🔵 SAYAÇ GÜNCELLE (SADECE OTOMATİKTE)
     if (nextSeq !== null) {
-      const counterId =
-        type === "official"
-          ? "purchases_official"
-          : "purchases_actual";
+      const counterRef = doc(db, "counters", "purchases");
+      const key = type === "official" ? "official" : "actual";
 
-      const counterRef = doc(db, "counters", counterId);
-      transaction.update(counterRef, { seq: nextSeq });
+      transaction.update(counterRef, {
+        [key]: nextSeq,
+      });
     }
 
     const purchaseRef = doc(collection(db, "purchases"));
@@ -190,7 +187,7 @@ export async function cancelPurchase({ purchaseId }) {
 
     writePurchaseStockMovements({
       transaction,
-      purchaseId,
+      purchaseId: purchaseRef.id,
       purchaseType: type,
       items,
       supplierName: purchase.supplierName || "",
