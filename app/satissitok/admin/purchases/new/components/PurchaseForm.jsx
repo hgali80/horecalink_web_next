@@ -21,7 +21,6 @@ import { db } from "@/firebase";
 ================================ */
 
 // 🔵 Yeni sayaç yapına uygun format:
-// counters'daki seq değerini "2600001" gibi tuttuğun için invoiceNo: "R-2600002"
 function formatInvoiceNo(type, fullSeq) {
   const prefix = type === "official" ? "R" : "F";
   return `${prefix}-${Number(fullSeq || 0)}`;
@@ -148,18 +147,16 @@ export default function PurchaseForm({ onSubmit }) {
   }, [purchaseType, vatRates]);
 
   /* ===============================
-    FATURA NO ÖNİZLEME (YENİ - %100 ÇALIŞAN)
+    FATURA NO ÖNİZLEME (DÜZELTİLDİ)
   ================================ */
   useEffect(() => {
     const loadNextInvoiceNoPreview = async () => {
-      // 1. Eğer kullanıcı kutuyu elle doldurduysa (Dirty), otomatik güncellemeyi durdur
       if (invoiceNoDirty) return; 
-      
       if (loadingInvoiceRef.current) return;
+
       loadingInvoiceRef.current = true;
 
       try {
-        // 2. Görseldeki koleksiyon yapınıza göre doküman ID'lerini eşliyoruz
         const counterDocId =
           purchaseType === "official"
             ? "purchases_official"
@@ -168,13 +165,11 @@ export default function PurchaseForm({ onSubmit }) {
         const ref = doc(db, "counters", counterDocId);
         const snap = await getDoc(ref);
 
-        // 3. Veritabanındaki 'seq' bilgisini al (Örn: 2600001)
         let currentSeq = 0;
         if (snap.exists()) {
           currentSeq = Number(snap.data()?.seq || 0);
         }
 
-        // 4. Bir sonraki numarayı hesapla ve ekrana formatlı bas
         const nextSeq = currentSeq + 1;
         setInvoiceNo(formatInvoiceNo(purchaseType, nextSeq));
         
@@ -247,7 +242,6 @@ export default function PurchaseForm({ onSubmit }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* ÜST BİLGİLER */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* FATURA TÜRÜ */}
         <div>
@@ -300,14 +294,13 @@ export default function PurchaseForm({ onSubmit }) {
               type="button"
               className="px-3 py-2 border rounded"
               onClick={clearCari}
-              title="Cari seçimini temizle"
             >
               Temizle
             </button>
           </div>
 
           {cariOpen && (
-            <div className="absolute left-0 top-full mt-1 bg-white border w-full z-50 max-h-64 overflow-y-auto rounded">
+            <div className="absolute left-0 top-full mt-1 bg-white border w-full z-50 max-h-64 overflow-y-auto rounded shadow-lg">
               {filteredCaris.map((c) => (
                 <div
                   key={c.id}
@@ -324,28 +317,19 @@ export default function PurchaseForm({ onSubmit }) {
                   </div>
                 </div>
               ))}
-
-              {filteredCaris.length === 0 && (
-                <div className="px-3 py-3 text-sm text-gray-500">
-                  Cari bulunamadı. (Önce cari kart oluşturmalısın.)
-                </div>
-              )}
             </div>
           )}
         </div>
 
-        {/* TEDARİKÇİ (GERİ UYUMLU) */}
+        {/* TEDARİKÇİ */}
         <div>
           <label className="block text-sm font-medium mb-1">Tedarikçi</label>
           <input
             className="w-full border rounded px-3 py-2"
             value={supplierName}
             onChange={(e) => setSupplierName(e.target.value)}
-            placeholder="Manuel yazılabilir (cari seçersen otomatik dolar)"
+            placeholder="Manuel yazılabilir"
           />
-          <div className="text-xs text-gray-500 mt-1">
-            Not: Cari seçersen, kayıtta <strong>supplierCariId</strong> de gider.
-          </div>
         </div>
 
         {/* FATURA NO */}
@@ -358,11 +342,8 @@ export default function PurchaseForm({ onSubmit }) {
               setInvoiceNo(e.target.value);
               setInvoiceNoDirty(true);
             }}
-            placeholder="Boş bırakılırsa otomatik numara verilir"
+            placeholder="Otomatik numara..."
           />
-          <div className="text-xs text-gray-500 mt-1">
-            Not: Elle değiştirirsen manuel kabul edilir.
-          </div>
         </div>
 
         {/* TARİH */}
@@ -409,7 +390,6 @@ export default function PurchaseForm({ onSubmit }) {
         )}
       </div>
 
-      {/* ÜRÜNLER */}
       <PurchaseItemsTable
         onChange={setItems}
         vatRate={effectiveVatRate}
@@ -417,21 +397,14 @@ export default function PurchaseForm({ onSubmit }) {
         hideVat={hideVatColumns}
       />
 
-      {/* TOPLAM */}
       <div className="border-t pt-4 text-right space-y-1">
-        <div>
-          Net: <strong>{totals.net} ₸</strong>
-        </div>
-        <div>
-          KDV: <strong>{totals.vat} ₸</strong>
-        </div>
-        <div className="text-lg">
-          Genel Toplam: <strong>{totals.gross} ₸</strong>
-        </div>
+        <div>Net: <strong>{totals.net} ₸</strong></div>
+        <div>KDV: <strong>{totals.vat} ₸</strong></div>
+        <div className="text-lg">Genel Toplam: <strong>{totals.gross} ₸</strong></div>
       </div>
 
       <div className="text-right">
-        <button className="px-4 py-2 bg-green-600 text-white rounded">
+        <button className="px-4 py-2 bg-green-600 text-white rounded font-bold">
           Satınalma Kaydet
         </button>
       </div>
