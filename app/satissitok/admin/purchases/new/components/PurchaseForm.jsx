@@ -20,21 +20,11 @@ import { db } from "@/firebase";
    YARDIMCI FONKSİYONLAR
 ================================ */
 
-function pad6(n) {
-  return String(Number(n) || 0).padStart(6, "0");
-}
-
-function year2FromDateISO(dateISO) {
-  if (!dateISO) return String(new Date().getFullYear()).slice(-2);
-  const d = new Date(dateISO);
-  return Number.isNaN(d.getTime())
-    ? String(new Date().getFullYear()).slice(-2)
-    : String(d.getFullYear()).slice(-2);
-}
-
-function formatInvoiceNo(type, yy, seq) {
+// 🔵 Yeni sayaç yapına uygun format:
+// counters'daki seq değerini "2600001" gibi tuttuğun için invoiceNo: "R-2600002"
+function formatInvoiceNo(type, fullSeq) {
   const prefix = type === "official" ? "R" : "F";
-  return `${prefix}-${yy}${pad6(seq)}`;
+  return `${prefix}-${Number(fullSeq || 0)}`;
 }
 
 /* ===============================
@@ -67,7 +57,8 @@ export default function PurchaseForm({ onSubmit }) {
 
   // Kullanıcı elle fatura no değiştirdiyse
   const [invoiceNoDirty, setInvoiceNoDirty] = useState(false);
-  const loadingRef = useRef(false);
+
+  const loadingInvoiceRef = useRef(false);
 
   /* ===============================
      AYARLARI YÜKLE
@@ -108,7 +99,6 @@ export default function PurchaseForm({ onSubmit }) {
       } catch (e) {
         console.error("CARIS LOAD ERROR:", e);
         // İndex yoksa sayfa patlamasın
-        // (Bu durumda user console'da görür ve index açarız)
         setCaris([]);
       } finally {
         cariLoadingRef.current = false;
@@ -154,48 +144,54 @@ export default function PurchaseForm({ onSubmit }) {
       const def = vatRates.find((v) => v.default === true);
       setSelectedVat(def ? Number(def.rate) : 16);
     }
+
+    // Fatura türü değişince, kullanıcı fatura no'yu elle yazmadıysa tekrar varsayılanı gösterelim
     setInvoiceNoDirty(false);
   }, [purchaseType]); // eslint-disable-line
 
   /* ===============================
-     FATURA NO OTOMATİK ÜRETİMİ
-     (purchase_counters/main)
+     FATURA NO ÖNİZLEME (YENİ COUNTERS)
+     - SADECE OKUMA
+     - Counter'ı arttırmaz
+     - Gerçek artış createPurchase transaction'ında olmalı
   ================================ */
 
-  const yy = useMemo(() => year2FromDateISO(documentDate), [documentDate]);
-
   useEffect(() => {
-    const loadNextInvoiceNo = async () => {
+    const loadNextInvoiceNoPreview = async () => {
       if (invoiceNoDirty) return;
-      if (loadingRef.current) return;
-      loadingRef.current = true;
+      if (loadingInvoiceRef.current) return;
+
+      loadingInvoiceRef.current = true;
 
       try {
-        const ref = doc(db, "purchase_counters", "main");
+        const counterDocId =
+          purchaseType === "official" ? "purchases_official" : "purchases_actual";
+
+        const ref = doc(db, "counters", counterDocId);
         const snap = await getDoc(ref);
 
-        const counters = snap.exists()
-          ? snap.data()
-          : { official: 0, actual: 0 };
+        const currentSeq = snap.exists() ? Number(snap.data()?.seq || 0) : 0;
+        const nextSeq = currentSeq + 1;
 
-        const nextSeq = (counters[purchaseType] || 0) + 1;
-        const nextNo = formatInvoiceNo(purchaseType, yy, nextSeq);
-        setInvoiceNo(nextNo);
-      } catch {
-        setInvoiceNo(formatInvoiceNo(purchaseType, yy, 1));
+        setInvoiceNo(formatInvoiceNo(purchaseType, nextSeq));
+      } catch (e) {
+        console.error("COUNTER READ ERROR:", e);
+        // fallback: boş bırak (servis otomatik versin)
+        setInvoiceNo("");
       } finally {
-        loadingRef.current = false;
+        loadingInvoiceRef.current = false;
       }
     };
 
-    loadNextInvoiceNo();
-  }, [purchaseType, yy, invoiceNoDirty]);
+    loadNextInvoiceNoPreview();
+  }, [purchaseType, invoiceNoDirty]);
 
   /* ===============================
      TOPLAMLAR
   ================================ */
 
-  const effectiveVatRate = purchaseType === "official" ? Number(selectedVat || 0) : 0;
+  const effectiveVatRate =
+    purchaseType === "official" ? Number(selectedVat || 0) : 0;
 
   const totals = useMemo(() => {
     const net = items.reduce((s, i) => s + (i.netLineTotal || 0), 0);
@@ -225,7 +221,9 @@ export default function PurchaseForm({ onSubmit }) {
       supplierName: supplierName.trim(),
       supplierCariId: supplierCariId || null,
 
+      // 🔵 boş bırakılırsa servis otomatik numara üretmeli
       invoiceNo: invoiceNo.trim(),
+
       documentDate,
       purchaseType,
       vatMode,
@@ -294,7 +292,6 @@ export default function PurchaseForm({ onSubmit }) {
               onChange={(e) => {
                 setCariSearch(e.target.value);
                 setCariOpen(true);
-                // kullanıcı arama değiştirirse, önceki seçimi iptal edelim
                 if (supplierCariId) setSupplierCariId(null);
               }}
             />
@@ -360,7 +357,11 @@ export default function PurchaseForm({ onSubmit }) {
               setInvoiceNo(e.target.value);
               setInvoiceNoDirty(true);
             }}
+            placeholder="Boş bırakılırsa otomatik numara verilir"
           />
+          <div className="text-xs text-gray-500 mt-1">
+            Not: Elle değiştirirsen manuel kabul edilir.
+          </div>
         </div>
 
         {/* TARİH */}

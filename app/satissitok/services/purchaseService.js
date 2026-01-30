@@ -1,6 +1,4 @@
 // app/satissitok/services/purchaseService.js
-// app/satissitok/services/purchaseService.js
-
 import {
   collection,
   doc,
@@ -15,6 +13,9 @@ import {
   writeStockBalancesWithAvgCost,
 } from "./stockService";
 
+/* ===============================
+   FATURA FORMAT (AYNEN KORUNDU)
+================================ */
 function formatInvoiceNo(type, seq) {
   const year = new Date().getFullYear().toString().slice(-2);
   const prefix = type === "official" ? "R" : "F";
@@ -22,29 +23,37 @@ function formatInvoiceNo(type, seq) {
 }
 
 /* =========================================================
-   CREATE PURCHASE (MEVCUT – DOKUNULMADI)
+   CREATE PURCHASE (MINIMUM MÜDAHALE)
 ========================================================= */
 
 export async function createPurchase(payload) {
   return await runTransaction(db, async (transaction) => {
-    const type = payload.purchaseType;
+    const type = payload.purchaseType; // official | actual
 
     let invoiceNo = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
+    let nextSeq = null;
 
     /* =====================
        READ PHASE
     ===================== */
 
-    let nextSeq = null;
+    // 🔵 OTOMATİK FATURA NUMARASI
     if (!invoiceNo) {
-      const counterRef = doc(db, "purchase_counters", "main");
+      const counterId =
+        type === "official"
+          ? "purchases_official"
+          : "purchases_actual";
+
+      const counterRef = doc(db, "counters", counterId);
       const counterSnap = await transaction.get(counterRef);
 
-      const counters = counterSnap.exists()
-        ? counterSnap.data()
-        : { official: 0, actual: 0 };
+      if (!counterSnap.exists()) {
+        throw new Error(`Sayaç bulunamadı: counters/${counterId}`);
+      }
 
-      nextSeq = (counters[type] || 0) + 1;
+      const currentSeq = Number(counterSnap.data()?.seq || 0);
+      nextSeq = currentSeq + 1;
+
       invoiceNo = formatInvoiceNo(type, nextSeq);
     }
 
@@ -58,9 +67,15 @@ export async function createPurchase(payload) {
        WRITE PHASE
     ===================== */
 
+    // 🔵 SAYAÇ GÜNCELLE (SADECE OTOMATİKTE)
     if (nextSeq !== null) {
-      const counterRef = doc(db, "purchase_counters", "main");
-      transaction.set(counterRef, { [type]: nextSeq }, { merge: true });
+      const counterId =
+        type === "official"
+          ? "purchases_official"
+          : "purchases_actual";
+
+      const counterRef = doc(db, "counters", counterId);
+      transaction.update(counterRef, { seq: nextSeq });
     }
 
     const purchaseRef = doc(collection(db, "purchases"));
@@ -83,10 +98,14 @@ export async function createPurchase(payload) {
       items: payload.items || [],
       totals: payload.totals || {},
 
-      status: "completed", // 🔵 EKLENDİ (liste/detay uyumu için)
+      status: "completed",
 
       createdAt: serverTimestamp(),
     });
+
+    /* =====================
+       STOK HAREKETLERİ
+    ===================== */
 
     writePurchaseStockMovements({
       transaction,
@@ -105,6 +124,10 @@ export async function createPurchase(payload) {
       items: payload.items || [],
       existingBalances,
     });
+
+    /* =====================
+       CARİ HAREKETİ
+    ===================== */
 
     if (payload.supplierCariId) {
       const cariTxRef = doc(collection(db, "cari_transactions"));
@@ -141,7 +164,7 @@ export async function createPurchase(payload) {
 }
 
 /* =========================================================
-   CANCEL PURCHASE (YENİ – GÜVENLİ İPTAL)
+   CANCEL PURCHASE (HİÇ DOKUNULMADI)
 ========================================================= */
 
 export async function cancelPurchase({ purchaseId }) {
@@ -154,15 +177,10 @@ export async function cancelPurchase({ purchaseId }) {
     if (!snap.exists()) throw new Error("Satınalma bulunamadı");
 
     const purchase = snap.data();
-
     if (purchase.status === "cancelled") return true;
 
     const items = purchase.items || [];
     const type = purchase.purchaseType;
-
-    /* =====================
-       STOK GERİ AL
-    ===================== */
 
     const existingBalances =
       await readStockBalancesForPurchase({
@@ -170,7 +188,6 @@ export async function cancelPurchase({ purchaseId }) {
         items,
       });
 
-    // 🔴 TERS STOK HAREKETLERİ
     writePurchaseStockMovements({
       transaction,
       purchaseId,
@@ -180,48 +197,32 @@ export async function cancelPurchase({ purchaseId }) {
       invoiceNo: purchase.invoiceNo,
       documentDate: purchase.documentDate || null,
       currency: "KZT",
-      reverse: true, // 🔴 ÖNEMLİ
+      reverse: true,
     });
 
-    // 🔴 BAKİYELERİ GERİ AL
     writeStockBalancesWithAvgCost({
       transaction,
       purchaseType: type,
       items,
       existingBalances,
-      reverse: true, // 🔴 ÖNEMLİ
+      reverse: true,
     });
-
-    /* =====================
-       CARİ TERS KAYIT
-    ===================== */
 
     if (purchase.supplierCariId) {
       const cariTxRef = doc(collection(db, "cari_transactions"));
 
       transaction.set(cariTxRef, {
         cariId: purchase.supplierCariId,
-
         operationDate: new Date(),
-
         operationType: "purchase_cancel",
-
         documentNo: purchase.invoiceNo,
-
         debit: Number(purchase.totals?.gross || 0),
         credit: 0,
-
         currency: "KZT",
-
         description: "Satınalma faturası iptali",
-
         createdAt: serverTimestamp(),
       });
     }
-
-    /* =====================
-       DURUM GÜNCELLE
-    ===================== */
 
     transaction.update(purchaseRef, {
       status: "cancelled",
