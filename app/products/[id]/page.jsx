@@ -2,9 +2,9 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   getFirestore,
   doc,
@@ -22,13 +22,14 @@ import ProductCard from "../../components/ProductCard";
 import { auth } from "../../../firebase";
 
 // ICONLAR
-import { Heart, Minus, Plus } from "lucide-react";
+import { Heart, Minus, Plus, X, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 
 // ✅ i18n (merkezi yapı)
 import { useLang } from "../../context/LanguageContext";
 
 export default function ProductDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
   const db = getFirestore(app);
   const storage = getStorage(app);
   const { user } = useAuth();
@@ -48,6 +49,101 @@ export default function ProductDetailPage() {
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("description");
+
+  // ✅ LIGHTBOX (tam ekran)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  const hasMultipleImages = imageUrls.length > 1;
+
+  const openLightbox = useCallback(
+    (idx) => {
+      if (!imageUrls?.length) return;
+      const safeIdx = Math.max(0, Math.min(idx, imageUrls.length - 1));
+      setLightboxIndex(safeIdx);
+      setIsLightboxOpen(true);
+    },
+    [imageUrls]
+  );
+
+  const closeLightbox = useCallback(() => {
+    setIsLightboxOpen(false);
+  }, []);
+
+  const prevLightbox = useCallback(() => {
+    if (!imageUrls?.length) return;
+    setLightboxIndex((i) => (i - 1 + imageUrls.length) % imageUrls.length);
+  }, [imageUrls]);
+
+  const nextLightbox = useCallback(() => {
+    if (!imageUrls?.length) return;
+    setLightboxIndex((i) => (i + 1) % imageUrls.length);
+  }, [imageUrls]);
+
+  // 🔒 Lightbox açıkken body scroll kapat
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev || "";
+    };
+  }, [isLightboxOpen]);
+
+  // ⌨️ Lightbox klavye kontrolü (ESC / oklar)
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") closeLightbox();
+      if (e.key === "ArrowLeft") prevLightbox();
+      if (e.key === "ArrowRight") nextLightbox();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isLightboxOpen, closeLightbox, prevLightbox, nextLightbox]);
+
+  // 📱 Lightbox swipe (mobil)
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+
+    let startX = 0;
+    let startY = 0;
+    let isTouching = false;
+
+    const onTouchStart = (e) => {
+      if (!e.touches?.length) return;
+      isTouching = true;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    };
+
+    const onTouchEnd = (e) => {
+      if (!isTouching) return;
+      isTouching = false;
+
+      const touch = e.changedTouches?.[0];
+      if (!touch) return;
+
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+
+      // yatay swipe öncelikli
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0) prevLightbox();
+        else nextLightbox();
+      }
+    };
+
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [isLightboxOpen, prevLightbox, nextLightbox]);
 
   // 🔥 Görsel yükleme fonksiyonu
   async function loadImage(imageName) {
@@ -77,10 +173,11 @@ export default function ProductDetailPage() {
         setProduct(p);
 
         if (p.image_names?.length > 0) {
-          const urls = await Promise.all(
-            p.image_names.map((name) => loadImage(name))
-          );
-          setImageUrls(urls.filter(Boolean));
+          const urls = await Promise.all(p.image_names.map((name) => loadImage(name)));
+          const filtered = urls.filter(Boolean);
+          setImageUrls(filtered);
+          // görsel index güvenliği
+          setCurrentImageIndex((idx) => Math.max(0, Math.min(idx, Math.max(0, filtered.length - 1))));
         }
 
         // BENZER ÜRÜNLER
@@ -184,6 +281,15 @@ export default function ProductDetailPage() {
     setQuantity(newQty);
   };
 
+  // ✅ Stok kodu alanı (farklı alan isimlerine tolerans)
+  const stockCode =
+    product?.stock_code ??
+    product?.stockCode ??
+    product?.sku ??
+    product?.code ??
+    product?.barcode ??
+    "-";
+
   // ---------------------------
   // DURUMLAR
   // ---------------------------
@@ -216,7 +322,38 @@ export default function ProductDetailPage() {
   // ---------------------------
   return (
     <main className="min-h-screen bg-gray-50 pb-12">
-      <section className="max-w-6xl mx-auto px-3 mt-6">
+      {/* ✅ Navigasyon / Breadcrumb */}
+      <section className="max-w-6xl mx-auto px-3 pt-5">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <button
+            onClick={() => router.back()}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-white hover:bg-gray-50"
+            aria-label={t("productDetail.back")}
+          >
+            <ArrowLeft size={16} />
+            {t("productDetail.back")}
+          </button>
+
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="text-gray-300">/</span>
+            <Link href="/" className="hover:text-gray-900">
+              {t("nav.home") || "Ana Sayfa"}
+            </Link>
+            <span className="text-gray-300">/</span>
+            <Link href="/categories" className="hover:text-gray-900">
+              {t("nav.categories") || "Ürünler"}
+            </Link>
+            {product?.main_category && (
+              <>
+                <span className="text-gray-300">/</span>
+                <span className="text-gray-900 font-medium">{product.main_category}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-3 mt-4">
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
           {/* SOL TARAF — GÖRSEL */}
           <div className="relative">
@@ -231,7 +368,12 @@ export default function ProductDetailPage() {
             </button>
 
             <div className="flex justify-center">
-              <div className="relative bg-white border rounded-xl overflow-hidden w-full max-w-[450px] aspect-square flex items-center justify-center">
+              <button
+                type="button"
+                onClick={() => openLightbox(currentImageIndex)}
+                className="relative bg-white border rounded-xl overflow-hidden w-full max-w-[450px] aspect-square flex items-center justify-center"
+                aria-label={t("productDetail.openFullscreen") || "Görseli tam ekranda aç"}
+              >
                 {imageUrls.length > 0 ? (
                   <Image
                     src={imageUrls[currentImageIndex]}
@@ -243,7 +385,7 @@ export default function ProductDetailPage() {
                 ) : (
                   <span className="text-gray-400">{t("productDetail.noImage")}</span>
                 )}
-              </div>
+              </button>
             </div>
 
             {/* Thumbnail */}
@@ -317,6 +459,12 @@ export default function ProductDetailPage() {
                 {product.name_tr || product.name}
               </h1>
 
+              {/* ✅ Stok Kodu */}
+              <div className="text-sm text-gray-600">
+                <span className="text-gray-500">{t("productDetail.stockCode") || "Stok Kodu"}:</span>{" "}
+                <span className="font-medium text-gray-900">{stockCode}</span>
+              </div>
+
               <div className="border-t pt-3">
                 <p className="text-3xl font-bold text-indigo-600">
                   {product.price?.toLocaleString()} ₸
@@ -380,6 +528,72 @@ export default function ProductDetailPage() {
             ))}
           </div>
         </section>
+      )}
+
+      {/* ✅ FULLSCREEN LIGHTBOX */}
+      {isLightboxOpen && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/90"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("productDetail.fullscreenGallery") || "Tam ekran galeri"}
+          onClick={(e) => {
+            // sadece backdrop tıklanınca kapat
+            if (e.target === e.currentTarget) closeLightbox();
+          }}
+        >
+          {/* ÜST BAR */}
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-3">
+            <div className="text-white/80 text-sm">
+              {imageUrls.length ? `${lightboxIndex + 1} / ${imageUrls.length}` : ""}
+            </div>
+
+            <button
+              onClick={closeLightbox}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+              aria-label={t("common.close") || "Kapat"}
+            >
+              <X size={22} />
+            </button>
+          </div>
+
+          {/* GÖRSEL ALANI */}
+          <div className="absolute inset-0 flex items-center justify-center px-2">
+            <div className="relative w-full h-full max-w-6xl">
+              {imageUrls?.[lightboxIndex] && (
+                <Image
+                  src={imageUrls[lightboxIndex]}
+                  alt={product.name_tr || product.name}
+                  fill
+                  sizes="100vw"
+                  className="object-contain"
+                  priority
+                />
+              )}
+            </div>
+          </div>
+
+          {/* SOL/SAĞ OKLAR */}
+          {hasMultipleImages && (
+            <>
+              <button
+                onClick={prevLightbox}
+                className="absolute left-3 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                aria-label={t("productDetail.prevImage") || "Önceki görsel"}
+              >
+                <ChevronLeft size={26} />
+              </button>
+
+              <button
+                onClick={nextLightbox}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                aria-label={t("productDetail.nextImage") || "Sonraki görsel"}
+              >
+                <ChevronRight size={26} />
+              </button>
+            </>
+          )}
+        </div>
       )}
     </main>
   );
