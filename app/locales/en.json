@@ -371,10 +371,11 @@
   },
 
   "productDetail": {
-    "loading": "Loading product...",
     "loadError": "Error loading product.",
-    "notFound": "Product not found.",
     "noImage": "No image",
+    "loading": "Loading...",
+    "notFound": "Product not found",
+    "stockCode": "Stock Code",
     "favorite": "Add/remove from favorites",
     "loginToFavorite": "You must login to add to favorites.",
     "loginToBasket": "You must login to add to cart.",
@@ -807,5 +808,10 @@
     "text": "This section is not active yet. It will be available soon.",
     "goHome": "Home",
     "goBack": "Go back"
+  },
+
+  "nav": {
+    "home": "Home",
+    "categories": "Products"
   }
 }

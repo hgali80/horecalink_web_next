@@ -325,24 +325,26 @@ export default function ProductDetailPage() {
       {/* ✅ Navigasyon / Breadcrumb */}
       <section className="max-w-6xl mx-auto px-3 pt-5">
         <div className="flex items-center gap-2 text-sm text-gray-600">
-          <button
-            onClick={() => router.back()}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-white hover:bg-gray-50"
-            aria-label={t("productDetail.back")}
-          >
-            <ArrowLeft size={16} />
-            {t("productDetail.back")}
-          </button>
-
+          
           <div className="hidden sm:flex items-center gap-2">
             <span className="text-gray-300">/</span>
             <Link href="/" className="hover:text-gray-900">
               {t("nav.home") || "Ana Sayfa"}
             </Link>
             <span className="text-gray-300">/</span>
-            <Link href="/categories" className="hover:text-gray-900">
-              {t("nav.categories") || "Ürünler"}
-            </Link>
+            <Link
+  href={{
+    pathname: "/categories",
+    query: {
+      main: product.main_category,
+      sub: product.sub_category,
+    },
+  }}
+  className="hover:text-gray-900"
+>
+  {t("nav.categories") || "Ürünler"}
+</Link>
+
             {product?.main_category && (
               <>
                 <span className="text-gray-300">/</span>
@@ -549,12 +551,16 @@ export default function ProductDetailPage() {
             </div>
 
             <button
-              onClick={closeLightbox}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
-              aria-label={t("common.close") || "Kapat"}
-            >
-              <X size={22} />
-            </button>
+  onClick={(e) => {
+    e.stopPropagation();
+    closeLightbox();
+  }}
+  className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+  aria-label={t("common.close") || "Kapat"}
+>
+  <X size={22} />
+</button>
+
           </div>
 
           {/* GÖRSEL ALANI */}

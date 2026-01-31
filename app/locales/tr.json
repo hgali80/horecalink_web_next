@@ -371,9 +371,10 @@
   },
 
   "productDetail": {
-    "loading": "Ürün yükleniyor...",
     "loadError": "Ürün yüklenirken hata oluştu.",
-    "notFound": "Ürün bulunamadı.",
+    "loading": "Yükleniyor.",
+    "notFound": "Ürün bulunamadı",
+    "stockCode": "Stok Kodu",
     "noImage": "Görsel yok",
     "favorite": "Favorilere ekle / çıkar",
     "loginToFavorite": "Favorilere eklemek için giriş yapmalısınız.",
@@ -804,5 +805,10 @@
     "text": "Bu alan henüz aktif değil. Çok yakında kullanıma açılacaktır.",
     "goHome": "Ana Sayfa",
     "goBack": "Geri Dön"
+  },
+
+  "nav": {
+    "home": "Ana Sayfa",
+    "categories": "Ürünler"
   }
 }
