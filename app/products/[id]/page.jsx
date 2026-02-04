@@ -268,7 +268,7 @@ export default function ProductDetailPage() {
 
     await setDoc(basketRef, {
       productId: product.id,
-      name: product.name_tr || product.name,
+      name: product.name || product.name,
       price: product.price || 0,
       unit: product.unit || "-",
       quantity: newQty,
@@ -379,7 +379,7 @@ export default function ProductDetailPage() {
                 {imageUrls.length > 0 ? (
                   <Image
                     src={imageUrls[currentImageIndex]}
-                    alt={product.name_tr || product.name}
+                    alt={product.name || product.name}
                     width={450}
                     height={450}
                     className="object-contain"
@@ -458,7 +458,7 @@ export default function ProductDetailPage() {
           <aside>
             <div className="bg-white rounded-xl shadow-sm border p-4 space-y-4">
               <h1 className="text-xl font-semibold">
-                {product.name_tr || product.name}
+                {product.name || product.name}
               </h1>
 
               {/* ✅ Stok Kodu */}
@@ -569,7 +569,7 @@ export default function ProductDetailPage() {
               {imageUrls?.[lightboxIndex] && (
                 <Image
                   src={imageUrls[lightboxIndex]}
-                  alt={product.name_tr || product.name}
+                  alt={product.name || product.name}
                   fill
                   sizes="100vw"
                   className="object-contain"
