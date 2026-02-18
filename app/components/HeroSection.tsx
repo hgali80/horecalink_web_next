@@ -1,4 +1,5 @@
 // app/components/HeroSection.tsx
+// app/components/HeroSection.tsx
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -16,47 +17,29 @@ export default function HeroSection() {
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // 🔹 Kategoriler (URL’ler DİLSİZ)
+  // ✅ SADECE 3 ANA GRUP
   const categories = [
-  {
-    key: "k_",
-    title: t("home.hero.category.kurumsal"),
-    image: "/kart_kurumsal.jpg",
-    link: "/categories?group=institutional",
-  },
-  {
-    key: "y_",
-    title: t("home.hero.category.yatirim"),
-    image: "/kart_yatirim.jpg",
-    link: "/categories?group=equipment", // ✅ İngilizce
-  },
-  {
-    key: "p_",
-    title: t("home.hero.category.paslanmaz"),
-    image: "/kart_paslanmaz.jpg",
-    link: "/categories?group=stainless_steel" // ✅ İngilizce
-  },
+    {
+      key: "k_",
+      title: t("home.hero.category.kurumsal"),
+      image: "/kart_kurumsal.jpg",
+      link: "/categories?group=institutional",
+    },
+    {
+      key: "y_",
+      title: t("home.hero.category.yatirim"),
+      image: "/kart_yatirim.jpg",
+      link: "/categories?group=equipment",
+    },
+    {
+      key: "p_",
+      title: t("home.hero.category.paslanmaz"),
+      image: "/kart_paslanmaz.jpg",
+      link: "/categories?group=stainless_steel",
+    },
+  ];
 
-  // şimdilik dokunmuyoruz
-  {
-    key: "kim_",
-    title: t("home.hero.category.kimyasallar"),
-    image: "/kart_kimyasallar.jpg",
-    link: "/categories?group=institutional",
-  },
-  {
-    key: "cop_",
-    title: t("home.hero.category.ambalaj"),
-    image: "/kart_cop.jpg",
-    link: "/categories?group=institutional",
-  },
-];
-
-
-
-
-
-  // 🔹 Firebase banner çekme (AYNEN KORUNDU)
+  // 🔹 Firebase banner çekme
   const fetchHeroImages = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -81,7 +64,7 @@ export default function HeroSection() {
     fetchHeroImages();
   }, [fetchHeroImages]);
 
-  // 🔹 Otomatik slider (AYNEN)
+  // 🔹 Otomatik slider
   useEffect(() => {
     if (heroImages.length <= 1) return;
 
@@ -92,7 +75,7 @@ export default function HeroSection() {
     return () => clearInterval(interval);
   }, [heroImages]);
 
-  // 🔹 Manuel slide (AYNEN)
+  // 🔹 Manuel slide
   const changeSlide = (direction: "prev" | "next") => {
     if (heroImages.length <= 1) return;
 
@@ -108,9 +91,7 @@ export default function HeroSection() {
       <div className="relative w-full h-[220px] md:h-[300px] lg:h-[400px] overflow-hidden">
         {isLoading ? (
           <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
-            <div className="animate-pulse text-gray-600">
-              {t("hero.loading")}
-            </div>
+            <div className="animate-pulse text-gray-600">{t("hero.loading")}</div>
           </div>
         ) : heroImages.length > 0 ? (
           heroImages.map((image, index) => (
@@ -153,7 +134,8 @@ export default function HeroSection() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-[1px] bg-gray-200">
+      {/* ✅ 3 kart */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-[1px] bg-gray-200">
         {categories.map((cat) => (
           <Link
             href={cat.link}
@@ -165,7 +147,7 @@ export default function HeroSection() {
               alt={cat.title}
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-110"
-              sizes="(max-width: 768px) 50vw, 20vw"
+              sizes="(max-width: 768px) 50vw, 33vw"
             />
             <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 flex flex-col items-center justify-center text-white p-4 transition-colors">
               <h3 className="text-lg md:text-2xl font-semibold mb-2 text-center">
