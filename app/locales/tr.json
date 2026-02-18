@@ -38,7 +38,7 @@
   "hero.getOffer": "WhatsApp'tan Teklif Al",
   "hero.viewProducts": "Ürünleri Gör",
 
-  "header.alt.logo": "HorecaLink Logo",
+
   "header.menu.home": "Ana Sayfa",
   "header.menu.about": "Hakkımızda",
   "header.menu.products": "Ürünler",
@@ -810,5 +810,36 @@
   "nav": {
     "home": "Ana Sayfa",
     "categories": "Ürünler"
-  }
+  },
+
+  "header.alt.logo": "Horecalink Logo",
+
+  "header.menu.kurumsal": "Kurumsal",
+  "header.menu.ekipman": "Ekipman",
+  "header.menu.paslanmaz": "Paslanmaz",
+  "header.menu.catalog": "Katalog",
+  "header.contactCta": "Bize Ulaşın",
+
+  "home.hero.badge": "Premium HORECA Tedarikçisi",
+  "home.hero.title1": "HORECA Sektörü",
+  "home.hero.title2": "İçin",
+  "home.hero.titleAccent": "Tam Çözümler",
+  "home.hero.desc": "Otel, restoran ve kafeler için yüksek kaliteli ekipmanlar ve profesyonel tedarik çözümleri. Performans ve mükemmellik için tasarlandı.",
+  "home.hero.cta1": "Kataloğu İncele",
+  "home.hero.cta2": "Projelerimiz",
+
+  "home.hero.category.kurumsal": "Kurumsal",
+  "home.hero.category.yatirim": "Ekipman",
+  "home.hero.category.paslanmaz": "Paslanmaz",
+
+  "home.categories.title": "Ana Kategorilerimiz",
+  "home.categories.all": "Tüm Kategorileri Gör",
+
+  "home.categories.kurumsalDesc": "Kurumsal tesisler için profesyonel tüketim ve hijyen ürünleri.",
+  "home.categories.ekipmanDesc": "Otel, restoran ve kafe için ekipman ve makineler.",
+  "home.categories.paslanmazDesc": "Endüstriyel sınıf paslanmaz çelik ürünler ve özel imalat.",
+
+  "home.categories.btn": "Çözümlere Göz At",
+  "home.categories.btn2": "Ekipmanları Gör",
+  "home.categories.btn3": "Endüstriyel Ürünler"
 }

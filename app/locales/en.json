@@ -813,5 +813,36 @@
   "nav": {
     "home": "Home",
     "categories": "Products"
-  }
+  },
+
+
+
+  "header.menu.kurumsal": "Corporate",
+  "header.menu.ekipman": "Equipment",
+  "header.menu.paslanmaz": "Stainless Steel",
+  "header.menu.catalog": "Catalog",
+  "header.contactCta": "Contact Us",
+
+  "home.hero.badge": "Premium HORECA Supplier",
+  "home.hero.title1": "For the HORECA Industry",
+  "home.hero.title2": "",
+  "home.hero.titleAccent": "Complete Solutions",
+  "home.hero.desc": "High-quality equipment and professional supply solutions for hotels, restaurants, and cafés. Designed for performance and excellence.",
+  "home.hero.cta1": "View Catalog",
+  "home.hero.cta2": "Our Projects",
+
+  "home.hero.category.kurumsal": "Corporate",
+  "home.hero.category.yatirim": "Equipment",
+  "home.hero.category.paslanmaz": "Stainless Steel",
+
+  "home.categories.title": "Main Categories",
+  "home.categories.all": "View All Categories",
+
+  "home.categories.kurumsalDesc": "Professional solutions for corporate facilities.",
+  "home.categories.ekipmanDesc": "Equipment and machines for hotels and restaurants.",
+  "home.categories.paslanmazDesc": "Industrial stainless steel products and custom manufacturing.",
+
+  "home.categories.btn": "Explore Solutions",
+  "home.categories.btn2": "View Equipment",
+  "home.categories.btn3": "Industrial Products"
 }
