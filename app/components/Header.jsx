@@ -22,28 +22,17 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20 gap-4">
           {/* LOGO (hedefteki gibi) */}
-          <Link href="/" className="flex items-center gap-3">
-            <div className="bg-[#003366] p-2 rounded-lg">
-              {/* Eğer logonun kendisi ikonsa bunu kullan, değilse aşağıdaki Image kalsın */}
-              <svg
-                className="w-8 h-8 text-white"
-                fill="none"
-                viewBox="0 0 48 48"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M4 4H17.3334V17.3334H30.6666V30.6666H44V44H4V4Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </div>
+          <Link href="/" className="flex items-center">
+  <Image
+    src="/horecalink_logo_app.png"
+    alt="Horecalink.kz"
+    width={180}
+    height={60}
+    priority
+    className="object-contain h-12 md:h-14 w-auto"
+  />
+</Link>
 
-            <div className="leading-tight">
-              <div className="text-2xl font-extrabold tracking-tight text-[#003366]">
-                Horecalink<span className="text-amber-500">.kz</span>
-              </div>
-            </div>
-          </Link>
 
           {/* DESKTOP MENU */}
           <div className="hidden lg:flex items-center space-x-8">
