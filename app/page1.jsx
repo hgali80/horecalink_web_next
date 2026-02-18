@@ -96,7 +96,7 @@ export default function Home() {
         <div className="flex justify-between items-center px-6 py-2">
           <Link href="/">
             <Image
-              src="/horecalink_logoapp.png"
+              src="/horecalink_logo_app.png"
               alt="Horecalink Logo"
               width={140}
               height={55}
@@ -366,7 +366,7 @@ export default function Home() {
         <div className="grid md:grid-cols-3 gap-10">
           <div>
             <Image
-              src="/horecalink_logoapp.png"
+              src="/horecalink_logo_app.png"
               alt="Horecalink Logo"
               width={180}
               height={100}
