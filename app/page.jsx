@@ -218,7 +218,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto grid md:grid-cols-3 gap-10">
           <div>
             <Image
-              src="/horecalink_logo_app.png"
+              src="/horecalink_logoapp.png"
               alt={t("header.alt.logo")}
               width={180}
               height={100}

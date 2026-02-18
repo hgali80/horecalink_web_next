@@ -809,38 +809,6 @@
   "nav": {
     "home": "Басты бет",
     "categories": "Өнімдер"
-  },
-
-
-
-  "header.menu.kurumsal": "Корпоративтік",
-  "header.menu.ekipman": "Жабдықтар",
-  "header.menu.paslanmaz": "Тот баспайтын болат",
-  "header.menu.catalog": "Каталог",
-
-  "header.contactCta": "Бізбен байланысу",
-
-  "home.hero.badge": "Премиум HORECA жеткізушісі",
-  "home.hero.title1": "HORECA саласы үшін",
-  "home.hero.title2": "",
-  "home.hero.titleAccent": "Толық шешімдер",
-  "home.hero.desc": "Қонақүй, мейрамхана және кафе үшін жоғары сапалы жабдықтар мен кәсіби жеткізу шешімдері.",
-  "home.hero.cta1": "Каталогты қарау",
-  "home.hero.cta2": "Жобаларымыз",
-
-  "home.hero.category.kurumsal": "Корпоративтік",
-  "home.hero.category.yatirim": "Жабдықтар",
-  "home.hero.category.paslanmaz": "Тот баспайтын болат",
-
-  "home.categories.title": "Негізгі санаттар",
-  "home.categories.all": "Барлық санаттарды көру",
-
-  "home.categories.kurumsalDesc": "Корпоративтік нысандарға арналған кәсіби шешімдер.",
-  "home.categories.ekipmanDesc": "Қонақүй мен мейрамханаға арналған жабдықтар.",
-  "home.categories.paslanmazDesc": "Өнеркәсіптік тот баспайтын болат өнімдері және арнайы өндіріс.",
-
-  "home.categories.btn": "Қарау",
-  "home.categories.btn2": "Жабдықтарды көру",
-  "home.categories.btn3": "Өнеркәсіптік өнімдер"
+  }
 }
 

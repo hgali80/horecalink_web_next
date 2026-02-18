@@ -806,39 +806,5 @@
   "nav": {
     "home": "Главная",
     "categories": "Товары"
-  },
-
-
-
-  "header.menu.kurumsal": "Корпоративный",
-  "header.menu.ekipman": "Оборудование",
-  "header.menu.paslanmaz": "Нержавеющая сталь",
-  "header.menu.catalog": "Каталог",
-
-
-
-  "header.contactCta": "Связаться с нами",
-
-  "home.hero.badge": "Премиальный поставщик HORECA",
-  "home.hero.title1": "Для сектора HORECA",
-  "home.hero.title2": "",
-  "home.hero.titleAccent": "Комплексные решения",
-  "home.hero.desc": "Профессиональное оборудование и решения для отелей, ресторанов и кафе. Разработано для высокой эффективности и качества.",
-  "home.hero.cta1": "Смотреть каталог",
-  "home.hero.cta2": "Наши проекты",
-
-  "home.hero.category.kurumsal": "Корпоративный",
-  "home.hero.category.yatirim": "Оборудование",
-  "home.hero.category.paslanmaz": "Нержавеющая сталь",
-
-  "home.categories.title": "Основные категории",
-  "home.categories.all": "Смотреть все категории",
-
-  "home.categories.kurumsalDesc": "Профессиональные решения для корпоративных объектов.",
-  "home.categories.ekipmanDesc": "Оборудование и техника для ресторанов и гостиниц.",
-  "home.categories.paslanmazDesc": "Промышленные изделия из нержавеющей стали и индивидуальное производство.",
-
-  "home.categories.btn": "Подробнее",
-  "home.categories.btn2": "Смотреть оборудование",
-  "home.categories.btn3": "Промышленные решения"
+  }
 }

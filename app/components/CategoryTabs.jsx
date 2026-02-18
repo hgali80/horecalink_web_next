@@ -1,5 +1,4 @@
 // app/components/CategoryTabs.jsx
-// app/components/CategoryTabs.jsx
 "use client";
 
 import React from "react";
@@ -12,6 +11,8 @@ export default function CategoryTabs({ selectedGroup, onSelectGroup }) {
     { key: "kurumsal", label: t("categoryTabs.kurumsal") },
     { key: "yatirim", label: t("categoryTabs.yatirim") },
     { key: "paslanmaz", label: t("categoryTabs.paslanmaz") },
+    { key: "temizlik", label: t("categoryTabs.temizlik") },
+    { key: "ambalaj", label: t("categoryTabs.ambalaj") },
   ];
 
   return (

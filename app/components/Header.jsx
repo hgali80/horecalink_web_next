@@ -3,166 +3,166 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { Globe } from "lucide-react";
 import { useState } from "react";
+import UserMenu from "./UserMenu";
 import { useLang } from "../context/LanguageContext";
 
+const LANGS = [
+  { code: "tr", label: "🇹🇷 Türkçe" },
+  { code: "ru", label: "🇷🇺 Русский" },
+  { code: "kz", label: "🇰🇿 Қазақша" },
+  { code: "en", label: "🇬🇧 English" },
+];
+
 export default function Header() {
-  const { t } = useLang();
+  const { t, lang, setLang } = useLang();
+
+  const [langOpen, setLangOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const goSearch = (e) => {
-    e.preventDefault();
-    const val = e.currentTarget.search.value;
-    if (!val?.trim()) return;
-    window.location.href = `/products?q=${encodeURIComponent(val.trim())}`;
-  };
-
   return (
-    <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20 gap-4">
-          {/* LOGO (hedefteki gibi) */}
-          <Link href="/" className="flex items-center">
-  <Image
-    src="/horecalink_logo_app.png"
-    alt="Horecalink.kz"
-    width={180}
-    height={60}
-    priority
-    className="object-contain h-12 md:h-14 w-auto"
-  />
-</Link>
+    <header className="sticky top-0 z-40 bg-white shadow-sm border-b border-gray-200">
+      <div className="flex justify-between items-center px-6 py-2">
+        {/* LOGO */}
+        <Link href="/">
+          <Image
+  src="/horecalink_logoapp.png"
+  alt={t("header.alt.logo")}
+  width={140}
+  height={55}
+  className="object-contain w-24 h-auto md:w-32 lg:w-[140px]" 
+  priority
+/>
+        </Link>
 
-
-          {/* DESKTOP MENU */}
-          <div className="hidden lg:flex items-center space-x-8">
-            <Link
-              className="text-sm font-semibold hover:text-[#003366] transition-colors"
-              href="/categories?group=institutional"
-            >
-              {t("header.menu.kurumsal") ?? "Kurumsal"}
+        {/* DESKTOP */}
+        <div className="hidden md:flex items-center space-x-8">
+          <nav className="flex items-center space-x-6 text-gray-700 font-medium text-sm">
+            <Link href="/about" className="hover:text-blue-600">
+              {t("header.menu.about")}
             </Link>
-
-            <Link
-              className="text-sm font-semibold hover:text-[#003366] transition-colors"
-              href="/categories?group=equipment"
-            >
-              {t("header.menu.ekipman") ?? "Ekipman"}
+            <Link href="/categories" className="hover:text-blue-600">
+              {t("header.menu.products")}
             </Link>
-
-            <Link
-              className="text-sm font-semibold hover:text-[#003366] transition-colors"
-              href="/categories?group=stainless_steel"
-            >
-              {t("header.menu.paslanmaz") ?? "Paslanmaz"}
+            <Link href="/contact" className="hover:text-blue-600">
+              {t("header.menu.contact")}
             </Link>
+          </nav>
 
-            <Link
-              className="text-sm font-semibold hover:text-[#003366] transition-colors"
-              href="/categories"
-            >
-              {t("header.menu.catalog") ?? "Katalog"}
-            </Link>
+          {/* SEARCH */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const val = e.currentTarget.search.value;
+              if (val.trim()) {
+                alert(t("header.search.alert", { value: val }));
+              }
+            }}
+            className="flex items-center bg-gray-100 rounded-full px-3 py-1.5"
+          >
+            <input
+              type="text"
+              name="search"
+              placeholder={t("header.search.placeholder")}
+              className="bg-transparent outline-none text-sm px-2 w-36 md:w-48"
+            />
+            <button className="text-gray-500">🔍</button>
+          </form>
 
-            <Link
-              className="text-sm font-semibold hover:text-[#003366] transition-colors"
-              href="/about"
-            >
-              {t("header.menu.about") ?? "Hakkımızda"}
-            </Link>
-          </div>
-
-          {/* RIGHT SIDE */}
-          <div className="flex items-center gap-4">
-            {/* Search (hedefteki gibi sadece geniş ekranda) */}
-            <form onSubmit={goSearch} className="relative hidden xl:block w-64">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-                <span className="text-sm">🔍</span>
-              </span>
-              <input
-                name="search"
-                className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#003366]/30 text-sm"
-                placeholder={t("header.search.placeholder") ?? "Ürün ara..."}
-                type="text"
-              />
-            </form>
-
-            {/* CTA button */}
-            <Link
-              href="/contact"
-              className="bg-[#003366] text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-[#003366]/90 transition-all shadow-lg shadow-[#003366]/20"
-            >
-              {t("header.contactCta") ?? "Bize Ulaşın"}
-            </Link>
-
-            {/* MOBILE MENU BUTTON */}
+          {/* LANGUAGE */}
+          <div className="relative">
             <button
-              className="flex lg:hidden text-2xl px-2 py-2 rounded-lg hover:bg-slate-100"
-              onClick={() => setMobileOpen(true)}
-              aria-label="menu"
+              onClick={() => setLangOpen(!langOpen)}
+              className="flex items-center gap-1 text-sm font-medium"
             >
-              ☰
+              <Globe size={18} />
+              {t("header.language")}
             </button>
+
+            {langOpen && (
+              <div className="absolute right-0 mt-2 bg-white shadow-lg rounded-md border w-36">
+                {LANGS.map((l) => (
+                  <button
+                    key={l.code}
+                    onClick={() => {
+                      setLang(l.code);
+                      setLangOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 hover:bg-gray-100 text-sm ${
+                      lang === l.code ? "font-semibold" : ""
+                    }`}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          <UserMenu />
         </div>
+
+        {/* MOBILE BUTTON */}
+        <button
+          className="md:hidden text-2xl"
+          onClick={() => setMobileOpen(true)}
+        >
+          ☰
+        </button>
       </div>
 
-      {/* MOBILE DRAWER */}
+      {/* MOBILE MENU */}
       {mobileOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 lg:hidden">
-          <div className="w-80 max-w-[85vw] bg-white h-full shadow-xl p-6 relative">
+        <div className="fixed inset-0 bg-black/40 z-50 md:hidden">
+          <div className="w-72 bg-white h-full shadow-xl p-6 relative">
             <button
               onClick={() => setMobileOpen(false)}
               className="absolute top-4 right-4 text-xl"
-              aria-label="close"
             >
               ✕
             </button>
 
-            {/* Mobile search */}
-            <form
-              onSubmit={(e) => {
-                goSearch(e);
-                setMobileOpen(false);
-              }}
-              className="flex items-center bg-slate-100 rounded-xl px-3 py-2 mt-10"
-            >
-              <input
-                type="text"
-                name="search"
-                placeholder={t("header.search.placeholder") ?? "Ürün ara..."}
-                className="bg-transparent outline-none text-sm px-2 w-full"
-              />
-              <button className="text-slate-500" aria-label="search">
-                🔍
-              </button>
-            </form>
-
-            <nav className="flex flex-col gap-4 mt-6 text-base font-semibold text-slate-800">
-              <Link href="/categories?group=institutional" onClick={() => setMobileOpen(false)}>
-                {t("header.menu.kurumsal") ?? "Kurumsal"}
-              </Link>
-              <Link href="/categories?group=equipment" onClick={() => setMobileOpen(false)}>
-                {t("header.menu.ekipman") ?? "Ekipman"}
-              </Link>
-              <Link href="/categories?group=stainless_steel" onClick={() => setMobileOpen(false)}>
-                {t("header.menu.paslanmaz") ?? "Paslanmaz"}
+            <nav className="flex flex-col gap-4 mt-10 text-base font-medium">
+              <Link href="/about" onClick={() => setMobileOpen(false)}>
+                {t("header.menu.about")}
               </Link>
               <Link href="/categories" onClick={() => setMobileOpen(false)}>
-                {t("header.menu.catalog") ?? "Katalog"}
-              </Link>
-              <Link href="/about" onClick={() => setMobileOpen(false)}>
-                {t("header.menu.about") ?? "Hakkımızda"}
+                {t("header.menu.products")}
               </Link>
               <Link href="/contact" onClick={() => setMobileOpen(false)}>
-                {t("header.menu.contact") ?? "İletişim"}
+                {t("header.menu.contact")}
               </Link>
             </nav>
 
-            {/* Auth yok: TopBar’da */}
+            <div className="mt-6 border-t pt-4">
+              <p className="font-semibold mb-2">
+                {t("header.languageSelect")}
+              </p>
+              <div className="flex flex-col gap-2">
+                {LANGS.map((l) => (
+                  <button
+                    key={l.code}
+                    onClick={() => {
+                      setLang(l.code);
+                      setMobileOpen(false);
+                    }}
+                    className={`text-left px-3 py-2 hover:bg-gray-100 text-sm ${
+                      lang === l.code ? "font-semibold" : ""
+                    }`}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 border-t pt-4">
+              <UserMenu mobile />
+            </div>
           </div>
         </div>
       )}
-    </nav>
+    </header>
   );
 }
