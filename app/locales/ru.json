@@ -807,7 +807,7 @@
     "home": "Главная",
     "categories": "Товары"
   },
-  
+
   "home.hero.search.title": "Какой товар вы ищете сегодня?",
   "home.hero.search.placeholder": "Ищите товар, бренд или категорию...",
   "home.hero.search.button": "Искать",
@@ -836,5 +836,6 @@
   "home.footer.privacy": "Политика конфиденциальности",
   "home.footer.shipping": "Доставка",
   "home.footer.payment": "Способы оплаты",
-  "home.footer.rights": "Все права защищены."
+  "home.footer.rights": "Все права защищены.",
+  "header.menu.account": "Мой аккаунт"
 }

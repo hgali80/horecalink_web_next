@@ -814,7 +814,7 @@
     "home": "Home",
     "categories": "Products"
   },
-  
+
   "home.hero.search.title": "What are you looking for today?",
   "home.hero.search.placeholder": "Search by product, brand, or category...",
   "home.hero.search.button": "Search",
@@ -843,5 +843,6 @@
   "home.footer.privacy": "Privacy Policy",
   "home.footer.shipping": "Shipping Information",
   "home.footer.payment": "Payment Options",
-  "home.footer.rights": "All rights reserved."
+  "home.footer.rights": "All rights reserved.",
+  "header.menu.account": "My Account"
 }

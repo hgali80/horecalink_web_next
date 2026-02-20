@@ -810,7 +810,7 @@
     "home": "Басты бет",
     "categories": "Өнімдер"
   },
-  
+
   "home.hero.search.title": "Бүгін қандай өнім іздеп жатырсыз?",
   "home.hero.search.placeholder": "Өнім, бренд немесе санатты іздеңіз...",
   "home.hero.search.button": "Іздеу",
@@ -839,5 +839,6 @@
   "home.footer.privacy": "Құпиялылық саясаты",
   "home.footer.shipping": "Жеткізу туралы",
   "home.footer.payment": "Төлем тәсілдері",
-  "home.footer.rights": "Барлық құқықтар қорғалған."
+  "home.footer.rights": "Барлық құқықтар қорғалған.",
+  "header.menu.account": "Менің аккаунтым"
 }

@@ -812,7 +812,7 @@
     "categories": "Ürünler"
   },
 
-  
+
   "home.hero.search.title": "Bugün hangi ürünü arıyorsunuz?",
   "home.hero.search.placeholder": "Ürün, marka veya kategori ara...",
   "home.hero.search.button": "Ara",
@@ -841,5 +841,6 @@
   "home.footer.privacy": "Gizlilik Politikası",
   "home.footer.shipping": "Teslimat Bilgileri",
   "home.footer.payment": "Ödeme Seçenekleri",
-  "home.footer.rights": "Tüm hakları saklıdır."
+  "home.footer.rights": "Tüm hakları saklıdır.",
+  "header.menu.account": "Hesabım"
 }
