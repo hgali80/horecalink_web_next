@@ -9,41 +9,35 @@ import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
 import { useLang } from "../context/LanguageContext";
 
-// Mevcut bileşeni iç içe fonksiyon olarak tanımla
 function ProductsContent() {
   const searchParams = useSearchParams();
   const { t } = useLang();
 
-  const subCategory = searchParams.get("sub");   // alt kategori
-  const group = searchParams.get("group");       // grup
-  const main = searchParams.get("main");         // ana kategori (paper_products gibi)
+  const subCategory = searchParams.get("sub");
+  const group = searchParams.get("group");
+  const main = searchParams.get("main");
+  const q = searchParams.get("q") || "";
 
   const { user } = useAuth();
   const [pageTitle, setPageTitle] = useState("");
 
   useEffect(() => {
-    // 1) Alt kategori varsa: alt kategori adını göster
     if (subCategory) {
-      // i18n varsa güzel gösterir, yoksa key gösterir (mevcut yapın böyle)
       setPageTitle(t(`categories.sub.${subCategory}`));
       return;
     }
 
-    // 2) Ana kategori varsa: "Tüm {AnaKategori}" gibi göster
     if (main) {
-      // "Tüm " prefix (dil anahtarı yoksa TR sabit kullanıyoruz)
       const prefix = t("products.allPrefix") || "Tüm";
       setPageTitle(`${prefix} ${t(`category.main.${main}`)}`);
       return;
     }
 
-    // 3) Diğer durum: tüm ürünler
     setPageTitle(t("products.allProducts"));
   }, [subCategory, group, main, t]);
 
   return (
     <main className="min-h-screen bg-gray-50 px-6 sm:px-10 md:px-24 lg:px-48 xl:px-64 2xl:px-[20rem] py-10">
-      {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 mb-6">
         <Link href="/" className="hover:underline hover:text-indigo-600">
           {t("breadcrumb.home")}
@@ -52,10 +46,7 @@ function ProductsContent() {
 
         {subCategory ? (
           <>
-            <Link
-              href="/categories"
-              className="hover:underline hover:text-indigo-600"
-            >
+            <Link href="/categories" className="hover:underline hover:text-indigo-600">
               {t("breadcrumb.categories")}
             </Link>
             {" / "}
@@ -74,7 +65,6 @@ function ProductsContent() {
         )}
       </nav>
 
-      {/* Başlık + Sıralama */}
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold text-gray-800">{pageTitle}</h1>
 
@@ -98,28 +88,29 @@ function ProductsContent() {
         </div>
       </div>
 
-      {/* Ürün Listesi */}
       <ProductList
         filterSubCategory={subCategory}
         filterMainCategory={main}
         filterGroup={group}
+        searchQuery={q}
         currentUserId={user?.uid}
       />
     </main>
   );
 }
 
-// Ana export - Suspense ile sarmala
 export default function ProductsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Yükleniyor...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Yükleniyor...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <ProductsContent />
     </Suspense>
   );

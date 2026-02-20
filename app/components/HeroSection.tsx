@@ -1,182 +1,79 @@
 // app/components/HeroSection.tsx
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { getStorage, ref, listAll, getDownloadURL } from "firebase/storage";
-import { app } from "../../firebase";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Search } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
 
 export default function HeroSection() {
   const { t } = useLang();
+  const router = useRouter();
 
-  const [heroImages, setHeroImages] = useState<string[]>([]);
-  const [activeIndex, setActiveIndex] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [q, setQ] = useState("");
 
-  // 🔹 Kategoriler (URL’ler DİLSİZ)
-  const categories = [
-  {
-    key: "k_",
-    title: t("home.hero.category.kurumsal"),
-    image: "/kart_kurumsal.jpg",
-    link: "/categories?group=institutional",
-  },
-  {
-    key: "y_",
-    title: t("home.hero.category.yatirim"),
-    image: "/kart_yatirim.jpg",
-    link: "/categories?group=equipment", // ✅ İngilizce
-  },
-  {
-    key: "p_",
-    title: t("home.hero.category.paslanmaz"),
-    image: "/kart_paslanmaz.jpg",
-    link: "/categories?group=stainless_steel" // ✅ İngilizce
-  },
-
-  // şimdilik dokunmuyoruz
-  {
-    key: "kim_",
-    title: t("home.hero.category.kimyasallar"),
-    image: "/kart_kimyasallar.jpg",
-    link: "/categories?group=institutional",
-  },
-  {
-    key: "cop_",
-    title: t("home.hero.category.ambalaj"),
-    image: "/kart_cop.jpg",
-    link: "/categories?group=institutional",
-  },
-];
-
-
-
-
-
-  // 🔹 Firebase banner çekme (AYNEN KORUNDU)
-  const fetchHeroImages = useCallback(async () => {
-    try {
-      setIsLoading(true);
-
-      const storage = getStorage(app);
-      const folderRef = ref(storage, "banners_web");
-      const res = await listAll(folderRef);
-
-      const urls: string[] = await Promise.all(
-        res.items.map((itemRef) => getDownloadURL(itemRef))
-      );
-
-      setHeroImages(urls.sort((a, b) => a.localeCompare(b)));
-    } catch (error) {
-      console.error("⚠️ Banner alınamadı:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchHeroImages();
-  }, [fetchHeroImages]);
-
-  // 🔹 Otomatik slider (AYNEN)
-  useEffect(() => {
-    if (heroImages.length <= 1) return;
-
-    const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % heroImages.length);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [heroImages]);
-
-  // 🔹 Manuel slide (AYNEN)
-  const changeSlide = (direction: "prev" | "next") => {
-    if (heroImages.length <= 1) return;
-
-    setActiveIndex((prev) =>
-      direction === "next"
-        ? (prev + 1) % heroImages.length
-        : (prev - 1 + heroImages.length) % heroImages.length
+  const placeholder = useMemo(() => {
+    return (
+      t("home.hero.search.placeholder") ||
+      t("header.search.placeholder") ||
+      "Ürün, marka veya kategori ara..."
     );
+  }, [t]);
+
+  const title =
+    t("home.hero.search.title") ||
+    t("home.hero.title") ||
+    "Bugün hangi ürünü arıyorsunuz?";
+
+  const subtitle =
+    t("home.hero.search.subtitle") ||
+    t("home.hero.subtitle") ||
+    "HorecaLink B2B Profesyonel Çözüm Ortağınız";
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = q.trim();
+    if (!val) return;
+
+    router.push(`/products?q=${encodeURIComponent(val)}`);
   };
 
   return (
-    <section className="w-full bg-white">
-      <div className="relative w-full h-[220px] md:h-[300px] lg:h-[400px] overflow-hidden">
-        {isLoading ? (
-          <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
-            <div className="animate-pulse text-gray-600">
-              {t("hero.loading")}
-            </div>
-          </div>
-        ) : heroImages.length > 0 ? (
-          heroImages.map((image, index) => (
-            <Image
-              key={image}
-              src={image}
-              alt={`Hero banner ${index + 1}`}
-              fill
-              priority={index === 0}
-              className={`object-cover transition-opacity duration-700 ${
-                index === activeIndex ? "opacity-100" : "opacity-0"
-              }`}
-              sizes="100vw"
-            />
-          ))
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-700 flex items-center justify-center text-white">
-            {t("hero.noImage")}
-          </div>
-        )}
+    <section className="relative py-20 px-4 bg-[#F8F9FA] overflow-hidden">
+      <div className="max-w-4xl mx-auto text-center relative z-10">
+        <h1 className="text-slate-900 text-3xl md:text-5xl font-black mb-8 tracking-tight">
+          {title}
+        </h1>
 
-        {/* Oklar */}
-        {heroImages.length > 1 && (
-          <>
-            <button
-              onClick={() => changeSlide("prev")}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/30 hover:bg-white/60 p-2 rounded-full transition-colors"
-              aria-label={t("hero.prev")}
-            >
-              <ChevronLeft size={24} />
-            </button>
-            <button
-              onClick={() => changeSlide("next")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/30 hover:bg-white/60 p-2 rounded-full transition-colors"
-              aria-label={t("hero.next")}
-            >
-              <ChevronRight size={24} />
-            </button>
-          </>
-        )}
+        <form onSubmit={onSubmit} className="relative group">
+          <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
+            <Search className="text-slate-400" />
+          </div>
+
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="block w-full pl-16 pr-32 py-5 bg-white border-none rounded-2xl shadow-xl focus:outline-none focus:ring-4 focus:ring-[#003366]/20 text-lg placeholder:text-slate-400 transition-all"
+            placeholder={placeholder}
+            type="text"
+            inputMode="search"
+            name="q"
+          />
+
+          <button
+            type="submit"
+            className="absolute right-3 top-1/2 -translate-y-1/2 bg-[#003366] hover:bg-[#003366]/90 text-white px-8 py-3 rounded-xl font-bold transition-all"
+          >
+            {t("home.hero.search.button") || "Ara"}
+          </button>
+        </form>
+
+        <p className="mt-6 text-slate-500 font-medium">{subtitle}</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-[1px] bg-gray-200">
-        {categories.map((cat) => (
-          <Link
-            href={cat.link}
-            key={cat.key}
-            className="relative h-[180px] md:h-[240px] overflow-hidden group block"
-          >
-            <Image
-              src={cat.image}
-              alt={cat.title}
-              fill
-              className="object-cover transition-transform duration-500 group-hover:scale-110"
-              sizes="(max-width: 768px) 50vw, 20vw"
-            />
-            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 flex flex-col items-center justify-center text-white p-4 transition-colors">
-              <h3 className="text-lg md:text-2xl font-semibold mb-2 text-center">
-                {cat.title}
-              </h3>
-              <span className="bg-blue-600 hover:bg-blue-700 px-4 py-2 text-xs md:text-sm rounded transition-colors">
-                {t("hero.viewProducts")}
-              </span>
-            </div>
-          </Link>
-        ))}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full pointer-events-none opacity-20">
+        <div className="absolute top-10 left-1/4 w-64 h-64 bg-[#003366] rounded-full blur-[120px]" />
+        <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-blue-300 rounded-full blur-[150px]" />
       </div>
     </section>
   );

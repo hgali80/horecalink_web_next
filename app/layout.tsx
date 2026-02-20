@@ -2,7 +2,6 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 
-import TopBar from "./components/TopBar";
 import Header from "./components/Header";
 
 import { AuthProvider } from "./context/AuthContext";
@@ -14,7 +13,7 @@ export const metadata = {
   alternates: {
     canonical: "/",
   },
-  manifest: "/site.webmanifest", // ✅ EKSİK OLAN BUYDU
+  manifest: "/site.webmanifest",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -25,17 +24,12 @@ export const metadata = {
   },
 };
 
-
-
-
-
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="tr">
       <body>
         <AuthProvider>
           <LanguageProvider>
-            <TopBar />
             <Header />
             {children}
           </LanguageProvider>
