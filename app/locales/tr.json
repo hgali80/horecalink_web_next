@@ -810,5 +810,36 @@
   "nav": {
     "home": "Ana Sayfa",
     "categories": "Ürünler"
-  }
+  },
+
+  
+  "home.hero.search.title": "Bugün hangi ürünü arıyorsunuz?",
+  "home.hero.search.placeholder": "Ürün, marka veya kategori ara...",
+  "home.hero.search.button": "Ara",
+  "home.hero.search.subtitle": "HorecaLink B2B Profesyonel Çözüm Ortağınız",
+
+  "home.categories.title": "Ana Kategoriler",
+  "home.categories.kurumsal.title": "Kurumsal",
+  "home.categories.kurumsal.desc": "Oteller ve tesisler için endüstriyel hijyen ve kurumsal sarf malzemeleri.",
+  "home.categories.kurumsal.cta": "Ürünleri İncele",
+
+  "home.categories.yatirim.title": "Yatırım",
+  "home.categories.yatirim.desc": "Yeni projeleriniz için komple mutfak tasarımı ve anahtar teslim kurulumlar.",
+  "home.categories.yatirim.cta": "Çözümlere Göz At",
+
+  "home.categories.endustriyel.title": "Paslanmaz",
+  "home.categories.endustriyel.desc": "Günlük operasyonlar için dayanıklı mutfak gereçleri ve paketleme ürünleri.",
+  "home.categories.endustriyel.cta": "Kataloğu Gör",
+
+  "home.featured.title": "Öne Çıkan Ürünler",
+  "home.featured.subtitle": "Sektörün en çok tercih edilen profesyonel ekipmanları.",
+  "home.featured.all": "Tümünü Gör",
+
+  "home.footer.tagline": "BİR VIROO TRADE ONLINE PLATFORMUDUR",
+  "home.footer.corporate": "Kurumsal",
+  "home.footer.infoTitle": "Bilgi",
+  "home.footer.privacy": "Gizlilik Politikası",
+  "home.footer.shipping": "Teslimat Bilgileri",
+  "home.footer.payment": "Ödeme Seçenekleri",
+  "home.footer.rights": "Tüm hakları saklıdır."
 }

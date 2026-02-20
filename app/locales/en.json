@@ -813,5 +813,35 @@
   "nav": {
     "home": "Home",
     "categories": "Products"
-  }
+  },
+  
+  "home.hero.search.title": "What are you looking for today?",
+  "home.hero.search.placeholder": "Search by product, brand, or category...",
+  "home.hero.search.button": "Search",
+  "home.hero.search.subtitle": "HorecaLink — your professional B2B solution partner",
+
+  "home.categories.title": "Main Categories",
+  "home.categories.kurumsal.title": "Corporate",
+  "home.categories.kurumsal.desc": "Industrial hygiene and corporate consumables for hotels and facilities.",
+  "home.categories.kurumsal.cta": "Browse Products",
+
+  "home.categories.yatirim.title": "Investment",
+  "home.categories.yatirim.desc": "Complete kitchen design and turnkey installations for new projects.",
+  "home.categories.yatirim.cta": "Explore Solutions",
+
+  "home.categories.endustriyel.title": "Stainless",
+  "home.categories.endustriyel.desc": "Durable kitchen tools and packaging products for daily operations.",
+  "home.categories.endustriyel.cta": "View Catalog",
+
+  "home.featured.title": "Featured Products",
+  "home.featured.subtitle": "Top-choice professional equipment across the industry.",
+  "home.featured.all": "View All",
+
+  "home.footer.tagline": "AN ONLINE PLATFORM BY VIROO TRADE",
+  "home.footer.corporate": "Corporate",
+  "home.footer.infoTitle": "Info",
+  "home.footer.privacy": "Privacy Policy",
+  "home.footer.shipping": "Shipping Information",
+  "home.footer.payment": "Payment Options",
+  "home.footer.rights": "All rights reserved."
 }

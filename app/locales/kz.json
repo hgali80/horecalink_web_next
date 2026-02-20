@@ -809,6 +809,35 @@
   "nav": {
     "home": "Басты бет",
     "categories": "Өнімдер"
-  }
-}
+  },
+  
+  "home.hero.search.title": "Бүгін қандай өнім іздеп жатырсыз?",
+  "home.hero.search.placeholder": "Өнім, бренд немесе санатты іздеңіз...",
+  "home.hero.search.button": "Іздеу",
+  "home.hero.search.subtitle": "HorecaLink — сіздің кәсіби B2B серіктесіңіз",
 
+  "home.categories.title": "Негізгі санаттар",
+  "home.categories.kurumsal.title": "Корпоратив",
+  "home.categories.kurumsal.desc": "Қонақүйлер мен нысандарға арналған өнеркәсіптік гигиена және шығын материалдары.",
+  "home.categories.kurumsal.cta": "Өнімдерді көру",
+
+  "home.categories.yatirim.title": "Инвестиция",
+  "home.categories.yatirim.desc": "Жаңа жобаларға толық ас үй жобалау және «кілтпен тапсыру» шешімдері.",
+  "home.categories.yatirim.cta": "Шешімдерді көру",
+
+  "home.categories.endustriyel.title": "Тот баспайтын",
+  "home.categories.endustriyel.desc": "Күнделікті жұмысқа арналған берік ас үй жабдықтары және орау өнімдері.",
+  "home.categories.endustriyel.cta": "Каталогты ашу",
+
+  "home.featured.title": "Таңдаулы өнімдер",
+  "home.featured.subtitle": "Саладағы ең көп сұранысқа ие кәсіби жабдықтар.",
+  "home.featured.all": "Барлығын көру",
+
+  "home.footer.tagline": "VIROO TRADE ОНЛАЙН ПЛАТФОРМАСЫ",
+  "home.footer.corporate": "Корпоратив",
+  "home.footer.infoTitle": "Ақпарат",
+  "home.footer.privacy": "Құпиялылық саясаты",
+  "home.footer.shipping": "Жеткізу туралы",
+  "home.footer.payment": "Төлем тәсілдері",
+  "home.footer.rights": "Барлық құқықтар қорғалған."
+}

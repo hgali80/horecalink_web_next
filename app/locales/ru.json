@@ -806,5 +806,35 @@
   "nav": {
     "home": "Главная",
     "categories": "Товары"
-  }
+  },
+  
+  "home.hero.search.title": "Какой товар вы ищете сегодня?",
+  "home.hero.search.placeholder": "Ищите товар, бренд или категорию...",
+  "home.hero.search.button": "Искать",
+  "home.hero.search.subtitle": "HorecaLink — ваш профессиональный B2B партнёр",
+
+  "home.categories.title": "Основные категории",
+  "home.categories.kurumsal.title": "Корпоратив",
+  "home.categories.kurumsal.desc": "Промышленная гигиена и расходные материалы для отелей и объектов.",
+  "home.categories.kurumsal.cta": "Смотреть товары",
+
+  "home.categories.yatirim.title": "Инвестиции",
+  "home.categories.yatirim.desc": "Проектирование кухни и решения «под ключ» для ваших новых проектов.",
+  "home.categories.yatirim.cta": "Посмотреть решения",
+
+  "home.categories.endustriyel.title": "Нержавейка",
+  "home.categories.endustriyel.desc": "Надёжный кухонный инвентарь и упаковка для ежедневной работы.",
+  "home.categories.endustriyel.cta": "Открыть каталог",
+
+  "home.featured.title": "Популярные товары",
+  "home.featured.subtitle": "Самое востребованное профессиональное оборудование в отрасли.",
+  "home.featured.all": "Смотреть все",
+
+  "home.footer.tagline": "ОНЛАЙН-ПЛАТФОРМА VIROO TRADE",
+  "home.footer.corporate": "Компания",
+  "home.footer.infoTitle": "Информация",
+  "home.footer.privacy": "Политика конфиденциальности",
+  "home.footer.shipping": "Доставка",
+  "home.footer.payment": "Способы оплаты",
+  "home.footer.rights": "Все права защищены."
 }
