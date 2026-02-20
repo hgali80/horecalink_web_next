@@ -30,8 +30,8 @@ export default function Header() {
             <Image
               src="/horecalink_logoapp.png"
               alt={t("header.alt.logo")}
-              width={160}
-              height={60}
+              width={320}
+              height={80}
               className="object-contain w-28 h-auto md:w-36"
               priority
             />
