@@ -1,11 +1,22 @@
-//app/satissitok/admin/sales/[saleId]/page.jsx
+// app/satissitok/admin/sales/[saleId]/page.jsx
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
-import { AlertTriangle, ChevronLeft, Printer, Trash2, Calendar, Hash, Tag, Layers } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  Printer,
+  Trash2,
+  Calendar,
+  Hash,
+  Layers,
+  ArrowLeft,
+  Home,
+} from "lucide-react";
 import { cancelSale } from "@/app/satissitok/services/saleService";
 
 export default function SaleDetailPage() {
@@ -30,9 +41,7 @@ export default function SaleDetailPage() {
         return;
       }
 
-      const itemsSnap = await getDocs(
-        collection(db, "sales", saleId, "items")
-      );
+      const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
 
       setSale({ id: saleId, ...saleSnap.data() });
       setItems(itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -56,9 +65,7 @@ export default function SaleDetailPage() {
 
       const saleRef = doc(db, "sales", saleId);
       const saleSnap = await getDoc(saleRef);
-      const itemsSnap = await getDocs(
-        collection(db, "sales", saleId, "items")
-      );
+      const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
 
       setSale({ id: saleId, ...saleSnap.data() });
       setItems(itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -69,34 +76,58 @@ export default function SaleDetailPage() {
     }
   }
 
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-    </div>
-  );
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
 
-  if (!sale) return (
-    <div className="max-w-5xl mx-auto p-12 text-center text-gray-500">
-      Satış kaydı bulunamadı.
-    </div>
-  );
+  if (!sale)
+    return (
+      <div className="max-w-5xl mx-auto p-12 text-center text-gray-500">
+        Satış kaydı bulunamadı.
+      </div>
+    );
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-6">
-      
       {/* ÜST NAVİGASYON & AKSİYONLAR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <button 
-          onClick={() => router.back()}
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-900 transition-colors"
-        >
-          <ChevronLeft size={16} className="mr-1" /> Satış Listesine Dön
-        </button>
-        
+        {/* Sol: Geri + Ana Sayfa */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+            aria-label="Geri"
+            title="Geri"
+          >
+            <ArrowLeft size={18} />
+            <span className="text-sm font-semibold">Geri</span>
+          </button>
+
+          <Link
+            href="/satissitok/admin"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+            aria-label="Satış/Stok Ana Sayfa"
+            title="Satış/Stok Ana Sayfa"
+          >
+            <Home size={18} />
+            <span className="text-sm font-semibold">Ana Sayfa</span>
+          </Link>
+
+          {/* İstersen burada ekstra olarak "Satış Listesi" linki de eklenebilir:
+              <Link href="/satissitok/admin/sales" ...>Satış Listesi</Link>
+          */}
+        </div>
+
+        {/* Sağ: Aksiyonlar */}
         <div className="flex items-center gap-3">
           <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
             <Printer size={18} />
           </button>
+
           {sale.status === "completed" && (
             <button
               onClick={handleCancelSale}
@@ -130,19 +161,31 @@ export default function SaleDetailPage() {
                 )}
               </div>
               <div className="flex items-center gap-4 text-sm text-gray-500">
-                <span className="flex items-center gap-1"><Calendar size={14} /> 2026/01/29</span>
-                <span className="flex items-center gap-1"><Hash size={14} /> ID: {sale.id.slice(-6).toUpperCase()}</span>
+                <span className="flex items-center gap-1">
+                  <Calendar size={14} /> 2026/01/29
+                </span>
+                <span className="flex items-center gap-1">
+                  <Hash size={14} /> ID: {sale.id.slice(-6).toUpperCase()}
+                </span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-8 text-right">
               <div>
-                <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Satış Türü</p>
-                <p className="font-semibold text-gray-700">{sale.saleType === "official" ? "🏢 Resmi" : "📦 Fiili"}</p>
+                <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                  Satış Türü
+                </p>
+                <p className="font-semibold text-gray-700">
+                  {sale.saleType === "official" ? "🏢 Resmi" : "📦 Fiili"}
+                </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Kanal / Platform</p>
-                <p className="font-semibold text-gray-700 text-indigo-600 uppercase italic">{sale.saleChannel}</p>
+                <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                  Kanal / Platform
+                </p>
+                <p className="font-semibold text-gray-700 text-indigo-600 uppercase italic">
+                  {sale.saleChannel}
+                </p>
               </div>
             </div>
           </div>
@@ -154,13 +197,22 @@ export default function SaleDetailPage() {
                 <AlertTriangle size={20} />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-amber-800 uppercase">Kritik Stok Uyarısı</h3>
-                <p className="text-sm text-amber-700 mt-1 italic">Bu satış sırasında aşağıdaki ürünler eksiye düşmüştür:</p>
+                <h3 className="text-sm font-bold text-amber-800 uppercase">
+                  Kritik Stok Uyarısı
+                </h3>
+                <p className="text-sm text-amber-700 mt-1 italic">
+                  Bu satış sırasında aşağıdaki ürünler eksiye düşmüştür:
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 text-xs">
                   {(sale.negativeStockItems || []).map((n, i) => (
-                    <div key={i} className="flex justify-between bg-white/50 p-2 rounded border border-amber-100">
+                    <div
+                      key={i}
+                      className="flex justify-between bg-white/50 p-2 rounded border border-amber-100"
+                    >
                       <span className="font-medium text-gray-700">{n.productId}</span>
-                      <span className="text-red-600">Mevcut: {n.available} / Satılan: {n.sold}</span>
+                      <span className="text-red-600">
+                        Mevcut: {n.available} / Satılan: {n.sold}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -183,32 +235,49 @@ export default function SaleDetailPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {items.map((it) => (
-                  <tr key={it.id} className="group hover:bg-gray-50/50 transition-colors">
+                  <tr
+                    key={it.id}
+                    className="group hover:bg-gray-50/50 transition-colors"
+                  >
                     <td className="py-4 pr-4">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center text-gray-400 flex-shrink-0">
                           <Layers size={14} />
                         </div>
-                        <span className="text-sm font-semibold text-gray-800 line-clamp-2">{it.productName}</span>
+                        <span className="text-sm font-semibold text-gray-800 line-clamp-2">
+                          {it.productName}
+                        </span>
                       </div>
                     </td>
                     <td className="py-4 text-center px-4">
                       <div className="flex flex-col">
-                        <span className="text-sm text-gray-600 font-medium">{it.quantity}</span>
-                        <span className="text-[10px] text-gray-400 uppercase">{it.unit}</span>
+                        <span className="text-sm text-gray-600 font-medium">
+                          {it.quantity}
+                        </span>
+                        <span className="text-[10px] text-gray-400 uppercase">
+                          {it.unit}
+                        </span>
                       </div>
                     </td>
                     <td className="py-4 text-right text-sm text-gray-600 font-mono px-4">
-                      {Number(it.unitPrice || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                      {Number(it.unitPrice || 0).toLocaleString("tr-TR", {
+                        minimumFractionDigits: 2,
+                      })}
                     </td>
                     <td className="py-4 text-right text-sm text-gray-600 font-mono px-4">
-                      {Number(it.net || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                      {Number(it.net || 0).toLocaleString("tr-TR", {
+                        minimumFractionDigits: 2,
+                      })}
                     </td>
                     <td className="py-4 text-right text-sm text-gray-500 font-mono px-4">
-                      {Number(it.vat || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                      {Number(it.vat || 0).toLocaleString("tr-TR", {
+                        minimumFractionDigits: 2,
+                      })}
                     </td>
                     <td className="py-4 text-right text-sm font-bold text-gray-900 font-mono pl-4">
-                      {Number(it.total || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                      {Number(it.total || 0).toLocaleString("tr-TR", {
+                        minimumFractionDigits: 2,
+                      })}
                     </td>
                   </tr>
                 ))}
@@ -222,16 +291,30 @@ export default function SaleDetailPage() {
           <div className="flex flex-col items-end gap-3">
             <div className="flex justify-between items-center w-full md:w-80 text-sm">
               <span className="text-gray-500">Ara Toplam (Net)</span>
-              <span className="font-mono text-gray-700">{Number(sale.netTotal || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</span>
+              <span className="font-mono text-gray-700">
+                {Number(sale.netTotal || 0).toLocaleString("tr-TR", {
+                  minimumFractionDigits: 2,
+                })}{" "}
+                TL
+              </span>
             </div>
             <div className="flex justify-between items-center w-full md:w-80 text-sm border-b border-gray-200 pb-3">
               <span className="text-gray-500">Toplam KDV</span>
-              <span className="font-mono text-gray-700">{Number(sale.vatTotal || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</span>
+              <span className="font-mono text-gray-700">
+                {Number(sale.vatTotal || 0).toLocaleString("tr-TR", {
+                  minimumFractionDigits: 2,
+                })}{" "}
+                TL
+              </span>
             </div>
             <div className="flex justify-between items-center w-full md:w-80 pt-2 gap-4">
-              <span className="text-lg font-bold text-gray-900 uppercase whitespace-nowrap">Genel Toplam</span>
+              <span className="text-lg font-bold text-gray-900 uppercase whitespace-nowrap">
+                Genel Toplam
+              </span>
               <span className="text-2xl font-bold text-indigo-600 font-mono tracking-tighter whitespace-nowrap">
-                {Number(sale.grossTotal || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} 
+                {Number(sale.grossTotal || 0).toLocaleString("tr-TR", {
+                  minimumFractionDigits: 2,
+                })}
                 <span className="text-sm ml-2">TL</span>
               </span>
             </div>
