@@ -3,17 +3,30 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
 import { db } from "@/firebase";
-import { AlertTriangle, Plus, Search, Filter, Calendar, CreditCard, ChevronRight } from "lucide-react";
+import {
+  AlertTriangle,
+  Plus,
+  Search,
+  Filter,
+  Calendar,
+  CreditCard,
+  ChevronRight,
+  ArrowLeft,
+  Home,
+} from "lucide-react";
 
 export default function SalesListPage() {
+  const router = useRouter();
+
   const [rows, setRows] = useState([]);
   const [caris, setCaris] = useState({});
   const [loading, setLoading] = useState(true);
 
-  const [saleType, setSaleType] = useState(""); 
-  const [platformId, setPlatformId] = useState(""); 
+  const [saleType, setSaleType] = useState("");
+  const [platformId, setPlatformId] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -24,11 +37,11 @@ export default function SalesListPage() {
         if (platformId) q = query(q, where("saleChannel", "==", platformId));
 
         const saleSnap = await getDocs(q);
-        const saleData = saleSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const saleData = saleSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
         const cariSnap = await getDocs(collection(db, "caris"));
         const cariMap = {};
-        cariSnap.docs.forEach(doc => {
+        cariSnap.docs.forEach((doc) => {
           cariMap[doc.id] = doc.data().firm || doc.data().name || "İsimsiz Cari";
         });
 
@@ -53,6 +66,30 @@ export default function SalesListPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6 bg-gray-50/50 min-h-screen">
+      {/* Top Nav */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Geri"
+          title="Geri"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-sm font-semibold">Geri</span>
+        </button>
+
+        <Link
+          href="/satissitok/admin"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Satış/Stok Ana Sayfa"
+          title="Satış/Stok Ana Sayfa"
+        >
+          <Home size={18} />
+          <span className="text-sm font-semibold">Ana Sayfa</span>
+        </Link>
+      </div>
+
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -74,7 +111,7 @@ export default function SalesListPage() {
           <Filter size={18} />
           <span className="text-sm font-medium">Filtrele</span>
         </div>
-        
+
         <div className="flex flex-col gap-1">
           <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">İşlem Türü</label>
           <select
@@ -114,27 +151,54 @@ export default function SalesListPage() {
           <table className="min-w-full divide-y divide-gray-100">
             <thead className="bg-gray-50/50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Fatura / Durum</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tür & Platform</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Cari Bilgisi</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tarih</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Toplam Tutar</th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">İşlem</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Fatura / Durum
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Tür & Platform
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Cari Bilgisi
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Tarih
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Toplam Tutar
+                </th>
+                <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  İşlem
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {rows.map((r) => (
-                <tr 
-                  key={r.id} 
-                  className={`group hover:bg-indigo-50/30 transition-colors ${r.status === "cancelled" ? "bg-gray-50/80" : ""}`}
+                <tr
+                  key={r.id}
+                  className={`group hover:bg-indigo-50/30 transition-colors ${
+                    r.status === "cancelled" ? "bg-gray-50/80" : ""
+                  }`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${r.status === "cancelled" ? "bg-gray-200" : "bg-indigo-50 text-indigo-600"}`}>
+                      <div
+                        className={`p-2 rounded-lg ${
+                          r.status === "cancelled"
+                            ? "bg-gray-200"
+                            : "bg-indigo-50 text-indigo-600"
+                        }`}
+                      >
                         <CreditCard size={18} />
                       </div>
                       <div>
-                        <Link href={`/satissitok/admin/sales/${r.id}`} className={`block font-semibold hover:text-indigo-600 transition-colors ${r.status === "cancelled" ? "text-gray-400 line-through" : "text-gray-900"}`}>
+                        <Link
+                          href={`/satissitok/admin/sales/${r.id}`}
+                          className={`block font-semibold hover:text-indigo-600 transition-colors ${
+                            r.status === "cancelled"
+                              ? "text-gray-400 line-through"
+                              : "text-gray-900"
+                          }`}
+                        >
                           {r.invoiceNo || "N/A"}
                         </Link>
                         {r.status === "cancelled" ? (
@@ -142,15 +206,21 @@ export default function SalesListPage() {
                             İptal Edildi
                           </span>
                         ) : (
-                          <span className="text-[11px] text-gray-400 font-medium tracking-tight">E-Fatura Kesildi</span>
+                          <span className="text-[11px] text-gray-400 font-medium tracking-tight">
+                            E-Fatura Kesildi
+                          </span>
                         )}
                       </div>
                     </div>
                   </td>
-                  
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col gap-1">
-                      <span className={`text-sm ${r.status === "cancelled" ? "text-gray-400" : "text-gray-700"}`}>
+                      <span
+                        className={`text-sm ${
+                          r.status === "cancelled" ? "text-gray-400" : "text-gray-700"
+                        }`}
+                      >
                         {r.saleType === "official" ? "🏢 Resmi" : "📦 Fiili"}
                       </span>
                       <span className="text-xs text-gray-400 font-medium italic">@{r.saleChannel}</span>
@@ -166,14 +236,24 @@ export default function SalesListPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2 text-sm text-gray-500 font-medium">
                       <Calendar size={14} className="text-gray-400" />
-                      {r.invoiceDate?.toDate ? r.invoiceDate.toDate().toLocaleDateString('tr-TR') : "—"}
+                      {r.invoiceDate?.toDate
+                        ? r.invoiceDate.toDate().toLocaleDateString("tr-TR")
+                        : "—"}
                     </div>
                   </td>
 
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className={`text-base font-bold ${r.status === "cancelled" ? "text-gray-400 line-through" : "text-gray-900"}`}>
-                      {Number(r.grossTotal || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} 
-                      <span className="text-[10px] ml-1 text-gray-400 font-normal underline decoration-indigo-200">TL</span>
+                    <div
+                      className={`text-base font-bold ${
+                        r.status === "cancelled" ? "text-gray-400 line-through" : "text-gray-900"
+                      }`}
+                    >
+                      {Number(r.grossTotal || 0).toLocaleString("tr-TR", {
+                        minimumFractionDigits: 2,
+                      })}
+                      <span className="text-[10px] ml-1 text-gray-400 font-normal underline decoration-indigo-200">
+                        TL
+                      </span>
                     </div>
                   </td>
 
@@ -182,10 +262,15 @@ export default function SalesListPage() {
                       {r.hasNegativeStock && (
                         <div className="group/tool relative flex items-center">
                           <AlertTriangle size={18} className="text-amber-500 animate-pulse" />
-                          <span className="absolute bottom-full mb-2 hidden group-hover/tool:block bg-gray-800 text-white text-[10px] p-1 rounded whitespace-nowrap">Eksi Stok!</span>
+                          <span className="absolute bottom-full mb-2 hidden group-hover/tool:block bg-gray-800 text-white text-[10px] p-1 rounded whitespace-nowrap">
+                            Eksi Stok!
+                          </span>
                         </div>
                       )}
-                      <Link href={`/satissitok/admin/sales/${r.id}`} className="p-1.5 hover:bg-white rounded-full transition-shadow hover:shadow-sm text-gray-400 hover:text-indigo-600">
+                      <Link
+                        href={`/satissitok/admin/sales/${r.id}`}
+                        className="p-1.5 hover:bg-white rounded-full transition-shadow hover:shadow-sm text-gray-400 hover:text-indigo-600"
+                      >
                         <ChevronRight size={20} />
                       </Link>
                     </div>
@@ -198,7 +283,9 @@ export default function SalesListPage() {
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center gap-2 text-gray-300">
                       <Search size={40} strokeWidth={1} />
-                      <p className="text-sm font-medium italic">Aradığınız kriterlere uygun satış bulunamadı.</p>
+                      <p className="text-sm font-medium italic">
+                        Aradığınız kriterlere uygun satış bulunamadı.
+                      </p>
                     </div>
                   </td>
                 </tr>
