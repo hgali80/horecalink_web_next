@@ -6,30 +6,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { db } from "../firebase";
 import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
-import { ShoppingCart, Star, Grid3X3, ArrowRight, Phone } from "lucide-react";
+import { Star, Grid3X3, ArrowRight, Phone } from "lucide-react";
 
 import HeroSection from "./components/HeroSection";
+import ProductCard from "./components/ProductCard";
 import { useLang } from "./context/LanguageContext";
-import { useAuth } from "./context/AuthContext";
-import { addToBasket } from "./services/basketService";
-
-const buildImageUrl = (filename) => {
-  if (!filename) return "/placeholder.png";
-  if (typeof filename === "string" && filename.startsWith("http")) return filename;
-
-  const encoded = encodeURIComponent(String(filename).trim());
-  return `https://firebasestorage.googleapis.com/v0/b/horecakatalog-e2d10.firebasestorage.app/o/product_images%2F${encoded}?alt=media`;
-};
-
-const formatKzt = (value) => {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "-";
-  return `${num.toLocaleString("tr-TR")} KZT`;
-};
 
 export default function Home() {
   const { t } = useLang();
-  const { user } = useAuth();
 
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,26 +73,6 @@ export default function Home() {
     ],
     [t]
   );
-
-  const handleAddToBasket = async (p) => {
-    if (!user?.uid) {
-      alert(t("productcard.loginCart") || "Sepete eklemek için giriş yapın.");
-      return;
-    }
-
-    try {
-      const imageName = Array.isArray(p.image_names) ? p.image_names?.[0] : p.image;
-      await addToBasket(user.uid, {
-        id: p.id,
-        name: p.name_tr || p.name || "-",
-        price: Number(p.price || 0),
-        image: buildImageUrl(imageName),
-      });
-    } catch (e) {
-      console.error("Sepete eklenemedi:", e);
-      alert("Sepete eklenemedi.");
-    }
-  };
 
   const topFeatured = featuredProducts.slice(0, 4);
 
@@ -182,58 +146,9 @@ export default function Home() {
           <div className="py-12 text-center text-gray-500">Ürün bulunamadı.</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {topFeatured.map((p) => {
-              const brand = p.brand || p.brandName || p.manufacturer || p.vendor || "";
-              const imageName = Array.isArray(p.image_names) ? p.image_names?.[0] : p.image;
-
-              return (
-                <div
-                  key={p.id}
-                  className="group bg-white rounded-xl border border-slate-200 overflow-hidden transition-all hover:shadow-xl relative flex flex-col"
-                >
-                  <Link href={`/products/${p.id}`} className="block">
-                    <div className="relative aspect-square overflow-hidden bg-slate-50">
-                      <Image
-                        alt={p.name || "product"}
-                        src={buildImageUrl(imageName)}
-                        fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                        sizes="(max-width: 768px) 50vw, 25vw"
-                      />
-                    </div>
-                  </Link>
-
-                  <div className="p-5 flex flex-col flex-1">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                      {brand || "—"}
-                    </p>
-
-                    <Link href={`/products/${p.id}`} className="block">
-                      <h3 className="font-bold text-slate-900 mb-2 line-clamp-1">
-                        {p.name_tr || p.name || "-"}
-                      </h3>
-                    </Link>
-
-                    <div className="mt-auto pt-4 flex flex-col gap-4">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-xl font-extrabold text-[#003366]">
-                          {formatKzt(p.price)}
-                        </span>
-                        <span className="text-xs text-slate-400 font-medium">+KDV</span>
-                      </div>
-
-                      <button
-                        onClick={() => handleAddToBasket(p)}
-                        className="w-full bg-[#003366] hover:bg-[#003366]/90 text-white py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all"
-                      >
-                        <ShoppingCart size={18} />
-                        {t("productcard.addToCart") || "Sepete Ekle"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {topFeatured.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
           </div>
         )}
       </section>
