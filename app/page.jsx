@@ -170,12 +170,13 @@ export default function Home() {
           <div className="col-span-1 md:col-span-2">
             <div className="flex flex-col mb-6">
               <Image
-                src="/horecalink_logoapp.png"
-                alt={t("header.alt.logo")}
-                width={180}
-                height={70}
-                className="object-contain"
-              />
+  src="/horecalink_logo_footer.png"
+  alt="HorecaLink Logo"
+  width={190}
+  height={70}
+  className="object-contain"
+  priority
+/>
               <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mt-2">
                 {t("home.footer.tagline") || "bir Viroo Trade online platformudur"}
               </span>
