@@ -4,6 +4,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Home } from "lucide-react";
 import { db } from "@/firebase";
 
 function fmtMoney(n) {
@@ -15,6 +17,8 @@ function fmtMoney(n) {
 }
 
 export default function AdminStockPage() {
+  const router = useRouter();
+
   const [products, setProducts] = useState([]);
   const [balances, setBalances] = useState({});
   const [movementCounts, setMovementCounts] = useState({});
@@ -65,41 +69,61 @@ export default function AdminStockPage() {
   }, []);
 
   const rows = useMemo(() => {
-    return products
-      .map((p) => {
-        const b = balances[p.id] || {};
-        return {
-          id: p.id,
-          name: p.name || "-",
-          unit: p.unit || "-",
+    return (
+      products
+        .map((p) => {
+          const b = balances[p.id] || {};
+          return {
+            id: p.id,
+            name: p.name || "-",
+            unit: p.unit || "-",
 
-          officialQty: b?.official?.qty || 0,
-          officialAvg: b?.official?.avgCost || 0,
+            officialQty: b?.official?.qty || 0,
+            officialAvg: b?.official?.avgCost || 0,
 
-          actualQty: b?.actual?.qty || 0,
-          actualAvg: b?.actual?.avgCost || 0,
+            actualQty: b?.actual?.qty || 0,
+            actualAvg: b?.actual?.avgCost || 0,
 
-          movementCount: movementCounts[p.id] || 0,
-        };
-      })
-      // 🔍 Arama
-      .filter((r) =>
-        r.name.toLowerCase().includes(search.toLowerCase())
-      )
-      // 🔽 Hareket sayısına göre sırala
-      .sort((a, b) => b.movementCount - a.movementCount);
+            movementCount: movementCounts[p.id] || 0,
+          };
+        })
+        // 🔍 Arama
+        .filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
+        // 🔽 Hareket sayısına göre sırala
+        .sort((a, b) => b.movementCount - a.movementCount)
+    );
   }, [products, balances, movementCounts, search]);
 
   if (loading) {
-    return (
-      <div className="p-6 text-center text-gray-500">
-        Yükleniyor...
-      </div>
-    );
+    return <div className="p-6 text-center text-gray-500">Yükleniyor...</div>;
   }
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* Top Nav */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Geri"
+          title="Geri"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-sm font-semibold">Geri</span>
+        </button>
+
+        <Link
+          href="/satissitok/admin"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Satış/Stok Ana Sayfa"
+          title="Satış/Stok Ana Sayfa"
+        >
+          <Home size={18} />
+          <span className="text-sm font-semibold">Ana Sayfa</span>
+        </Link>
+      </div>
+
       <h1 className="text-2xl font-bold">Stok Durumu</h1>
 
       {/* 🔍 Arama */}
@@ -132,39 +156,22 @@ export default function AdminStockPage() {
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="hover:bg-gray-50">
-                <td className="border px-3 py-2 font-medium">
-                  {r.name}
-                </td>
+                <td className="border px-3 py-2 font-medium">{r.name}</td>
+
+                <td className="border px-3 py-2 text-center">{r.unit}</td>
+
+                <td className="border px-3 py-2 text-center">{r.officialQty}</td>
+
+                <td className="border px-3 py-2 text-right">{fmtMoney(r.officialAvg)} ₸</td>
+
+                <td className="border px-3 py-2 text-center">{r.actualQty}</td>
+
+                <td className="border px-3 py-2 text-right">{fmtMoney(r.actualAvg)} ₸</td>
+
+                <td className="border px-3 py-2 text-center">{r.movementCount}</td>
 
                 <td className="border px-3 py-2 text-center">
-                  {r.unit}
-                </td>
-
-                <td className="border px-3 py-2 text-center">
-                  {r.officialQty}
-                </td>
-
-                <td className="border px-3 py-2 text-right">
-                  {fmtMoney(r.officialAvg)} ₸
-                </td>
-
-                <td className="border px-3 py-2 text-center">
-                  {r.actualQty}
-                </td>
-
-                <td className="border px-3 py-2 text-right">
-                  {fmtMoney(r.actualAvg)} ₸
-                </td>
-
-                <td className="border px-3 py-2 text-center">
-                  {r.movementCount}
-                </td>
-
-                <td className="border px-3 py-2 text-center">
-                  <Link
-                    href={`/satissitok/admin/stock/${r.id}`}
-                    className="text-blue-600 underline"
-                  >
+                  <Link href={`/satissitok/admin/stock/${r.id}`} className="text-blue-600 underline">
                     Detay
                   </Link>
                 </td>
@@ -173,10 +180,7 @@ export default function AdminStockPage() {
 
             {rows.length === 0 && (
               <tr>
-                <td
-                  colSpan={8}
-                  className="border px-3 py-6 text-center text-gray-500"
-                >
+                <td colSpan={8} className="border px-3 py-6 text-center text-gray-500">
                   Kayıt bulunamadı.
                 </td>
               </tr>

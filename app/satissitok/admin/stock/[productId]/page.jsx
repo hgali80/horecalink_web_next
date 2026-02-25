@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   collection,
@@ -13,6 +14,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "@/firebase";
+import { ArrowLeft, Home } from "lucide-react";
 
 function fmtMoney(n) {
   const x = Number(n) || 0;
@@ -82,19 +84,36 @@ export default function StockMovementsPage() {
   }, [productId]);
 
   if (loading) {
-    return (
-      <div className="p-6 text-center text-gray-500">
-        Yükleniyor...
-      </div>
-    );
+    return <div className="p-6 text-center text-gray-500">Yükleniyor...</div>;
   }
 
   if (error) {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
-        <button onClick={() => router.back()} className="text-blue-600 mb-4">
-          ← Geri
-        </button>
+      <div className="p-6 max-w-3xl mx-auto space-y-4">
+        {/* Top Nav */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+            aria-label="Geri"
+            title="Geri"
+          >
+            <ArrowLeft size={18} />
+            <span className="text-sm font-semibold">Geri</span>
+          </button>
+
+          <Link
+            href="/satissitok/admin"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+            aria-label="Satış/Stok Ana Sayfa"
+            title="Satış/Stok Ana Sayfa"
+          >
+            <Home size={18} />
+            <span className="text-sm font-semibold">Ana Sayfa</span>
+          </Link>
+        </div>
+
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded">
           {error}
         </div>
@@ -104,26 +123,43 @@ export default function StockMovementsPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
+      {/* Top Nav */}
+      <div className="flex flex-wrap items-center gap-2">
         <button
+          type="button"
           onClick={() => router.back()}
-          className="text-blue-600"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Geri"
+          title="Geri"
         >
+          <ArrowLeft size={18} />
+          <span className="text-sm font-semibold">Geri</span>
+        </button>
+
+        <Link
+          href="/satissitok/admin"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Satış/Stok Ana Sayfa"
+          title="Satış/Stok Ana Sayfa"
+        >
+          <Home size={18} />
+          <span className="text-sm font-semibold">Ana Sayfa</span>
+        </Link>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <button onClick={() => router.back()} className="text-blue-600">
           ← Geri
         </button>
-        <h1 className="text-2xl font-bold">
-          Stok Hareketleri
-        </h1>
+        <h1 className="text-2xl font-bold">Stok Hareketleri</h1>
       </div>
 
       <div className="text-gray-700">
         <div>
-          <strong>Ürün:</strong>{" "}
-          {product?.name || productId}
+          <strong>Ürün:</strong> {product?.name || productId}
         </div>
         <div>
-          <strong>Birim:</strong>{" "}
-          {product?.unit || "-"}
+          <strong>Birim:</strong> {product?.unit || "-"}
         </div>
       </div>
 
@@ -145,9 +181,7 @@ export default function StockMovementsPage() {
           <tbody>
             {movements.map((m) => (
               <tr key={m.id} className="hover:bg-gray-50">
-                <td className="border px-3 py-2 text-center">
-                  {fmtDate(m.createdAt)}
-                </td>
+                <td className="border px-3 py-2 text-center">{fmtDate(m.createdAt)}</td>
                 <td className="border px-3 py-2 text-center">
                   {m.type === "purchase" ? "Satınalma" : m.type}
                 </td>
@@ -158,30 +192,17 @@ export default function StockMovementsPage() {
                     ? "Fiili"
                     : "-"}
                 </td>
-                <td className="border px-3 py-2">
-                  {m.invoiceNo || "-"}
-                </td>
-                <td className="border px-3 py-2">
-                  {m.supplierName || "-"}
-                </td>
-                <td className="border px-3 py-2 text-center">
-                  {m.qty}
-                </td>
-                <td className="border px-3 py-2 text-right">
-                  {fmtMoney(m.unitCost)} ₸
-                </td>
-                <td className="border px-3 py-2 text-right">
-                  {fmtMoney(m.totalCost)} ₸
-                </td>
+                <td className="border px-3 py-2">{m.invoiceNo || "-"}</td>
+                <td className="border px-3 py-2">{m.supplierName || "-"}</td>
+                <td className="border px-3 py-2 text-center">{m.qty}</td>
+                <td className="border px-3 py-2 text-right">{fmtMoney(m.unitCost)} ₸</td>
+                <td className="border px-3 py-2 text-right">{fmtMoney(m.totalCost)} ₸</td>
               </tr>
             ))}
 
             {movements.length === 0 && (
               <tr>
-                <td
-                  colSpan={8}
-                  className="border px-3 py-6 text-center text-gray-500"
-                >
+                <td colSpan={8} className="border px-3 py-6 text-center text-gray-500">
                   Stok hareketi bulunamadı.
                 </td>
               </tr>
