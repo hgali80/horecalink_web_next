@@ -2,10 +2,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
-import { ChevronLeft, Printer, Trash2, Calendar, Hash, Layers } from "lucide-react";
+import {
+  ChevronLeft,
+  Printer,
+  Trash2,
+  Calendar,
+  Hash,
+  Layers,
+  ArrowLeft,
+  Home,
+} from "lucide-react";
 import { cancelPurchase } from "@/app/satissitok/services/purchaseService";
 
 export default function PurchaseDetailPage() {
@@ -32,9 +42,9 @@ export default function PurchaseDetailPage() {
 
     const data = snap.data();
 
-setPurchase({ id: purchaseId, ...data });
-setItems(data.items || []);
-setLoading(false);
+    setPurchase({ id: purchaseId, ...data });
+    setItems(data.items || []);
+    setLoading(false);
 
     setItems(itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     setLoading(false);
@@ -122,6 +132,30 @@ setLoading(false);
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-6">
+      {/* Top Nav (Geri + Ana Sayfa) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Geri"
+          title="Geri"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-sm font-semibold">Geri</span>
+        </button>
+
+        <Link
+          href="/satissitok/admin"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Satış/Stok Ana Sayfa"
+          title="Satış/Stok Ana Sayfa"
+        >
+          <Home size={18} />
+          <span className="text-sm font-semibold">Ana Sayfa</span>
+        </Link>
+      </div>
+
       {/* ÜST NAV */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <button

@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
 import { db } from "@/firebase";
 import {
@@ -12,9 +13,13 @@ import {
   Calendar,
   CreditCard,
   ChevronRight,
+  ArrowLeft,
+  Home,
 } from "lucide-react";
 
 export default function PurchasesListPage() {
+  const router = useRouter();
+
   const [rows, setRows] = useState([]);
   const [caris, setCaris] = useState({});
   const [loading, setLoading] = useState(true);
@@ -77,11 +82,7 @@ export default function PurchasesListPage() {
 
   function getGross(r) {
     // payload.totals.gross tercih; alternatif field'lar
-    const g =
-      r?.totals?.gross ??
-      r?.grossTotal ??
-      r?.total ??
-      0;
+    const g = r?.totals?.gross ?? r?.grossTotal ?? r?.total ?? 0;
     return Number(g || 0);
   }
 
@@ -95,6 +96,30 @@ export default function PurchasesListPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6 bg-gray-50/50 min-h-screen">
+      {/* Top Nav */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Geri"
+          title="Geri"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-sm font-semibold">Geri</span>
+        </button>
+
+        <Link
+          href="/satissitok/admin"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Satış/Stok Ana Sayfa"
+          title="Satış/Stok Ana Sayfa"
+        >
+          <Home size={18} />
+          <span className="text-sm font-semibold">Ana Sayfa</span>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -168,22 +193,31 @@ export default function PurchasesListPage() {
           <table className="min-w-full divide-y divide-gray-100">
             <thead className="bg-gray-50/50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Fatura / Durum</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tür</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tedarikçi</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tarih</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Toplam Tutar</th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">İşlem</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Fatura / Durum
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Tür
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Tedarikçi
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Tarih
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Toplam Tutar
+                </th>
+                <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  İşlem
+                </th>
               </tr>
             </thead>
 
             <tbody className="bg-white divide-y divide-gray-100">
               {filteredRows.map((r) => {
                 const isCancelled = r.status === "cancelled";
-                const supplier =
-                  caris[r.supplierCariId] ||
-                  r.supplierName ||
-                  "—";
+                const supplier = caris[r.supplierCariId] || r.supplierName || "—";
 
                 return (
                   <tr
@@ -192,14 +226,18 @@ export default function PurchasesListPage() {
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${isCancelled ? "bg-gray-200" : "bg-indigo-50 text-indigo-600"}`}>
+                        <div
+                          className={`p-2 rounded-lg ${isCancelled ? "bg-gray-200" : "bg-indigo-50 text-indigo-600"}`}
+                        >
                           <CreditCard size={18} />
                         </div>
 
                         <div>
                           <Link
                             href={`/satissitok/admin/purchases/${r.id}`}
-                            className={`block font-semibold hover:text-indigo-600 transition-colors ${isCancelled ? "text-gray-400 line-through" : "text-gray-900"}`}
+                            className={`block font-semibold hover:text-indigo-600 transition-colors ${
+                              isCancelled ? "text-gray-400 line-through" : "text-gray-900"
+                            }`}
                           >
                             {r.invoiceNo || "N/A"}
                           </Link>
@@ -209,7 +247,9 @@ export default function PurchasesListPage() {
                               İptal Edildi
                             </span>
                           ) : (
-                            <span className="text-[11px] text-gray-400 font-medium tracking-tight">Alış faturası kaydı</span>
+                            <span className="text-[11px] text-gray-400 font-medium tracking-tight">
+                              Alış faturası kaydı
+                            </span>
                           )}
                         </div>
                       </div>
