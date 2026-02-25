@@ -8,7 +8,6 @@ import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
 import {
   AlertTriangle,
-  ChevronLeft,
   Printer,
   Trash2,
   Calendar,
@@ -16,8 +15,18 @@ import {
   Layers,
   ArrowLeft,
   Home,
+  Building2,
+  Phone,
+  User,
 } from "lucide-react";
 import { cancelSale } from "@/app/satissitok/services/saleService";
+
+function formatDate(d) {
+  if (!d) return "-";
+  const dt = d?.toDate ? d.toDate() : new Date(d);
+  if (Number.isNaN(dt.getTime())) return "-";
+  return dt.toLocaleDateString("tr-TR");
+}
 
 export default function SaleDetailPage() {
   const { saleId } = useParams();
@@ -25,6 +34,8 @@ export default function SaleDetailPage() {
 
   const [sale, setSale] = useState(null);
   const [items, setItems] = useState([]);
+  const [cari, setCari] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
 
@@ -32,19 +43,52 @@ export default function SaleDetailPage() {
     if (!saleId) return;
 
     const load = async () => {
+      setLoading(true);
+
       const saleRef = doc(db, "sales", saleId);
       const saleSnap = await getDoc(saleRef);
 
       if (!saleSnap.exists()) {
         setSale(null);
+        setItems([]);
+        setCari(null);
         setLoading(false);
         return;
       }
 
-      const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
+      const saleData = { id: saleId, ...saleSnap.data() };
+      setSale(saleData);
 
-      setSale({ id: saleId, ...saleSnap.data() });
+      const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
       setItems(itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
+      // ✅ MÜŞTERİ (CARİ) BİLGİSİ
+      // Öncelik: sale.cariId -> caris/{cariId}
+      // Alternatif: sale.cariName / sale.customerName vb.
+      const cariId = saleData?.cariId || saleData?.customerId || saleData?.cari?.id;
+      if (cariId) {
+        try {
+          const cariRef = doc(db, "caris", String(cariId));
+          const cariSnap = await getDoc(cariRef);
+          if (cariSnap.exists()) {
+            setCari({ id: cariSnap.id, ...cariSnap.data() });
+          } else {
+            setCari({ id: String(cariId), name: saleData?.cariName || saleData?.customerName || "-" });
+          }
+        } catch {
+          setCari({ id: String(cariId), name: saleData?.cariName || saleData?.customerName || "-" });
+        }
+      } else {
+        const fallbackName =
+          saleData?.cariName ||
+          saleData?.customerName ||
+          saleData?.customerTitle ||
+          saleData?.companyName ||
+          null;
+
+        setCari(fallbackName ? { id: null, name: fallbackName } : null);
+      }
+
       setLoading(false);
     };
 
@@ -67,8 +111,17 @@ export default function SaleDetailPage() {
       const saleSnap = await getDoc(saleRef);
       const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
 
-      setSale({ id: saleId, ...saleSnap.data() });
+      const saleData = { id: saleId, ...saleSnap.data() };
+      setSale(saleData);
       setItems(itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
+      // iptal sonrası cari’yi tekrar türet
+      const cariId = saleData?.cariId || saleData?.customerId || saleData?.cari?.id;
+      if (cariId) {
+        const cariRef = doc(db, "caris", String(cariId));
+        const cariSnap = await getDoc(cariRef);
+        setCari(cariSnap.exists() ? { id: cariSnap.id, ...cariSnap.data() } : { id: String(cariId) });
+      }
     } catch (e) {
       alert(e?.message || "Satış iptal edilirken hata oluştu");
     } finally {
@@ -89,6 +142,21 @@ export default function SaleDetailPage() {
         Satış kaydı bulunamadı.
       </div>
     );
+
+  const cariTitle =
+    cari?.title ||
+    cari?.name ||
+    cari?.unvan ||
+    cari?.companyName ||
+    sale?.cariName ||
+    sale?.customerName ||
+    "-";
+
+  const cariPhone =
+    cari?.phone || cari?.tel || cari?.mobile || sale?.customerPhone || sale?.phone || null;
+
+  const saleDate =
+    sale?.createdAt || sale?.date || sale?.issuedAt || sale?.created_at || null;
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-6">
@@ -116,10 +184,6 @@ export default function SaleDetailPage() {
             <Home size={18} />
             <span className="text-sm font-semibold">Ana Sayfa</span>
           </Link>
-
-          {/* İstersen burada ekstra olarak "Satış Listesi" linki de eklenebilir:
-              <Link href="/satissitok/admin/sales" ...>Satış Listesi</Link>
-          */}
         </div>
 
         {/* Sağ: Aksiyonlar */}
@@ -145,7 +209,7 @@ export default function SaleDetailPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 pb-6 mb-6">
-            <div className="space-y-1">
+            <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-gray-900 uppercase tracking-tight">
                   {sale.invoiceNo || "Fatura No Yok"}
@@ -160,9 +224,41 @@ export default function SaleDetailPage() {
                   </span>
                 )}
               </div>
+
+              {/* ✅ MÜŞTERİ BİLGİSİ (uygun yer: başlığın hemen altı) */}
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="inline-flex items-center gap-1 text-gray-500">
+                    <Building2 size={14} /> Müşteri:
+                  </span>
+
+                  {cari?.id ? (
+                    <Link
+                      href={`/satissitok/admin/cari/${cari.id}`}
+                      className="font-semibold text-indigo-700 hover:underline"
+                      title="Cari kartını aç"
+                    >
+                      {cariTitle}
+                    </Link>
+                  ) : (
+                    <span className="font-semibold text-gray-800 inline-flex items-center gap-2">
+                      <User size={14} className="text-gray-400" />
+                      {cariTitle}
+                    </span>
+                  )}
+                </div>
+
+                {cariPhone && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Phone size={13} />
+                    <span className="font-medium">{cariPhone}</span>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center gap-4 text-sm text-gray-500">
                 <span className="flex items-center gap-1">
-                  <Calendar size={14} /> 2026/01/29
+                  <Calendar size={14} /> {formatDate(saleDate)}
                 </span>
                 <span className="flex items-center gap-1">
                   <Hash size={14} /> ID: {sale.id.slice(-6).toUpperCase()}
@@ -209,7 +305,9 @@ export default function SaleDetailPage() {
                       key={i}
                       className="flex justify-between bg-white/50 p-2 rounded border border-amber-100"
                     >
-                      <span className="font-medium text-gray-700">{n.productId}</span>
+                      <span className="font-medium text-gray-700">
+                        {n.productId}
+                      </span>
                       <span className="text-red-600">
                         Mevcut: {n.available} / Satılan: {n.sold}
                       </span>
