@@ -14,66 +14,80 @@ import {
 } from "./stockService";
 
 /* ===============================
-   FATURA FORMAT (AYNEN KORUNDU)
+   FATURA FORMAT (UI İLE AYNI)
+   R-26-000001 / F-26-000001
 ================================ */
-function formatInvoiceNo(type, seq) {
-  const year = new Date().getFullYear().toString().slice(-2);
+
+function pad6(n) {
+  return String(Number(n) || 0).padStart(6, "0");
+}
+
+function year2FromDateISO(dateISO) {
+  if (!dateISO) return String(new Date().getFullYear()).slice(-2);
+  const d = new Date(dateISO);
+  return Number.isNaN(d.getTime())
+    ? String(new Date().getFullYear()).slice(-2)
+    : String(d.getFullYear()).slice(-2);
+}
+
+function formatInvoiceNo(type, yy, seq) {
   const prefix = type === "official" ? "R" : "F";
-  return `${prefix}-${year}${String(seq).padStart(6, "0")}`;
+  return `${prefix}-${yy}-${pad6(seq)}`;
 }
 
 /* =========================================================
-   CREATE PURCHASE (SADECE SAYAÇ DÜZELTİLDİ)
+   CREATE PURCHASE (COUNTER + AUTO/MANUEL DÜZELTİLDİ)
 ========================================================= */
 
 export async function createPurchase(payload) {
   return await runTransaction(db, async (transaction) => {
     const type = payload.purchaseType; // official | actual
 
-    let invoiceNo = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
-    let nextSeq = null;
+    const manualInvoice = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
+
+    // UI: kullanıcı inputa dokunmadıysa true gönderiyor
+    const invoiceNoAuto = payload.invoiceNoAuto === true;
 
     /* =====================
        READ PHASE
     ===================== */
 
-    // 🔵 OTOMATİK FATURA NUMARASI
-    if (!invoiceNo) {
-      const counterRef = doc(db, "counters", "purchases");
-      const counterSnap = await transaction.get(counterRef);
+    // ✅ Sayaç her kayıt için tükecek
+    const counterRef = doc(db, "counters", "purchases");
+    const counterSnap = await transaction.get(counterRef);
 
-      if (!counterSnap.exists()) {
-        throw new Error("Sayaç bulunamadı: counters/purchases");
-      }
-
-      const data = counterSnap.data();
-      const key = type === "official" ? "official" : "actual";
-
-      const currentSeq = Number(data[key] || 0);
-      nextSeq = currentSeq + 1;
-
-      invoiceNo = formatInvoiceNo(type, nextSeq);
+    if (!counterSnap.exists()) {
+      throw new Error("Sayaç bulunamadı: counters/purchases");
     }
 
-    const existingBalances =
-      await readStockBalancesForPurchase({
-        transaction,
-        items: payload.items || [],
-      });
+    const data = counterSnap.data();
+    const key = type === "official" ? "official" : "actual";
+
+    const currentSeq = Number(data[key] || 0);
+    const nextSeq = currentSeq + 1;
+
+    // ✅ Auto invoice her zaman counter’dan üretilir
+    const yy = year2FromDateISO(payload.documentDate);
+    const autoInvoice = formatInvoiceNo(type, yy, nextSeq);
+
+    // ✅ Kaydedilecek invoiceNo seçimi:
+    // - invoiceNoAuto=true  => autoInvoice
+    // - invoiceNoAuto=false => manualInvoice (boşsa autoInvoice)
+    const invoiceNo = invoiceNoAuto ? autoInvoice : (manualInvoice || autoInvoice);
+
+    const existingBalances = await readStockBalancesForPurchase({
+      transaction,
+      items: payload.items || [],
+    });
 
     /* =====================
        WRITE PHASE
     ===================== */
 
-    // 🔵 SAYAÇ GÜNCELLE (SADECE OTOMATİKTE)
-    if (nextSeq !== null) {
-      const counterRef = doc(db, "counters", "purchases");
-      const key = type === "official" ? "official" : "actual";
-
-      transaction.update(counterRef, {
-        [key]: nextSeq,
-      });
-    }
+    // ✅ Sayaç HER SATINALMADA güncellenecek
+    transaction.update(counterRef, {
+      [key]: nextSeq,
+    });
 
     const purchaseRef = doc(collection(db, "purchases"));
 
@@ -139,8 +153,7 @@ export async function createPurchase(payload) {
         dueDate: null,
 
         operationType: "purchase_invoice",
-        operationCategory:
-          payload.operationCategory || "trade_goods",
+        operationCategory: payload.operationCategory || "trade_goods",
 
         documentNo: invoiceNo,
 
@@ -149,8 +162,7 @@ export async function createPurchase(payload) {
 
         currency: "KZT",
 
-        description:
-          payload.description || "Satınalma faturası",
+        description: payload.description || "Satınalma faturası",
 
         createdAt: serverTimestamp(),
       });
@@ -179,11 +191,10 @@ export async function cancelPurchase({ purchaseId }) {
     const items = purchase.items || [];
     const type = purchase.purchaseType;
 
-    const existingBalances =
-      await readStockBalancesForPurchase({
-        transaction,
-        items,
-      });
+    const existingBalances = await readStockBalancesForPurchase({
+      transaction,
+      items,
+    });
 
     writePurchaseStockMovements({
       transaction,

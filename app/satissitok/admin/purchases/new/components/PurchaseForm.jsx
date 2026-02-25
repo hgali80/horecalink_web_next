@@ -59,9 +59,8 @@ export default function PurchaseForm({ onSubmit }) {
   const [supplierName, setSupplierName] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
   const [documentDate, setDocumentDate] = useState(
-  new Date().toISOString().slice(0, 10)
-);
-
+    new Date().toISOString().slice(0, 10)
+  );
 
   const [items, setItems] = useState([]);
 
@@ -164,10 +163,7 @@ export default function PurchaseForm({ onSubmit }) {
       FATURA NO ÖNİZLEME (DÜZELTİLDİ)
   ================================ */
 
-  const yy = useMemo(
-    () => year2FromDateISO(documentDate),
-    [documentDate]
-  );
+  const yy = useMemo(() => year2FromDateISO(documentDate), [documentDate]);
 
   useEffect(() => {
     const loadNextInvoiceNoPreview = async () => {
@@ -180,9 +176,7 @@ export default function PurchaseForm({ onSubmit }) {
         const ref = doc(db, "counters", "purchases");
         const snap = await getDoc(ref);
 
-        const data = snap.exists()
-          ? snap.data()
-          : { official: 0, actual: 0 };
+        const data = snap.exists() ? snap.data() : { official: 0, actual: 0 };
 
         const key = purchaseType === "official" ? "official" : "actual";
         const nextSeq = Number(data[key] || 0) + 1;
@@ -233,7 +227,11 @@ export default function PurchaseForm({ onSubmit }) {
     onSubmit({
       supplierName: supplierName.trim(),
       supplierCariId: supplierCariId || null,
+
       invoiceNo: invoiceNo.trim(),
+      // ✅ kritik bilgi: kullanıcı dokunmadıysa auto kabul edeceğiz
+      invoiceNoAuto: !invoiceNoDirty,
+
       documentDate,
       purchaseType,
       vatMode,
@@ -412,9 +410,15 @@ export default function PurchaseForm({ onSubmit }) {
       />
 
       <div className="border-t pt-4 text-right space-y-1">
-        <div>Net: <strong>{totals.net} ₸</strong></div>
-        <div>KDV: <strong>{totals.vat} ₸</strong></div>
-        <div className="text-lg">Genel Toplam: <strong>{totals.gross} ₸</strong></div>
+        <div>
+          Net: <strong>{totals.net} ₸</strong>
+        </div>
+        <div>
+          KDV: <strong>{totals.vat} ₸</strong>
+        </div>
+        <div className="text-lg">
+          Genel Toplam: <strong>{totals.gross} ₸</strong>
+        </div>
       </div>
 
       <div className="text-right">
