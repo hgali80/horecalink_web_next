@@ -2,9 +2,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase";
+import { ArrowLeft, Home } from "lucide-react";
 import { listCariTransactions } from "../services/cariTransactions";
 
 function formatDate(d) {
@@ -15,6 +17,7 @@ function formatDate(d) {
 
 export default function CariEkstrePage() {
   const { cariId } = useParams();
+  const router = useRouter();
 
   const [cari, setCari] = useState(null);
   const [rows, setRows] = useState([]);
@@ -65,6 +68,30 @@ export default function CariEkstrePage() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* Top Nav */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Geri"
+          title="Geri"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-sm font-semibold">Geri</span>
+        </button>
+
+        <Link
+          href="/satissitok/admin"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Satış/Stok Ana Sayfa"
+          title="Satış/Stok Ana Sayfa"
+        >
+          <Home size={18} />
+          <span className="text-sm font-semibold">Ana Sayfa</span>
+        </Link>
+      </div>
+
       {/* Başlık */}
       <div>
         <h1 className="text-2xl font-bold">Cari Ekstre</h1>

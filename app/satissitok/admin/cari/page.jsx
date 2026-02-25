@@ -3,9 +3,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Home } from "lucide-react";
 import { listCaris } from "./services/cariService";
 
 export default function CariListPage() {
+  const router = useRouter();
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,6 +26,30 @@ export default function CariListPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* Top Nav */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Geri"
+          title="Geri"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-sm font-semibold">Geri</span>
+        </button>
+
+        <Link
+          href="/satissitok/admin"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Satış/Stok Ana Sayfa"
+          title="Satış/Stok Ana Sayfa"
+        >
+          <Home size={18} />
+          <span className="text-sm font-semibold">Ana Sayfa</span>
+        </Link>
+      </div>
+
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Cari Kartlar</h1>
         <Link
@@ -53,15 +81,9 @@ export default function CariListPage() {
                   {r.firm}
                 </Link>
               </td>
-              <td className="border px-3 py-2 text-center">
-                {r.type}
-              </td>
-              <td className="border px-3 py-2 text-center">
-                {r.bin || "-"}
-              </td>
-              <td className="border px-3 py-2 text-center">
-                {r.mobile || "-"}
-              </td>
+              <td className="border px-3 py-2 text-center">{r.type}</td>
+              <td className="border px-3 py-2 text-center">{r.bin || "-"}</td>
+              <td className="border px-3 py-2 text-center">{r.mobile || "-"}</td>
               <td className="border px-3 py-2 text-center">
                 {r.isActive ? "Aktif" : "Pasif"}
               </td>
@@ -70,10 +92,7 @@ export default function CariListPage() {
 
           {rows.length === 0 && (
             <tr>
-              <td
-                colSpan={5}
-                className="border px-3 py-6 text-center text-gray-500"
-              >
+              <td colSpan={5} className="border px-3 py-6 text-center text-gray-500">
                 Cari kart bulunamadı.
               </td>
             </tr>
