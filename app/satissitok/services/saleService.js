@@ -15,6 +15,8 @@ import {
   writeStockBalancesAfterReturn,
 } from "./stockService";
 
+import { createCariTransaction } from "@/app/satissitok/admin/cari/services/cariService";
+
 /* ===============================
    INVOICE NO HELPERS
 ================================ */
@@ -50,6 +52,10 @@ export async function createSale(payload) {
     const saleType = payload?.saleType === "actual" ? "actual" : "official";
     const saleChannel = (payload?.saleChannel || payload?.platformId || "other").trim();
     const cariId = payload?.cariId || null;
+
+    const payment = payload?.payment || {};
+    const paymentMethod = (payment.method || payload?.paymentMethod || "").trim();
+    const paidAmount = Number(payment.paidAmount ?? payload?.paidAmount ?? 0) || 0;
 
     const invoiceDateISO = payload?.invoiceDate || new Date().toISOString().slice(0, 10);
     const yy = year2FromDateISO(invoiceDateISO);
@@ -94,19 +100,22 @@ export async function createSale(payload) {
     });
 
     // 3) Negatif stok kontrolü (bloklama yok)
-    const soldByProduct = {};
+    const soldByKey = {};
     for (const it of items) {
       if (!it?.productId) continue;
+      const whKey = (it.warehouseKey || "main").trim() || "main";
       const q = Number(it.quantity || 0);
       if (!q) continue;
-      soldByProduct[it.productId] = (soldByProduct[it.productId] || 0) + q;
+      const k = `${it.productId}__${whKey}`;
+      soldByKey[k] = (soldByKey[k] || 0) + q;
     }
 
     const negativeStockItems = [];
-    for (const [productId, sold] of Object.entries(soldByProduct)) {
-      const available = Number(existingBalances?.[productId]?.qty || 0);
+    for (const [compoundKey, sold] of Object.entries(soldByKey)) {
+      const [productId, warehouseKey] = compoundKey.split("__");
+      const available = Number(existingBalances?.[compoundKey]?.qty || 0);
       if (available < sold) {
-        negativeStockItems.push({ productId, available, sold });
+        negativeStockItems.push({ productId, warehouseKey, available, sold });
       }
     }
 
@@ -151,7 +160,9 @@ export async function createSale(payload) {
       vatTotal += vat;
       grossTotal += total;
 
-      const avgCost = Number(existingBalances?.[row.productId]?.avgCost || 0);
+      const whKey = (row.warehouseKey || "main").trim() || "main";
+      const balKey = `${row.productId}__${whKey}`;
+      const avgCost = Number(existingBalances?.[balKey]?.avgCost || 0);
       const costAtSale = avgCost;
 
       const lineCost = Math.round(quantity * costAtSale * 100) / 100;
@@ -167,9 +178,13 @@ export async function createSale(payload) {
         productName: row.productName || "",
         unit: row.unit || "",
 
+        warehouseKey: whKey,
+
         quantity,
         unitPrice,
         discountRate,
+
+        vatRate: saleType === "official" ? Number(row.vatRate || 0) : 0,
 
         net,
         vat: saleType === "official" ? vat : 0,
@@ -187,6 +202,17 @@ export async function createSale(payload) {
     costTotalUsed = Math.round(costTotalUsed * 100) / 100;
     profitTotal = Math.round(profitTotal * 100) / 100;
 
+    // vat summary (tek oran ise yaz, değilse null)
+    const ratesUsed = Array.from(
+      new Set(
+        (items || [])
+          .filter((x) => x?.productId)
+          .map((x) => Number(x.vatRate || 0))
+      )
+    );
+    const saleVatRate =
+      saleType === "official" && ratesUsed.length === 1 ? ratesUsed[0] : null;
+
     transaction.set(saleRef, {
       // legacy alanlar
       saleNo: invoiceNo,
@@ -201,8 +227,13 @@ export async function createSale(payload) {
 
       cariId: cariId || null,
 
-      vatRate: saleType === "official" ? Number(payload?.vatRate || 0) : 0,
+      vatRate: saleType === "official" ? saleVatRate : 0,
+      vatRatesUsed: saleType === "official" ? ratesUsed : [],
       vatMode: saleType === "official" ? (payload?.vatMode || "exclude") : null,
+      payment: {
+        method: paymentMethod || null,
+        paidAmount: paidAmount > 0 ? Math.round(paidAmount * 100) / 100 : 0,
+      },
 
       netTotal,
       vatTotal: saleType === "official" ? vatTotal : 0,
@@ -228,7 +259,10 @@ export async function createSale(payload) {
       .filter((r) => r?.productId && Number(r.quantity || 0) > 0)
       .map((r) => ({
         ...r,
-        costAtSale: Number(existingBalances?.[r.productId]?.avgCost || 0),
+        warehouseKey: (r.warehouseKey || "main").trim() || "main",
+        costAtSale: Number(
+          existingBalances?.[`${r.productId}__${((r.warehouseKey || "main").trim() || "main")}`]?.avgCost || 0
+        ),
       }));
 
     writeSaleStockMovements({
@@ -248,6 +282,38 @@ export async function createSale(payload) {
       items: itemsForStock,
       existingBalances,
     });
+
+    /* =====================
+       CARİ HAREKETLERİ (SEÇENEK 6B)
+       - satış: müşteri borç (debit)
+       - tahsilat: alacak (credit)
+    ===================== */
+    if (cariId) {
+      createCariTransaction(transaction, {
+        cariId,
+        type: "debit",
+        source: "sale",
+        refId: saleRef.id,
+        amount: grossTotal,
+        operationDate: invoiceDateISO,
+        currency: "KZT",
+        note: `Satış faturası: ${invoiceNo}`,
+      });
+
+      if (paidAmount > 0) {
+        createCariTransaction(transaction, {
+          cariId,
+          type: "credit",
+          source: "sale_payment",
+          refId: saleRef.id,
+          amount: paidAmount,
+          operationDate: invoiceDateISO,
+          currency: "KZT",
+          paymentMethod: paymentMethod || null,
+          note: `Tahsilat (${paymentMethod || ""}) - ${invoiceNo}`,
+        });
+      }
+    }
 
     return { saleId: saleRef.id };
   });

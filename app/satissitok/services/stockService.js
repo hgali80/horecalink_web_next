@@ -6,6 +6,33 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase";
 
+const DEFAULT_WAREHOUSE_KEY = "main";
+
+function safeWarehouseKey(k) {
+  return (k || DEFAULT_WAREHOUSE_KEY).trim() || DEFAULT_WAREHOUSE_KEY;
+}
+
+function getBucketFromDocData(docData, warehouseKey, bucketKey) {
+  const wh = safeWarehouseKey(warehouseKey);
+  const warehouses = docData?.warehouses || {};
+
+  // New model
+  const bucket = warehouses?.[wh]?.[bucketKey];
+  if (bucket && (bucket.qty !== undefined || bucket.avgCost !== undefined)) {
+    return {
+      qty: Number(bucket.qty) || 0,
+      avgCost: Number(bucket.avgCost) || 0,
+    };
+  }
+
+  // Legacy fallback (no warehouses)
+  const legacy = docData?.[bucketKey] || {};
+  return {
+    qty: Number(legacy.qty) || 0,
+    avgCost: Number(legacy.avgCost) || 0,
+  };
+}
+
 /**
  * READ PHASE
  * Gerekli stock_balances dokümanlarını okur
@@ -42,8 +69,10 @@ export function writePurchaseStockMovements({
   invoiceNo,
   documentDate,
   currency = "KZT",
+  warehouseKey,
 }) {
   const stockCollection = collection(db, "stock_movements");
+  const whKey = safeWarehouseKey(warehouseKey);
 
   items.forEach((item) => {
     if (!item.productId || !item.qty) return;
@@ -65,6 +94,8 @@ export function writePurchaseStockMovements({
       type: "purchase",
       purchaseId,
       purchaseType,
+
+      warehouseKey: whKey,
 
       unitCost,
       totalCost,
@@ -89,8 +120,10 @@ export function writeStockBalancesWithAvgCost({
   purchaseType,
   items,
   existingBalances,
+  warehouseKey,
 }) {
   const bucketKey = purchaseType === "official" ? "official" : "actual";
+  const whKey = safeWarehouseKey(warehouseKey);
 
   for (const item of items || []) {
     if (!item?.productId) continue;
@@ -101,7 +134,8 @@ export function writeStockBalancesWithAvgCost({
     const unitCost =
       Number(item.netUnitPrice ?? item.unitPrice ?? 0) || 0;
 
-    const prev = existingBalances[item.productId]?.[bucketKey] || {};
+    const docData = existingBalances[item.productId] || {};
+    const prev = getBucketFromDocData(docData, whKey, bucketKey);
     const oldQty = Number(prev.qty) || 0;
     const oldAvg = Number(prev.avgCost) || 0;
 
@@ -120,10 +154,14 @@ export function writeStockBalancesWithAvgCost({
     transaction.set(
       ref,
       {
-        [bucketKey]: {
-          qty: newQty,
-          avgCost: newAvg,
-          updatedAt: serverTimestamp(),
+        warehouses: {
+          [whKey]: {
+            [bucketKey]: {
+              qty: newQty,
+              avgCost: newAvg,
+              updatedAt: serverTimestamp(),
+            },
+          },
         },
       },
       { merge: true }
@@ -145,18 +183,15 @@ export async function readStockBalancesForSale({
 
   for (const item of items || []) {
     if (!item?.productId) continue;
-    if (map[item.productId]) continue;
+    const whKey = safeWarehouseKey(item.warehouseKey);
+    const key = `${item.productId}__${whKey}`;
+    if (map[key]) continue;
 
     const ref = doc(db, "stock_balances", item.productId);
     const snap = await transaction.get(ref);
-
     const data = snap.exists() ? snap.data() : {};
-    const bucket = data[bucketKey] || {};
 
-    map[item.productId] = {
-      qty: Number(bucket.qty) || 0,
-      avgCost: Number(bucket.avgCost) || 0,
-    };
+    map[key] = getBucketFromDocData(data, whKey, bucketKey);
   }
 
   return map;
@@ -201,6 +236,8 @@ export function writeSaleStockMovements({
       saleType,
       bucket: bucketKey,
 
+      warehouseKey: safeWarehouseKey(item.warehouseKey),
+
       unitCost,
       totalCost,
       currency: "KZT",
@@ -226,17 +263,20 @@ export function writeStockBalancesAfterSale({
 }) {
   const bucketKey = saleType === "official" ? "official" : "actual";
 
-  // 🔒 aynı üründen birden çok satır olabilir → aggregate
-  const outByProduct = {};
+  // 🔒 aynı üründen birden çok satır olabilir → aggregate (product+warehouse)
+  const outByKey = {};
   for (const item of items || []) {
     if (!item?.productId) continue;
+    const whKey = safeWarehouseKey(item.warehouseKey);
     const q = Number(item.quantity || 0);
     if (!q) continue;
-    outByProduct[item.productId] = (outByProduct[item.productId] || 0) + q;
+    const k = `${item.productId}__${whKey}`;
+    outByKey[k] = (outByKey[k] || 0) + q;
   }
 
-  for (const [productId, outQty] of Object.entries(outByProduct)) {
-    const prev = existingBalances?.[productId] || {};
+  for (const [compoundKey, outQty] of Object.entries(outByKey)) {
+    const [productId, whKey] = compoundKey.split("__");
+    const prev = existingBalances?.[compoundKey] || { qty: 0, avgCost: 0 };
     const oldQty = Number(prev.qty) || 0;
 
     // 🔴 NEGATİF STOĞA İZİN VAR (UYARI UI'DA)
@@ -246,10 +286,14 @@ export function writeStockBalancesAfterSale({
     transaction.set(
       ref,
       {
-        [bucketKey]: {
-          qty: newQty,
-          avgCost: prev.avgCost || 0, // satışta avg değişmez
-          updatedAt: serverTimestamp(),
+        warehouses: {
+          [whKey]: {
+            [bucketKey]: {
+              qty: newQty,
+              avgCost: prev.avgCost || 0, // satışta avg değişmez
+              updatedAt: serverTimestamp(),
+            },
+          },
         },
       },
       { merge: true }

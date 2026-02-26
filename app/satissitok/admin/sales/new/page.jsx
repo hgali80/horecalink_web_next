@@ -37,6 +37,7 @@ export default function NewSalePage() {
 
   const [products, setProducts] = useState([]);
   const [caris, setCaris] = useState([]);
+  const [balances, setBalances] = useState({});
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {
@@ -46,9 +47,15 @@ export default function NewSalePage() {
   async function loadAll() {
     setLoading(true);
     try {
-      const [p, c, s] = await Promise.all([loadProducts(), loadCaris(), getSettings()]);
+      const [p, c, b, s] = await Promise.all([
+        loadProducts(),
+        loadCaris(),
+        loadBalances(),
+        getSettings(),
+      ]);
       setProducts(p);
       setCaris(c);
+      setBalances(b);
       setSettings(s);
     } finally {
       setLoading(false);
@@ -63,6 +70,15 @@ export default function NewSalePage() {
   async function loadCaris() {
     const snap = await getDocs(query(collection(db, "caris"), orderBy("firm")));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+
+  async function loadBalances() {
+    const snap = await getDocs(collection(db, "stock_balances"));
+    const map = {};
+    snap.docs.forEach((d) => {
+      map[d.id] = d.data();
+    });
+    return map;
   }
 
   async function handleSubmit(payload) {
@@ -178,6 +194,7 @@ export default function NewSalePage() {
             <SaleForm
               products={products}
               caris={caris}
+              balances={balances}
               settings={settings}
               onSubmit={handleSubmit}
               disabled={saving}

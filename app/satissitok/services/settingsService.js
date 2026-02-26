@@ -29,6 +29,16 @@ const cleanPlatforms = (arr) =>
     }))
     .filter((x) => x.key && x.label);
 
+const cleanWarehouses = (arr) =>
+  cleanList(arr)
+    .map((x) => ({
+      key: cleanText(x?.key),
+      label: cleanText(x?.label),
+      active: x?.active !== false,
+      default: x?.default === true,
+    }))
+    .filter((x) => x.key && x.label);
+
 const cleanRates = (arr) =>
   cleanList(arr)
     .map((x) => ({
@@ -44,6 +54,10 @@ const DEFAULT_SETTINGS = {
     { key: "adet", label: "Adet", active: true, default: true },
     { key: "rulon", label: "Rulon", active: true },
     { key: "kutu", label: "Kutu", active: true },
+  ],
+  warehouses: [
+    { key: "main", label: "Ana Depo", active: true, default: true },
+    { key: "backup", label: "Yedek Depo", active: true },
   ],
   platforms: [
     { key: "showroom", label: "Showroom", active: true, default: true },
@@ -70,6 +84,7 @@ export async function getSettings() {
       ...DEFAULT_SETTINGS,
       ...s,
       units: cleanUnits(s.units ?? DEFAULT_SETTINGS.units),
+      warehouses: cleanWarehouses(s.warehouses ?? DEFAULT_SETTINGS.warehouses),
       platforms: cleanPlatforms(s.platforms ?? DEFAULT_SETTINGS.platforms),
       taxes: {
         vat: cleanRates(s.taxes?.vat ?? DEFAULT_SETTINGS.taxes.vat),
@@ -87,6 +102,9 @@ export async function getSettings() {
     if (!merged.units.some((x) => x.default === true) && merged.units.length) {
       merged.units[0].default = true;
     }
+    if (!merged.warehouses.some((x) => x.default === true) && merged.warehouses.length) {
+      merged.warehouses[0].default = true;
+    }
 
     return merged;
   } catch (err) {
@@ -99,6 +117,7 @@ export async function saveSettings(data) {
   try {
     const payload = {
       units: cleanUnits(data?.units),
+      warehouses: cleanWarehouses(data?.warehouses),
       platforms: cleanPlatforms(data?.platforms),
       taxes: {
         vat: cleanRates(data?.taxes?.vat),
@@ -112,6 +131,9 @@ export async function saveSettings(data) {
     }
     if (payload.platforms.length && !payload.platforms.some((x) => x.default)) {
       payload.platforms[0].default = true;
+    }
+    if (payload.warehouses.length && !payload.warehouses.some((x) => x.default)) {
+      payload.warehouses[0].default = true;
     }
     if (payload.taxes.vat.length && !payload.taxes.vat.some((x) => x.default)) {
       payload.taxes.vat[0].default = true;

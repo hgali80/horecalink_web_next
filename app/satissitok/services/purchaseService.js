@@ -43,6 +43,9 @@ export async function createPurchase(payload) {
   return await runTransaction(db, async (transaction) => {
     const type = payload.purchaseType; // official | actual
 
+    // Depo (yeni model) – satınalma ekranında seçimi yoksa varsayılan: main
+    const warehouseKey = (payload.warehouseKey || "main").trim() || "main";
+
     const manualInvoice = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
 
     // UI: kullanıcı inputa dokunmadıysa true gönderiyor
@@ -103,6 +106,7 @@ export async function createPurchase(payload) {
         : null,
 
       purchaseType: type,
+      warehouseKey,
       taxRate: type === "official" ? Number(payload.taxRate || 0) : 0,
       vatMode: type === "official" ? payload.vatMode || "inclusive" : null,
 
@@ -127,6 +131,7 @@ export async function createPurchase(payload) {
       invoiceNo,
       documentDate: payload.documentDate || null,
       currency: "KZT",
+      warehouseKey,
     });
 
     writeStockBalancesWithAvgCost({
@@ -134,6 +139,7 @@ export async function createPurchase(payload) {
       purchaseType: type,
       items: payload.items || [],
       existingBalances,
+      warehouseKey,
     });
 
     /* =====================

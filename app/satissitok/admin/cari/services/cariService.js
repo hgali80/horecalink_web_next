@@ -9,6 +9,7 @@ import {
   query,
   orderBy,
   where,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase";
 
@@ -70,6 +71,10 @@ export async function createCariTransaction(
     source,
     refId,
     amount,
+    operationDate,
+    currency,
+    note,
+    paymentMethod,
   }
 ) {
   if (!cariId || !type || !amount) {
@@ -84,6 +89,12 @@ export async function createCariTransaction(
     source,
     refId: refId || null,
     amount: Number(amount),
+    currency: currency || "KZT",
+    paymentMethod: paymentMethod || null,
+    note: note || "",
+    operationDate: Timestamp.fromDate(
+      operationDate ? new Date(operationDate) : new Date()
+    ),
     createdAt: serverTimestamp(),
   });
 }

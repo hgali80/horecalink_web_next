@@ -8,6 +8,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
 
   const [units, setUnits] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
   const [platforms, setPlatforms] = useState([]);
   const [vatRates, setVatRates] = useState([]);
   const [incomeRates, setIncomeRates] = useState([]);
@@ -21,6 +22,7 @@ export default function SettingsPage() {
         if (!alive) return;
 
         setUnits(Array.isArray(s.units) ? s.units : []);
+        setWarehouses(Array.isArray(s.warehouses) ? s.warehouses : []);
         setPlatforms(Array.isArray(s.platforms) ? s.platforms : []);
         setVatRates(Array.isArray(s.taxes?.vat) ? s.taxes.vat : []);
         setIncomeRates(Array.isArray(s.taxes?.income) ? s.taxes.income : []);
@@ -40,6 +42,7 @@ export default function SettingsPage() {
     try {
       await saveSettings({
         units,
+        warehouses,
         platforms,
         taxes: { vat: vatRates, income: incomeRates },
       });
@@ -210,6 +213,75 @@ export default function SettingsPage() {
                 className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
               >
                 <span className="text-lg mr-1">+</span> Yeni Birim Ekle
+              </button>
+            </div>
+          </section>
+
+          {/* DEPOLAR */}
+          <section className={sectionClass}>
+            <div className={headerClass}>
+              <h2 className="text-lg font-bold leading-6 text-gray-900">Depolar</h2>
+              <p className="mt-1 text-sm text-gray-500">Satış ve satınalma satırlarında depo seçimi için kullanılır.</p>
+            </div>
+            <div className="p-6 space-y-4">
+              {warehouses.map((w, i) => (
+                <div key={i} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <input
+                    className={inputClass}
+                    placeholder="Depo Kodu (örn: main)"
+                    value={w.key || ""}
+                    onChange={(e) => {
+                      const x = [...warehouses];
+                      x[i] = { ...x[i], key: e.target.value };
+                      setWarehouses(x);
+                    }}
+                  />
+                  <input
+                    className={inputClass}
+                    placeholder="Depo Adı"
+                    value={w.label || ""}
+                    onChange={(e) => {
+                      const x = [...warehouses];
+                      x[i] = { ...x[i], label: e.target.value };
+                      setWarehouses(x);
+                    }}
+                  />
+                  <div className="flex items-center space-x-6 px-2">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        checked={w.active !== false}
+                        onChange={(e) => {
+                          const x = [...warehouses];
+                          x[i] = { ...x[i], active: e.target.checked };
+                          setWarehouses(x);
+                        }}
+                      />
+                      <span className="ml-2 text-sm font-medium text-gray-700">Aktif</span>
+                    </label>
+
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="defaultWarehouse"
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        checked={w.default === true}
+                        onChange={() => {
+                          const x = warehouses.map((r, idx) => ({ ...r, default: idx === i }));
+                          setWarehouses(x);
+                        }}
+                      />
+                      <span className="ml-2 text-sm font-medium text-gray-700">Varsayılan</span>
+                    </label>
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => setWarehouses([...warehouses, { key: "", label: "", active: true }])}
+                className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                <span className="text-lg mr-1">+</span> Yeni Depo Ekle
               </button>
             </div>
           </section>

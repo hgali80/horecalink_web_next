@@ -16,6 +16,34 @@ function fmtMoney(n) {
   });
 }
 
+function num(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function sumBucketQty(docData, bucketKey) {
+  const warehouses = docData?.warehouses;
+  if (warehouses && typeof warehouses === "object") {
+    return Object.values(warehouses).reduce(
+      (s, wh) => s + num(wh?.[bucketKey]?.qty),
+      0
+    );
+  }
+  return num(docData?.[bucketKey]?.qty);
+}
+
+function sumBucketAvgCost(docData, bucketKey) {
+  // UI amaçlı basit gösterim: ilk bulunan avgCost (ağırlıklı ortalama sonraki adım)
+  const warehouses = docData?.warehouses;
+  if (warehouses && typeof warehouses === "object") {
+    for (const wh of Object.values(warehouses)) {
+      const v = wh?.[bucketKey]?.avgCost;
+      if (Number.isFinite(Number(v))) return num(v);
+    }
+  }
+  return num(docData?.[bucketKey]?.avgCost);
+}
+
 export default function AdminStockPage() {
   const router = useRouter();
 
@@ -78,11 +106,11 @@ export default function AdminStockPage() {
             name: p.name || "-",
             unit: p.unit || "-",
 
-            officialQty: b?.official?.qty || 0,
-            officialAvg: b?.official?.avgCost || 0,
+            officialQty: sumBucketQty(b, "official"),
+            officialAvg: sumBucketAvgCost(b, "official"),
 
-            actualQty: b?.actual?.qty || 0,
-            actualAvg: b?.actual?.avgCost || 0,
+            actualQty: sumBucketQty(b, "actual"),
+            actualAvg: sumBucketAvgCost(b, "actual"),
 
             movementCount: movementCounts[p.id] || 0,
           };
