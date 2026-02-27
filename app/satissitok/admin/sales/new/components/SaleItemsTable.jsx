@@ -1,7 +1,7 @@
 // app/satissitok/admin/sales/new/components/SaleItemsTable.jsx
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GripVertical, PlusCircle, Trash2 } from "lucide-react";
 
 function num(x) {
@@ -85,14 +85,46 @@ export default function SaleItemsTable({
 }) {
   const bucketKey = saleType === "official" ? "official" : "actual";
 
+  const productById = useMemo(() => {
+    const m = {};
+    for (const p of products || []) m[p.id] = p;
+    return m;
+  }, [products]);
+
+  const [openIndex, setOpenIndex] = useState(-1);
+  const [queryByIndex, setQueryByIndex] = useState({});
+  const closeTimerRef = useRef(null);
+
+  function setQuery(i, v) {
+    setQueryByIndex((prev) => ({ ...prev, [i]: v }));
+  }
+
+  function closeDropdownSoon() {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => setOpenIndex(-1), 120);
+  }
+
+  function productLabel(p) {
+    return String(p?.name || p?.title || p?.id || "");
+  }
+
+  function currentRowLabel(row) {
+    const p = productById?.[row.productId];
+    return productLabel(p) || String(row.productName || "");
+  }
+
   function updateRow(i, patch) {
     setItems((prev) => {
-      const x = [...prev];
-      const next = { ...x[i], ...patch };
-      const calced = calcRow({ row: next, saleType, vatMode });
-      x[i] = { ...next, ...calced };
-      return x;
+      const next = [...prev];
+      const row = { ...next[i], ...patch };
+      const calc = calcRow({ row, saleType, vatMode });
+      next[i] = { ...row, ...calc };
+      return next;
     });
+  }
+
+  function removeRow(i) {
+    setItems((prev) => prev.filter((_, idx) => idx !== i));
   }
 
   function addRow() {
@@ -114,229 +146,313 @@ export default function SaleItemsTable({
     ]);
   }
 
-  function removeRow(i) {
-    setItems((prev) => {
-      const x = prev.filter((_, idx) => idx !== i);
-      return x.length ? x : prev; // at least 1 row
+  function pickProduct(i, p) {
+    const label = productLabel(p);
+    updateRow(i, {
+      productId: p.id,
+      productName: label,
+      unitPrice: num(p?.price || 0),
     });
+    setQuery(i, label);
+    setOpenIndex(-1);
   }
 
-  // Alt+N
-  useEffect(() => {
-    function onKey(e) {
-      if (e.altKey && (e.key === "n" || e.key === "N")) {
-        e.preventDefault();
-        if (!disabled) addRow();
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [disabled]);
-
-  // When saleType changes (official<->actual), recalc all and zero-out VAT if needed
+  // Recalc when saleType/vatMode changes
   useEffect(() => {
     setItems((prev) =>
-      prev.map((r) => {
-        const next = {
-          ...r,
-          vatRate: saleType === "official" ? num(r.vatRate) : 0,
-        };
-        const calced = calcRow({ row: next, saleType, vatMode });
-        return { ...next, ...calced };
+      prev.map((row) => {
+        const calc = calcRow({ row, saleType, vatMode });
+        return { ...row, ...calc };
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleType, vatMode]);
 
-  const activeUnits = (units || []).filter((u) => u?.active !== false);
-  const activeWarehouses = (warehouses || []).filter((w) => w?.active !== false);
-  const activeVatRates = (vatRates || []).filter((v) => v?.active !== false);
+  const totals = useMemo(() => {
+    const sum = { net: 0, vat: 0, total: 0 };
+    for (const r of items || []) {
+      sum.net += num(r.net);
+      sum.vat += num(r.vat);
+      sum.total += num(r.total);
+    }
+    sum.net = round2(sum.net);
+    sum.vat = round2(sum.vat);
+    sum.total = round2(sum.total);
+    return sum;
+  }, [items]);
 
   return (
-    <div>
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+        <div className="font-semibold text-slate-800">Fatura Satırları</div>
+        <button
+          type="button"
+          onClick={addRow}
+          disabled={disabled}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50"
+        >
+          <PlusCircle className="w-4 h-4" />
+          Satır Ekle (Alt+N)
+        </button>
+      </div>
+
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[1200px]">
-          <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider">
+        <table className="min-w-[2400px] w-full text-sm">
+          <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <th className="px-4 py-3 w-10"></th>
-              <th className="px-4 py-3">Ürün / SKU</th>
-              <th className="px-4 py-3">Depo</th>
-              <th className="px-4 py-3 text-center">Stok</th>
-              <th className="px-4 py-3 w-20">Miktar</th>
-              <th className="px-4 py-3 w-24">Birim</th>
-              <th className="px-4 py-3 w-36">Birim Fiyat (₸)</th>
-              <th className="px-4 py-3 w-24">İndirim%</th>
-              <th className="px-4 py-3 w-24 text-slate-900">KDV%</th>
+              <th className="w-10 px-3 py-3 text-left"></th>
+              <th className="px-4 py-3 text-left">Ürün</th>
+              <th className="px-4 py-3 text-left">Depo</th>
+              <th className="px-4 py-3 text-left">Birim</th>
+              <th className="px-4 py-3 text-right">Miktar</th>
+              <th className="px-4 py-3 text-right">Stok</th>
+              <th className="px-4 py-3 text-right">Birim Fiyat</th>
+              <th className="px-4 py-3 text-right">İskonto %</th>
+              <th className="px-4 py-3 text-right">KDV %</th>
+              <th className="px-4 py-3 text-right">Ara Toplam</th>
+              <th className="px-4 py-3 text-right">KDV</th>
               <th className="px-4 py-3 text-right">Toplam</th>
-              <th className="px-4 py-3 w-10"></th>
+              <th className="w-10 px-3 py-3 text-right"></th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-slate-100">
-            {items.map((row, i) => {
-              const whKey = (row.warehouseKey || defaultWarehouse).trim() || defaultWarehouse;
+            {(items || []).map((row, i) => {
               const avail = row.productId
-                ? getAvailableQty({ balances, productId: row.productId, warehouseKey: whKey, bucketKey })
+                ? getAvailableQty({
+                    balances,
+                    productId: row.productId,
+                    warehouseKey: row.warehouseKey || defaultWarehouse,
+                    bucketKey,
+                  })
                 : 0;
-              const need = num(row.quantity);
-              const ok = !row.productId || need <= 0 || avail >= need;
 
               return (
-                <tr key={i} className="group hover:bg-slate-50/50 transition-all">
-                  <td className="px-4 py-3 text-slate-300">
-                    <GripVertical size={18} className="cursor-grab active:cursor-grabbing" />
+                <tr key={i} className="hover:bg-slate-50">
+                  <td className="px-3 py-3 text-slate-400">
+                    <GripVertical className="w-4 h-4" />
                   </td>
 
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
-                      <select
-                        className="text-sm font-bold bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={row.productId}
-                        onChange={(e) => {
-                          const id = e.target.value;
-                          const p = (products || []).find((x) => x.id === id);
-                          updateRow(i, {
-                            productId: id,
-                            productName: p?.name || p?.title || "",
-                            unitPrice: num(p?.price || 0),
-                          });
-                        }}
-                        disabled={disabled}
-                      >
-                        <option value="">Ürün seç…</option>
-                        {(products || []).map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name || p.title || p.id}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="text-[10px] text-slate-400">SKU: {row.productId || "-"}</span>
+                      {/* ✅ Searchable product picker */}
+                      <div className="relative">
+                        <input
+                          className="w-full text-sm font-bold bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={queryByIndex[i] ?? currentRowLabel(row)}
+                          onFocus={() => {
+                            if (queryByIndex[i] == null)
+                              setQuery(i, currentRowLabel(row));
+                            setOpenIndex(i);
+                          }}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setQuery(i, v);
+                            setOpenIndex(i);
+                            if (!v) {
+                              updateRow(i, { productId: "", productName: "" });
+                            }
+                          }}
+                          onBlur={() => closeDropdownSoon()}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") {
+                              setOpenIndex(-1);
+                            }
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const q = String(
+                                queryByIndex[i] ?? currentRowLabel(row)
+                              )
+                                .trim()
+                                .toLowerCase();
+                              const list = (products || [])
+                                .filter((p) => {
+                                  const label = productLabel(p).toLowerCase();
+                                  const id = String(p.id || "").toLowerCase();
+                                  if (!q) return true;
+                                  return label.includes(q) || id.includes(q);
+                                })
+                                .slice(0, 1);
+                              if (list[0]) pickProduct(i, list[0]);
+                            }
+                          }}
+                          placeholder="Ürün ara / seç…"
+                          disabled={disabled}
+                        />
+
+                        {openIndex === i && (
+                          <div className="absolute z-30 mt-1 w-[min(560px,92vw)] max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                            {(() => {
+                              const q = String(
+                                queryByIndex[i] ?? currentRowLabel(row)
+                              )
+                                .trim()
+                                .toLowerCase();
+
+                              const list = (products || [])
+                                .filter((p) => {
+                                  const label = productLabel(p).toLowerCase();
+                                  const id = String(p.id || "").toLowerCase();
+                                  if (!q) return true;
+                                  return label.includes(q) || id.includes(q);
+                                })
+                                .slice(0, 80);
+
+                              if (!list.length) {
+                                return (
+                                  <div className="px-3 py-2 text-sm text-slate-500">
+                                    Sonuç yok
+                                  </div>
+                                );
+                              }
+
+                              return list.map((p) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => pickProduct(i, p)}
+                                >
+                                  {productLabel(p)}
+                                </button>
+                              ));
+                            })()}
+                          </div>
+                        )}
+                      </div>
+
+                      <span className="text-[10px] text-slate-400">
+                        SKU: {row.productId || "-"}
+                      </span>
                     </div>
                   </td>
 
                   <td className="px-4 py-3">
                     <select
-                      className="text-xs bg-white border border-slate-200 rounded-xl px-2 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={whKey}
+                      className="text-xs bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={row.warehouseKey || defaultWarehouse}
                       onChange={(e) => updateRow(i, { warehouseKey: e.target.value })}
                       disabled={disabled}
                     >
-                      {activeWarehouses.map((w) => (
+                      {(warehouses || []).map((w) => (
                         <option key={w.key} value={w.key}>
-                          {w.label}
+                          {w.name || w.key}
                         </option>
                       ))}
                     </select>
                   </td>
 
-                  <td className="px-4 py-3 text-center">
-                    <div
-                      className={`mx-auto w-2.5 h-2.5 rounded-full ${ok ? "bg-emerald-500" : "bg-red-500"}`}
-                      title={row.productId ? `Stok: ${avail}` : ""}
-                    />
-                    {row.productId && <div className="text-[10px] text-slate-400 mt-1">{avail}</div>}
-                  </td>
-
-                  <td className="px-4 py-3">
-                    <input
-                      className="w-20 text-sm font-bold text-center border border-slate-200 bg-white rounded-xl px-2 py-2"
-                      type="number"
-                      value={row.quantity}
-                      onChange={(e) => updateRow(i, { quantity: num(e.target.value) })}
-                      disabled={disabled}
-                    />
-                  </td>
-
                   <td className="px-4 py-3">
                     <select
-                      className="text-xs bg-white border border-slate-200 rounded-xl px-2 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="text-xs bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={row.unit || defaultUnit}
                       onChange={(e) => updateRow(i, { unit: e.target.value })}
                       disabled={disabled}
                     >
-                      {activeUnits.map((u) => (
+                      {(units || []).map((u) => (
                         <option key={u.key} value={u.key}>
-                          {u.label}
+                          {u.name || u.key}
                         </option>
                       ))}
                     </select>
                   </td>
 
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-right">
                     <input
-                      className="w-36 text-sm font-bold border border-slate-200 bg-white rounded-xl px-3 py-2"
+                      className="w-24 text-right text-xs border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       type="number"
-                      value={row.unitPrice}
-                      onChange={(e) => updateRow(i, { unitPrice: num(e.target.value) })}
+                      value={row.quantity}
+                      onChange={(e) => updateRow(i, { quantity: e.target.value })}
                       disabled={disabled}
                     />
                   </td>
 
-                  <td className="px-4 py-3">
-                    <input
-                      className="w-20 text-center text-xs border border-slate-200 bg-slate-50 rounded-xl px-2 py-2 font-bold"
-                      type="number"
-                      value={row.discountRate}
-                      onChange={(e) => updateRow(i, { discountRate: num(e.target.value) })}
-                      disabled={disabled}
-                    />
-                  </td>
-
-                  <td className="px-4 py-3">
-                    <select
-                      className={`text-xs border border-slate-200 rounded-xl px-2 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 ${saleType !== "official" ? "bg-slate-100 text-slate-400" : "bg-white"}`}
-                      value={saleType === "official" ? num(row.vatRate) : 0}
-                      onChange={(e) => updateRow(i, { vatRate: num(e.target.value) })}
-                      disabled={disabled || saleType !== "official"}
-                    >
-                      {saleType !== "official" ? (
-                        <option value={0}>%0</option>
-                      ) : (
-                        activeVatRates.map((v) => (
-                          <option key={v.rate} value={v.rate}>
-                            %{v.rate}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </td>
-
-                  <td className="px-4 py-3 text-right font-extrabold text-sm text-slate-900">
-                    {fmtMoney(row.total)} ₸
-                    {saleType === "official" && (
-                      <div className="text-[10px] text-slate-400 font-medium">
-                        Net: {fmtMoney(row.net)} | KDV: {fmtMoney(row.vat)}
-                      </div>
-                    )}
+                  <td className="px-4 py-3 text-right text-xs">
+                    {fmtMoney(avail)}
                   </td>
 
                   <td className="px-4 py-3 text-right">
+                    <input
+                      className="w-28 text-right text-xs border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      type="number"
+                      value={row.unitPrice}
+                      onChange={(e) => updateRow(i, { unitPrice: e.target.value })}
+                      disabled={disabled}
+                    />
+                  </td>
+
+                  <td className="px-4 py-3 text-right">
+                    <input
+                      className="w-20 text-right text-xs border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      type="number"
+                      value={row.discountRate}
+                      onChange={(e) => updateRow(i, { discountRate: e.target.value })}
+                      disabled={disabled}
+                    />
+                  </td>
+
+                  <td className="px-4 py-3 text-right">
+                    <select
+                      className="w-20 text-right text-xs bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={row.vatRate ?? defaultVatRate}
+                      onChange={(e) => updateRow(i, { vatRate: e.target.value })}
+                      disabled={disabled || saleType !== "official"}
+                    >
+                      {(vatRates || []).map((v) => (
+                        <option key={v.rate} value={v.rate}>
+                          {v.rate}%
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+
+                  <td className="px-4 py-3 text-right text-xs">
+                    {fmtMoney(row.net)}
+                  </td>
+
+                  <td className="px-4 py-3 text-right text-xs">
+                    {fmtMoney(row.vat)}
+                  </td>
+
+                  <td className="px-4 py-3 text-right font-semibold">
+                    {fmtMoney(row.total)}
+                  </td>
+
+                  <td className="px-3 py-3 text-right">
                     <button
                       type="button"
                       onClick={() => removeRow(i)}
-                      className="text-slate-300 hover:text-red-500 transition-colors"
-                      disabled={disabled}
-                      title="Satır sil"
+                      disabled={disabled || (items || []).length <= 1}
+                      className="p-2 rounded-xl hover:bg-red-50 text-red-600 disabled:opacity-30"
+                      title="Sil"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
-      </div>
 
-      <div className="p-4 bg-slate-50">
-        <button
-          type="button"
-          onClick={addRow}
-          disabled={disabled}
-          className="w-full py-3 border-2 border-dashed border-slate-300 rounded-2xl text-slate-600 font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-100 hover:border-blue-400 transition-all disabled:opacity-60"
-        >
-          <PlusCircle size={18} /> Satır Ekle (Alt+N)
-        </button>
+          <tfoot className="bg-slate-50">
+            <tr>
+              <td colSpan={9} className="px-4 py-3 text-right text-slate-600">
+                Toplamlar
+              </td>
+              <td className="px-4 py-3 text-right font-semibold">
+                {fmtMoney(totals.net)}
+              </td>
+              <td className="px-4 py-3 text-right font-semibold">
+                {fmtMoney(totals.vat)}
+              </td>
+              <td className="px-4 py-3 text-right font-semibold">
+                {fmtMoney(totals.total)}
+              </td>
+              <td className="px-3 py-3"></td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
     </div>
   );
