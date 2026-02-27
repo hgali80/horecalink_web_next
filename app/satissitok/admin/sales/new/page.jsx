@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, runTransaction } from "firebase/firestore";
 import { db } from "@/firebase";
 import { ArrowLeft, Home } from "lucide-react";
 
@@ -86,8 +86,34 @@ export default function NewSalePage() {
 
     setSaving(true);
     try {
-      // ✅ Fatura numarası üretimi artık tek otorite: saleService.createSale()
-      const res = await createSale(payload);
+      let finalInvoiceNo = payload.invoiceNo;
+
+      if (!payload.invoiceNoDirty) {
+        await runTransaction(db, async (transaction) => {
+          const counterRef = doc(db, "sale_counters", "main");
+          const counterSnap = await transaction.get(counterRef);
+
+          if (!counterSnap.exists()) {
+            throw new Error("Sayaç dökümanı bulunamadı!");
+          }
+
+          const counters = counterSnap.data();
+          const nextSeq = (Number(counters[payload.saleType]) || 0) + 1;
+
+          const yy = String(new Date().getFullYear()).slice(-2);
+          const prefix = payload.saleType === "official" ? "SR" : "SF";
+          finalInvoiceNo = `${prefix}-${yy}${String(nextSeq).padStart(6, "0")}`;
+
+          transaction.update(counterRef, {
+            [payload.saleType]: nextSeq,
+          });
+        });
+      }
+
+      const res = await createSale({
+        ...payload,
+        invoiceNo: finalInvoiceNo,
+      });
 
       if (!res?.saleId) {
         throw new Error("Satış kaydı oluşturuldu ama ID alınamadı.");
@@ -181,7 +207,7 @@ export default function NewSalePage() {
       <div className="rounded-lg bg-slate-50 p-4 border border-slate-200">
         <p className="text-xs text-slate-500 leading-relaxed italic">
           * Fatura numarası, manuel bir giriş yapılmadığı sürece kayıt esnasında sistem tarafından otomatik olarak
-          (SR-YY-XXXXXX / SF-YY-XXXXXX) formatında atanacaktır.
+          (SR-YYXXXXXX) formatında atanacaktır.
         </p>
       </div>
     </main>
