@@ -15,9 +15,17 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "@/firebase";
+import {
+  Building2,
+  CheckCircle2,
+  ChevronDown,
+  FileText,
+  Paperclip,
+  Save,
+} from "lucide-react";
 
 /* ===============================
-   YARDIMCI FONKSİYONLAR
+   YARDIMCI
 ================================ */
 
 function pad6(n) {
@@ -32,64 +40,109 @@ function year2FromDateISO(dateISO) {
     : String(d.getFullYear()).slice(-2);
 }
 
-// 🔵 SATIŞ FATURASIYLA AYNI FORMAT
+// R-26-000001 / F-26-000001
 function formatInvoiceNo(type, yy, seq) {
   const prefix = type === "official" ? "R" : "F";
   return `${prefix}-${yy}-${pad6(seq)}`;
 }
 
-/* ===============================
-   COMPONENT
-================================ */
+function fmtMoney(n) {
+  const x = Number(n) || 0;
+  return x.toLocaleString("tr-TR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 export default function PurchaseForm({ onSubmit }) {
+  /* ===============================
+     DURUM / TÜR
+  ================================ */
+
+  // draft | pending | completed
+  const [status, setStatus] = useState("draft");
+
   // official | actual
   const [purchaseType, setPurchaseType] = useState("official");
 
   // inclusive | exclusive
   const [vatMode, setVatMode] = useState("inclusive");
 
-  // 🔹 Cari seçimi
+  /* ===============================
+     AYARLAR
+  ================================ */
+
+  const [vatRates, setVatRates] = useState([]);
+  const [selectedVat, setSelectedVat] = useState(16);
+
+  const [warehouses, setWarehouses] = useState([]);
+  const [warehouseKey, setWarehouseKey] = useState("main");
+
+  /* ===============================
+     TEDARİKÇİ / LOJİSTİK
+  ================================ */
+
   const [supplierCariId, setSupplierCariId] = useState(null);
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierBin, setSupplierBin] = useState("");
+  const [supplierRef, setSupplierRef] = useState("");
+  const [responsiblePerson, setResponsiblePerson] = useState("");
+
+  const [invoiceNo, setInvoiceNo] = useState("");
+  const [invoiceNoDirty, setInvoiceNoDirty] = useState(false);
+  const loadingInvoiceRef = useRef(false);
+
+  const [documentDate, setDocumentDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
+
+  /* ===============================
+     CARİ DROPDOWN
+  ================================ */
+
   const [cariSearch, setCariSearch] = useState("");
   const [caris, setCaris] = useState([]);
   const [cariOpen, setCariOpen] = useState(false);
   const cariLoadingRef = useRef(false);
 
-  const [supplierName, setSupplierName] = useState("");
-  const [invoiceNo, setInvoiceNo] = useState("");
-  const [documentDate, setDocumentDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
+  /* ===============================
+     SATIRLAR
+  ================================ */
 
   const [items, setItems] = useState([]);
 
-  // VAT
-  const [vatRates, setVatRates] = useState([]);
-  const [selectedVat, setSelectedVat] = useState(16);
+  /* ===============================
+     ÖDEME / NOT
+  ================================ */
 
-  // Kullanıcı elle fatura no değiştirdiyse
-  const [invoiceNoDirty, setInvoiceNoDirty] = useState(false);
-  const loadingInvoiceRef = useRef(false);
+  const [paymentMethod, setPaymentMethod] = useState("bank"); // bank | cash | kaspi
+  const [dueDate, setDueDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [attachments, setAttachments] = useState([]); // metadata only
 
   /* ===============================
-      AYARLARI YÜKLE
+     SETTINGS LOAD
   ================================ */
 
   useEffect(() => {
     const loadSettings = async () => {
       const settings = await getSettings();
+
       const vats = settings?.taxes?.vat || [];
       setVatRates(vats);
+      const defVat = vats.find((v) => v.default === true);
+      setSelectedVat(defVat ? Number(defVat.rate) : 16);
 
-      const def = vats.find((v) => v.default === true);
-      setSelectedVat(def ? Number(def.rate) : 16);
+      const wh = (settings?.warehouses || []).filter((w) => w.active !== false);
+      setWarehouses(wh);
+      const defWh = wh.find((w) => w.default === true) || wh[0];
+      setWarehouseKey(defWh?.key || "main");
     };
     loadSettings();
   }, []);
 
   /* ===============================
-      CARİ LİSTESİ
+     CARİ LOAD
   ================================ */
 
   useEffect(() => {
@@ -122,7 +175,6 @@ export default function PurchaseForm({ onSubmit }) {
   const filteredCaris = useMemo(() => {
     const q = (cariSearch || "").trim().toLowerCase();
     if (!q) return caris;
-
     return caris.filter((c) => {
       const firm = (c.firm || "").toLowerCase();
       const bin = (c.bin || "").toLowerCase();
@@ -134,6 +186,7 @@ export default function PurchaseForm({ onSubmit }) {
   const selectCari = (c) => {
     setSupplierCariId(c.id);
     setSupplierName(c.firm || "");
+    setSupplierBin(c.bin || "");
     setCariSearch(c.firm || "");
     setCariOpen(false);
   };
@@ -144,7 +197,7 @@ export default function PurchaseForm({ onSubmit }) {
   };
 
   /* ===============================
-      FATURA TÜRÜ → KDV DAVRANIŞI
+     FATURA TÜRÜ → KDV / FATURA NO
   ================================ */
 
   useEffect(() => {
@@ -155,13 +208,9 @@ export default function PurchaseForm({ onSubmit }) {
       setSelectedVat(def ? Number(def.rate) : 16);
     }
 
-    // satıştaki gibi
+    // fatura no önizleme tekrar devreye girsin
     setInvoiceNoDirty(false);
   }, [purchaseType, vatRates]);
-
-  /* ===============================
-      FATURA NO ÖNİZLEME (DÜZELTİLDİ)
-  ================================ */
 
   const yy = useMemo(() => year2FromDateISO(documentDate), [documentDate]);
 
@@ -169,7 +218,6 @@ export default function PurchaseForm({ onSubmit }) {
     const loadNextInvoiceNoPreview = async () => {
       if (invoiceNoDirty) return;
       if (loadingInvoiceRef.current) return;
-
       loadingInvoiceRef.current = true;
 
       try {
@@ -177,7 +225,6 @@ export default function PurchaseForm({ onSubmit }) {
         const snap = await getDoc(ref);
 
         const data = snap.exists() ? snap.data() : { official: 0, actual: 0 };
-
         const key = purchaseType === "official" ? "official" : "actual";
         const nextSeq = Number(data[key] || 0) + 1;
 
@@ -194,7 +241,7 @@ export default function PurchaseForm({ onSubmit }) {
   }, [purchaseType, yy, invoiceNoDirty]);
 
   /* ===============================
-      TOPLAMLAR
+     TOPLAMLAR
   ================================ */
 
   const effectiveVatRate =
@@ -205,227 +252,722 @@ export default function PurchaseForm({ onSubmit }) {
     const vat = items.reduce((s, i) => s + (i.vatLineTotal || 0), 0);
     const gross = items.reduce((s, i) => s + (i.grossLineTotal || 0), 0);
 
-    return {
-      net: Math.round(net * 100) / 100,
-      vat: Math.round(vat * 100) / 100,
-      gross: Math.round(gross * 100) / 100,
-    };
+    const r = (x) => Math.round((Number(x) || 0) * 100) / 100;
+    return { net: r(net), vat: r(vat), gross: r(gross) };
   }, [items]);
 
   /* ===============================
-      SUBMIT
+     ATTACHMENTS (METADATA)
   ================================ */
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const addAttachments = (fileList) => {
+    const files = Array.from(fileList || []);
+    const allowed = ["application/pdf", "image/jpeg", "image/png"];
+    const maxBytes = 5 * 1024 * 1024;
 
-    if (!supplierName || !documentDate || items.length === 0) {
-      alert("Lütfen gerekli alanları doldurun.");
-      return;
-    }
+    const cleaned = files
+      .filter((f) => allowed.includes(f.type))
+      .filter((f) => f.size <= maxBytes)
+      .slice(0, 5)
+      .map((f) => ({
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        addedAt: new Date().toISOString(),
+      }));
 
-    onSubmit({
-      supplierName: supplierName.trim(),
+    setAttachments((prev) => {
+      const merged = [...prev, ...cleaned];
+      return merged.slice(0, 5);
+    });
+  };
+
+  const removeAttachment = (idx) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  /* ===============================
+     SUBMIT
+  ================================ */
+
+  const showVatControls = purchaseType === "official";
+  const hideVatColumns = purchaseType === "actual";
+
+  const buildPayload = (nextStatus) => {
+    return {
+      status: nextStatus,
+
+      supplierName: (supplierName || "").trim(),
       supplierCariId: supplierCariId || null,
+      supplierBin: (supplierBin || "").trim(),
+      supplierRef: (supplierRef || "").trim(),
+      responsiblePerson: (responsiblePerson || "").trim(),
 
-      invoiceNo: invoiceNo.trim(),
-      // ✅ kritik bilgi: kullanıcı dokunmadıysa auto kabul edeceğiz
+      invoiceNo: (invoiceNo || "").trim(),
       invoiceNoAuto: !invoiceNoDirty,
 
       documentDate,
       purchaseType,
+      warehouseKey,
+
       vatMode,
       taxRate: effectiveVatRate,
+
       items,
       totals: {
         net: totals.net,
         tax: totals.vat,
         gross: totals.gross,
       },
-    });
+
+      paymentMethod,
+      dueDate: dueDate || null,
+      notes,
+      attachments,
+    };
   };
 
-  const showVatControls = purchaseType === "official";
-  const hideVatColumns = purchaseType === "actual";
+  const validate = (nextStatus) => {
+    // Taslakta min kontrol
+    if (nextStatus === "draft") {
+      if (!supplierName && !supplierCariId && items.length === 0) {
+        alert("Taslak için en az bir alan doldurun (tedarikçi veya satır ekleyin).");
+        return false;
+      }
+      return true;
+    }
+
+    // completed
+    if (!supplierName || !documentDate || !warehouseKey || items.length === 0) {
+      alert("Lütfen gerekli alanları doldurun: Tedarikçi, Depo, Tarih, Satır öğeleri.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleAction = async (nextStatus) => {
+    if (!validate(nextStatus)) return;
+    const payload = buildPayload(nextStatus);
+    await onSubmit(payload);
+  };
 
   /* ===============================
-      RENDER
+     UI
   ================================ */
 
+  const statusBadge =
+    status === "completed"
+      ? "Onaylandı"
+      : status === "pending"
+      ? "Onay Bekliyor"
+      : "Kaydedilmemiş Taslak";
+
+  const paymentLabel =
+    paymentMethod === "cash"
+      ? "Nakit"
+      : paymentMethod === "kaspi"
+      ? "Kaspi QR/Biz"
+      : "Banka Transferi";
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* FATURA TÜRÜ */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Fatura Türü</label>
-          <div className="flex gap-6">
-            <label>
-              <input
-                type="radio"
-                checked={purchaseType === "official"}
-                onChange={() => setPurchaseType("official")}
-              />{" "}
-              Resmi
-            </label>
-            <label>
-              <input
-                type="radio"
-                checked={purchaseType === "actual"}
-                onChange={() => setPurchaseType("actual")}
-              />{" "}
-              Fiili
-            </label>
-          </div>
+    <div className="flex flex-col gap-6">
+      {/* Breadcrumb */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium uppercase tracking-wider">
+          <span className="hover:text-[#135bec]">SATINALMA</span>
+          <span className="text-slate-300">›</span>
+          <span className="text-slate-900">YENİ SATINALMA FATURASI</span>
         </div>
 
-        {/* CARİ SEÇ (TEDARİKÇİ) */}
-        <div className="relative">
-          <label className="block text-sm font-medium mb-1">
-            Cari Seç (Tedarikçi){" "}
-            {supplierCariId ? (
-              <span className="text-xs text-green-700">Seçildi</span>
-            ) : (
-              <span className="text-xs text-gray-500">Opsiyonel</span>
-            )}
-          </label>
+        <div className="flex justify-between items-end mt-2">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900">
+              Yeni Satınalma Faturası
+            </h1>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-sm text-slate-500">
+                Taslak No:{" "}
+                <span className="font-mono text-[#135bec]">
+                  {invoiceNo || "-"}
+                </span>
+              </span>
+              <span className="bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                {statusBadge}
+              </span>
+            </div>
+          </div>
 
-          <div className="flex gap-2">
-            <input
-              className="w-full border rounded px-3 py-2"
-              value={cariSearch}
-              placeholder="Firma / BIN / Telefon ile ara..."
-              onFocus={() => setCariOpen(true)}
-              onBlur={() => setTimeout(() => setCariOpen(false), 150)}
-              onChange={(e) => {
-                setCariSearch(e.target.value);
-                setCariOpen(true);
-                if (supplierCariId) setSupplierCariId(null);
-              }}
-            />
+          <div className="flex gap-3">
             <button
               type="button"
-              className="px-3 py-2 border rounded"
-              onClick={clearCari}
+              onClick={() => window.print()}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm"
+              title="PDF Yazdır"
             >
-              Temizle
+              <FileText size={18} />
+              PDF Yazdır
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleAction("completed")}
+              className="flex items-center gap-2 px-6 py-2 bg-[#135bec] text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
+              title="Onayla ve Stoka Al"
+            >
+              <CheckCircle2 size={18} />
+              Onayla ve Stoka Al
             </button>
           </div>
+        </div>
+      </div>
 
-          {cariOpen && (
-            <div className="absolute left-0 top-full mt-1 bg-white border w-full z-50 max-h-64 overflow-y-auto rounded shadow-lg">
-              {filteredCaris.map((c) => (
-                <div
-                  key={c.id}
-                  className="px-3 py-2 hover:bg-blue-50 cursor-pointer"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    selectCari(c);
-                  }}
+      {/* GRID */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* SOL */}
+        <div className="col-span-12 lg:col-span-9 flex flex-col gap-6">
+          {/* DURUM + TÜR */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* FATURA DURUMU */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-sm font-bold text-slate-500 mb-4 uppercase tracking-tight">
+                Fatura Durumu
+              </h3>
+
+              <div className="flex bg-slate-100 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setStatus("draft")}
+                  className={
+                    status === "draft"
+                      ? "flex-1 py-2 text-xs font-bold rounded-md bg-white shadow-sm text-[#135bec]"
+                      : "flex-1 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                  }
                 >
-                  <div className="font-medium">{c.firm || "-"}</div>
-                  <div className="text-xs text-gray-600">
-                    {c.bin ? `BIN: ${c.bin}` : "BIN: -"}{" "}
-                    {c.mobile ? `• Tel: ${c.mobile}` : ""}
+                  Taslak
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatus("pending")}
+                  className={
+                    status === "pending"
+                      ? "flex-1 py-2 text-xs font-bold rounded-md bg-white shadow-sm text-[#135bec]"
+                      : "flex-1 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                  }
+                >
+                  Onay Bekliyor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatus("completed")}
+                  className={
+                    status === "completed"
+                      ? "flex-1 py-2 text-xs font-bold rounded-md bg-white shadow-sm text-[#135bec]"
+                      : "flex-1 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                  }
+                >
+                  Onaylandı
+                </button>
+              </div>
+              <p className="mt-3 text-[11px] text-slate-500">
+                Not: Şu an yalnızca <b>Onayla ve Stoka Al</b> butonu stok/cari
+                hareketi yazar. <b>Taslak</b> kaydı stok hareketi yazmaz.
+              </p>
+            </div>
+
+            {/* ALIM SINIFLANDIRMASI */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-sm font-bold text-slate-500 mb-4 uppercase tracking-tight">
+                Alım Sınıflandırması
+              </h3>
+              <div className="flex gap-4">
+                <label className="flex-1 flex items-center gap-3 p-3 border-2 border-[#135bec] bg-blue-50 rounded-lg cursor-pointer">
+                  <input
+                    className="text-[#135bec] focus:ring-[#135bec]"
+                    name="type"
+                    type="radio"
+                    checked={purchaseType === "official"}
+                    onChange={() => setPurchaseType("official")}
+                  />
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 leading-none">
+                      Resmi (Standart)
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-1">KDV Aktif</p>
+                  </div>
+                </label>
+
+                <label className="flex-1 flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                  <input
+                    className="text-[#135bec] focus:ring-[#135bec]"
+                    name="type"
+                    type="radio"
+                    checked={purchaseType === "actual"}
+                    onChange={() => setPurchaseType("actual")}
+                  />
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 leading-none">
+                      Fiili (Doğrudan)
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      KDV Devre Dışı
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* KDV Kontrolleri */}
+              {showVatControls && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500">
+                      KDV Tipi
+                    </label>
+                    <select
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm focus:ring-[#135bec]"
+                      value={vatMode}
+                      onChange={(e) => setVatMode(e.target.value)}
+                    >
+                      <option value="inclusive">Dahil</option>
+                      <option value="exclusive">Hariç</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500">
+                      KDV Oranı
+                    </label>
+                    <select
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm focus:ring-[#135bec]"
+                      value={selectedVat}
+                      onChange={(e) => setSelectedVat(Number(e.target.value))}
+                    >
+                      {vatRates.map((v, i) => (
+                        <option key={i} value={v.rate}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* TEDARİKÇİ */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Tedarikçi</label>
-          <input
-            className="w-full border rounded px-3 py-2"
-            value={supplierName}
-            onChange={(e) => setSupplierName(e.target.value)}
-            placeholder="Manuel yazılabilir"
-          />
-        </div>
-
-        {/* FATURA NO */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Fatura No</label>
-          <input
-            className="w-full border rounded px-3 py-2"
-            value={invoiceNo}
-            onChange={(e) => {
-              setInvoiceNo(e.target.value);
-              setInvoiceNoDirty(true);
-            }}
-            placeholder="Otomatik numara..."
-          />
-        </div>
-
-        {/* TARİH */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Fatura Tarihi</label>
-          <input
-            type="date"
-            className="w-full border rounded px-3 py-2"
-            value={documentDate}
-            onChange={(e) => setDocumentDate(e.target.value)}
-          />
-        </div>
-
-        {/* KDV */}
-        {showVatControls && (
-          <>
-            <div>
-              <label className="block text-sm font-medium mb-1">KDV Tipi</label>
-              <select
-                className="w-full border rounded px-3 py-2"
-                value={vatMode}
-                onChange={(e) => setVatMode(e.target.value)}
-              >
-                <option value="inclusive">Dahil</option>
-                <option value="exclusive">Hariç</option>
-              </select>
+          {/* TEDARİKÇİ & LOJİSTİK */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-6 text-[#135bec]">
+              <Building2 size={20} />
+              <h2 className="text-lg font-bold text-slate-900">
+                Tedarikçi ve Lojistik
+              </h2>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">KDV Oranı</label>
-              <select
-                className="w-full border rounded px-3 py-2"
-                value={selectedVat}
-                onChange={(e) => setSelectedVat(Number(e.target.value))}
-              >
-                {vatRates.map((v, i) => (
-                  <option key={i} value={v.rate}>
-                    {v.label}
-                  </option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Tedarikçi (Cari) */}
+              <div className="flex flex-col gap-1.5 relative">
+                <label className="text-xs font-bold text-slate-500">
+                  Tedarikçi Adı (Cari)
+                </label>
+                <div className="relative">
+                  <input
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm focus:ring-[#135bec]"
+                    placeholder="Firma / BIN / Telefon ile ara..."
+                    value={cariSearch}
+                    onFocus={() => setCariOpen(true)}
+                    onBlur={() => setTimeout(() => setCariOpen(false), 150)}
+                    onChange={(e) => {
+                      setCariSearch(e.target.value);
+                      setCariOpen(true);
+                      if (supplierCariId) setSupplierCariId(null);
+                    }}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <ChevronDown size={18} />
+                  </span>
+                </div>
+
+                {cariOpen && (
+                  <div className="absolute left-0 top-full mt-1 bg-white border border-slate-200 w-full z-50 max-h-64 overflow-y-auto rounded-lg shadow-lg">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
+                      <span className="text-[11px] font-bold text-slate-500">
+                        Cari Listesi
+                      </span>
+                      <button
+                        type="button"
+                        className="text-[11px] font-bold text-slate-500 hover:text-[#135bec]"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          clearCari();
+                        }}
+                      >
+                        Temizle
+                      </button>
+                    </div>
+                    {filteredCaris.map((c) => (
+                      <div
+                        key={c.id}
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          selectCari(c);
+                        }}
+                      >
+                        <div className="font-medium text-sm">{c.firm || "-"}</div>
+                        <div className="text-[11px] text-slate-500">
+                          {c.bin ? `BIN: ${c.bin}` : "BIN: -"}{" "}
+                          {c.mobile ? `• Tel: ${c.mobile}` : ""}
+                        </div>
+                      </div>
+                    ))}
+                    {!filteredCaris.length && (
+                      <div className="px-3 py-3 text-[11px] text-slate-500">
+                        Kayıt bulunamadı.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* BIN */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-500">
+                  BIN / Vergi No
+                </label>
+                <input
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm font-mono focus:ring-[#135bec]"
+                  placeholder="12 haneli numara"
+                  value={supplierBin}
+                  onChange={(e) => setSupplierBin(e.target.value)}
+                />
+              </div>
+
+              {/* Depo */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-500">
+                  Depo Girişi
+                </label>
+                <select
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm focus:ring-[#135bec]"
+                  value={warehouseKey}
+                  onChange={(e) => setWarehouseKey(e.target.value)}
+                >
+                  {warehouses.map((w) => (
+                    <option key={w.key} value={w.key}>
+                      {w.label} ({w.key})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Tarih */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-500">
+                  Fatura Tarihi
+                </label>
+                <input
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm focus:ring-[#135bec]"
+                  type="date"
+                  value={documentDate}
+                  onChange={(e) => setDocumentDate(e.target.value)}
+                />
+              </div>
+
+              {/* Tedarikçi Referansı */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-500">
+                  Tedarikçi Referansı
+                </label>
+                <input
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm focus:ring-[#135bec]"
+                  placeholder="Örn: INV-12345"
+                  value={supplierRef}
+                  onChange={(e) => setSupplierRef(e.target.value)}
+                />
+              </div>
+
+              {/* Sorumlu */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-500">
+                  Sorumlu Kişi
+                </label>
+                <input
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm focus:ring-[#135bec]"
+                  value={responsiblePerson}
+                  onChange={(e) => setResponsiblePerson(e.target.value)}
+                  placeholder="Örn: Hasan"
+                />
+              </div>
+
+              {/* Fatura No (manuel/oto) */}
+              <div className="flex flex-col gap-1.5 md:col-span-3">
+                <label className="text-xs font-bold text-slate-500">
+                  Fatura No
+                </label>
+                <input
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm font-mono focus:ring-[#135bec]"
+                  value={invoiceNo}
+                  onChange={(e) => {
+                    setInvoiceNo(e.target.value);
+                    setInvoiceNoDirty(true);
+                  }}
+                  placeholder="Otomatik numara..."
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Inputa dokunmazsan sayaçtan otomatik numara kaydedilir.
+                </p>
+              </div>
+
+              {/* Tedarikçi manuel adı (opsiyonel) */}
+              <div className="flex flex-col gap-1.5 md:col-span-3">
+                <label className="text-xs font-bold text-slate-500">
+                  Tedarikçi (Manuel)
+                </label>
+                <input
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm focus:ring-[#135bec]"
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  placeholder="Cari seçmeden manuel yazabilirsin"
+                />
+              </div>
             </div>
-          </>
-        )}
-      </div>
+          </div>
 
-      <PurchaseItemsTable
-        onChange={setItems}
-        vatRate={effectiveVatRate}
-        vatMode={vatMode}
-        hideVat={hideVatColumns}
-      />
+          {/* SATIR ÖĞELERİ */}
+          <PurchaseItemsTable
+            onChange={setItems}
+            vatRate={effectiveVatRate}
+            vatMode={vatMode}
+            hideVat={hideVatColumns}
+          />
 
-      <div className="border-t pt-4 text-right space-y-1">
-        <div>
-          Net: <strong>{totals.net} ₸</strong>
+          {/* ÖDEME + NOT */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-sm font-bold text-slate-500 mb-4 uppercase tracking-tight">
+                Ödeme ve Şartlar
+              </h3>
+
+              <div className="space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-500">
+                    Ödeme Yöntemi
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod("bank")}
+                      className={
+                        paymentMethod === "bank"
+                          ? "py-2 px-1 text-[10px] font-bold border-2 border-[#135bec] bg-blue-50 rounded-lg text-[#135bec]"
+                          : "py-2 px-1 text-[10px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50"
+                      }
+                    >
+                      Banka Transferi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod("cash")}
+                      className={
+                        paymentMethod === "cash"
+                          ? "py-2 px-1 text-[10px] font-bold border-2 border-[#135bec] bg-blue-50 rounded-lg text-[#135bec]"
+                          : "py-2 px-1 text-[10px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50"
+                      }
+                    >
+                      Nakit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod("kaspi")}
+                      className={
+                        paymentMethod === "kaspi"
+                          ? "py-2 px-1 text-[10px] font-bold border-2 border-[#135bec] bg-blue-50 rounded-lg text-[#135bec]"
+                          : "py-2 px-1 text-[10px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50"
+                      }
+                    >
+                      Kaspi QR/Biz
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-500">
+                    Son Ödeme Tarihi
+                  </label>
+                  <input
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-4 text-sm"
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+              <h3 className="text-sm font-bold text-slate-500 mb-4 uppercase tracking-tight">
+                Notlar ve Ekler
+              </h3>
+
+              <textarea
+                className="flex-grow w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm focus:ring-[#135bec] h-24 resize-none mb-3"
+                placeholder="Dahili açıklamalar, lojistik talimatları..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <label className="flex items-center gap-2 px-3 py-1.5 border border-dashed border-slate-300 rounded-lg text-[11px] font-bold text-slate-500 hover:border-[#135bec] hover:text-[#135bec] transition-all cursor-pointer">
+                  <Paperclip size={16} />
+                  Dosya Ekle (Maks 5MB)
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="application/pdf,image/png,image/jpeg"
+                    multiple
+                    onChange={(e) => {
+                      addAttachments(e.target.files);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <span className="text-[10px] text-slate-400">
+                  Sadece PDF, JPG, PNG
+                </span>
+              </div>
+
+              {!!attachments.length && (
+                <div className="mt-3 space-y-2">
+                  {attachments.map((a, idx) => (
+                    <div
+                      key={`${a.name}-${idx}`}
+                      className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-slate-700 truncate">
+                          {a.name}
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          {(a.size / 1024).toFixed(0)} KB
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-xs font-bold text-red-600 hover:underline"
+                        onClick={() => removeAttachment(idx)}
+                      >
+                        Kaldır
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <div>
-          KDV: <strong>{totals.vat} ₸</strong>
-        </div>
-        <div className="text-lg">
-          Genel Toplam: <strong>{totals.gross} ₸</strong>
+
+        {/* SAĞ */}
+        <div className="col-span-12 lg:col-span-3">
+          <div className="sticky top-8 flex flex-col gap-6">
+            <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-xl shadow-slate-900/10">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">
+                Finansal Özet
+              </h2>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400 font-medium">Ara Toplam</span>
+                  <span className="font-mono">{fmtMoney(totals.net)} ₸</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400 font-medium">
+                    KDV (%{effectiveVatRate})
+                  </span>
+                  <span className="font-mono text-emerald-400">
+                    +{fmtMoney(totals.vat)} ₸
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400 font-medium">İndirim</span>
+                  <span className="font-mono text-red-400">
+                    -{fmtMoney(0)} ₸
+                  </span>
+                </div>
+                <div className="pt-4 mt-4 border-t border-slate-800">
+                  <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">
+                    Genel Toplam
+                  </p>
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-3xl font-black text-white">
+                      {fmtMoney(totals.gross).replace(/\..*$/, "")}
+                    </span>
+                    <span className="text-xl font-bold text-slate-400 ml-1">
+                      ₸
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleAction("draft")}
+                  className="w-full py-4 bg-[#135bec] hover:bg-blue-700 rounded-xl font-black text-sm tracking-tight transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
+                >
+                  <Save size={18} />
+                  TASLAĞI KAYDET
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm("Bu faturayı iptal edip temizlemek istiyor musun?")) {
+                      setSupplierCariId(null);
+                      setSupplierName("");
+                      setSupplierBin("");
+                      setSupplierRef("");
+                      setResponsiblePerson("");
+                      setCariSearch("");
+                      setItems([]);
+                      setNotes("");
+                      setAttachments([]);
+                      setDueDate("");
+                      setPaymentMethod("bank");
+                      setStatus("draft");
+                    }
+                  }}
+                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs tracking-tight transition-all border border-slate-700"
+                >
+                  FATURAYI İPTAL ET
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">
+                Hızlı Görüşler
+              </h3>
+              <div className="flex flex-col gap-4">
+                <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                  <p className="text-[10px] text-emerald-600 font-black uppercase">
+                    Ödeme
+                  </p>
+                  <p className="text-xs text-emerald-800 font-medium mt-1">
+                    Yöntem: <b>{paymentLabel}</b>
+                    {dueDate ? ` • Vade: ${dueDate}` : ""}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-[10px] text-blue-600 font-black uppercase">
+                    Satır Özeti
+                  </p>
+                  <p className="text-xs text-blue-800 font-medium mt-1">
+                    {items.length} satır • Depo: <b>{warehouseKey}</b>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
-
-      <div className="text-right">
-        <button className="px-4 py-2 bg-green-600 text-white rounded font-bold">
-          Satınalma Kaydet
-        </button>
-      </div>
-    </form>
+    </div>
   );
 }
