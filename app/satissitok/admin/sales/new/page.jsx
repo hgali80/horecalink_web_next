@@ -166,7 +166,7 @@ export default function NewSalePage() {
 
       {/* Form Alanı Kaplayıcısı */}
       <div className={`transition-all duration-300 ${saving ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-visible">
           <div className="p-1">
             {" "}
             {/* SaleForm içindeki paddinglerle çakışmaması için ince ayar */}
