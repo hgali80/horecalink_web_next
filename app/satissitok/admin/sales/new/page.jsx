@@ -117,7 +117,7 @@ export default function NewSalePage() {
   }
 
   return (
-    <main className="w-full px-6 md:px-10 py-6 space-y-6">
+    <main className="w-full px-4 py-6 space-y-6">
       {/* Top Nav (Geri + Ana Sayfa) */}
       <div className="flex flex-wrap items-center gap-2">
         <button
@@ -165,22 +165,20 @@ export default function NewSalePage() {
       </div>
 
       {/* Form Alanı Kaplayıcısı */}
-      <div className={`transition-all duration-300 ${saving ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-visible">
-          <div className="p-1">
-            {" "}
-            {/* SaleForm içindeki paddinglerle çakışmaması için ince ayar */}
-            <SaleForm
-              products={products}
-              caris={caris}
-              balances={balances}
-              settings={settings}
-              onSubmit={handleSubmit}
-              disabled={saving}
-            />
-          </div>
-        </div>
-      </div>
+<div className={`transition-all duration-300 ${saving ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
+  <div className="relative bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
+    <div className="p-1">
+      <SaleForm
+        products={products}
+        caris={caris}
+        balances={balances}
+        settings={settings}
+        onSubmit={handleSubmit}
+        disabled={saving}
+      />
+    </div>
+  </div>
+</div>
 
       {/* Yardımcı Alt Bilgi */}
       <div className="rounded-lg bg-slate-50 p-4 border border-slate-200">
