@@ -35,7 +35,7 @@ function year2FromDateISO(dateISO) {
 
 function formatSaleInvoiceNo(saleType, yy, seq) {
   const prefix = saleType === "official" ? "SR" : "SF";
-  return `${prefix}-${yy}-${pad6(seq)}`;
+  return `${prefix}-${yy}${pad6(seq)}`;
 }
 
 /* ===============================
@@ -44,7 +44,7 @@ function formatSaleInvoiceNo(saleType, yy, seq) {
    - writes sales/{id}/items
    - writes stock_movements (out)
    - updates stock_balances (qty decreases, can go negative)
-   - increments sale_counters/main (purchase mantığı: her satışta)
+   - increments sale_counters/main only when invoiceNo was auto-generated
 ================================ */
 
 export async function createSale(payload) {
@@ -60,40 +60,36 @@ export async function createSale(payload) {
     const invoiceDateISO = payload?.invoiceDate || new Date().toISOString().slice(0, 10);
     const yy = year2FromDateISO(invoiceDateISO);
 
+    const incomingInvoiceNo = (payload?.invoiceNo || payload?.docNo || "").trim();
+    const incomingInvoiceNoAuto = (payload?.invoiceNoAuto || "").trim();
+    const invoiceNoDirty = Boolean(payload?.invoiceNoManual || payload?.invoiceNoDirty);
+
     /* =====================
        READ PHASE
     ===================== */
 
-    // 1) Sayaç oku (purchase mantığı: HER SATIŞTA sayaç tüketilir)
-    const counterRef = doc(db, "sale_counters", "main");
-    const counterSnap = await transaction.get(counterRef);
+    // 1) Sayaç oku (sadece invoiceNo yoksa üretmek için)
+    let invoiceNo = incomingInvoiceNo;
+    let invoiceNoAuto = incomingInvoiceNoAuto || "";
+    let invoiceNoManual = false;
+    let nextSeq = null;
 
-    if (!counterSnap.exists()) {
-      throw new Error("Sayaç bulunamadı: sale_counters/main");
+    if (!invoiceNo) {
+      const counterRef = doc(db, "sale_counters", "main");
+      const counterSnap = await transaction.get(counterRef);
+
+      const counters = counterSnap.exists()
+        ? counterSnap.data()
+        : { official: 0, actual: 0 };
+
+      nextSeq = Number(counters[saleType] || 0) + 1;
+      invoiceNo = formatSaleInvoiceNo(saleType, yy, nextSeq);
+      invoiceNoAuto = invoiceNo;
+      invoiceNoManual = false;
+    } else {
+      invoiceNoAuto = invoiceNoAuto || (invoiceNoDirty ? "" : invoiceNo);
+      invoiceNoManual = invoiceNoDirty || (invoiceNoAuto && invoiceNo !== invoiceNoAuto);
     }
-
-    const counters = counterSnap.data();
-    const key = saleType === "official" ? "official" : "actual";
-
-    const currentSeq = Number(counters[key] || 0);
-    const nextSeq = currentSeq + 1;
-
-    // ✅ Auto invoice her zaman counter’dan üretilir
-    const autoInvoice = formatSaleInvoiceNo(saleType, yy, nextSeq);
-
-    const manualInvoice = (payload?.invoiceNo || payload?.docNo || "").trim();
-
-    // UI: kullanıcı inputa dokunmadıysa true gönderir (purchase ile aynı)
-    // Backward-compat: invoiceNoAuto gelmezse ve invoiceNo yoksa otomatik kabul edilir
-    const invoiceNoAutoFlag = payload?.invoiceNoAuto === true || !manualInvoice;
-
-    // ✅ Kaydedilecek invoiceNo seçimi:
-    // - invoiceNoAuto=true  => autoInvoice
-    // - invoiceNoAuto=false => manualInvoice (boşsa autoInvoice)
-    const invoiceNo = invoiceNoAutoFlag ? autoInvoice : (manualInvoice || autoInvoice);
-
-    const invoiceNoAuto = invoiceNoAutoFlag ? autoInvoice : "";
-    const invoiceNoManual = !invoiceNoAutoFlag && Boolean(manualInvoice);
 
     // 2) Stok bakiyeleri + avgCost oku
     const items = Array.isArray(payload?.items) ? payload.items : [];
@@ -127,8 +123,11 @@ export async function createSale(payload) {
        WRITE PHASE
     ===================== */
 
-    // Sayaç güncelle (purchase mantığı: HER SATIŞTA)
-    transaction.set(counterRef, { [key]: nextSeq }, { merge: true });
+    // Sayaç güncelle (sadece sistem ürettiyse)
+    if (nextSeq !== null) {
+      const counterRef = doc(db, "sale_counters", "main");
+      transaction.set(counterRef, { [saleType]: nextSeq }, { merge: true });
+    }
 
     // Satış doc
     const saleRef = doc(collection(db, "sales"));

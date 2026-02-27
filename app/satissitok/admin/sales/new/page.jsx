@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, runTransaction } from "firebase/firestore";
 import { db } from "@/firebase";
 import { ArrowLeft, Home } from "lucide-react";
 
@@ -20,14 +20,7 @@ const LoadingIcon = () => (
     fill="none"
     viewBox="0 0 24 24"
   >
-    <circle
-      className="opacity-25"
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="4"
-    ></circle>
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
     <path
       className="opacity-75"
       fill="currentColor"
@@ -70,9 +63,7 @@ export default function NewSalePage() {
   }
 
   async function loadProducts() {
-    const snap = await getDocs(
-      query(collection(db, "products"), orderBy("name"))
-    );
+    const snap = await getDocs(query(collection(db, "products"), orderBy("name")));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
@@ -95,14 +86,34 @@ export default function NewSalePage() {
 
     setSaving(true);
     try {
-      /**
-       * ✅ Satınalma mantığı:
-       * Otomatik fatura no üretimi UI'da yapılmaz.
-       * - Kullanıcı invoice alanına dokunmadıysa (invoiceNoDirty=false / invoiceNoAuto=true)
-       *   numarayı service üretir ve sayaç tüketir.
-       * - Kullanıcı manuel girdiyse payload.invoiceNo ile gider.
-       */
-      const res = await createSale(payload);
+      let finalInvoiceNo = payload.invoiceNo;
+
+      if (!payload.invoiceNoDirty) {
+        await runTransaction(db, async (transaction) => {
+          const counterRef = doc(db, "sale_counters", "main");
+          const counterSnap = await transaction.get(counterRef);
+
+          if (!counterSnap.exists()) {
+            throw new Error("Sayaç dökümanı bulunamadı!");
+          }
+
+          const counters = counterSnap.data();
+          const nextSeq = (Number(counters[payload.saleType]) || 0) + 1;
+
+          const yy = String(new Date().getFullYear()).slice(-2);
+          const prefix = payload.saleType === "official" ? "SR" : "SF";
+          finalInvoiceNo = `${prefix}-${yy}${String(nextSeq).padStart(6, "0")}`;
+
+          transaction.update(counterRef, {
+            [payload.saleType]: nextSeq,
+          });
+        });
+      }
+
+      const res = await createSale({
+        ...payload,
+        invoiceNo: finalInvoiceNo,
+      });
 
       if (!res?.saleId) {
         throw new Error("Satış kaydı oluşturuldu ama ID alınamadı.");
@@ -121,9 +132,7 @@ export default function NewSalePage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
         <LoadingIcon />
-        <p className="text-slate-500 text-sm font-medium animate-pulse">
-          Veriler hazırlanıyor...
-        </p>
+        <p className="text-slate-500 text-sm font-medium animate-pulse">Veriler hazırlanıyor...</p>
       </div>
     );
   }
@@ -157,9 +166,7 @@ export default function NewSalePage() {
       {/* Üst Başlık ve Navigasyon Bilgisi */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-            Yeni Satış Oluştur
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Yeni Satış Oluştur</h1>
           <p className="text-slate-500 text-sm">
             Sistemdeki stok ve cari bilgilerini kullanarak satış işlemini başlatın.
           </p>
@@ -179,11 +186,7 @@ export default function NewSalePage() {
       </div>
 
       {/* Form Alanı Kaplayıcısı */}
-      <div
-        className={`transition-all duration-300 ${
-          saving ? "opacity-60 pointer-events-none" : "opacity-100"
-        }`}
-      >
+      <div className={`transition-all duration-300 ${saving ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-1">
             {" "}
@@ -204,7 +207,7 @@ export default function NewSalePage() {
       <div className="rounded-lg bg-slate-50 p-4 border border-slate-200">
         <p className="text-xs text-slate-500 leading-relaxed italic">
           * Fatura numarası, manuel bir giriş yapılmadığı sürece kayıt esnasında sistem tarafından otomatik olarak
-          (SR-YY-000001 / SF-YY-000001) formatında atanacaktır.
+          (SR-YYXXXXXX) formatında atanacaktır.
         </p>
       </div>
     </main>

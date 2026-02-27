@@ -318,7 +318,6 @@ export default function SaleForm({
 
       invoiceNo: (invoiceNo || "").trim(),
       invoiceNoDirty,
-      invoiceNoAuto: !invoiceNoDirty, // ✅ EKLENDİ: satınalma mantığıyla aynı
 
       vatMode,
 
@@ -500,7 +499,7 @@ export default function SaleForm({
                     <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">Fatura No (Opsiyonel)</label>
                     <input
                       className="border border-slate-200 bg-white rounded-xl text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      placeholder="Sistem üretir. Elle yazarsan da sayaç yine tüketilir."
+                      placeholder="Sistem üretir. Elle yazarsan sayaç artmaz."
                       value={invoiceNo}
                       onChange={(e) => {
                         setInvoiceNo(e.target.value);
