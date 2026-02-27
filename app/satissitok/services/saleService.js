@@ -35,7 +35,8 @@ function year2FromDateISO(dateISO) {
 
 function formatSaleInvoiceNo(saleType, yy, seq) {
   const prefix = saleType === "official" ? "SR" : "SF";
-  return `${prefix}-${yy}${pad6(seq)}`;
+  // ✅ purchase ile aynı stil: SR-26-000001 / SF-26-000001
+  return `${prefix}-${yy}-${pad6(seq)}`;
 }
 
 /* ===============================
@@ -44,7 +45,7 @@ function formatSaleInvoiceNo(saleType, yy, seq) {
    - writes sales/{id}/items
    - writes stock_movements (out)
    - updates stock_balances (qty decreases, can go negative)
-   - increments sale_counters/main only when invoiceNo was auto-generated
+   - increments sale_counters/main for every sale (purchase ile aynı)
 ================================ */
 
 export async function createSale(payload) {
@@ -60,36 +61,39 @@ export async function createSale(payload) {
     const invoiceDateISO = payload?.invoiceDate || new Date().toISOString().slice(0, 10);
     const yy = year2FromDateISO(invoiceDateISO);
 
-    const incomingInvoiceNo = (payload?.invoiceNo || payload?.docNo || "").trim();
-    const incomingInvoiceNoAuto = (payload?.invoiceNoAuto || "").trim();
-    const invoiceNoDirty = Boolean(payload?.invoiceNoManual || payload?.invoiceNoDirty);
+    // UI: kullanıcı inputa dokunmadıysa true gönderir
+    const invoiceNoAutoFlag = payload?.invoiceNoAuto === true;
+    const manualInvoice = (payload?.invoiceNo || payload?.docNo || "").trim();
 
     /* =====================
        READ PHASE
     ===================== */
 
-    // 1) Sayaç oku (sadece invoiceNo yoksa üretmek için)
-    let invoiceNo = incomingInvoiceNo;
-    let invoiceNoAuto = incomingInvoiceNoAuto || "";
-    let invoiceNoManual = false;
-    let nextSeq = null;
+    // 1) Sayaç oku (purchase mantığı: her satışta sayaç tükenecek)
+    const counterRef = doc(db, "sale_counters", "main");
+    const counterSnap = await transaction.get(counterRef);
 
-    if (!invoiceNo) {
-      const counterRef = doc(db, "sale_counters", "main");
-      const counterSnap = await transaction.get(counterRef);
-
-      const counters = counterSnap.exists()
-        ? counterSnap.data()
-        : { official: 0, actual: 0 };
-
-      nextSeq = Number(counters[saleType] || 0) + 1;
-      invoiceNo = formatSaleInvoiceNo(saleType, yy, nextSeq);
-      invoiceNoAuto = invoiceNo;
-      invoiceNoManual = false;
-    } else {
-      invoiceNoAuto = invoiceNoAuto || (invoiceNoDirty ? "" : invoiceNo);
-      invoiceNoManual = invoiceNoDirty || (invoiceNoAuto && invoiceNo !== invoiceNoAuto);
+    if (!counterSnap.exists()) {
+      throw new Error("Sayaç bulunamadı: sale_counters/main");
     }
+
+    const counters = counterSnap.data();
+    const key = saleType === "official" ? "official" : "actual";
+
+    const currentSeq = Number(counters[key] || 0);
+    const nextSeq = currentSeq + 1;
+
+    // ✅ Auto invoice = her zaman counter’dan üretilir
+    const autoInvoice = formatSaleInvoiceNo(saleType, yy, nextSeq);
+
+    // ✅ Kaydedilecek invoiceNo seçimi:
+    // - invoiceNoAuto=true  => autoInvoice
+    // - invoiceNoAuto=false => manualInvoice (boşsa autoInvoice)
+    const invoiceNo = invoiceNoAutoFlag ? autoInvoice : (manualInvoice || autoInvoice);
+
+    // audit
+    const invoiceNoAuto = invoiceNoAutoFlag ? autoInvoice : null;
+    const invoiceNoManual = !invoiceNoAutoFlag && Boolean(manualInvoice);
 
     // 2) Stok bakiyeleri + avgCost oku
     const items = Array.isArray(payload?.items) ? payload.items : [];
@@ -123,11 +127,8 @@ export async function createSale(payload) {
        WRITE PHASE
     ===================== */
 
-    // Sayaç güncelle (sadece sistem ürettiyse)
-    if (nextSeq !== null) {
-      const counterRef = doc(db, "sale_counters", "main");
-      transaction.set(counterRef, { [saleType]: nextSeq }, { merge: true });
-    }
+    // ✅ Sayaç HER SATIŞTA güncellenecek (purchase ile aynı)
+    transaction.set(counterRef, { [key]: nextSeq }, { merge: true });
 
     // Satış doc
     const saleRef = doc(collection(db, "sales"));
@@ -222,7 +223,7 @@ export async function createSale(payload) {
       saleChannel,
       platformId: saleChannel,
       invoiceNo,
-      invoiceNoAuto: invoiceNoAuto || null,
+      invoiceNoAuto,
       invoiceNoManual,
 
       cariId: cariId || null,
@@ -258,11 +259,13 @@ export async function createSale(payload) {
     const itemsForStock = items
       .filter((r) => r?.productId && Number(r.quantity || 0) > 0)
       .map((r) => ({
-        ...r,
+        productId: r.productId,
+        productName: r.productName || "",
         warehouseKey: (r.warehouseKey || "main").trim() || "main",
-        costAtSale: Number(
-          existingBalances?.[`${r.productId}__${((r.warehouseKey || "main").trim() || "main")}`]?.avgCost || 0
-        ),
+        quantity: Number(r.quantity || 0),
+        unit: r.unit || "",
+        unitPrice: Number(r.unitPrice || 0),
+        total: Number(r.total || 0),
       }));
 
     writeSaleStockMovements({
@@ -270,12 +273,12 @@ export async function createSale(payload) {
       saleId: saleRef.id,
       saleType,
       items: itemsForStock,
-      saleChannel,
       invoiceNo,
-      invoiceDate: invoiceDateISO,
+      documentDate: invoiceDateISO || null,
+      currency: "KZT",
+      saleChannel,
     });
 
-    // stok bakiyesi düş (negatif olabilir)
     writeStockBalancesAfterSale({
       transaction,
       saleType,
@@ -283,50 +286,32 @@ export async function createSale(payload) {
       existingBalances,
     });
 
-    /* =====================
-       CARİ HAREKETLERİ (SEÇENEK 6B)
-       - satış: müşteri borç (debit)
-       - tahsilat: alacak (credit)
-    ===================== */
+    // cari hareketi
     if (cariId) {
-      createCariTransaction(transaction, {
+      await createCariTransaction({
+        transaction,
         cariId,
-        type: "debit",
-        source: "sale",
-        refId: saleRef.id,
-        amount: grossTotal,
-        operationDate: invoiceDateISO,
+        operationType: "sale_invoice",
+        operationDate: invoiceDateISO ? new Date(invoiceDateISO) : null,
+        dueDate: payload?.dueDate ? new Date(payload.dueDate) : null,
+        documentNo: invoiceNo,
+        debit: Number(grossTotal || 0),
+        credit: 0,
         currency: "KZT",
-        note: `Satış faturası: ${invoiceNo}`,
+        description: payload?.description || "Satış faturası",
+        operationCategory: payload?.operationCategory || "sales",
       });
-
-      if (paidAmount > 0) {
-        createCariTransaction(transaction, {
-          cariId,
-          type: "credit",
-          source: "sale_payment",
-          refId: saleRef.id,
-          amount: paidAmount,
-          operationDate: invoiceDateISO,
-          currency: "KZT",
-          paymentMethod: paymentMethod || null,
-          note: `Tahsilat (${paymentMethod || ""}) - ${invoiceNo}`,
-        });
-      }
     }
 
-    return { saleId: saleRef.id };
+    return {
+      saleId: saleRef.id,
+      invoiceNo,
+    };
   });
 }
 
-/* ===============================
-   CANCEL SALE (reverse stock, mark cancelled)
-================================ */
 export async function cancelSale({ saleId }) {
-  if (!saleId) throw new Error("saleId gerekli");
-
-  const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
-  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  if (!saleId) throw new Error("saleId zorunlu");
 
   return await runTransaction(db, async (transaction) => {
     const saleRef = doc(db, "sales", saleId);
@@ -334,9 +319,13 @@ export async function cancelSale({ saleId }) {
     if (!saleSnap.exists()) throw new Error("Satış bulunamadı");
 
     const sale = saleSnap.data();
-    if (sale.status !== "completed") return;
+    if (sale.status === "cancelled") return true;
 
     const saleType = sale.saleType === "actual" ? "actual" : "official";
+
+    // items oku
+    const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
+    const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
     const existingBalances = await readStockBalancesForSale({
       transaction,
@@ -344,135 +333,48 @@ export async function cancelSale({ saleId }) {
       saleType,
     });
 
-    // stok geri ekle
-    writeStockBalancesAfterReturn({
+    // reverse stock
+    writeSaleStockMovements({
       transaction,
+      saleId,
       saleType,
-      items: items.map((i) => ({
-        productId: i.productId,
-        quantity: i.quantity,
-      })),
-      existingBalances,
-    });
-
-    // iptal hareketi yaz
-    const stockCollection = collection(db, "stock_movements");
-    for (const it of items) {
-      if (!it.productId || !it.quantity) continue;
-      const qty = Number(it.quantity) || 0;
-      if (!qty) continue;
-
-      const ref = doc(stockCollection);
-      transaction.set(ref, {
-        productId: it.productId,
-        productName: it.productName || "",
-        unit: it.unit || "",
-
-        qty: qty,
-
-        type: "sale_cancel",
-        saleId,
-        saleType,
-        bucket: saleType === "official" ? "official" : "actual",
-
-        unitCost: Number(it.costAtSale || 0),
-        totalCost: Math.round(qty * Number(it.costAtSale || 0) * 100) / 100,
-
-        saleChannel: sale.saleChannel || sale.platformId || null,
-        invoiceNo: sale.saleNo || sale.invoiceNo || "",
-        documentDate: sale.documentDate?.toDate ? sale.documentDate.toDate() : null,
-
-        createdAt: serverTimestamp(),
-      });
-    }
-
-    transaction.set(
-      saleRef,
-      {
-        status: "cancelled",
-        cancelledAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-  });
-}
-
-/* ===============================
-   RETURN SALE (reverse stock, mark returned)
-================================ */
-export async function returnSale({ saleId }) {
-  if (!saleId) throw new Error("saleId gerekli");
-
-  const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
-  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  return await runTransaction(db, async (transaction) => {
-    const saleRef = doc(db, "sales", saleId);
-    const saleSnap = await transaction.get(saleRef);
-    if (!saleSnap.exists()) throw new Error("Satış bulunamadı");
-
-    const sale = saleSnap.data();
-    if (sale.status !== "completed") return;
-
-    const saleType = sale.saleType === "actual" ? "actual" : "official";
-
-    const existingBalances = await readStockBalancesForSale({
-      transaction,
       items,
-      saleType,
+      invoiceNo: sale.invoiceNo || sale.saleNo || "",
+      documentDate: sale.documentDate || sale.invoiceDate || null,
+      currency: "KZT",
+      reverse: true,
+      saleChannel: sale.saleChannel || sale.platformId || "other",
     });
 
-    // stok geri ekle
     writeStockBalancesAfterReturn({
       transaction,
       saleType,
-      items: items.map((i) => ({
-        productId: i.productId,
-        quantity: i.quantity,
-      })),
+      items,
       existingBalances,
     });
 
-    // iade hareketi yaz
-    const stockCollection = collection(db, "stock_movements");
-    for (const it of items) {
-      if (!it.productId || !it.quantity) continue;
-      const qty = Number(it.quantity) || 0;
-      if (!qty) continue;
-
-      const ref = doc(stockCollection);
-      transaction.set(ref, {
-        productId: it.productId,
-        productName: it.productName || "",
-        unit: it.unit || "",
-
-        qty: qty,
-
-        type: "sale_return",
-        saleId,
-        saleType,
-        bucket: saleType === "official" ? "official" : "actual",
-
-        unitCost: Number(it.costAtSale || 0),
-        totalCost: Math.round(qty * Number(it.costAtSale || 0) * 100) / 100,
-
-        saleChannel: sale.saleChannel || sale.platformId || null,
-        invoiceNo: sale.saleNo || sale.invoiceNo || "",
-        documentDate: sale.documentDate?.toDate ? sale.documentDate.toDate() : null,
-
-        createdAt: serverTimestamp(),
+    // cari reverse
+    if (sale.cariId) {
+      await createCariTransaction({
+        transaction,
+        cariId: sale.cariId,
+        operationType: "sale_cancel",
+        operationDate: new Date(),
+        documentNo: sale.invoiceNo || sale.saleNo || "",
+        debit: 0,
+        credit: Number(sale.grossTotal || 0),
+        currency: "KZT",
+        description: "Satış faturası iptali",
+        operationCategory: "sales",
       });
     }
 
-    transaction.set(
-      saleRef,
-      {
-        status: "returned",
-        returnedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+    transaction.update(saleRef, {
+      status: "cancelled",
+      cancelledAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    return true;
   });
 }
