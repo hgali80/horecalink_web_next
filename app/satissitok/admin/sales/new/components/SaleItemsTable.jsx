@@ -95,6 +95,10 @@ export default function SaleItemsTable({
   const [queryByIndex, setQueryByIndex] = useState({});
   const closeTimerRef = useRef(null);
 
+  // ✅ Dropdown fixed konumlandırma
+  const inputRefs = useRef({});
+  const [ddPos, setDdPos] = useState({ top: 0, left: 0, width: 520 });
+
   function setQuery(i, v) {
     setQueryByIndex((prev) => ({ ...prev, [i]: v }));
   }
@@ -146,6 +150,13 @@ export default function SaleItemsTable({
     ]);
   }
 
+  function updateDdPosForIndex(idx) {
+    const el = inputRefs.current[idx];
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setDdPos({ top: r.bottom + 6, left: r.left, width: r.width });
+  }
+
   function pickProduct(i, p) {
     const label = productLabel(p);
     updateRow(i, {
@@ -168,6 +179,21 @@ export default function SaleItemsTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleType, vatMode]);
 
+  // ✅ Scroll/resize olunca dropdown inputu takip etsin
+  useEffect(() => {
+    const onScrollOrResize = () => {
+      if (openIndex === -1) return;
+      updateDdPosForIndex(openIndex);
+    };
+
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [openIndex]);
+
   const totals = useMemo(() => {
     const sum = { net: 0, vat: 0, total: 0 };
     for (const r of items || []) {
@@ -182,11 +208,7 @@ export default function SaleItemsTable({
   }, [items]);
 
   return (
-    <div
-  className={`bg-white border border-slate-200 rounded-2xl overflow-visible ${
-    openIndex !== -1 ? "pb-120" : ""
-  }`}
->
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-visible">
       <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
         <div className="font-semibold text-slate-800">Fatura Satırları</div>
         <button
@@ -200,7 +222,7 @@ export default function SaleItemsTable({
         </button>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto relative">
         <table className="min-w-[2400px] w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
@@ -239,17 +261,19 @@ export default function SaleItemsTable({
 
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
-                      {/* ✅ Searchable product picker */}
+                      {/* ✅ Searchable product picker (fixed dropdown, kırpılmaz) */}
                       <div className="relative">
                         <input
+                          ref={(el) => (inputRefs.current[i] = el)}
                           className="w-full text-sm font-bold bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           value={queryByIndex[i] ?? currentRowLabel(row)}
                           onFocus={() => {
-                            if (queryByIndex[i] == null)
-                              setQuery(i, currentRowLabel(row));
+                            updateDdPosForIndex(i);
+                            if (queryByIndex[i] == null) setQuery(i, currentRowLabel(row));
                             setOpenIndex(i);
                           }}
                           onChange={(e) => {
+                            updateDdPosForIndex(i);
                             const v = e.target.value;
                             setQuery(i, v);
                             setOpenIndex(i);
@@ -264,9 +288,7 @@ export default function SaleItemsTable({
                             }
                             if (e.key === "Enter") {
                               e.preventDefault();
-                              const q = String(
-                                queryByIndex[i] ?? currentRowLabel(row)
-                              )
+                              const q = String(queryByIndex[i] ?? currentRowLabel(row))
                                 .trim()
                                 .toLowerCase();
                               const list = (products || [])
@@ -285,11 +307,16 @@ export default function SaleItemsTable({
                         />
 
                         {openIndex === i && (
-                          <div className="absolute z-30 mt-1 w-[min(560px,92vw)] max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                          <div
+                            className="fixed z-[9999] max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg"
+                            style={{
+                              top: ddPos.top,
+                              left: ddPos.left,
+                              width: Math.max(360, ddPos.width),
+                            }}
+                          >
                             {(() => {
-                              const q = String(
-                                queryByIndex[i] ?? currentRowLabel(row)
-                              )
+                              const q = String(queryByIndex[i] ?? currentRowLabel(row))
                                 .trim()
                                 .toLowerCase();
 
@@ -326,9 +353,7 @@ export default function SaleItemsTable({
                         )}
                       </div>
 
-                      <span className="text-[10px] text-slate-400">
-                        SKU: {row.productId || "-"}
-                      </span>
+                      <span className="text-[10px] text-slate-400">SKU: {row.productId || "-"}</span>
                     </div>
                   </td>
 
@@ -372,9 +397,7 @@ export default function SaleItemsTable({
                     />
                   </td>
 
-                  <td className="px-4 py-3 text-right text-xs">
-                    {fmtMoney(avail)}
-                  </td>
+                  <td className="px-4 py-3 text-right text-xs">{fmtMoney(avail)}</td>
 
                   <td className="px-4 py-3 text-right">
                     <input
@@ -411,17 +434,9 @@ export default function SaleItemsTable({
                     </select>
                   </td>
 
-                  <td className="px-4 py-3 text-right text-xs">
-                    {fmtMoney(row.net)}
-                  </td>
-
-                  <td className="px-4 py-3 text-right text-xs">
-                    {fmtMoney(row.vat)}
-                  </td>
-
-                  <td className="px-4 py-3 text-right font-semibold">
-                    {fmtMoney(row.total)}
-                  </td>
+                  <td className="px-4 py-3 text-right text-xs">{fmtMoney(row.net)}</td>
+                  <td className="px-4 py-3 text-right text-xs">{fmtMoney(row.vat)}</td>
+                  <td className="px-4 py-3 text-right font-semibold">{fmtMoney(row.total)}</td>
 
                   <td className="px-3 py-3 text-right">
                     <button
@@ -444,15 +459,9 @@ export default function SaleItemsTable({
               <td colSpan={9} className="px-4 py-3 text-right text-slate-600">
                 Toplamlar
               </td>
-              <td className="px-4 py-3 text-right font-semibold">
-                {fmtMoney(totals.net)}
-              </td>
-              <td className="px-4 py-3 text-right font-semibold">
-                {fmtMoney(totals.vat)}
-              </td>
-              <td className="px-4 py-3 text-right font-semibold">
-                {fmtMoney(totals.total)}
-              </td>
+              <td className="px-4 py-3 text-right font-semibold">{fmtMoney(totals.net)}</td>
+              <td className="px-4 py-3 text-right font-semibold">{fmtMoney(totals.vat)}</td>
+              <td className="px-4 py-3 text-right font-semibold">{fmtMoney(totals.total)}</td>
               <td className="px-3 py-3"></td>
             </tr>
           </tfoot>
