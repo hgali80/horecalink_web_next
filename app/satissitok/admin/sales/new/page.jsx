@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, query, orderBy, doc, runTransaction } from "firebase/firestore";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/firebase";
 import { ArrowLeft, Home } from "lucide-react";
 
@@ -86,33 +86,12 @@ export default function NewSalePage() {
 
     setSaving(true);
     try {
-      let finalInvoiceNo = payload.invoiceNo;
-
-      if (!payload.invoiceNoDirty) {
-        await runTransaction(db, async (transaction) => {
-          const counterRef = doc(db, "sale_counters", "main");
-          const counterSnap = await transaction.get(counterRef);
-
-          if (!counterSnap.exists()) {
-            throw new Error("Sayaç dökümanı bulunamadı!");
-          }
-
-          const counters = counterSnap.data();
-          const nextSeq = (Number(counters[payload.saleType]) || 0) + 1;
-
-          const yy = String(new Date().getFullYear()).slice(-2);
-          const prefix = payload.saleType === "official" ? "SR" : "SF";
-          finalInvoiceNo = `${prefix}-${yy}${String(nextSeq).padStart(6, "0")}`;
-
-          transaction.update(counterRef, {
-            [payload.saleType]: nextSeq,
-          });
-        });
-      }
-
+      // ✅ Fatura numarası üretimi saleService içinde merkezi olarak yapılıyor.
+      // invoiceNoAuto = true  => sistem üretir (SR-YY-000001 / SF-YY-000001)
+      // invoiceNoAuto = false => manuel kaydeder (boşsa sistem üretir)
       const res = await createSale({
         ...payload,
-        invoiceNo: finalInvoiceNo,
+        invoiceNoAuto: payload.invoiceNoDirty ? false : true,
       });
 
       if (!res?.saleId) {
