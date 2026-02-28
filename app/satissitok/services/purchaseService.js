@@ -73,11 +73,11 @@ export async function createPurchase(payload) {
     // ✅ Sayaç her kayıt için tükecek (mevcut davranış korunuyor)
     // ✅ Sayaç her kayıt için tükecek (taslak dahil) – YEAR-AWARE, MODÜLER
     const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
-      transaction,
-      kind: "purchases",
-      type,
-      dateISO: payload.documentDate,
-    });
+  transaction,
+  kind: "sales",
+  type: saleType,
+  dateISO: invoiceDateISO,
+});
 
     // ✅ Kaydedilecek invoiceNo seçimi:
     // - invoiceNoAuto=true  => autoInvoice

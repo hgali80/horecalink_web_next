@@ -1,5 +1,5 @@
 // app/satissitok/services/saleService.js
-import { collection, doc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { collection, doc, getDocs, runTransaction, serverTimestamp } from "firebase/firestore";
 import { db } from "@/firebase";
 
 import {
