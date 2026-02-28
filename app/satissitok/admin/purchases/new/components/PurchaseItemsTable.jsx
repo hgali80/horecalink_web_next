@@ -1,19 +1,30 @@
 // app/satissitok/admin/purchases/new/components/PurchaseItemsTable.jsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
 import { Boxes, Plus, Search, Trash2 } from "lucide-react";
 
+function num(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function round2(n) {
-  const x = Number(n) || 0;
-  return Math.round(x * 100) / 100;
+  return Math.round(num(n) * 100) / 100;
 }
 
 function fmt(n) {
-  const x = Number(n) || 0;
+  const x = num(n);
   return x.toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+}
+
+function productLabel(p) {
+  const name = (p?.name || "-").trim();
+  const sku = (p?.sku || p?.stockCode || p?.code || "").trim();
+  const unit = (p?.unit || "").trim();
+  return `${name}${sku ? ` • ${sku}` : ""}${unit ? ` • ${unit}` : ""}`;
 }
 
 export default function PurchaseItemsTable({
@@ -21,10 +32,17 @@ export default function PurchaseItemsTable({
   vatRate = 0,
   vatMode = "inclusive",
   hideVat = false, // fiili fatura = true
+  disabled = false,
 }) {
   const [products, setProducts] = useState([]);
   const [items, setItems] = useState([]);
-  const [openIndex, setOpenIndex] = useState(null);
+
+  // ✅ satıştaki gibi: kırpılmayan (fixed) dropdown
+  const [openIndex, setOpenIndex] = useState(-1);
+  const [ddPos, setDdPos] = useState({ top: 0, left: 0, width: 0 });
+  const [queryByIndex, setQueryByIndex] = useState({});
+  const inputRefs = useRef({});
+  const closeTimerRef = useRef(null);
 
   useEffect(() => {
     const load = async () => {
@@ -38,9 +56,12 @@ export default function PurchaseItemsTable({
     onChange(items);
   }, [items, onChange]);
 
+  // =========================
+  // HESAPLAMA (AYNEN KORUNDU)
+  // =========================
   const calcRow = (row) => {
-    const qty = Number(row.qty) || 0;
-    const unitPrice = Number(row.unitPrice) || 0;
+    const qty = num(row.qty);
+    const unitPrice = num(row.unitPrice);
 
     // ✅ FİİLİ FATURA → KDV YOK
     if (hideVat === true) {
@@ -55,7 +76,7 @@ export default function PurchaseItemsTable({
     }
 
     // ✅ RESMİ FATURA → KDV VAR
-    const r = Number(vatRate || 0);
+    const r = num(vatRate || 0);
     const factor = 1 + r / 100;
 
     let netUnit = 0;
@@ -81,6 +102,9 @@ export default function PurchaseItemsTable({
     row.grossLineTotal = round2(qty * row.grossUnitPrice);
   };
 
+  // =========================
+  // CRUD
+  // =========================
   const addRow = () => {
     setItems((prev) => [
       ...prev,
@@ -99,51 +123,83 @@ export default function PurchaseItemsTable({
         netLineTotal: 0,
         vatLineTotal: 0,
         grossLineTotal: 0,
-
-        search: "",
       },
     ]);
   };
 
   const removeRow = (i) => {
     setItems((prev) => prev.filter((_, idx) => idx !== i));
+    setQueryByIndex((prev) => {
+      const x = { ...prev };
+      delete x[i];
+      return x;
+    });
+    if (openIndex === i) setOpenIndex(-1);
   };
 
-  const updateRow = (i, field, value) => {
-    const x = [...items];
-    x[i][field] = value;
-    calcRow(x[i]);
-    setItems(x);
+  const patchRow = (i, patch) => {
+    setItems((prev) => {
+      const x = [...prev];
+      x[i] = { ...x[i], ...patch };
+      calcRow(x[i]);
+      return x;
+    });
   };
 
-  const selectProduct = (i, p) => {
-    const x = [...items];
-    x[i].productId = p.id;
-    x[i].productName = p.name || "";
-    x[i].sku = p.sku || p.stockCode || p.code || "";
-    x[i].unit = p.unit || "";
-    x[i].search = p.name || "";
-    calcRow(x[i]);
-    setItems(x);
-    setOpenIndex(null);
+  // =========================
+  // PRODUCT PICKER (SALES İLE AYNI MANTIK)
+  // =========================
+  const currentRowLabel = (row) =>
+    (row?.productName || "").trim() || (row?.sku ? `${row.sku}` : "") || "";
+
+  const setQuery = (i, v) => setQueryByIndex((prev) => ({ ...prev, [i]: v }));
+
+  const updateDdPosForIndex = (i) => {
+    const el = inputRefs.current?.[i];
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setDdPos({
+      top: r.bottom + 6,
+      left: r.left,
+      width: r.width,
+    });
   };
 
-  const filteredProductsByRow = (row) => {
-    const q = (row.search || "").trim().toLowerCase();
-    if (!q) return products.slice(0, 50);
-    return products
-      .filter((p) => {
-        const name = (p.name || "").toLowerCase();
-        const sku = (p.sku || p.stockCode || p.code || "").toLowerCase();
-        return name.includes(q) || sku.includes(q);
-      })
-      .slice(0, 50);
+  const closeDropdownSoon = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => setOpenIndex(-1), 150);
   };
 
-  const vatLabel = hideVat ? "0%" : `${Number(vatRate || 0)}%`;
+  const pickProduct = (i, p) => {
+    const sku = (p?.sku || p?.stockCode || p?.code || "").trim();
+    patchRow(i, {
+      productId: p.id,
+      productName: (p?.name || "").trim(),
+      sku,
+      unit: (p?.unit || "").trim(),
+    });
+    setQuery(i, productLabel(p));
+    setOpenIndex(-1);
+  };
+
+  // dropdown açıkken scroll/resize olursa konumu güncelle
+  useEffect(() => {
+    if (openIndex < 0) return;
+
+    const onMove = () => updateDdPosForIndex(openIndex);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openIndex]);
+
+  const vatLabel = hideVat ? "0%" : `${num(vatRate || 0)}%`;
 
   const totalQty = useMemo(
-    () => items.reduce((s, r) => s + (Number(r.qty) || 0), 0),
+    () => items.reduce((s, r) => s + num(r.qty), 0),
     [items]
   );
 
@@ -162,7 +218,8 @@ export default function PurchaseItemsTable({
           <button
             type="button"
             onClick={addRow}
-            className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-[#135bec] rounded-lg text-xs font-bold hover:bg-blue-100 transition-all"
+            disabled={disabled}
+            className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-[#135bec] rounded-lg text-xs font-bold hover:bg-blue-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus size={16} />
             Satır Ekle
@@ -184,6 +241,7 @@ export default function PurchaseItemsTable({
               <th className="px-6 py-4 w-12"></th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-slate-100">
             {items.map((row, i) => (
               <tr
@@ -194,53 +252,108 @@ export default function PurchaseItemsTable({
                   {String(i + 1).padStart(2, "0")}
                 </td>
 
-                {/* ÜRÜN */}
-                <td className="px-4 py-4 relative">
-                  <div className="flex flex-col">
-                    <input
-                      className="bg-transparent border-none p-0 text-sm font-bold focus:ring-0 text-slate-900 w-full"
-                      type="text"
-                      placeholder="Ürün arayın..."
-                      value={row.search}
-                      onFocus={() => setOpenIndex(i)}
-                      onBlur={() => setTimeout(() => setOpenIndex(null), 150)}
-                      onChange={(e) => updateRow(i, "search", e.target.value)}
-                    />
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      SKU: {row.sku || "-"}
-                    </span>
-                  </div>
+                {/* ✅ ÜRÜN (sales ile aynı dropdown mantığı) */}
+                <td className="px-4 py-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="relative">
+                      <input
+                        ref={(el) => (inputRefs.current[i] = el)}
+                        className="w-full text-sm font-bold bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={queryByIndex[i] ?? currentRowLabel(row)}
+                        onFocus={() => {
+                          updateDdPosForIndex(i);
+                          if (queryByIndex[i] == null) setQuery(i, currentRowLabel(row));
+                          setOpenIndex(i);
+                        }}
+                        onChange={(e) => {
+                          updateDdPosForIndex(i);
+                          const v = e.target.value;
+                          setQuery(i, v);
+                          setOpenIndex(i);
+                          if (!v) {
+                            patchRow(i, {
+                              productId: "",
+                              productName: "",
+                              sku: "",
+                              unit: "",
+                            });
+                          }
+                        }}
+                        onBlur={() => closeDropdownSoon()}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") setOpenIndex(-1);
 
-                  {openIndex === i && (
-                    <div className="absolute left-0 top-full mt-1 bg-white border border-slate-200 w-[420px] z-50 max-h-72 overflow-y-auto rounded-lg shadow-lg">
-                      {filteredProductsByRow(row).map((p) => {
-                        const sku = p.sku || p.stockCode || p.code || "";
-                        return (
-                          <div
-                            key={p.id}
-                            className="px-3 py-2 hover:bg-blue-50 cursor-pointer"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              selectProduct(i, p);
-                            }}
-                          >
-                            <div className="text-sm font-bold text-slate-800">
-                              {p.name || "-"}
-                            </div>
-                            <div className="text-[11px] text-slate-500 font-mono">
-                              {sku ? `SKU: ${sku}` : "SKU: -"}
-                              {p.unit ? ` • Birim: ${p.unit}` : ""}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {!filteredProductsByRow(row).length && (
-                        <div className="px-3 py-3 text-[11px] text-slate-500">
-                          Ürün bulunamadı.
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const q = String(queryByIndex[i] ?? currentRowLabel(row))
+                              .trim()
+                              .toLowerCase();
+                            const list = (products || [])
+                              .filter((p) => {
+                                const label = productLabel(p).toLowerCase();
+                                const id = String(p.id || "").toLowerCase();
+                                if (!q) return true;
+                                return label.includes(q) || id.includes(q);
+                              })
+                              .slice(0, 1);
+                            if (list[0]) pickProduct(i, list[0]);
+                          }
+                        }}
+                        placeholder="Ürün ara / seç…"
+                        disabled={disabled}
+                      />
+
+                      {openIndex === i && (
+                        <div
+                          className="fixed z-[9999] max-h-72 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg"
+                          style={{
+                            top: ddPos.top,
+                            left: ddPos.left,
+                            width: Math.max(420, ddPos.width),
+                          }}
+                        >
+                          {(() => {
+                            const q = String(queryByIndex[i] ?? currentRowLabel(row))
+                              .trim()
+                              .toLowerCase();
+
+                            const list = (products || [])
+                              .filter((p) => {
+                                const label = productLabel(p).toLowerCase();
+                                const id = String(p.id || "").toLowerCase();
+                                if (!q) return true;
+                                return label.includes(q) || id.includes(q);
+                              })
+                              .slice(0, 80);
+
+                            if (!list.length) {
+                              return (
+                                <div className="px-3 py-2 text-sm text-slate-500">
+                                  Sonuç yok
+                                </div>
+                              );
+                            }
+
+                            return list.map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => pickProduct(i, p)}
+                              >
+                                {productLabel(p)}
+                              </button>
+                            ));
+                          })()}
                         </div>
                       )}
                     </div>
-                  )}
+
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      SKU: {row.sku || row.productId || "-"}
+                    </span>
+                  </div>
                 </td>
 
                 {/* QTY */}
@@ -250,7 +363,8 @@ export default function PurchaseItemsTable({
                     type="number"
                     min={0}
                     value={row.qty}
-                    onChange={(e) => updateRow(i, "qty", e.target.value)}
+                    disabled={disabled}
+                    onChange={(e) => patchRow(i, { qty: e.target.value })}
                   />
                 </td>
 
@@ -269,7 +383,8 @@ export default function PurchaseItemsTable({
                       type="number"
                       min={0}
                       value={row.unitPrice}
-                      onChange={(e) => updateRow(i, "unitPrice", e.target.value)}
+                      disabled={disabled}
+                      onChange={(e) => patchRow(i, { unitPrice: e.target.value })}
                       placeholder="0"
                     />
                     <div className="text-[10px] text-slate-400 font-mono">
@@ -293,7 +408,8 @@ export default function PurchaseItemsTable({
                   <button
                     type="button"
                     onClick={() => removeRow(i)}
-                    className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                    disabled={disabled}
+                    className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Satırı sil"
                   >
                     <Trash2 size={18} />
@@ -302,7 +418,7 @@ export default function PurchaseItemsTable({
               </tr>
             ))}
 
-            {/* QUICK ADD ROW */}
+            {/* QUICK ADD ROW (mevcut UX korundu, sadece işlevsel hale getirildi) */}
             <tr className="bg-slate-50/30">
               <td className="px-4 py-3" colSpan={8}>
                 <div className="flex items-center gap-4 w-full">
@@ -314,6 +430,7 @@ export default function PurchaseItemsTable({
                       className="w-full bg-white border-dashed border-slate-300 border rounded-lg py-2 pl-9 pr-4 text-xs font-medium focus:ring-[#135bec] focus:border-[#135bec]"
                       placeholder="Eklemek için ürün arayın... (Satır Ekle ile başlat)"
                       type="text"
+                      disabled={disabled}
                       onFocus={() => {
                         if (items.length === 0) addRow();
                       }}
@@ -329,7 +446,6 @@ export default function PurchaseItemsTable({
                 </div>
               </td>
             </tr>
-
           </tbody>
         </table>
       </div>
