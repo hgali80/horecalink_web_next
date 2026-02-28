@@ -40,9 +40,9 @@ function year2FromDateISO(dateISO) {
     : String(d.getFullYear()).slice(-2);
 }
 
-// R-26-000001 / F-26-000001
+// PR-26-000001 / PF-26-000001
 function formatInvoiceNo(type, yy, seq) {
-  const prefix = type === "official" ? "R" : "F";
+  const prefix = type === "official" ? "PR" : "PF";
   return `${prefix}-${yy}-${pad6(seq)}`;
 }
 
@@ -221,12 +221,19 @@ export default function PurchaseForm({ onSubmit }) {
       loadingInvoiceRef.current = true;
 
       try {
-        const ref = doc(db, "counters", "purchases");
+        const ref = doc(db, "invoice_counters", "purchases");
         const snap = await getDoc(ref);
 
-        const data = snap.exists() ? snap.data() : { official: 0, actual: 0 };
+        const data = snap.exists() ? snap.data() : {};
         const key = purchaseType === "official" ? "official" : "actual";
-        const nextSeq = Number(data[key] || 0) + 1;
+
+        const years = (data && typeof data === "object" ? data.years : null) || {};
+        const yearMap = (years && typeof years === "object" ? years[yy] : null) || {};
+
+        // ✅ yeni şema: years[YY][type]
+        // ✅ geriye uyumluluk: data[type]
+        const currentSeq = Number((yearMap && yearMap[key]) ?? data[key] ?? 0);
+        const nextSeq = currentSeq + 1;
 
         setInvoiceNo(formatInvoiceNo(purchaseType, yy, nextSeq));
       } catch (e) {

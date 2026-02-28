@@ -9,6 +9,8 @@ import {
   writeStockBalancesAfterReturn,
 } from "./stockService";
 
+import { reserveNextInvoiceNo } from "./invoiceCounterService";
+
 import { createCariTransaction } from "@/app/satissitok/admin/cari/services/cariService";
 
 /* ===============================
@@ -38,7 +40,7 @@ function formatSaleInvoiceNo(saleType, yy, seq) {
    - writes sales/{id}/items
    - writes stock_movements (out)
    - updates stock_balances (qty decreases, can go negative)
-   - increments sale_counters/main for EVERY sale (auto or manual)
+   - increments invoice_counters/sales for EVERY sale (auto or manual)
 ================================ */
 
 export async function createSale(payload) {
@@ -65,19 +67,13 @@ export async function createSale(payload) {
        READ PHASE
     ===================== */
 
-    // ✅ Sayaç her satış için tükecek (auto / manual fark etmez)
-    const counterRef = doc(db, "sale_counters", "main");
-    const counterSnap = await transaction.get(counterRef);
-
-    if (!counterSnap.exists()) {
-      throw new Error("Sayaç bulunamadı: sale_counters/main");
-    }
-
-    const counters = counterSnap.data();
-    const key = saleType === "official" ? "official" : "actual";
-
-    const currentSeq = Number(counters[key] || 0);
-    const nextSeq = currentSeq + 1;
+    // ✅ Sayaç her satış için tükecek (auto / manual fark etmez) – YEAR-AWARE, MODÜLER
+    const { nextSeq } = await reserveNextInvoiceNo({
+      transaction,
+      kind: "sales",
+      type: saleType,
+      dateISO: invoiceDateISO,
+    });
 
     const autoInvoice = formatSaleInvoiceNo(saleType, yy, nextSeq);
 
@@ -217,6 +213,9 @@ export async function createSale(payload) {
       invoiceNo,
       invoiceNoAuto: invoiceNoAuto || null,
       invoiceNoManual,
+      invoiceSequence: nextSeq, // audit (yıl içi sıra)
+      invoiceYear2: yy, // audit (YY)
+      invoiceCounterRef: "invoice_counters/sales", // audit
 
       cariId: cariId || null,
 
