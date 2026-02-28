@@ -116,7 +116,7 @@ export async function createSale(payload) {
     ===================== */
 
     // Sayaç güncelle (her satışta)
-    transaction.set(counterRef, { [key]: nextSeq }, { merge: true });
+    //transaction.set(counterRef, { [key]: nextSeq }, { merge: true });
 
     // Satış doc
     const saleRef = doc(collection(db, "sales"));
