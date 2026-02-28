@@ -17,10 +17,6 @@ import {
 
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase";
-import {
-  formatInvoiceNo,
-  year2FromDateISO,
-} from "@/app/satissitok/services/invoiceCounterService";
 
 import SaleItemsTable from "./SaleItemsTable";
 
@@ -49,6 +45,30 @@ function getDefaultVatRate(vats) {
   const def = active.find((x) => x?.default === true);
   const rate = Number(def?.rate ?? active[0]?.rate ?? 0);
   return Number.isFinite(rate) ? rate : 0;
+}
+
+/* ===============================
+   FATURA NO ÖNİZLEME (SATIŞ)
+   - invoice_counters/sales years[YY][official|actual]
+   - invoiceNoDirty değilse otomatik önizleme gösterir
+================================ */
+
+function pad6(n) {
+  return String(Number(n) || 0).padStart(6, "0");
+}
+
+function year2FromDateISO(dateISO) {
+  if (!dateISO) return String(new Date().getFullYear()).slice(-2);
+  const d = new Date(dateISO);
+  return Number.isNaN(d.getTime())
+    ? String(new Date().getFullYear()).slice(-2)
+    : String(d.getFullYear()).slice(-2);
+}
+
+// SR-26-000001 / SF-26-000001
+function formatSaleInvoiceNo(type, yy, seq) {
+  const prefix = type === "official" ? "SR" : "SF";
+  return `${prefix}-${yy}-${pad6(seq)}`;
 }
 
 export default function SaleForm({
@@ -221,6 +241,40 @@ export default function SaleForm({
       .slice(0, 15);
   }, [caris, cariSearch]);
 
+  function calcLine(row) {
+    const qty = Number(row.quantity || 0) || 0;
+    const unitPrice = Number(row.unitPrice || 0) || 0;
+    const discountRate = Number(row.discountRate || 0) || 0;
+
+    const gross = qty * unitPrice;
+    const discount = (gross * discountRate) / 100;
+    const afterDiscount = gross - discount;
+
+    const vatDisabledLocal = saleType !== "official";
+    const vatRate = vatDisabledLocal ? 0 : Number(row.vatRate || 0) || 0;
+
+    let net = afterDiscount;
+    let vat = 0;
+    let total = afterDiscount;
+
+    if (!vatDisabledLocal) {
+      if (vatMode === "include") {
+        const factor = 1 + vatRate / 100;
+        net = afterDiscount / factor;
+        vat = afterDiscount - net;
+        total = afterDiscount;
+      } else {
+        vat = (afterDiscount * vatRate) / 100;
+        total = afterDiscount + vat;
+        net = afterDiscount;
+      }
+    }
+
+    row.net = Math.round(net * 100) / 100;
+    row.vat = Math.round(vat * 100) / 100;
+    row.total = Math.round(total * 100) / 100;
+  }
+
   const totals = useMemo(() => {
     const net = items.reduce((s, r) => s + (Number(r.net) || 0), 0);
     const vat = items.reduce((s, r) => s + (Number(r.vat) || 0), 0);
@@ -248,15 +302,11 @@ export default function SaleForm({
 
   const vatDisabled = saleType !== "official";
 
-  // ===============================
-  // FATURA NO ÖNİZLEME (Purchase ile aynı mantık)
-  // - invoice_counters/sales years[YY][official|actual]
-  // - invoiceNoDirty değilse otomatik önizleme gösterir
-  // ===============================
+  // ✅ Satınalma ile aynı mantık: önizleme göster
   const yy = useMemo(() => year2FromDateISO(invoiceDate), [invoiceDate]);
 
   useEffect(() => {
-    const loadNextInvoiceNoPreview = async () => {
+    const loadPreview = async () => {
       if (invoiceNoDirty) return;
       if (loadingInvoiceRef.current) return;
       loadingInvoiceRef.current = true;
@@ -270,29 +320,21 @@ export default function SaleForm({
         const yearMap =
           (years && typeof years === "object" ? years[yy] : null) || {};
 
-        // ✅ yeni şema: years[YY][type]
-        // ✅ geriye uyumluluk: data[type]
         const currentSeq = Number(
           (yearMap && yearMap[saleType]) ?? data[saleType] ?? 0
         );
         const nextSeq = currentSeq + 1;
 
-        const preview = formatInvoiceNo({
-          kind: "sales",
-          type: saleType,
-          yy,
-          seq: nextSeq,
-        });
-        setInvoiceNo(preview);
+        setInvoiceNo(formatSaleInvoiceNo(saleType, yy, nextSeq));
       } catch (e) {
-        console.error("SALE invoice no preview error:", e);
+        console.error("SALE invoice preview error:", e);
         setInvoiceNo("");
       } finally {
         loadingInvoiceRef.current = false;
       }
     };
 
-    loadNextInvoiceNoPreview();
+    loadPreview();
   }, [saleType, yy, invoiceNoDirty]);
 
   const negativeStockWarnings = useMemo(() => {
@@ -364,48 +406,15 @@ export default function SaleForm({
     }
   }
 
-  function calcLine(row) {
-    const qty = Number(row.quantity || 0) || 0;
-    const unitPrice = Number(row.unitPrice || 0) || 0;
-    const discountRate = Number(row.discountRate || 0) || 0;
-
-    const gross = qty * unitPrice;
-    const discount = (gross * discountRate) / 100;
-    const afterDiscount = gross - discount;
-
-    const vatRate = vatDisabled ? 0 : Number(row.vatRate || 0) || 0;
-
-    let net = afterDiscount;
-    let vat = 0;
-    let total = afterDiscount;
-
-    if (!vatDisabled) {
-      if (vatMode === "include") {
-        // unitPrice KDV dahil sayılır
-        const factor = 1 + vatRate / 100;
-        net = afterDiscount / factor;
-        vat = afterDiscount - net;
-        total = afterDiscount;
-      } else {
-        // unitPrice KDV hariç sayılır
-        vat = (afterDiscount * vatRate) / 100;
-        total = afterDiscount + vat;
-        net = afterDiscount;
-      }
-    }
-
-    row.net = Math.round(net * 100) / 100;
-    row.vat = Math.round(vat * 100) / 100;
-    row.total = Math.round(total * 100) / 100;
-  }
-
-  function updateItems(next) {
-    const arr = Array.isArray(next) ? next : [];
-    arr.forEach(calcLine);
-    setItems(arr);
-  }
-
   async function submit(mode) {
+    // satır hesaplarını garanti altına al
+    const fixedItems = (Array.isArray(items) ? [...items] : []).map((r) => {
+      const row = { ...r };
+      calcLine(row);
+      return row;
+    });
+    setItems(fixedItems);
+
     const payload = {
       invoiceDate,
       dueDate: dueDate || null,
@@ -433,7 +442,7 @@ export default function SaleForm({
           internal: internalNote || "",
         },
       },
-      items,
+      items: fixedItems,
     };
 
     if (mode === "draft") {
@@ -761,32 +770,142 @@ export default function SaleForm({
               </div>
             </div>
 
-            {/* Items */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-              <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+            {/* Items (KIRMA!) */}
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ClipboardList className="text-blue-700" size={18} />
                   <h3 className="font-bold text-slate-900">Fatura Satırları</h3>
                 </div>
-                <div className="text-xs text-slate-500 font-bold">
-                  Ara Toplam: {fmtMoney(totals.net)} ₸ • KDV:{" "}
-                  {fmtMoney(vatDisabled ? 0 : totals.vat)} ₸ • Genel:{" "}
-                  {fmtMoney(totals.total)} ₸
-                </div>
+                <div className="text-xs text-slate-500">Alt+N: satır ekle</div>
               </div>
 
               <SaleItemsTable
                 products={products}
                 balances={balances}
+                items={items}
+                setItems={setItems}
                 saleType={saleType}
                 vatMode={vatMode}
-                defaultWarehouse={defaultWarehouse}
+                units={units}
+                warehouses={warehouses}
+                vatRates={vatRates}
                 defaultUnit={defaultUnit}
+                defaultWarehouse={defaultWarehouse}
                 defaultVatRate={defaultVatRate}
-                onChange={updateItems}
-                value={items}
                 disabled={disabled}
               />
+            </div>
+
+            {/* Logistics */}
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Truck className="text-blue-700" size={18} />
+                <h3 className="font-bold text-slate-900">
+                  Lojistik ve Teslimat
+                </h3>
+              </div>
+
+              <div className="flex flex-wrap border-b border-slate-100">
+                {[
+                  ["pickup", "Gel Al"],
+                  ["courier", "Kurye"],
+                  ["cargo", "Kargo"],
+                  ["customer", "Müşteri Nakliyesi"],
+                ].map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setDeliveryMode(k)}
+                    className={`px-6 py-2 text-sm font-bold border-b-2 ${
+                      deliveryMode === k
+                        ? "border-blue-600 text-blue-700"
+                        : "border-transparent text-slate-400 hover:text-slate-600"
+                    }`}
+                    disabled={disabled}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 items-end">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Teslim Tarihi
+                  </label>
+                  <input
+                    className="mt-2 w-full border border-slate-200 bg-slate-50 rounded-xl text-sm px-3 py-2"
+                    type="date"
+                    value={deliveryDate}
+                    onChange={(e) => setDeliveryDate(e.target.value)}
+                    disabled={disabled}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Araç Plakası
+                  </label>
+                  <input
+                    className="mt-2 w-full border border-slate-200 bg-slate-50 rounded-xl text-sm px-3 py-2"
+                    placeholder="Plaka No (Opsiyonel)"
+                    value={plateNo}
+                    onChange={(e) => setPlateNo(e.target.value)}
+                    disabled={disabled}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Yükleme Alanı
+                  </label>
+                  <select
+                    className="mt-2 w-full border border-slate-200 bg-slate-50 rounded-xl text-sm px-3 py-2"
+                    value={loadingArea}
+                    onChange={(e) => setLoadingArea(e.target.value)}
+                    disabled={disabled}
+                  >
+                    <option>Ana Terminal Peron 02</option>
+                    <option>Dökme Yük Sahası 14</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <ClipboardList className="text-blue-700" size={18} />
+                  <h3 className="font-bold text-slate-900">Notlar</h3>
+                </div>
+
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Müşteri Notu
+                </label>
+                <textarea
+                  className="mt-2 w-full min-h-[120px] border border-slate-200 bg-slate-50 rounded-xl text-sm px-3 py-2"
+                  value={customerNote}
+                  onChange={(e) => setCustomerNote(e.target.value)}
+                  disabled={disabled}
+                />
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <ClipboardList className="text-blue-700" size={18} />
+                  <h3 className="font-bold text-slate-900">İç Not</h3>
+                </div>
+
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  İç Not
+                </label>
+                <textarea
+                  className="mt-2 w-full min-h-[120px] border border-slate-200 bg-slate-50 rounded-xl text-sm px-3 py-2"
+                  value={internalNote}
+                  onChange={(e) => setInternalNote(e.target.value)}
+                  disabled={disabled}
+                />
+              </div>
             </div>
           </div>
 
