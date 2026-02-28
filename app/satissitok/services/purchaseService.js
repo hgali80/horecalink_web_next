@@ -20,23 +20,6 @@ import { reserveNextInvoiceNo } from "./invoiceCounterService";
    PR-26-000001 / PF-26-000001
 ================================ */
 
-function pad6(n) {
-  return String(Number(n) || 0).padStart(6, "0");
-}
-
-function year2FromDateISO(dateISO) {
-  if (!dateISO) return String(new Date().getFullYear()).slice(-2);
-  const d = new Date(dateISO);
-  return Number.isNaN(d.getTime())
-    ? String(new Date().getFullYear()).slice(-2)
-    : String(d.getFullYear()).slice(-2);
-}
-
-function formatInvoiceNo(type, yy, seq) {
-  const prefix = type === "official" ? "PR" : "PF";
-  return `${prefix}-${yy}-${pad6(seq)}`;
-}
-
 function toDateOrNull(dateISO) {
   if (!dateISO) return null;
   const d = new Date(dateISO);
@@ -44,7 +27,11 @@ function toDateOrNull(dateISO) {
 }
 
 /* =========================================================
-   CREATE PURCHASE (COUNTER + STATUS + UI FIELDS + CONDITIONED WRITES)
+   CREATE PURCHASE
+   ✅ FIX: Transaction rule (ALL READS before ANY WRITES)
+   - Önce stok balance read (completed ise)
+   - Sonra invoice counter reserve (read+write)
+   - Sonra tüm write işlemleri
 ========================================================= */
 
 export async function createPurchase(payload) {
@@ -62,22 +49,29 @@ export async function createPurchase(payload) {
     const warehouseKey = (payload.warehouseKey || "main").trim() || "main";
 
     const manualInvoice = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
-
-    // UI: kullanıcı inputa dokunmadıysa true gönderiyor
     const invoiceNoAutoFlag = payload.invoiceNoAuto === true;
 
+    const items = Array.isArray(payload.items) ? payload.items : [];
+
     /* =====================
-       READ PHASE
+       READ PHASE (ALL READS FIRST)
     ===================== */
 
-    // ✅ Sayaç her kayıt için tükecek (mevcut davranış korunuyor)
-    // ✅ Sayaç her kayıt için tükecek (taslak dahil) – YEAR-AWARE, MODÜLER
+    // ✅ Stok balance okumayı sadece completed için yap
+    const existingBalances = isFinal
+      ? await readStockBalancesForPurchase({
+          transaction,
+          items,
+        })
+      : null;
+
+    // ✅ Sayaç reserve (read+write) — Bundan sonra read YOK!
     const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
-  transaction,
-  kind: "sales",
-  type: saleType,
-  dateISO: invoiceDateISO,
-});
+      transaction,
+      kind: "purchases",
+      type,
+      dateISO: payload.documentDate,
+    });
 
     // ✅ Kaydedilecek invoiceNo seçimi:
     // - invoiceNoAuto=true  => autoInvoice
@@ -88,19 +82,9 @@ export async function createPurchase(payload) {
     const invoiceNoAutoValue = invoiceNo === autoInvoice ? autoInvoice : null;
     const invoiceNoManual = invoiceNo !== autoInvoice;
 
-    // ✅ Stok balance okumayı sadece completed için yap (draft/pending’de gereksiz)
-    const existingBalances = isFinal
-      ? await readStockBalancesForPurchase({
-          transaction,
-          items: payload.items || [],
-        })
-      : null;
-
     /* =====================
        WRITE PHASE
     ===================== */
-
-    // Sayaç güncelleme reserveNextInvoiceNo içinde yapıldı (transaction.set merge)
 
     const purchaseRef = doc(collection(db, "purchases"));
 
@@ -133,7 +117,7 @@ export async function createPurchase(payload) {
       vatMode: type === "official" ? payload.vatMode || "inclusive" : null,
 
       // kalemler/toplam
-      items: payload.items || [],
+      items,
       totals: payload.totals || {},
 
       // ödeme/not/ek
@@ -142,7 +126,7 @@ export async function createPurchase(payload) {
       notes: (payload.notes || "").trim(),
       attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
 
-      status, // ✅ artık payload’dan geliyor
+      status,
 
       createdAt: serverTimestamp(),
     });
@@ -157,7 +141,7 @@ export async function createPurchase(payload) {
         transaction,
         purchaseId: purchaseRef.id,
         purchaseType: type,
-        items: payload.items || [],
+        items,
         supplierName: (payload.supplierName || "").trim(),
         invoiceNo,
         documentDate: payload.documentDate || null,
@@ -168,7 +152,7 @@ export async function createPurchase(payload) {
       writeStockBalancesWithAvgCost({
         transaction,
         purchaseType: type,
-        items: payload.items || [],
+        items,
         existingBalances,
         warehouseKey,
       });
@@ -198,7 +182,6 @@ export async function createPurchase(payload) {
 
         currency: "KZT",
 
-        // ✅ UI notes/description uyumu
         description: (payload.description || payload.notes || "Satınalma faturası").trim(),
 
         createdAt: serverTimestamp(),
@@ -210,7 +193,7 @@ export async function createPurchase(payload) {
 }
 
 /* =========================================================
-   CANCEL PURCHASE (MINIMAL GÜNCELLEME: warehouseKey EKLENDİ)
+   CANCEL PURCHASE (MEVCUT YAPI KORUNDU)
 ========================================================= */
 
 export async function cancelPurchase({ purchaseId }) {
@@ -228,7 +211,6 @@ export async function cancelPurchase({ purchaseId }) {
     const items = purchase.items || [];
     const type = purchase.purchaseType;
 
-    // ✅ Draft/Pending iptal ediliyorsa stok/cari ters kaydı yapma (çünkü yazılmamış olabilir)
     const wasFinal = purchase.status === "completed";
 
     const existingBalances = wasFinal

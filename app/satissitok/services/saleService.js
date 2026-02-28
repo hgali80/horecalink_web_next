@@ -1,5 +1,11 @@
 // app/satissitok/services/saleService.js
-import { collection, doc, getDocs, runTransaction, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  runTransaction,
+  serverTimestamp,
+} from "firebase/firestore";
 import { db } from "@/firebase";
 
 import {
@@ -10,37 +16,14 @@ import {
 } from "./stockService";
 
 import { reserveNextInvoiceNo } from "./invoiceCounterService";
-
 import { createCariTransaction } from "@/app/satissitok/admin/cari/services/cariService";
 
 /* ===============================
-   INVOICE NO HELPERS
-================================ */
-
-function pad6(n) {
-  return String(Number(n) || 0).padStart(6, "0");
-}
-
-function year2FromDateISO(dateISO) {
-  if (!dateISO) return String(new Date().getFullYear()).slice(-2);
-  const d = new Date(dateISO);
-  return Number.isNaN(d.getTime())
-    ? String(new Date().getFullYear()).slice(-2)
-    : String(d.getFullYear()).slice(-2);
-}
-
-function formatSaleInvoiceNo(saleType, yy, seq) {
-  const prefix = saleType === "official" ? "SR" : "SF";
-  return `${prefix}-${yy}-${pad6(seq)}`;
-}
-
-/* ===============================
    CREATE SALE (CONFIRMED)
-   - writes sales/{id}
-   - writes sales/{id}/items
-   - writes stock_movements (out)
-   - updates stock_balances (qty decreases, can go negative)
-   - increments invoice_counters/sales for EVERY sale (auto or manual)
+   ✅ FIX: Transaction rule (ALL READS before ANY WRITES)
+   - Önce stok balance read
+   - Sonra invoice counter reserve (read+write)
+   - Sonra tüm write işlemleri
 ================================ */
 
 export async function createSale(payload) {
@@ -54,44 +37,24 @@ export async function createSale(payload) {
     const paidAmount = Number(payment.paidAmount ?? payload?.paidAmount ?? 0) || 0;
 
     const invoiceDateISO = payload?.invoiceDate || new Date().toISOString().slice(0, 10);
-    const yy = year2FromDateISO(invoiceDateISO);
 
     const manualInvoice = (payload?.invoiceNo || payload?.docNo || "").trim();
-
-    // ✅ UI: kullanıcı inputa dokunmadıysa true gönderiyor
-    // - invoiceNoAuto=true  => sistem üretir (SR-YY-000001 / SF-YY-000001)
-    // - invoiceNoAuto=false => manuel kaydeder (boşsa sistem üretir)
     const invoiceNoAutoFlag = payload?.invoiceNoAuto === true;
 
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+
     /* =====================
-       READ PHASE
+       READ PHASE (ALL READS FIRST)
     ===================== */
 
-    // ✅ Sayaç her satış için tükecek (auto / manual fark etmez) – YEAR-AWARE, MODÜLER
-    const { nextSeq } = await reserveNextInvoiceNo({
-      transaction,
-      kind: "sales",
-      type: saleType,
-      dateISO: invoiceDateISO,
-    });
-
-    const autoInvoice = formatSaleInvoiceNo(saleType, yy, nextSeq);
-
-    // ✅ Kaydedilecek invoiceNo seçimi
-    const invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
-
-    // UI / audit amaçlı alanlar (mevcut alan isimleri korunuyor)
-    const invoiceNoAuto = invoiceNo === autoInvoice ? autoInvoice : null;
-    const invoiceNoManual = invoiceNo !== autoInvoice;
-// 2) Stok bakiyeleri + avgCost oku
-    const items = Array.isArray(payload?.items) ? payload.items : [];
+    // 1) Stok bakiyeleri + avgCost oku (READ)
     const existingBalances = await readStockBalancesForSale({
       transaction,
       items,
       saleType,
     });
 
-    // 3) Negatif stok kontrolü (bloklama yok)
+    // 2) Negatif stok kontrolü (READ yok, sadece hesap)
     const soldByKey = {};
     for (const it of items) {
       if (!it?.productId) continue;
@@ -111,14 +74,25 @@ export async function createSale(payload) {
       }
     }
 
+    // 3) Sayaç reserve (read+write) — Bundan sonra READ YOK!
+    const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
+      transaction,
+      kind: "sales",
+      type: saleType,
+      dateISO: invoiceDateISO,
+    });
+
+    // ✅ Kaydedilecek invoiceNo seçimi
+    const invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
+
+    // UI / audit
+    const invoiceNoAuto = invoiceNo === autoInvoice ? autoInvoice : null;
+    const invoiceNoManual = invoiceNo !== autoInvoice;
+
     /* =====================
        WRITE PHASE
     ===================== */
 
-    // Sayaç güncelle (her satışta)
-    //transaction.set(counterRef, { [key]: nextSeq }, { merge: true });
-
-    // Satış doc
     const saleRef = doc(collection(db, "sales"));
 
     // Totals + Profit (snapshot cost used from avgCost)
@@ -213,9 +187,9 @@ export async function createSale(payload) {
       invoiceNo,
       invoiceNoAuto: invoiceNoAuto || null,
       invoiceNoManual,
-      invoiceSequence: nextSeq, // audit (yıl içi sıra)
-      invoiceYear2: yy, // audit (YY)
-      invoiceCounterRef: "invoice_counters/sales", // audit
+      invoiceSequence: nextSeq,
+      invoiceYear2: yy,
+      invoiceCounterRef: "invoice_counters/sales",
 
       cariId: cariId || null,
 
@@ -253,7 +227,9 @@ export async function createSale(payload) {
         ...r,
         warehouseKey: (r.warehouseKey || "main").trim() || "main",
         costAtSale: Number(
-          existingBalances?.[`${r.productId}__${((r.warehouseKey || "main").trim() || "main")}`]?.avgCost || 0
+          existingBalances?.[
+            `${r.productId}__${((r.warehouseKey || "main").trim() || "main")}`
+          ]?.avgCost || 0
         ),
       }));
 
@@ -267,7 +243,6 @@ export async function createSale(payload) {
       invoiceDate: invoiceDateISO,
     });
 
-    // stok bakiyesi düş (negatif olabilir)
     writeStockBalancesAfterSale({
       transaction,
       saleType,
@@ -275,11 +250,7 @@ export async function createSale(payload) {
       existingBalances,
     });
 
-    /* =====================
-       CARİ HAREKETLERİ (SEÇENEK 6B)
-       - satış: müşteri borç (debit)
-       - tahsilat: alacak (credit)
-    ===================== */
+    // CARİ hareketleri
     if (cariId) {
       createCariTransaction(transaction, {
         cariId,
@@ -336,7 +307,6 @@ export async function cancelSale({ saleId }) {
       saleType,
     });
 
-    // stok geri ekle
     writeStockBalancesAfterReturn({
       transaction,
       saleType,
@@ -347,7 +317,6 @@ export async function cancelSale({ saleId }) {
       existingBalances,
     });
 
-    // iptal hareketi yaz
     const stockCollection = collection(db, "stock_movements");
     for (const it of items) {
       if (!it.productId || !it.quantity) continue;
@@ -360,7 +329,7 @@ export async function cancelSale({ saleId }) {
         productName: it.productName || "",
         unit: it.unit || "",
 
-        qty: qty,
+        qty,
 
         type: "sale_cancel",
         saleId,
@@ -415,7 +384,6 @@ export async function returnSale({ saleId }) {
       saleType,
     });
 
-    // stok geri ekle
     writeStockBalancesAfterReturn({
       transaction,
       saleType,
@@ -426,7 +394,6 @@ export async function returnSale({ saleId }) {
       existingBalances,
     });
 
-    // iade hareketi yaz
     const stockCollection = collection(db, "stock_movements");
     for (const it of items) {
       if (!it.productId || !it.quantity) continue;
@@ -439,7 +406,7 @@ export async function returnSale({ saleId }) {
         productName: it.productName || "",
         unit: it.unit || "",
 
-        qty: qty,
+        qty,
 
         type: "sale_return",
         saleId,
