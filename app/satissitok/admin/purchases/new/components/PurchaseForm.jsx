@@ -903,7 +903,9 @@ export default function PurchaseForm({ onSubmit }) {
                   </p>
                   <div className="flex justify-between items-baseline">
                     <span className="text-3xl font-black text-white">
-                      {fmtMoney(totals.gross).replace(/\..*$/, "")}
+                      {new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 }).format(
+  Number(totals.gross || 0)
+)}
                     </span>
                     <span className="text-xl font-bold text-slate-400 ml-1">
                       ₸
