@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Users,
   Wallet,
+  BarChart3,
 } from "lucide-react";
 
 export default function SalesStockDashboard() {
@@ -50,7 +51,7 @@ export default function SalesStockDashboard() {
           Yönetim
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
           <DashboardCard
             title="Satışlar"
             desc="Satış faturalarını listele"
@@ -97,6 +98,14 @@ export default function SalesStockDashboard() {
             href="/satissitok/admin/finance"
             color="purple"
             icon={<Wallet />}
+          />
+
+          <DashboardCard
+            title="Raporlar"
+            desc="Net kâr, KDV, dönem raporları"
+            href="/satissitok/admin/reports"
+            color="gray"
+            icon={<BarChart3 />}
           />
         </div>
       </section>

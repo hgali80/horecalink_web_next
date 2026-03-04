@@ -2,7 +2,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Home, Wallet, Landmark, ReceiptText } from "lucide-react";
+import {
+  ArrowLeft,
+  Home,
+  Wallet,
+  Landmark,
+  ReceiptText,
+  BadgeDollarSign,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function FinanceDashboard() {
@@ -40,7 +47,7 @@ export default function FinanceDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card
           title="Tahsilat"
           desc="Müşteriden tahsilat / avans"
@@ -48,6 +55,7 @@ export default function FinanceDashboard() {
           icon={<ReceiptText />}
           color="green"
         />
+
         <Card
           title="Ödeme"
           desc="Tedarikçiye ödeme / avans"
@@ -55,6 +63,7 @@ export default function FinanceDashboard() {
           icon={<ReceiptText />}
           color="blue"
         />
+
         <Card
           title="Kasa/Banka Hareketleri"
           desc="cash_transactions listesi"
@@ -62,12 +71,21 @@ export default function FinanceDashboard() {
           icon={<Wallet />}
           color="purple"
         />
+
         <Card
           title="Hesaplar"
           desc="Nakit, Kaspi, Banka..."
           href="/satissitok/admin/finance/accounts"
           icon={<Landmark />}
           color="orange"
+        />
+
+        <Card
+          title="Giderler"
+          desc="Operasyonel gider kayıtları"
+          href="/satissitok/admin/finance/expenses"
+          icon={<BadgeDollarSign />}
+          color="gray"
         />
       </div>
     </div>
@@ -80,6 +98,7 @@ function Card({ title, desc, href, icon, color }) {
     blue: "border-blue-300 hover:border-blue-500 text-blue-700",
     purple: "border-purple-300 hover:border-purple-500 text-purple-700",
     orange: "border-orange-300 hover:border-orange-500 text-orange-700",
+    gray: "border-gray-300 hover:border-gray-500 text-gray-700",
   };
 
   return (
