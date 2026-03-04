@@ -15,6 +15,43 @@ function formatDate(d) {
   return dt.toLocaleDateString("tr-TR");
 }
 
+function num(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function fmtMoney(n) {
+  const x = num(n);
+  return x.toLocaleString("tr-TR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
+ * ✅ Backward compatible:
+ * - New model: { direction: "debit"|"credit", amount }
+ * - Old model: { debit, credit }
+ * - Some older docs: { type: "debit"|"credit", amount }
+ */
+function pickDebitCredit(r) {
+  const direction = (r?.direction || r?.type || "").toString().toLowerCase();
+  const amount = num(r?.amount);
+
+  if (direction === "debit") return { debit: amount, credit: 0 };
+  if (direction === "credit") return { debit: 0, credit: amount };
+
+  // fallback legacy
+  return { debit: num(r?.debit), credit: num(r?.credit) };
+}
+
+function fmtSignedBalance(n) {
+  const x = num(n);
+  if (x > 0) return `+${fmtMoney(x)}`;
+  if (x < 0) return `-${fmtMoney(Math.abs(x))}`;
+  return fmtMoney(0);
+}
+
 export default function CariEkstrePage() {
   const { cariId } = useParams();
   const router = useRouter();
@@ -39,11 +76,7 @@ export default function CariEkstrePage() {
   // Hareketler
   const loadTransactions = async () => {
     setLoading(true);
-    const data = await listCariTransactions({
-      cariId,
-      fromDate,
-      toDate,
-    });
+    const data = await listCariTransactions({ cariId, fromDate, toDate });
     setRows(data);
     setLoading(false);
   };
@@ -53,18 +86,19 @@ export default function CariEkstrePage() {
     // eslint-disable-next-line
   }, [cariId]);
 
-  // Koşan bakiye
+  // ✅ Koşan bakiye (direction+amount destekli)
   const rowsWithBalance = useMemo(() => {
     let balance = 0;
+
     return rows.map((r) => {
-      balance += Number(r.debit || 0) - Number(r.credit || 0);
-      return { ...r, balance };
+      const { debit, credit } = pickDebitCredit(r);
+      balance += debit - credit;
+
+      return { ...r, debit, credit, balance };
     });
   }, [rows]);
 
-  if (!cari) {
-    return <div className="p-6">Cari bulunamadı.</div>;
-  }
+  if (!cari) return <div className="p-6">Cari bulunamadı.</div>;
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -157,17 +191,15 @@ export default function CariEkstrePage() {
                   {r.documentNo || "-"}
                 </td>
                 <td className="border px-2 py-1 text-right">
-                  {r.debit ? r.debit.toLocaleString() : "-"}
+                  {r.debit ? fmtMoney(r.debit) : "-"}
                 </td>
                 <td className="border px-2 py-1 text-right">
-                  {r.credit ? r.credit.toLocaleString() : "-"}
+                  {r.credit ? fmtMoney(r.credit) : "-"}
                 </td>
                 <td className="border px-2 py-1 text-right font-medium">
-                  {r.balance.toLocaleString()}
+                  {fmtSignedBalance(r.balance)}
                 </td>
-                <td className="border px-2 py-1">
-                  {r.description || ""}
-                </td>
+                <td className="border px-2 py-1">{r.description || r.note || ""}</td>
               </tr>
             ))}
 

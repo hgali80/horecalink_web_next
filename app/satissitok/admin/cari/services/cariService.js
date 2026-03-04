@@ -55,6 +55,25 @@ export async function listCaris() {
 // CARI HAREKETLER
 // ------------------------------------
 
+function safeNumber(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function normalizeDir(x) {
+  const s = (x || "").toString().trim().toLowerCase();
+  return s === "debit" || s === "credit" ? s : "";
+}
+
+function toTs(input) {
+  // input can be: Date | string | Timestamp | null/undefined
+  if (!input) return Timestamp.fromDate(new Date());
+  if (input instanceof Timestamp) return input;
+  if (input instanceof Date) return Timestamp.fromDate(input);
+  const d = new Date(input);
+  return Timestamp.fromDate(Number.isNaN(d.getTime()) ? new Date() : d);
+}
+
 /**
  * Cari hareket oluştur
  * direction: debit (borç) | credit (alacak)
@@ -66,7 +85,7 @@ export async function createCariTransaction(
 
     // canonical
     direction, // debit | credit
-    operationType, // sale_invoice | sale_payment | purchase_invoice | purchase_cancel | payment_in | payment_out | ...
+    operationType, // sale_invoice | sale_payment | purchase_invoice | purchase_cancel | ...
     documentNo,
 
     // finance extensions (optional)
@@ -90,7 +109,7 @@ export async function createCariTransaction(
   // backward compatibility:
   // - old calls send { type, source }
   // - new calls send { direction, operationType }
-  const dir = (direction || type || "").toString().trim();
+  const dir = normalizeDir(direction) || normalizeDir(type);
 
   // source -> operationType mapping (legacy)
   const opType =
@@ -105,7 +124,7 @@ export async function createCariTransaction(
       return src; // unknowns kept normalized
     })(source);
 
-  const amt = Number(amount);
+  const amt = safeNumber(amount);
 
   if (!cariId || !dir || !Number.isFinite(amt) || amt <= 0) {
     throw new Error("Cari işlem bilgisi eksik");
@@ -115,6 +134,13 @@ export async function createCariTransaction(
   }
 
   const ref = doc(collection(db, TX_COL));
+
+  // ✅ Legacy numeric fields (many UIs still expect these)
+  const legacyDebit = dir === "debit" ? amt : 0;
+  const legacyCredit = dir === "credit" ? amt : 0;
+
+  // ✅ Consistent description for tables
+  const desc = (note || "").toString().trim();
 
   transaction.set(ref, {
     cariId,
@@ -134,12 +160,17 @@ export async function createCariTransaction(
     amount: amt,
     currency: currency || "KZT",
     paymentMethod: paymentMethod || null,
-    note: note || "",
-    operationDate: Timestamp.fromDate(operationDate ? new Date(operationDate) : new Date()),
+    note: desc,
+    operationDate: toTs(operationDate),
 
-    // legacy aliases (do not rely on these in reports)
+    // ✅ legacy aliases (backward compat)
     type: dir,
     source: source || null,
+
+    // ✅ legacy numeric fields (critical for old screens)
+    debit: legacyDebit,
+    credit: legacyCredit,
+    description: desc,
 
     createdAt: serverTimestamp(),
   });
