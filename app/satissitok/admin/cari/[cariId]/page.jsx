@@ -15,6 +15,22 @@ function formatDate(d) {
   return dt.toLocaleDateString("tr-TR");
 }
 
+function formatOperationType(type) {
+  const map = {
+    purchase_invoice: "Satınalma Faturası",
+    purchase_payment: "Tedarikçiye Ödeme",
+    purchase_cancel: "Satınalma İptal",
+    sale_invoice: "Satış Faturası",
+    sale_payment: "Müşteri Tahsilatı",
+    payment_in: "Tahsilat",
+    payment_out: "Ödeme",
+    advance_received: "Avans (Alındı)",
+    advance_paid: "Avans (Ödendi)",
+  };
+
+  return map[type] || type || "-";
+}
+
 function num(x) {
   const n = Number(x);
   return Number.isFinite(n) ? n : 0;
@@ -185,7 +201,7 @@ export default function CariEkstrePage() {
                   {formatDate(r.operationDate)}
                 </td>
                 <td className="border px-2 py-1 text-center">
-                  {r.operationType}
+                  {formatOperationType(r.operationType)}
                 </td>
                 <td className="border px-2 py-1 text-center">
                   {r.documentNo || "-"}
@@ -199,7 +215,9 @@ export default function CariEkstrePage() {
                 <td className="border px-2 py-1 text-right font-medium">
                   {fmtSignedBalance(r.balance)}
                 </td>
-                <td className="border px-2 py-1">{r.description || r.note || ""}</td>
+                <td className="border px-2 py-1">
+                  {r.description || r.note || ""}
+                </td>
               </tr>
             ))}
 
