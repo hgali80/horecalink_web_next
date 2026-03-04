@@ -9,6 +9,7 @@ import {
   Settings,
   ClipboardList,
   Users,
+  Wallet,
 } from "lucide-react";
 
 export default function SalesStockDashboard() {
@@ -88,6 +89,14 @@ export default function SalesStockDashboard() {
             href="/satissitok/admin/settings"
             color="gray"
             icon={<Settings />}
+          />
+
+          <DashboardCard
+            title="Finans"
+            desc="Tahsilat, ödeme, kasa/banka"
+            href="/satissitok/admin/finance"
+            color="purple"
+            icon={<Wallet />}
           />
         </div>
       </section>

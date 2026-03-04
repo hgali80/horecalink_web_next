@@ -69,6 +69,12 @@ export async function createCariTransaction(
     operationType, // sale_invoice | sale_payment | purchase_invoice | purchase_cancel | payment_in | payment_out | ...
     documentNo,
 
+    // finance extensions (optional)
+    receiptNo,
+    accountId,
+    method,
+    settlement,
+
     // legacy (backward compat)
     type,
     source,
@@ -117,6 +123,12 @@ export async function createCariTransaction(
     direction: dir,
     operationType: opType,
     documentNo: (documentNo ?? null) || null,
+
+    // finance extensions
+    receiptNo: receiptNo || null,
+    accountId: accountId || null,
+    method: method || null,
+    settlement: settlement && typeof settlement === "object" ? settlement : null,
 
     refId: refId || null,
     amount: amt,
