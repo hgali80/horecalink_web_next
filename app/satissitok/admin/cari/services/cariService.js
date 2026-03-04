@@ -42,11 +42,7 @@ export async function createCari(payload) {
 }
 
 export async function listCaris() {
-  const q = query(
-    collection(db, COL),
-    orderBy("createdAt", "desc")
-  );
-
+  const q = query(collection(db, COL), orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
 
   return snap.docs.map((d) => ({
@@ -61,14 +57,22 @@ export async function listCaris() {
 
 /**
  * Cari hareket oluştur
- * type: debit (borç) | credit (alacak)
+ * direction: debit (borç) | credit (alacak)
  */
 export async function createCariTransaction(
   transaction,
   {
     cariId,
+
+    // canonical
+    direction, // debit | credit
+    operationType, // sale_invoice | sale_payment | purchase_invoice | purchase_cancel | payment_in | payment_out | ...
+    documentNo,
+
+    // legacy (backward compat)
     type,
     source,
+
     refId,
     amount,
     operationDate,
@@ -77,24 +81,54 @@ export async function createCariTransaction(
     paymentMethod,
   }
 ) {
-  if (!cariId || !type || !amount) {
+  // backward compatibility:
+  // - old calls send { type, source }
+  // - new calls send { direction, operationType }
+  const dir = (direction || type || "").toString().trim();
+
+  // source -> operationType mapping (legacy)
+  const opType =
+    (operationType || "").toString().trim() ||
+    (function mapSourceToOpType(s) {
+      const src = (s || "").toString().trim();
+      if (!src) return "";
+      if (src === "sale") return "sale_invoice";
+      if (src === "sale_payment") return "sale_payment";
+      if (src === "purchase") return "purchase_invoice";
+      if (src === "purchase_cancel") return "purchase_cancel";
+      return src; // unknowns kept normalized
+    })(source);
+
+  const amt = Number(amount);
+
+  if (!cariId || !dir || !Number.isFinite(amt) || amt <= 0) {
     throw new Error("Cari işlem bilgisi eksik");
+  }
+  if (!opType) {
+    throw new Error("operationType zorunlu");
   }
 
   const ref = doc(collection(db, TX_COL));
 
   transaction.set(ref, {
     cariId,
-    type,
-    source,
+
+    // canonical
+    direction: dir,
+    operationType: opType,
+    documentNo: (documentNo ?? null) || null,
+
     refId: refId || null,
-    amount: Number(amount),
+    amount: amt,
     currency: currency || "KZT",
     paymentMethod: paymentMethod || null,
     note: note || "",
-    operationDate: Timestamp.fromDate(
-      operationDate ? new Date(operationDate) : new Date()
-    ),
+    operationDate: Timestamp.fromDate(operationDate ? new Date(operationDate) : new Date()),
+
+    // legacy aliases (do not rely on these in reports)
+    type: dir,
+    source: source || null,
+
     createdAt: serverTimestamp(),
   });
 }
@@ -123,11 +157,7 @@ export async function listCariTransactionsByCari(cariId) {
  * credit => -
  */
 export async function getCariBalance(cariId) {
-  const q = query(
-    collection(db, TX_COL),
-    where("cariId", "==", cariId)
-  );
-
+  const q = query(collection(db, TX_COL), where("cariId", "==", cariId));
   const snap = await getDocs(q);
 
   let balance = 0;
@@ -135,9 +165,10 @@ export async function getCariBalance(cariId) {
   snap.forEach((doc) => {
     const d = doc.data();
     const amt = Number(d.amount) || 0;
+    const dir = d.direction || d.type;
 
-    if (d.type === "debit") balance += amt;
-    if (d.type === "credit") balance -= amt;
+    if (dir === "debit") balance += amt;
+    if (dir === "credit") balance -= amt;
   });
 
   return Math.round(balance * 100) / 100;

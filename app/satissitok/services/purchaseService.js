@@ -161,9 +161,13 @@ export async function createPurchase(payload) {
     /* =====================
        CARİ HAREKETİ
        ✅ Sadece completed iken
+       ✅ CANONICAL + LEGACY birlikte yazılır (geriye uyum)
     ===================== */
 
     if (isFinal && payload.supplierCariId) {
+      const gross = Number(payload.totals?.gross || 0);
+      const desc = (payload.description || payload.notes || "Satınalma faturası").trim();
+
       const cariTxRef = doc(collection(db, "cari_transactions"));
 
       transaction.set(cariTxRef, {
@@ -172,17 +176,26 @@ export async function createPurchase(payload) {
         operationDate: toDateOrNull(payload.documentDate),
         dueDate: toDateOrNull(payload.dueDate),
 
+        // ✅ canonical
         operationType: "purchase_invoice",
-        operationCategory: payload.operationCategory || "trade_goods",
-
+        direction: "credit",         // satınalma -> cariye alacak yazar
+        amount: gross,               // tek alan raporlama için
+        refId: purchaseRef.id,       // detaya link için
         documentNo: invoiceNo,
+        note: desc,
+        paymentMethod: (payload.paymentMethod || "").trim() || null,
 
-        debit: 0,
-        credit: Number(payload.totals?.gross || 0),
+        operationCategory: payload.operationCategory || "trade_goods",
 
         currency: "KZT",
 
-        description: (payload.description || payload.notes || "Satınalma faturası").trim(),
+        // ✅ legacy (kalsın, eski ekranlar bozulmasın)
+        debit: 0,
+        credit: gross,
+        description: desc,
+
+        // optional legacy alias (istersen raporda kullanma)
+        source: "purchase",
 
         createdAt: serverTimestamp(),
       });
@@ -194,6 +207,7 @@ export async function createPurchase(payload) {
 
 /* =========================================================
    CANCEL PURCHASE (MEVCUT YAPI KORUNDU)
+   ✅ CANONICAL alanlar eklendi
 ========================================================= */
 
 export async function cancelPurchase({ purchaseId }) {
@@ -244,17 +258,32 @@ export async function cancelPurchase({ purchaseId }) {
       });
 
       if (purchase.supplierCariId) {
+        const gross = Number(purchase.totals?.gross || 0);
+        const desc = "Satınalma faturası iptali";
+
         const cariTxRef = doc(collection(db, "cari_transactions"));
 
         transaction.set(cariTxRef, {
           cariId: purchase.supplierCariId,
+
           operationDate: new Date(),
+
+          // ✅ canonical
           operationType: "purchase_cancel",
+          direction: "debit",       // iptal -> cariden düşmek için borç yazar (ters kayıt)
+          amount: gross,
+          refId: purchaseId,
           documentNo: purchase.invoiceNo,
-          debit: Number(purchase.totals?.gross || 0),
-          credit: 0,
+          note: desc,
+
           currency: "KZT",
-          description: "Satınalma faturası iptali",
+
+          // ✅ legacy (kalsın)
+          debit: gross,
+          credit: 0,
+          description: desc,
+          source: "purchase_cancel",
+
           createdAt: serverTimestamp(),
         });
       }
