@@ -122,6 +122,8 @@ export default function SaleForm({
   // Payment
   const [paymentMethod, setPaymentMethod] = useState("bank");
   const [paidAmount, setPaidAmount] = useState(0);
+  // ✅ yeni: tahsilat durumu (cariye işlenecek)
+  const [isPaid, setIsPaid] = useState(false);
 
   // Logistics + notes
   const [deliveryMode, setDeliveryMode] = useState("pickup");
@@ -176,6 +178,7 @@ export default function SaleForm({
 
       setPaymentMethod(d.paymentMethod || "bank");
       setPaidAmount(Number(d.paidAmount || 0));
+      setIsPaid(Boolean(d.isPaid));
 
       setDeliveryMode(d.deliveryMode || "pickup");
       setDeliveryDate(d.deliveryDate || "");
@@ -387,6 +390,7 @@ export default function SaleForm({
       cariId,
       paymentMethod,
       paidAmount,
+      isPaid,
       deliveryMode,
       deliveryDate,
       plateNo,
@@ -428,6 +432,7 @@ export default function SaleForm({
       payment: {
         method: paymentMethod,
         paidAmount: Number(paidAmount || 0) || 0,
+        isPaid: Boolean(isPaid),
       },
       meta: {
         processStatus,
@@ -956,6 +961,48 @@ export default function SaleForm({
                   <option value="kaspi">Kaspi</option>
                 </select>
 
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    Tahsilat Durumu
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPaid(false);
+                        setPaidAmount(0);
+                      }}
+                      className={
+                        !isPaid
+                          ? "h-10 rounded-xl bg-white text-slate-900 font-extrabold"
+                          : "h-10 rounded-xl bg-white/10 hover:bg-white/15 font-bold"
+                      }
+                      disabled={disabled}
+                      title="Bu satış faturası için tahsilat alınmadı"
+                    >
+                      Alınmadı
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPaid(true);
+                        const t = Number(totals.total || 0) || 0;
+                        const current = Number(paidAmount || 0) || 0;
+                        if (current <= 0 && t > 0) setPaidAmount(t);
+                      }}
+                      className={
+                        isPaid
+                          ? "h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-extrabold"
+                          : "h-10 rounded-xl bg-white/10 hover:bg-white/15 font-bold"
+                      }
+                      disabled={disabled}
+                      title="Bu satış faturası için tahsilat alındı"
+                    >
+                      Alındı
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-slate-300 uppercase">
@@ -964,7 +1011,13 @@ export default function SaleForm({
                     <input
                       type="number"
                       value={paidAmount}
-                      onChange={(e) => setPaidAmount(e.target.value)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value || 0) || 0;
+                        const max = Number(totals.total || 0) || 0;
+                        const clamped = Math.max(0, Math.min(v, max));
+                        setPaidAmount(clamped);
+                        setIsPaid(clamped > 0 && clamped >= max);
+                      }}
                       className="w-full h-10 rounded-xl bg-white/10 border border-white/10 text-white px-3 text-sm font-bold outline-none"
                       disabled={disabled}
                     />

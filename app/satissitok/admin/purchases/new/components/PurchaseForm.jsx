@@ -116,6 +116,9 @@ export default function PurchaseForm({ onSubmit }) {
   ================================ */
 
   const [paymentMethod, setPaymentMethod] = useState("bank"); // bank | cash | kaspi
+  // ✅ yeni: fatura ödeme durumu (cari hareketine de işlenecek)
+  const [isPaid, setIsPaid] = useState(false);
+  const [paidDate, setPaidDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState([]); // metadata only
@@ -328,6 +331,11 @@ export default function PurchaseForm({ onSubmit }) {
       },
 
       paymentMethod,
+      payment: {
+        method: paymentMethod,
+        isPaid: Boolean(isPaid),
+        paidDate: isPaid ? (paidDate || documentDate || null) : null,
+      },
       dueDate: dueDate || null,
       notes,
       attachments,
@@ -793,6 +801,59 @@ export default function PurchaseForm({ onSubmit }) {
                       Kaspi QR/Biz
                     </button>
                   </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-500">
+                    Ödeme Durumu
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsPaid(false)}
+                      className={
+                        !isPaid
+                          ? "py-2 px-2 text-[10px] font-bold border-2 border-[#135bec] bg-blue-50 rounded-lg text-[#135bec]"
+                          : "py-2 px-2 text-[10px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50"
+                      }
+                      title="Bu fatura için ödeme yapılmadı"
+                    >
+                      Ödenmedi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPaid(true);
+                        if (!paidDate) setPaidDate(documentDate || "");
+                      }}
+                      className={
+                        isPaid
+                          ? "py-2 px-2 text-[10px] font-bold border-2 border-emerald-600 bg-emerald-50 rounded-lg text-emerald-700"
+                          : "py-2 px-2 text-[10px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50"
+                      }
+                      title="Bu fatura için ödeme yapıldı"
+                    >
+                      Ödendi
+                    </button>
+                  </div>
+
+                  {isPaid && (
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-500">
+                        Ödeme Tarihi
+                      </label>
+                      <input
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-4 text-sm"
+                        type="date"
+                        value={paidDate}
+                        onChange={(e) => setPaidDate(e.target.value)}
+                      />
+                      <p className="text-[10px] text-slate-400">
+                        Not: <b>Onayla ve Stoka Al</b> ile birlikte cari hareketine “ödendi” işlenir.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
