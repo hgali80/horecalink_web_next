@@ -35,6 +35,7 @@ export default function CariDetailPage() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cariId]);
 
   async function loadData() {
@@ -44,6 +45,8 @@ export default function CariDetailPage() {
     const cariSnap = await getDoc(doc(db, "caris", cariId));
     if (cariSnap.exists()) {
       setCari(cariSnap.data());
+    } else {
+      setCari(null);
     }
 
     // Cari hareketler
@@ -58,20 +61,32 @@ export default function CariDetailPage() {
     let balance = 0;
     const table = [];
 
-    snap.forEach((doc) => {
-      const t = doc.data();
-      const amt = Number(t.amount || 0);
+    snap.forEach((d) => {
+      const t = d.data();
 
-      if (t.type === "debit") balance += amt;
-      if (t.type === "credit") balance -= amt;
+      // ✅ Alan fallback'leri (asıl fix burada)
+      const type = (t.type || "").toString().trim(); // debit | credit
+      const source = (t.source ?? "-")?.toString?.() ?? "-";
+      const refId = (t.refId ?? t.documentNo ?? t.invoiceNo ?? "-")?.toString?.() ?? "-";
+
+      // Bazı kayıtlar operationDate kullanıyor olabilir
+      const date = t.operationDate || t.createdAt;
+
+      const amt = Number(t.amount ?? t.total ?? t.grandTotal ?? 0);
+
+      // Bakiye hesabı
+      if (type === "debit") balance += amt;
+      else if (type === "credit") balance -= amt;
 
       table.push({
-        date: t.createdAt,
-        type: t.type,
-        source: t.source,
-        refId: t.refId,
+        id: d.id,
+        date,
+        type,
+        source,
+        refId,
         amount: amt,
         balance,
+        note: t.note || t.description || "",
       });
     });
 
@@ -83,9 +98,7 @@ export default function CariDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-xl font-semibold">
-        Cari Detayı
-      </h1>
+      <h1 className="text-xl font-semibold">Cari Detayı</h1>
 
       {/* Cari Bilgi */}
       <div className="border p-4 space-y-1">
@@ -115,35 +128,43 @@ export default function CariDetailPage() {
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={i}>
-                <td className="border p-1">
-                  {formatDate(r.date)}
-                </td>
+              <tr key={r.id || i}>
+                <td className="border p-1">{formatDate(r.date)}</td>
+
                 <td className="border p-1">
                   {r.type === "debit"
                     ? "Borç"
-                    : "Alacak"}
+                    : r.type === "credit"
+                    ? "Alacak"
+                    : "?"}
                 </td>
-                <td className="border p-1">
-                  {r.source}
-                </td>
-                <td className="border p-1">
-                  {r.refId || "-"}
-                </td>
+
+                <td className="border p-1">{r.source || "-"}</td>
+
+                <td className="border p-1">{r.refId || "-"}</td>
+
                 <td
                   className={`border p-1 text-right ${
                     r.type === "debit"
                       ? "text-red-600"
-                      : "text-green-600"
+                      : r.type === "credit"
+                      ? "text-green-600"
+                      : ""
                   }`}
                 >
                   {money(r.amount)}
                 </td>
-                <td className="border p-1 text-right">
-                  {money(r.balance)}
-                </td>
+
+                <td className="border p-1 text-right">{money(r.balance)}</td>
               </tr>
             ))}
+            {rows.length === 0 && (
+              <tr>
+                <td className="border p-3 text-center text-gray-500" colSpan={6}>
+                  Kayıt bulunamadı.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
