@@ -1,0 +1,288 @@
+// app/satissitok/admin/products/[productId]/page.jsx
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, Home, Save } from "lucide-react";
+import { getProduct, updateProduct } from "@/app/satissitok/services/productService";
+
+function Field({ label, children }) {
+  return (
+    <label className="block space-y-1">
+      <div className="text-xs font-semibold text-gray-700">{label}</div>
+      {children}
+    </label>
+  );
+}
+
+export default function ProductDetailEditPage() {
+  const { productId } = useParams();
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
+  const [err, setErr] = useState("");
+
+  const [form, setForm] = useState(null);
+
+  function set(k, v) {
+    setForm((s) => ({ ...s, [k]: v }));
+  }
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const p = await getProduct(productId);
+        if (!alive) return;
+        if (!p) {
+          setErr("Ürün bulunamadı.");
+          return;
+        }
+
+        setForm({
+          stock_code: p.stock_code ?? p.id,
+          name: p.name ?? "",
+          name_tr: p.name_tr ?? "",
+          barcode: p.barcode ?? "",
+          main_category: p.main_category ?? "",
+          sub_category: p.sub_category ?? "",
+          brand: p.brand ?? "",
+          unit: p.unit ?? "шт",
+          description: p.description ?? "",
+          specs: p.specs ?? "",
+          price: p.price ?? 0,
+          order: p.order ?? 0,
+          vatRate: p.vatRate ?? 16,
+          productType: p.productType ?? "sale_item",
+          image_names: Array.isArray(p.image_names) ? p.image_names.join(",") : (p.image_names ?? ""),
+          binding_codes: Array.isArray(p.binding_codes) ? p.binding_codes.join(",") : (p.binding_codes ?? ""),
+          active: p.active ?? true,
+          webPublished: p.webPublished ?? false,
+          stockTracked: p.stockTracked ?? true,
+          saleEnabled: p.saleEnabled ?? true,
+          purchaseEnabled: p.purchaseEnabled ?? true,
+        });
+      } catch (e) {
+        if (!alive) return;
+        setErr(e?.message || "Yükleme hatası.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => (alive = false);
+  }, [productId]);
+
+  async function onSave() {
+    if (!form) return;
+    setErr("");
+    try {
+      setWorking(true);
+      await updateProduct(productId, form);
+      router.refresh?.();
+    } catch (e) {
+      setErr(e?.message || "Kaydetme başarısız.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="flex items-center gap-3">
+        <Link
+          href="/satissitok/admin/products"
+          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+        >
+          <ArrowLeft className="w-4 h-4" /> Ürünlere Dön
+        </Link>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+        >
+          <Home className="w-4 h-4" /> Ana Sayfa
+        </Link>
+      </div>
+
+      {loading ? (
+        <div className="text-sm text-gray-600">Yükleniyor...</div>
+      ) : err ? (
+        <div className="text-sm text-red-600">{err}</div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Ürün Düzenle: <span className="font-mono">{productId}</span>
+            </h1>
+
+            <button
+              onClick={onSave}
+              disabled={working}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-900 disabled:opacity-60"
+            >
+              <Save className="w-4 h-4" /> {working ? "Kaydediliyor..." : "Kaydet"}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Stok Kodu">
+              <input
+                value={form.stock_code}
+                disabled
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50"
+              />
+            </Field>
+
+            <Field label="Barkod">
+              <input
+                value={form.barcode}
+                onChange={(e) => set("barcode", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Ürün Adı (RU/KZ)">
+              <input
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Ürün Adı (TR)">
+              <input
+                value={form.name_tr}
+                onChange={(e) => set("name_tr", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Ana Kategori">
+              <input
+                value={form.main_category}
+                onChange={(e) => set("main_category", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Alt Kategori">
+              <input
+                value={form.sub_category}
+                onChange={(e) => set("sub_category", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Marka">
+              <input
+                value={form.brand}
+                onChange={(e) => set("brand", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Birim">
+              <input
+                value={form.unit}
+                onChange={(e) => set("unit", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Fiyat">
+              <input
+                type="number"
+                value={form.price}
+                onChange={(e) => set("price", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Sıra (order)">
+              <input
+                type="number"
+                value={form.order}
+                onChange={(e) => set("order", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="KDV (vatRate)">
+              <input
+                type="number"
+                value={form.vatRate}
+                onChange={(e) => set("vatRate", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Ürün Tipi (productType)">
+              <select
+                value={form.productType}
+                onChange={(e) => set("productType", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="sale_item">sale_item</option>
+                <option value="consumable">consumable</option>
+                <option value="service">service</option>
+              </select>
+            </Field>
+
+            <Field label="Görseller (image_names) virgüllü">
+              <input
+                value={form.image_names}
+                onChange={(e) => set("image_names", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="İlgili Ürün Kodları (binding_codes) virgüllü">
+              <input
+                value={form.binding_codes}
+                onChange={(e) => set("binding_codes", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </Field>
+          </div>
+
+          <Field label="Açıklama (description)">
+            <textarea
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm min-h-[90px]"
+            />
+          </Field>
+
+          <Field label="Teknik (specs)">
+            <textarea
+              value={form.specs}
+              onChange={(e) => set("specs", e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm min-h-[90px]"
+            />
+          </Field>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border rounded-xl p-4">
+            {[
+              ["active", "Aktif"],
+              ["webPublished", "Web’de Yayınla"],
+              ["saleEnabled", "Satış Aktif"],
+              ["purchaseEnabled", "Satınalma Aktif"],
+              ["stockTracked", "Stok Takibi"],
+            ].map(([k, label]) => (
+              <label key={k} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={!!form[k]}
+                  onChange={(e) => set(k, e.target.checked)}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

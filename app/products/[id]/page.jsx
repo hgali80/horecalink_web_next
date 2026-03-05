@@ -170,7 +170,15 @@ export default function ProductDetailPage() {
         }
 
         const p = { id: snap.id, ...snap.data() };
-        setProduct(p);
+
+// 🔒 Webde yayınlı değilse veya pasifse gösterme
+if (p?.active === false || p?.webPublished === false) {
+  setError(t("productDetail.notFound"));
+  setLoading(false);
+  return;
+}
+
+setProduct(p);
 
         if (p.image_names?.length > 0) {
           const urls = await Promise.all(p.image_names.map((name) => loadImage(name)));

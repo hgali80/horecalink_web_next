@@ -1,11 +1,16 @@
 //app/sitemap-products.xml/route.js
 import { db } from "@/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
 export async function GET() {
   const baseUrl = "https://horecalink.kz";
 
-  const snap = await getDocs(collection(db, "products"));
+  const q = query(
+  collection(db, "products"),
+  where("active", "==", true),
+  where("webPublished", "==", true)
+);
+const snap = await getDocs(q);
 
   const urls = snap.docs.map((doc) => {
     return `

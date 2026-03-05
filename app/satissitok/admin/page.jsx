@@ -84,6 +84,15 @@ export default function SalesStockDashboard() {
             icon={<Package />}
           />
 
+          {/* ✅ YENİ: ÜRÜNLER */}
+          <DashboardCard
+            title="Ürünler"
+            desc="Ürün listesi, yeni ürün oluştur, düzenle"
+            href="/satissitok/admin/products"
+            color="purple"
+            icon={<Package />}
+          />
+
           <DashboardCard
             title="Ayarlar"
             desc="Birim, vergi ve sistem ayarları"
