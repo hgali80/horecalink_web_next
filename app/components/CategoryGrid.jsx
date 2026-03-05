@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { db } from "../firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { getT } from "../lib/i18n";
 
 const SUPPORTED = ["tr", "ru", "kz", "en"];
@@ -41,7 +41,13 @@ export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, "products"));
+        const q = query(
+  collection(db, "products"),
+  where("active", "==", true),
+  where("webPublished", "==", true)
+);
+
+const querySnapshot = await getDocs(q);
         const productList = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),

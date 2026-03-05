@@ -22,11 +22,13 @@ export default function Home() {
     const fetchFeatured = async () => {
       try {
         const q = query(
-          collection(db, "products"),
-          where("featured", "==", true),
-          orderBy("featuredOrder"),
-          limit(20)
-        );
+  collection(db, "products"),
+  where("active", "==", true),
+  where("webPublished", "==", true),
+  where("featured", "==", true),
+  orderBy("featuredOrder"),
+  limit(20)
+);
 
         const snap = await getDocs(q);
         const list = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));

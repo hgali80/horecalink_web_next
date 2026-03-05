@@ -52,7 +52,12 @@ export default function ProductList({
             return;
           }
 
-          const q = query(collection(db, "products"), where("sub_category", "==", mapItem.sub));
+          const q = query(
+  collection(db, "products"),
+  where("active", "==", true),
+  where("webPublished", "==", true),
+  where("sub_category", "==", mapItem.sub)
+);
           const snap = await getDocs(q);
           const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
           setProducts(list);
@@ -79,7 +84,12 @@ export default function ProductList({
 
           const all = [];
           for (const part of chunks) {
-            const q = query(collection(db, "products"), where("sub_category", "in", part));
+            const q = query(
+  collection(db, "products"),
+  where("active", "==", true),
+  where("webPublished", "==", true),
+  where("sub_category", "in", part)
+);
             const snap = await getDocs(q);
             snap.docs.forEach((d) => all.push({ id: d.id, ...d.data() }));
           }
@@ -89,7 +99,13 @@ export default function ProductList({
           return;
         }
 
-        const snap = await getDocs(collection(db, "products"));
+        const q = query(
+  collection(db, "products"),
+  where("active", "==", true),
+  where("webPublished", "==", true)
+);
+
+const snap = await getDocs(q);
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setProducts(list);
       } catch (err) {

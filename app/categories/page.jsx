@@ -14,7 +14,7 @@ import { categoryData } from "../data/categoryData";
 import { categoryMap } from "../data/categoryMap";
 import { useLang } from "../context/LanguageContext";
 
-import { getFirestore, collection, getDocs } from "firebase/firestore";
+import { getFirestore, collection, getDocs, query, where } from "firebase/firestore";
 import { app } from "../../firebase";
 import ProductCard from "../components/ProductCard";
 
@@ -49,8 +49,14 @@ function CategoriesContent() {
     const fetchProducts = async () => {
       try {
         setProductsLoading(true);
-        const snap = await getDocs(collection(db, "products"));
-        setAllProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const q = query(
+  collection(db, "products"),
+  where("active", "==", true),
+  where("webPublished", "==", true)
+);
+
+const snap = await getDocs(q);
+setAllProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } finally {
         setProductsLoading(false);
       }
