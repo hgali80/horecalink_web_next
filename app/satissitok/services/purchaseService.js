@@ -26,12 +26,18 @@ function toDateOrNull(dateISO) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function num(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function round2(n) {
+  return Math.round(num(n) * 100) / 100;
+}
+
 /* =========================================================
    CREATE PURCHASE
    ✅ FIX: Transaction rule (ALL READS before ANY WRITES)
-   - Önce stok balance read (completed ise)
-   - Sonra invoice counter reserve (read+write)
-   - Sonra tüm write işlemleri
 ========================================================= */
 
 export async function createPurchase(payload) {
@@ -45,7 +51,7 @@ export async function createPurchase(payload) {
     const status = (payload.status || "completed").trim() || "completed";
     const isFinal = status === "completed";
 
-    // Depo (yeni model) – satınalma ekranında seçimi yoksa varsayılan: main
+    // Depo – satınalma ekranında seçimi yoksa varsayılan: main
     const warehouseKey = (payload.warehouseKey || "main").trim() || "main";
 
     const manualInvoice = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
@@ -57,7 +63,6 @@ export async function createPurchase(payload) {
        READ PHASE (ALL READS FIRST)
     ===================== */
 
-    // ✅ Stok balance okumayı sadece completed için yap
     const existingBalances = isFinal
       ? await readStockBalancesForPurchase({
           transaction,
@@ -65,7 +70,7 @@ export async function createPurchase(payload) {
         })
       : null;
 
-    // ✅ Sayaç reserve (read+write) — Bundan sonra read YOK!
+    // ✅ Sayaç reserve — Bundan sonra read YOK!
     const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
       transaction,
       kind: "purchases",
@@ -73,14 +78,34 @@ export async function createPurchase(payload) {
       dateISO: payload.documentDate,
     });
 
-    // ✅ Kaydedilecek invoiceNo seçimi:
-    // - invoiceNoAuto=true  => autoInvoice
-    // - invoiceNoAuto=false => manualInvoice (boşsa autoInvoice)
     const invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
 
     // UI / audit
     const invoiceNoAutoValue = invoiceNo === autoInvoice ? autoInvoice : null;
     const invoiceNoManual = invoiceNo !== autoInvoice;
+
+    /* =====================
+       TOTALS NORMALIZATION (VAT REPORT READY)
+       UI: totals = { net, tax, gross }
+       Legacy: totals.vat olabilir
+    ===================== */
+
+    const t = payload.totals || {};
+    const net = round2(t.net ?? payload.netTotal ?? 0);
+    const vatRaw = t.tax ?? t.vat ?? payload.vatTotal ?? payload.taxTotal ?? 0;
+    const vat = round2(vatRaw);
+    const gross = round2(t.gross ?? payload.grossTotal ?? payload.total ?? (net + vat));
+
+    // purchaseType=actual ise rapor KDV’si 0 olmalı
+    const vatTotal = type === "official" ? vat : 0;
+
+    // totals objesini geriye uyumlu yaz (tax + vat birlikte)
+    const totalsNormalized = {
+      net,
+      tax: vat, // UI mevcut ana anahtar
+      vat: vat, // rapor/legacy uyumu için alias
+      gross,
+    };
 
     /* =====================
        WRITE PHASE
@@ -101,11 +126,11 @@ export async function createPurchase(payload) {
       // fatura
       invoiceNo,
       documentNo: invoiceNo,
-      invoiceNoAuto: invoiceNoAutoValue, // audit (auto üretilen no, yoksa null)
-      invoiceNoManual, // audit (manuel müdahale oldu mu)
-      invoiceSequence: nextSeq, // audit (yıl içi sıra)
-      invoiceYear2: yy, // audit (YY)
-      invoiceCounterRef: "invoice_counters/purchases", // audit
+      invoiceNoAuto: invoiceNoAutoValue,
+      invoiceNoManual,
+      invoiceSequence: nextSeq,
+      invoiceYear2: yy,
+      invoiceCounterRef: "invoice_counters/purchases",
 
       // tarihler
       documentDate: toDateOrNull(payload.documentDate),
@@ -118,10 +143,16 @@ export async function createPurchase(payload) {
 
       // kalemler/toplam
       items,
-      totals: payload.totals || {},
+      totals: totalsNormalized,
+
+      // ✅ RAPOR İÇİN TOP-LEVEL TOTALS
+      netTotal: net,
+      vatTotal: vatTotal,
+      grossTotal: gross,
 
       // ödeme/not/ek
-      paymentMethod: (payload.paymentMethod || "").trim(), // bank | cash | kaspi (UI)
+      paymentMethod: (payload.paymentMethod || "").trim(),
+      payment: payload.payment || null,
       dueDate: toDateOrNull(payload.dueDate),
       notes: (payload.notes || "").trim(),
       attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
@@ -129,11 +160,11 @@ export async function createPurchase(payload) {
       status,
 
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
 
     /* =====================
-       STOK HAREKETLERİ
-       ✅ Sadece completed iken
+       STOK HAREKETLERİ — Sadece completed
     ===================== */
 
     if (isFinal) {
@@ -159,15 +190,12 @@ export async function createPurchase(payload) {
     }
 
     /* =====================
-       CARİ HAREKETİ
-       ✅ Sadece completed iken
-       ✅ CANONICAL + LEGACY birlikte yazılır (geriye uyum)
+       CARİ HAREKETİ — Sadece completed
+       ✅ CANONICAL + LEGACY birlikte yazılır
     ===================== */
 
     if (isFinal && payload.supplierCariId) {
-      const gross = Number(payload.totals?.gross || 0);
       const desc = (payload.description || payload.notes || "Satınalma faturası").trim();
-
       const cariTxRef = doc(collection(db, "cari_transactions"));
 
       transaction.set(cariTxRef, {
@@ -176,25 +204,21 @@ export async function createPurchase(payload) {
         operationDate: toDateOrNull(payload.documentDate),
         dueDate: toDateOrNull(payload.dueDate),
 
-        // ✅ canonical
+        // canonical
         operationType: "purchase_invoice",
-        direction: "credit",         // satınalma -> cariye alacak yazar
-        amount: gross,               // tek alan raporlama için
-        refId: purchaseRef.id,       // detaya link için
+        direction: "credit",
+        amount: gross,
+        refId: purchaseRef.id,
         documentNo: invoiceNo,
         note: desc,
         paymentMethod: (payload.paymentMethod || "").trim() || null,
-
         operationCategory: payload.operationCategory || "trade_goods",
-
         currency: "KZT",
 
-        // ✅ legacy (kalsın, eski ekranlar bozulmasın)
+        // legacy
         debit: 0,
         credit: gross,
         description: desc,
-
-        // optional legacy alias (istersen raporda kullanma)
         source: "purchase",
 
         createdAt: serverTimestamp(),
@@ -207,7 +231,6 @@ export async function createPurchase(payload) {
 
 /* =========================================================
    CANCEL PURCHASE (MEVCUT YAPI KORUNDU)
-   ✅ CANONICAL alanlar eklendi
 ========================================================= */
 
 export async function cancelPurchase({ purchaseId }) {
@@ -258,27 +281,25 @@ export async function cancelPurchase({ purchaseId }) {
       });
 
       if (purchase.supplierCariId) {
-        const gross = Number(purchase.totals?.gross || 0);
+        const gross = Number(purchase.grossTotal ?? purchase.totals?.gross ?? 0);
         const desc = "Satınalma faturası iptali";
 
         const cariTxRef = doc(collection(db, "cari_transactions"));
 
         transaction.set(cariTxRef, {
           cariId: purchase.supplierCariId,
-
           operationDate: new Date(),
 
-          // ✅ canonical
+          // canonical
           operationType: "purchase_cancel",
-          direction: "debit",       // iptal -> cariden düşmek için borç yazar (ters kayıt)
+          direction: "debit",
           amount: gross,
           refId: purchaseId,
           documentNo: purchase.invoiceNo,
           note: desc,
-
           currency: "KZT",
 
-          // ✅ legacy (kalsın)
+          // legacy
           debit: gross,
           credit: 0,
           description: desc,
@@ -292,6 +313,7 @@ export async function cancelPurchase({ purchaseId }) {
     transaction.update(purchaseRef, {
       status: "cancelled",
       cancelledAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
 
     return true;
