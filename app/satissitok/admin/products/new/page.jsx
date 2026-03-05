@@ -1,11 +1,11 @@
 // app/satissitok/admin/products/new/page.jsx
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Home, Save } from "lucide-react";
-import { createProduct } from "@/app/satissitok/services/productService";
+import { ArrowLeft, Home, Save, UploadCloud } from "lucide-react";
+import { createProduct, uploadProductImages } from "@/app/satissitok/services/productService";
 
 function Field({ label, children }) {
   return (
@@ -18,8 +18,11 @@ function Field({ label, children }) {
 
 export default function NewProductPage() {
   const router = useRouter();
+  const fileRef = useRef(null);
+
   const [working, setWorking] = useState(false);
   const [err, setErr] = useState("");
+  const [uploadInfo, setUploadInfo] = useState(null);
 
   const [form, setForm] = useState({
     stock_code: "",
@@ -36,8 +39,8 @@ export default function NewProductPage() {
     order: 0,
     vatRate: 16,
     productType: "sale_item",
-    image_names: "", // virgüllü giriş
-    binding_codes: "", // virgüllü giriş
+    image_names: [], // 🔥 artık array tutuyoruz
+    binding_codes: "",
     active: true,
     webPublished: false,
     stockTracked: true,
@@ -51,14 +54,44 @@ export default function NewProductPage() {
 
   async function onSave() {
     setErr("");
+    setUploadInfo(null);
+
     try {
       setWorking(true);
-      const id = await createProduct(form);
+
+      const stockCode = (form.stock_code || "").toString().trim();
+      if (!stockCode) throw new Error("stock_code zorunlu.");
+
+      // 1) Foto upload (seçilmişse)
+      const files = fileRef.current?.files;
+      let image_names = Array.isArray(form.image_names) ? form.image_names : [];
+
+      if (files && files.length > 0) {
+        const res = await uploadProductImages({
+          stockCode,
+          files,
+          existingImageNames: image_names,
+          onProgress: (p) => setUploadInfo(p),
+        });
+
+        image_names = res.imageNames;
+        set("image_names", image_names);
+      }
+
+      // 2) Firestore create
+      const id = await createProduct({
+        ...form,
+        stock_code: stockCode,
+        image_names,
+      });
+
       router.push(`/satissitok/admin/products/${id}`);
     } catch (e) {
       setErr(e?.message || "Kaydetme başarısız.");
     } finally {
       setWorking(false);
+      // dosya input temizle
+      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
@@ -93,13 +126,57 @@ export default function NewProductPage() {
 
       {err ? <div className="text-sm text-red-600">{err}</div> : null}
 
+      {uploadInfo ? (
+        <div className="text-xs text-gray-700 border rounded-lg p-3 bg-gray-50">
+          <div className="font-semibold flex items-center gap-2">
+            <UploadCloud className="w-4 h-4" />
+            Foto yükleniyor
+          </div>
+          <div>
+            {uploadInfo.stage === "uploading" ? "Yükleniyor" : "Tamamlandı"}:{" "}
+            <b>{uploadInfo.filename}</b>{" "}
+            ({uploadInfo.index + 1}/{uploadInfo.total})
+          </div>
+        </div>
+      ) : null}
+
+      {/* FOTO YÜKLEME */}
+      <section className="border rounded-xl p-4 space-y-2">
+        <div className="font-semibold text-gray-900">Fotoğraflar</div>
+        <div className="text-xs text-gray-600">
+          Storage: <b>product_images/</b> • İsim:{" "}
+          <b>stock_code.jpg</b>, sonra <b>stock_code-1.jpg</b>, <b>-2</b>...
+        </div>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="block w-full text-sm"
+        />
+
+        {Array.isArray(form.image_names) && form.image_names.length > 0 ? (
+          <div className="text-xs text-gray-700">
+            <div className="font-semibold mt-2">Mevcut image_names</div>
+            <ul className="list-disc pl-5">
+              {form.image_names.map((x) => (
+                <li key={x}>{x}</li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="text-xs text-gray-500">Henüz kaydedilmiş foto yok.</div>
+        )}
+      </section>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field label="Stok Kodu (docId) *">
           <input
             value={form.stock_code}
             onChange={(e) => set("stock_code", e.target.value)}
             className="w-full border rounded-lg px-3 py-2 text-sm"
-            placeholder="100000"
+            placeholder="111222"
           />
         </Field>
 
@@ -108,7 +185,6 @@ export default function NewProductPage() {
             value={form.barcode}
             onChange={(e) => set("barcode", e.target.value)}
             className="w-full border rounded-lg px-3 py-2 text-sm"
-            placeholder="..."
           />
         </Field>
 
@@ -157,7 +233,6 @@ export default function NewProductPage() {
             value={form.unit}
             onChange={(e) => set("unit", e.target.value)}
             className="w-full border rounded-lg px-3 py-2 text-sm"
-            placeholder="шт / adet / kg"
           />
         </Field>
 
@@ -198,18 +273,6 @@ export default function NewProductPage() {
             <option value="consumable">consumable</option>
             <option value="service">service</option>
           </select>
-        </Field>
-
-        <Field label="Görseller (image_names) virgüllü">
-          <input
-            value={form.image_names}
-            onChange={(e) => set("image_names", e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 text-sm"
-            placeholder="100000,100000-1"
-          />
-          <div className="text-[11px] text-gray-500">
-            Not: Sistem otomatik <b>.jpg</b> ekler.
-          </div>
         </Field>
 
         <Field label="İlgili Ürün Kodları (binding_codes) virgüllü">

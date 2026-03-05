@@ -8,6 +8,7 @@ import {
   query,
   where,
   Timestamp,
+  orderBy,
 } from "firebase/firestore";
 import { db } from "@/firebase";
 
@@ -31,14 +32,39 @@ function startOfMonth() {
   return d;
 }
 
+function normalizeDateRange(filterType, fromDate, toDate) {
+  let start;
+  let end = new Date();
+
+  if (filterType === "today") {
+    start = startOfToday();
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
+  if (filterType === "month") {
+    start = startOfMonth();
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
+  // custom
+  if (!fromDate || !toDate) return null;
+
+  start = new Date(fromDate);
+  start.setHours(0, 0, 0, 0);
+
+  end = new Date(toDate);
+  end.setHours(23, 59, 59, 999);
+
+  return { start, end };
+}
+
 export default function VatReportPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
-  const [summary, setSummary] = useState({
-    net: 0,
-    vat: 0,
-    gross: 0,
-  });
+  const [summary, setSummary] = useState({ net: 0, vat: 0, gross: 0 });
+  const [error, setError] = useState("");
 
   const [filterType, setFilterType] = useState("month");
   const [fromDate, setFromDate] = useState("");
@@ -46,63 +72,68 @@ export default function VatReportPage() {
 
   useEffect(() => {
     loadReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadReport() {
     setLoading(true);
+    setError("");
 
-    let start;
-    let end = new Date();
-
-    if (filterType === "today") {
-      start = startOfToday();
-    } else if (filterType === "month") {
-      start = startOfMonth();
-    } else {
-      if (!fromDate || !toDate) {
-        alert("Tarih aralığını seç");
-        setLoading(false);
-        return;
-      }
-      start = new Date(fromDate);
-      start.setHours(0, 0, 0, 0);
-      end = new Date(toDate);
-      end.setHours(23, 59, 59, 999);
+    const range = normalizeDateRange(filterType, fromDate, toDate);
+    if (!range) {
+      alert("Tarih aralığını seç");
+      setLoading(false);
+      return;
     }
 
-    const q = query(
-      collection(db, "sales"),
-      where("status", "==", "completed"),
-      where("saleType", "==", "official"),
-      where("createdAt", ">=", Timestamp.fromDate(start)),
-      where("createdAt", "<=", Timestamp.fromDate(end))
-    );
+    const { start, end } = range;
 
-    const snap = await getDocs(q);
+    try {
+      const q = query(
+        collection(db, "sales"),
+        where("status", "==", "completed"),
+        where("saleType", "==", "official"),
+        where("createdAt", ">=", Timestamp.fromDate(start)),
+        where("createdAt", "<=", Timestamp.fromDate(end)),
+        orderBy("createdAt", "desc")
+      );
 
-    let net = 0;
-    let vat = 0;
-    let gross = 0;
-    const table = [];
+      const snap = await getDocs(q);
 
-    snap.forEach((doc) => {
-      const s = doc.data();
+      let net = 0;
+      let vat = 0;
+      let gross = 0;
+      const table = [];
 
-      net += Number(s.netTotal || 0);
-      vat += Number(s.vatTotal || 0);
-      gross += Number(s.grossTotal || 0);
+      snap.forEach((doc) => {
+        const s = doc.data();
 
-      table.push({
-        saleNo: s.saleNo,
-        net: s.netTotal,
-        vat: s.vatTotal,
-        gross: s.grossTotal,
+        net += Number(s.netTotal || 0);
+        vat += Number(s.vatTotal || 0);
+        gross += Number(s.grossTotal || 0);
+
+        table.push({
+          saleNo: s.saleNo,
+          net: s.netTotal,
+          vat: s.vatTotal,
+          gross: s.grossTotal,
+        });
       });
-    });
 
-    setSummary({ net, vat, gross });
-    setRows(table);
-    setLoading(false);
+      setSummary({ net, vat, gross });
+      setRows(table);
+    } catch (e) {
+      // Index yoksa sayfa kilitlenmesin; net hata göster
+      const msg = String(e?.message || e || "Bilinmeyen hata");
+      setError(msg);
+
+      // console linki genelde message içinde olur (create index)
+      // burada sadece kullanıcıya gösteriyoruz.
+      setRows([]);
+      setSummary({ net: 0, vat: 0, gross: 0 });
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (loading) return <div className="p-6">Yükleniyor…</div>;
@@ -110,6 +141,18 @@ export default function VatReportPage() {
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-xl font-semibold">KDV Raporu</h1>
+
+      {/* HATA */}
+      {error && (
+        <div className="border border-red-300 bg-red-50 text-red-800 p-3 rounded text-sm">
+          <div className="font-semibold mb-1">Firestore Hatası</div>
+          <div className="whitespace-pre-wrap">{error}</div>
+          <div className="mt-2">
+            Büyük ihtimalle <b>composite index</b> eksik. Konsoldaki hata linkine
+            tıklayıp “Create index” oluştur.
+          </div>
+        </div>
+      )}
 
       {/* FİLTRE */}
       <div className="flex flex-wrap gap-4 items-end border p-4">
@@ -179,17 +222,18 @@ export default function VatReportPage() {
             {rows.map((r, i) => (
               <tr key={i}>
                 <td className="border p-1">{r.saleNo}</td>
-                <td className="border p-1 text-right">
-                  {money(r.net)}
-                </td>
-                <td className="border p-1 text-right">
-                  {money(r.vat)}
-                </td>
-                <td className="border p-1 text-right">
-                  {money(r.gross)}
-                </td>
+                <td className="border p-1 text-right">{money(r.net)}</td>
+                <td className="border p-1 text-right">{money(r.vat)}</td>
+                <td className="border p-1 text-right">{money(r.gross)}</td>
               </tr>
             ))}
+            {!rows.length && (
+              <tr>
+                <td className="border p-3 text-center text-gray-500" colSpan={4}>
+                  Kayıt yok
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
