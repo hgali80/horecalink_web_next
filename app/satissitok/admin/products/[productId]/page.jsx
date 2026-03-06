@@ -61,7 +61,9 @@ export default function ProductDetailEditPage() {
           vatRate: p.vatRate ?? 16,
           productType: p.productType ?? "sale_item",
           image_names: Array.isArray(p.image_names) ? p.image_names : [],
-          binding_codes: Array.isArray(p.binding_codes) ? p.binding_codes.join(",") : (p.binding_codes ?? ""),
+          binding_codes: Array.isArray(p.binding_codes)
+            ? p.binding_codes.join(",")
+            : (p.binding_codes ?? ""),
           active: p.active ?? true,
           webPublished: p.webPublished ?? false,
           stockTracked: p.stockTracked ?? true,
@@ -100,7 +102,6 @@ export default function ProductDetailEditPage() {
 
       set("image_names", res.imageNames);
 
-      // input temizle
       if (fileRef.current) fileRef.current.value = "";
     } catch (e) {
       setErr(e?.message || "Foto yükleme hatası.");
@@ -113,7 +114,6 @@ export default function ProductDetailEditPage() {
     const n = (name || "").toString().trim();
     if (!n) return;
     set("image_names", (form.image_names || []).filter((x) => x !== n));
-    // Not: Storage'dan silmiyoruz (istersen sonra deleteObject ekleriz)
   }
 
   async function onSave() {
@@ -135,18 +135,27 @@ export default function ProductDetailEditPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/satissitok/admin/products"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+      {/* Top Nav */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Geri"
+          title="Geri"
         >
-          <ArrowLeft className="w-4 h-4" /> Ürünlere Dön
-        </Link>
+          <ArrowLeft size={18} />
+          <span className="text-sm font-semibold">Geri</span>
+        </button>
+
         <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+          href="/satissitok/admin"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Satış/Stok Ana Sayfa"
+          title="Satış/Stok Ana Sayfa"
         >
-          <Home className="w-4 h-4" /> Ana Sayfa
+          <Home size={18} />
+          <span className="text-sm font-semibold">Ana Sayfa</span>
         </Link>
       </div>
 
@@ -166,7 +175,8 @@ export default function ProductDetailEditPage() {
               disabled={working}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-900 disabled:opacity-60"
             >
-              <Save className="w-4 h-4" /> {working ? "Kaydediliyor..." : "Kaydet"}
+              <Save className="w-4 h-4" />
+              {working ? "Kaydediliyor..." : "Kaydet"}
             </button>
           </div>
 
@@ -186,8 +196,7 @@ export default function ProductDetailEditPage() {
                 </div>
                 <div>
                   {uploadInfo.stage === "uploading" ? "Yükleniyor" : "Tamamlandı"}:{" "}
-                  <b>{uploadInfo.filename}</b>{" "}
-                  ({uploadInfo.index + 1}/{uploadInfo.total})
+                  <b>{uploadInfo.filename}</b> ({uploadInfo.index + 1}/{uploadInfo.total})
                 </div>
               </div>
             ) : null}
@@ -215,7 +224,10 @@ export default function ProductDetailEditPage() {
                 <div className="font-semibold mt-2">image_names</div>
                 <ul className="space-y-1">
                   {form.image_names.map((x) => (
-                    <li key={x} className="flex items-center justify-between gap-3 border rounded-lg px-3 py-2">
+                    <li
+                      key={x}
+                      className="flex items-center justify-between gap-3 border rounded-lg px-3 py-2"
+                    >
                       <span className="font-mono">{x}</span>
                       <button
                         type="button"
@@ -228,7 +240,8 @@ export default function ProductDetailEditPage() {
                   ))}
                 </ul>
                 <div className="text-[11px] text-gray-500 mt-1">
-                  Not: “kaldır” sadece Firestore listesinden çıkarır. Storage’dan silme yok (istersen ekleriz).
+                  Not: “kaldır” sadece Firestore listesinden çıkarır. Storage’dan silme yok
+                  (istersen ekleriz).
                 </div>
               </div>
             ) : (

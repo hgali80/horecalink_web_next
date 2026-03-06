@@ -39,7 +39,7 @@ export default function NewProductPage() {
     order: 0,
     vatRate: 16,
     productType: "sale_item",
-    image_names: [], // 🔥 artık array tutuyoruz
+    image_names: [],
     binding_codes: "",
     active: true,
     webPublished: false,
@@ -62,7 +62,6 @@ export default function NewProductPage() {
       const stockCode = (form.stock_code || "").toString().trim();
       if (!stockCode) throw new Error("stock_code zorunlu.");
 
-      // 1) Foto upload (seçilmişse)
       const files = fileRef.current?.files;
       let image_names = Array.isArray(form.image_names) ? form.image_names : [];
 
@@ -78,7 +77,6 @@ export default function NewProductPage() {
         set("image_names", image_names);
       }
 
-      // 2) Firestore create
       const id = await createProduct({
         ...form,
         stock_code: stockCode,
@@ -90,25 +88,33 @@ export default function NewProductPage() {
       setErr(e?.message || "Kaydetme başarısız.");
     } finally {
       setWorking(false);
-      // dosya input temizle
       if (fileRef.current) fileRef.current.value = "";
     }
   }
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/satissitok/admin/products"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+      {/* Top Nav */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Geri"
+          title="Geri"
         >
-          <ArrowLeft className="w-4 h-4" /> Ürünlere Dön
-        </Link>
+          <ArrowLeft size={18} />
+          <span className="text-sm font-semibold">Geri</span>
+        </button>
+
         <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+          href="/satissitok/admin"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Satış/Stok Ana Sayfa"
+          title="Satış/Stok Ana Sayfa"
         >
-          <Home className="w-4 h-4" /> Ana Sayfa
+          <Home size={18} />
+          <span className="text-sm font-semibold">Ana Sayfa</span>
         </Link>
       </div>
 
@@ -120,7 +126,8 @@ export default function NewProductPage() {
           disabled={working}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-900 disabled:opacity-60"
         >
-          <Save className="w-4 h-4" /> {working ? "Kaydediliyor..." : "Kaydet"}
+          <Save className="w-4 h-4" />
+          {working ? "Kaydediliyor..." : "Kaydet"}
         </button>
       </div>
 
@@ -134,18 +141,16 @@ export default function NewProductPage() {
           </div>
           <div>
             {uploadInfo.stage === "uploading" ? "Yükleniyor" : "Tamamlandı"}:{" "}
-            <b>{uploadInfo.filename}</b>{" "}
-            ({uploadInfo.index + 1}/{uploadInfo.total})
+            <b>{uploadInfo.filename}</b> ({uploadInfo.index + 1}/{uploadInfo.total})
           </div>
         </div>
       ) : null}
 
-      {/* FOTO YÜKLEME */}
       <section className="border rounded-xl p-4 space-y-2">
         <div className="font-semibold text-gray-900">Fotoğraflar</div>
         <div className="text-xs text-gray-600">
-          Storage: <b>product_images/</b> • İsim:{" "}
-          <b>stock_code.jpg</b>, sonra <b>stock_code-1.jpg</b>, <b>-2</b>...
+          Storage: <b>product_images/</b> • İsim: <b>stock_code.jpg</b>, sonra{" "}
+          <b>stock_code-1.jpg</b>, <b>-2</b>...
         </div>
 
         <input

@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Home, PlusCircle, Search } from "lucide-react";
 import { listProductsAdmin } from "@/app/satissitok/services/productService";
 
@@ -11,6 +12,8 @@ function toStr(x) {
 }
 
 export default function AdminProductsPage() {
+  const router = useRouter();
+
   const [items, setItems] = useState([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
@@ -50,24 +53,34 @@ export default function AdminProductsPage() {
         .map(toStr)
         .join(" ")
         .toLowerCase();
+
       return hay.includes(s);
     });
   }, [items, q]);
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-3">
+      {/* Top Nav */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Geri"
+          title="Geri"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-sm font-semibold">Geri</span>
+        </button>
+
         <Link
           href="/satissitok/admin"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Satış/Stok Ana Sayfa"
+          title="Satış/Stok Ana Sayfa"
         >
-          <ArrowLeft className="w-4 h-4" /> Geri
-        </Link>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-        >
-          <Home className="w-4 h-4" /> Ana Sayfa
+          <Home size={18} />
+          <span className="text-sm font-semibold">Ana Sayfa</span>
         </Link>
       </div>
 
@@ -78,7 +91,8 @@ export default function AdminProductsPage() {
           href="/satissitok/admin/products/new"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-900"
         >
-          <PlusCircle className="w-4 h-4" /> Yeni Ürün
+          <PlusCircle className="w-4 h-4" />
+          Yeni Ürün
         </Link>
       </div>
 
@@ -114,20 +128,25 @@ export default function AdminProductsPage() {
               className="grid grid-cols-12 px-3 py-2 text-sm border-t hover:bg-gray-50"
             >
               <div className="col-span-2 font-mono">{toStr(p.stock_code)}</div>
+
               <div className="col-span-5">
                 <div className="font-medium text-gray-900">{toStr(p.name)}</div>
                 <div className="text-xs text-gray-500">{toStr(p.name_tr)}</div>
               </div>
+
               <div className="col-span-2 text-xs text-gray-700">
                 {toStr(p.main_category)}
                 <div className="text-gray-500">{toStr(p.sub_category)}</div>
               </div>
+
               <div className="col-span-1 text-center text-xs">
                 {p.webPublished ? "✅" : "—"}
               </div>
+
               <div className="col-span-1 text-center text-xs">
                 {p.active ? "✅" : "⛔"}
               </div>
+
               <div className="col-span-1 text-right font-medium">
                 {Number(p.price || 0).toLocaleString("tr-TR")}
               </div>
