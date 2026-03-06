@@ -175,15 +175,17 @@ export default function SaleDetailPage() {
   }
 
   const cariTitle =
-    cari?.title ||
-    cari?.name ||
-    cari?.unvan ||
-    cari?.companyName ||
-    sale?.cariName ||
-    sale?.customerName ||
-    sale?.customerTitle ||
-    sale?.companyName ||
-    "-";
+  cari?.firm ||
+  cari?.title ||
+  cari?.name ||
+  cari?.unvan ||
+  cari?.companyName ||
+  sale?.cariTitle ||
+  sale?.cariName ||
+  sale?.customerName ||
+  sale?.customerTitle ||
+  sale?.companyName ||
+  "-";
 
   const cariPhone =
     cari?.phone ||
