@@ -1,11 +1,23 @@
 // app/satissitok/admin/products/[productId]/page.jsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Home, Save, UploadCloud } from "lucide-react";
-import { getProduct, updateProduct, uploadProductImages } from "@/app/satissitok/services/productService";
+import {
+  ArrowLeft,
+  Home,
+  Save,
+  UploadCloud,
+  Image as ImageIcon,
+} from "lucide-react";
+import { ref, getDownloadURL } from "firebase/storage";
+import { storage } from "@/firebase";
+import {
+  getProduct,
+  updateProduct,
+  uploadProductImages,
+} from "@/app/satissitok/services/productService";
 
 function Field({ label, children }) {
   return (
@@ -29,17 +41,23 @@ export default function ProductDetailEditPage() {
 
   const [form, setForm] = useState(null);
 
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
   function set(k, v) {
     setForm((s) => ({ ...s, [k]: v }));
   }
 
   useEffect(() => {
     let alive = true;
+
     (async () => {
       try {
         setLoading(true);
         const p = await getProduct(productId);
+
         if (!alive) return;
+
         if (!p) {
           setErr("Ürün bulunamadı.");
           return;
@@ -77,16 +95,70 @@ export default function ProductDetailEditPage() {
         if (alive) setLoading(false);
       }
     })();
-    return () => (alive = false);
+
+    return () => {
+      alive = false;
+    };
   }, [productId]);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadPreviewUrls() {
+      const names = Array.isArray(form?.image_names) ? form.image_names : [];
+
+      if (!names.length) {
+        setImagePreviews([]);
+        return;
+      }
+
+      try {
+        setPreviewLoading(true);
+
+        const results = await Promise.all(
+          names.map(async (name) => {
+            try {
+              const fileRef = ref(storage, `product_images/${name}`);
+              const url = await getDownloadURL(fileRef);
+              return {
+                name,
+                url,
+                ok: true,
+              };
+            } catch (e) {
+              return {
+                name,
+                url: "",
+                ok: false,
+                error: e?.message || "Görsel URL alınamadı.",
+              };
+            }
+          })
+        );
+
+        if (!alive) return;
+        setImagePreviews(results);
+      } finally {
+        if (alive) setPreviewLoading(false);
+      }
+    }
+
+    loadPreviewUrls();
+
+    return () => {
+      alive = false;
+    };
+  }, [form?.image_names]);
 
   async function onUploadPhotos() {
     if (!form) return;
+
     setErr("");
     setUploadInfo(null);
 
     try {
       const files = fileRef.current?.files;
+
       if (!files || files.length === 0) {
         throw new Error("Önce foto seç.");
       }
@@ -100,7 +172,7 @@ export default function ProductDetailEditPage() {
         onProgress: (p) => setUploadInfo(p),
       });
 
-      set("image_names", res.imageNames);
+      set("image_names", res.imageNames || []);
 
       if (fileRef.current) fileRef.current.value = "";
     } catch (e) {
@@ -113,18 +185,26 @@ export default function ProductDetailEditPage() {
   function removeImageName(name) {
     const n = (name || "").toString().trim();
     if (!n) return;
-    set("image_names", (form.image_names || []).filter((x) => x !== n));
+
+    set(
+      "image_names",
+      (form.image_names || []).filter((x) => x !== n)
+    );
   }
 
   async function onSave() {
     if (!form) return;
+
     setErr("");
+
     try {
       setWorking(true);
+
       await updateProduct(productId, {
         ...form,
         image_names: form.image_names || [],
       });
+
       router.refresh?.();
     } catch (e) {
       setErr(e?.message || "Kaydetme başarısız.");
@@ -133,9 +213,12 @@ export default function ProductDetailEditPage() {
     }
   }
 
+  const hasImages = useMemo(() => {
+    return Array.isArray(form?.image_names) && form.image_names.length > 0;
+  }, [form?.image_names]);
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      {/* Top Nav */}
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -180,13 +263,95 @@ export default function ProductDetailEditPage() {
             </button>
           </div>
 
-          {/* FOTO YÜKLEME */}
-          <section className="border rounded-xl p-4 space-y-2">
-            <div className="font-semibold text-gray-900">Fotoğraflar</div>
-            <div className="text-xs text-gray-600">
-              Storage: <b>product_images/</b> • İsim:{" "}
-              <b>{productId}.jpg</b>, sonra <b>{productId}-1.jpg</b>, <b>-2</b>...
+          <section className="border rounded-xl p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-gray-700" />
+              <div className="font-semibold text-gray-900">Fotoğraflar</div>
             </div>
+
+            <div className="text-xs text-gray-600">
+              Storage klasörü: <b>product_images/</b> • İsim yapısı:{" "}
+              <b>{productId}.jpg</b>, sonra <b>{productId}-1.jpg</b>,{" "}
+              <b>{productId}-2.jpg</b> ...
+            </div>
+
+            {previewLoading ? (
+              <div className="text-sm text-gray-500">Fotoğraflar yükleniyor...</div>
+            ) : hasImages ? (
+              <div className="space-y-3">
+                <div className="text-sm font-semibold text-gray-800">
+                  Mevcut Fotoğraflar
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {imagePreviews.map((img) => (
+                    <div
+                      key={img.name}
+                      className="border rounded-xl overflow-hidden bg-white"
+                    >
+                      <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                        {img.ok && img.url ? (
+                          <img
+                            src={img.url}
+                            alt={img.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="p-4 text-center text-xs text-red-600">
+                            Görsel yüklenemedi
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-3 space-y-2">
+                        <div className="text-[11px] text-gray-700 font-mono break-all">
+                          {img.name}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2">
+                          {img.ok && img.url ? (
+                            <a
+                              href={img.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-blue-600 hover:underline"
+                            >
+                              büyüt
+                            </a>
+                          ) : (
+                            <span className="text-[11px] text-red-500">
+                              Storage URL alınamadı
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => removeImageName(img.name)}
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            kaldır
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-[11px] text-gray-500">
+                  Not: “kaldır” sadece Firestore içindeki <b>image_names</b>{" "}
+                  listesinden çıkarır. Storage dosyasını silmez.
+                </div>
+              </div>
+            ) : (
+              <div className="border border-dashed rounded-xl p-5 bg-gray-50">
+                <div className="text-sm font-semibold text-gray-800">
+                  Bu ürüne ait fotoğraf yok.
+                </div>
+                <div className="text-xs text-gray-600 mt-1">
+                  Aşağıdaki alandan bir veya birden fazla fotoğraf ekleyebilirsin.
+                </div>
+              </div>
+            )}
 
             {uploadInfo ? (
               <div className="text-xs text-gray-700 border rounded-lg p-3 bg-gray-50">
@@ -196,7 +361,8 @@ export default function ProductDetailEditPage() {
                 </div>
                 <div>
                   {uploadInfo.stage === "uploading" ? "Yükleniyor" : "Tamamlandı"}:{" "}
-                  <b>{uploadInfo.filename}</b> ({uploadInfo.index + 1}/{uploadInfo.total})
+                  <b>{uploadInfo.filename}</b> ({uploadInfo.index + 1}/
+                  {uploadInfo.total})
                 </div>
               </div>
             ) : null}
@@ -222,13 +388,13 @@ export default function ProductDetailEditPage() {
             {Array.isArray(form.image_names) && form.image_names.length > 0 ? (
               <div className="text-xs text-gray-700">
                 <div className="font-semibold mt-2">image_names</div>
-                <ul className="space-y-1">
+                <ul className="space-y-1 mt-1">
                   {form.image_names.map((x) => (
                     <li
                       key={x}
                       className="flex items-center justify-between gap-3 border rounded-lg px-3 py-2"
                     >
-                      <span className="font-mono">{x}</span>
+                      <span className="font-mono break-all">{x}</span>
                       <button
                         type="button"
                         onClick={() => removeImageName(x)}
@@ -239,14 +405,8 @@ export default function ProductDetailEditPage() {
                     </li>
                   ))}
                 </ul>
-                <div className="text-[11px] text-gray-500 mt-1">
-                  Not: “kaldır” sadece Firestore listesinden çıkarır. Storage’dan silme yok
-                  (istersen ekleriz).
-                </div>
               </div>
-            ) : (
-              <div className="text-xs text-gray-500">Foto yok.</div>
-            )}
+            ) : null}
           </section>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
