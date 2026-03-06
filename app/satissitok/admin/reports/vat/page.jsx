@@ -2,6 +2,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Home } from "lucide-react";
 import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
 import { db } from "@/firebase";
 
@@ -106,6 +109,8 @@ function pickItemVat(it) {
 }
 
 export default function VatReportPage() {
+  const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("summary"); // summary | sales | purchases
 
@@ -341,6 +346,30 @@ export default function VatReportPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Top Nav */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Geri"
+          title="Geri"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-sm font-semibold">Geri</span>
+        </button>
+
+        <Link
+          href="/satissitok/admin"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          aria-label="Satış/Stok Ana Sayfa"
+          title="Satış/Stok Ana Sayfa"
+        >
+          <Home size={18} />
+          <span className="text-sm font-semibold">Ana Sayfa</span>
+        </Link>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">KDV Raporu</h1>
         <button onClick={exportCSV} className="px-3 py-2 border rounded hover:bg-gray-50">
