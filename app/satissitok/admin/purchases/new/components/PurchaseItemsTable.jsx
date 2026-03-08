@@ -50,19 +50,18 @@ export default function PurchaseItemsTable({
   onChange,
   vatRate = 0,
   vatMode = "inclusive",
-  hideVat = false, // fiili fatura = true
+  hideVat = false,
   disabled = false,
   initialItems = [],
 }) {
   const [products, setProducts] = useState([]);
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState([makeEmptyRow()]);
 
   const [openIndex, setOpenIndex] = useState(-1);
   const [ddPos, setDdPos] = useState({ top: 0, left: 0, width: 0 });
   const [queryByIndex, setQueryByIndex] = useState({});
   const inputRefs = useRef({});
   const closeTimerRef = useRef(null);
-  const initialLoadedRef = useRef(false);
 
   useEffect(() => {
     const load = async () => {
@@ -139,27 +138,29 @@ export default function PurchaseItemsTable({
     return normalized;
   }
 
+  // ✅ KRİTİK FIX:
+  // initialItems sonradan gelirse de tabloya bas
   useEffect(() => {
-    if (initialLoadedRef.current) return;
-
     if (Array.isArray(initialItems) && initialItems.length > 0) {
       const normalized = initialItems.map((row) => normalizeRow(row));
       setItems(normalized);
 
-      const q = {};
+      const nextQueries = {};
       normalized.forEach((row, i) => {
-        q[i] = row.productName
-          ? `${row.productName}${row.sku ? ` • ${row.sku}` : ""}${row.unit ? ` • ${row.unit}` : ""}`
-          : "";
+        nextQueries[i] =
+          row.productName ||
+          row.sku ||
+          "";
       });
-      setQueryByIndex(q);
-
-      initialLoadedRef.current = true;
+      setQueryByIndex(nextQueries);
       return;
     }
 
-    setItems([makeEmptyRow()]);
-    initialLoadedRef.current = true;
+    // sadece gerçekten boşsa tek boş satır bırak
+    setItems((prev) => {
+      if (Array.isArray(prev) && prev.length > 0) return prev;
+      return [makeEmptyRow()];
+    });
   }, [initialItems]);
 
   useEffect(() => {
@@ -189,7 +190,7 @@ export default function PurchaseItemsTable({
         .filter(([k]) => k !== i)
         .sort((a, b) => a[0] - b[0]);
 
-      oldEntries.forEach(([oldIdx, value], newIdx) => {
+      oldEntries.forEach(([_, value], newIdx) => {
         next[newIdx] = value;
       });
 
