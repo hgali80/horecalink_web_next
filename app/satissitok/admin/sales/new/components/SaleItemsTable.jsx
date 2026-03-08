@@ -57,7 +57,6 @@ function calcRow({ row, saleType, vatMode }) {
     };
   }
 
-  // exclude
   const net = discounted;
   const vat = net * (vatRate / 100);
   const total = net + vat;
@@ -65,6 +64,44 @@ function calcRow({ row, saleType, vatMode }) {
     net: round2(net),
     vat: round2(vat),
     total: round2(total),
+  };
+}
+
+function normalizeRow(row, { defaultUnit, defaultWarehouse, defaultVatRate, saleType, vatMode }) {
+  const safe = {
+    productId: row?.productId || "",
+    productName: row?.productName || "",
+    unit: row?.unit || defaultUnit,
+    warehouseKey: row?.warehouseKey || defaultWarehouse,
+    quantity: Math.max(0, num(row?.quantity || 0)) || 1,
+    unitPrice: Math.max(0, num(row?.unitPrice || 0)),
+    discountRate: Math.min(100, Math.max(0, num(row?.discountRate || 0))),
+    vatRate:
+      saleType === "official"
+        ? Math.max(0, num(row?.vatRate ?? defaultVatRate))
+        : 0,
+    net: num(row?.net || 0),
+    vat: num(row?.vat || 0),
+    total: num(row?.total || 0),
+  };
+
+  const calc = calcRow({ row: safe, saleType, vatMode });
+  return { ...safe, ...calc };
+}
+
+function makeEmptyRow({ defaultUnit, defaultWarehouse, defaultVatRate }) {
+  return {
+    productId: "",
+    productName: "",
+    unit: defaultUnit,
+    warehouseKey: defaultWarehouse,
+    quantity: 1,
+    unitPrice: 0,
+    discountRate: 0,
+    vatRate: defaultVatRate,
+    net: 0,
+    vat: 0,
+    total: 0,
   };
 }
 
@@ -95,7 +132,6 @@ export default function SaleItemsTable({
   const [queryByIndex, setQueryByIndex] = useState({});
   const closeTimerRef = useRef(null);
 
-  // ✅ Dropdown fixed konumlandırma
   const inputRefs = useRef({});
   const [ddPos, setDdPos] = useState({ top: 0, left: 0, width: 520 });
 
@@ -109,7 +145,7 @@ export default function SaleItemsTable({
   }
 
   function productLabel(p) {
-    return String(p?.name || p?.title || p?.id || "");
+    return String(p?.name || p?.title || p?.productName || p?.id || "");
   }
 
   function currentRowLabel(row) {
@@ -120,7 +156,19 @@ export default function SaleItemsTable({
   function updateRow(i, patch) {
     setItems((prev) => {
       const next = [...prev];
-      const row = { ...next[i], ...patch };
+      const base = normalizeRow(next[i] || {}, {
+        defaultUnit,
+        defaultWarehouse,
+        defaultVatRate,
+        saleType,
+        vatMode,
+      });
+      const row = { ...base, ...patch };
+
+      if (saleType !== "official") {
+        row.vatRate = 0;
+      }
+
       const calc = calcRow({ row, saleType, vatMode });
       next[i] = { ...row, ...calc };
       return next;
@@ -128,25 +176,27 @@ export default function SaleItemsTable({
   }
 
   function removeRow(i) {
-    setItems((prev) => prev.filter((_, idx) => idx !== i));
+    setItems((prev) => {
+      const next = prev.filter((_, idx) => idx !== i);
+      if (next.length > 0) return next;
+      return [
+        makeEmptyRow({
+          defaultUnit,
+          defaultWarehouse,
+          defaultVatRate,
+        }),
+      ];
+    });
   }
 
   function addRow() {
     setItems((prev) => [
       ...prev,
-      {
-        productId: "",
-        productName: "",
-        unit: defaultUnit,
-        warehouseKey: defaultWarehouse,
-        quantity: 1,
-        unitPrice: 0,
-        discountRate: 0,
-        vatRate: defaultVatRate,
-        net: 0,
-        vat: 0,
-        total: 0,
-      },
+      makeEmptyRow({
+        defaultUnit,
+        defaultWarehouse,
+        defaultVatRate: saleType === "official" ? defaultVatRate : 0,
+      }),
     ]);
   }
 
@@ -159,27 +209,52 @@ export default function SaleItemsTable({
 
   function pickProduct(i, p) {
     const label = productLabel(p);
-    updateRow(i, {
+
+    const patch = {
       productId: p.id,
       productName: label,
       unitPrice: num(p?.price || 0),
-    });
+      unit:
+        p?.unit ||
+        p?.unitKey ||
+        items?.[i]?.unit ||
+        defaultUnit,
+      warehouseKey: items?.[i]?.warehouseKey || defaultWarehouse,
+      vatRate:
+        saleType === "official"
+          ? Math.max(0, num(p?.vatRate ?? items?.[i]?.vatRate ?? defaultVatRate))
+          : 0,
+    };
+
+    updateRow(i, patch);
     setQuery(i, label);
     setOpenIndex(-1);
   }
 
-  // Recalc when saleType/vatMode changes
+  // Recalc when saleType/vatMode/defaults change
   useEffect(() => {
     setItems((prev) =>
-      prev.map((row) => {
-        const calc = calcRow({ row, saleType, vatMode });
-        return { ...row, ...calc };
-      })
+      (prev || []).map((row) =>
+        normalizeRow(row, {
+          defaultUnit,
+          defaultWarehouse,
+          defaultVatRate,
+          saleType,
+          vatMode,
+        })
+      )
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saleType, vatMode]);
+  }, [setItems, saleType, vatMode, defaultUnit, defaultWarehouse, defaultVatRate]);
 
-  // ✅ Scroll/resize olunca dropdown inputu takip etsin
+  // Keep query text synced when external items change (edit load)
+  useEffect(() => {
+    const next = {};
+    (items || []).forEach((row, i) => {
+      next[i] = currentRowLabel(row);
+    });
+    setQueryByIndex(next);
+  }, [items, productById]);
+
   useEffect(() => {
     const onScrollOrResize = () => {
       if (openIndex === -1) return;
@@ -261,7 +336,6 @@ export default function SaleItemsTable({
 
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
-                      {/* ✅ Searchable product picker (fixed dropdown, kırpılmaz) */}
                       <div className="relative">
                         <input
                           ref={(el) => (inputRefs.current[i] = el)}
@@ -353,7 +427,9 @@ export default function SaleItemsTable({
                         )}
                       </div>
 
-                      <span className="text-[10px] text-slate-400">SKU: {row.productId || "-"}</span>
+                      <span className="text-[10px] text-slate-400">
+                        SKU: {row.productId || "-"}
+                      </span>
                     </div>
                   </td>
 
@@ -366,7 +442,7 @@ export default function SaleItemsTable({
                     >
                       {(warehouses || []).map((w) => (
                         <option key={w.key} value={w.key}>
-                          {w.name || w.key}
+                          {w.name || w.label || w.key}
                         </option>
                       ))}
                     </select>
@@ -381,7 +457,7 @@ export default function SaleItemsTable({
                     >
                       {(units || []).map((u) => (
                         <option key={u.key} value={u.key}>
-                          {u.name || u.key}
+                          {u.name || u.label || u.key}
                         </option>
                       ))}
                     </select>
@@ -422,7 +498,7 @@ export default function SaleItemsTable({
                   <td className="px-4 py-3 text-right">
                     <select
                       className="w-20 text-right text-xs bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={row.vatRate ?? defaultVatRate}
+                      value={saleType === "official" ? row.vatRate ?? defaultVatRate : 0}
                       onChange={(e) => updateRow(i, { vatRate: e.target.value })}
                       disabled={disabled || saleType !== "official"}
                     >

@@ -22,6 +22,8 @@ import {
   FileText,
   Paperclip,
   Save,
+  Trash2,
+  Clock3,
 } from "lucide-react";
 
 /* ===============================
@@ -46,6 +48,11 @@ function formatInvoiceNo(type, yy, seq) {
   return `${prefix}-${yy}-${pad6(seq)}`;
 }
 
+// PD-26-000001
+function formatDraftNo(yy, seq) {
+  return `PD-${yy}-${pad6(seq)}`;
+}
+
 function fmtMoney(n) {
   const x = Number(n) || 0;
   return x.toLocaleString("tr-TR", {
@@ -54,7 +61,28 @@ function fmtMoney(n) {
   });
 }
 
-export default function PurchaseForm({ onSubmit }) {
+function toISODate(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 10);
+  if (value?.toDate) {
+    const d = value.toDate();
+    return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+  }
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
+
+function normalizeStatus(s) {
+  const x = String(s || "draft").trim().toLowerCase();
+  if (x === "draft" || x === "pending" || x === "completed") return x;
+  return "draft";
+}
+
+export default function PurchaseForm({
+  onSubmit,
+  initialData = null,
+  onDeleteDraft = null,
+}) {
   /* ===============================
      DURUM / TÜR
   ================================ */
@@ -96,6 +124,8 @@ export default function PurchaseForm({ onSubmit }) {
     new Date().toISOString().slice(0, 10)
   );
 
+  const [purchaseId, setPurchaseId] = useState("");
+
   /* ===============================
      CARİ DROPDOWN
   ================================ */
@@ -116,12 +146,14 @@ export default function PurchaseForm({ onSubmit }) {
   ================================ */
 
   const [paymentMethod, setPaymentMethod] = useState("bank"); // bank | cash | kaspi
-  // ✅ yeni: fatura ödeme durumu (cari hareketine de işlenecek)
   const [isPaid, setIsPaid] = useState(false);
   const [paidDate, setPaidDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState([]); // metadata only
+
+  const isEditMode = !!(initialData?.id || initialData?.purchaseId || purchaseId);
+  const isDraftLike = status !== "completed";
 
   /* ===============================
      SETTINGS LOAD
@@ -143,6 +175,78 @@ export default function PurchaseForm({ onSubmit }) {
     };
     loadSettings();
   }, []);
+
+  /* ===============================
+     INITIAL DATA LOAD (EDIT)
+  ================================ */
+
+  useEffect(() => {
+    if (!initialData) return;
+
+    setPurchaseId(initialData.id || initialData.purchaseId || "");
+    setStatus(normalizeStatus(initialData.status || "draft"));
+    setPurchaseType(
+      initialData.purchaseType === "actual" ? "actual" : "official"
+    );
+    setVatMode(initialData.vatMode || "inclusive");
+
+    const taxRate =
+      Number(
+        initialData.taxRate ??
+          initialData.totals?.taxRate ??
+          initialData.vatRate ??
+          0
+      ) || 0;
+
+    if (taxRate > 0) setSelectedVat(taxRate);
+
+    setSupplierCariId(initialData.supplierCariId || null);
+    setSupplierName(initialData.supplierName || "");
+    setSupplierBin(initialData.supplierBin || "");
+    setSupplierRef(initialData.supplierRef || "");
+    setResponsiblePerson(initialData.responsiblePerson || "");
+
+    const resolvedInvoice =
+      initialData.invoiceNo ||
+      initialData.documentNo ||
+      initialData.draftNo ||
+      "";
+
+    setInvoiceNo(resolvedInvoice);
+    setInvoiceNoDirty(!!resolvedInvoice);
+
+    const dt =
+      toISODate(initialData.documentDate) ||
+      toISODate(initialData.invoiceDate) ||
+      new Date().toISOString().slice(0, 10);
+
+    setDocumentDate(dt);
+
+    setWarehouseKey(initialData.warehouseKey || "main");
+
+    setCariSearch(initialData.supplierName || "");
+
+    setItems(Array.isArray(initialData.items) ? initialData.items : []);
+
+    const payment = initialData.payment || {};
+    const paymentMethodResolved =
+      payment.method || initialData.paymentMethod || "bank";
+    setPaymentMethod(paymentMethodResolved);
+
+    const paid =
+      payment.isPaid === true ||
+      (!!payment.paidAmount && Number(payment.paidAmount) > 0);
+    setIsPaid(!!paid);
+    setPaidDate(
+      toISODate(payment.paidDate) || toISODate(initialData.paidDate) || ""
+    );
+
+    setDueDate(toISODate(initialData.dueDate) || "");
+    setNotes(initialData.notes || "");
+    setAttachments(
+      Array.isArray(initialData.attachments) ? initialData.attachments : []
+    );
+  }, [initialData]);
 
   /* ===============================
      CARİ LOAD
@@ -206,14 +310,11 @@ export default function PurchaseForm({ onSubmit }) {
   useEffect(() => {
     if (purchaseType === "actual") {
       setSelectedVat(0);
-    } else {
+    } else if (!initialData) {
       const def = vatRates.find((v) => v.default === true);
       setSelectedVat(def ? Number(def.rate) : 16);
     }
-
-    // fatura no önizleme tekrar devreye girsin
-    setInvoiceNoDirty(false);
-  }, [purchaseType, vatRates]);
+  }, [purchaseType, vatRates, initialData]);
 
   const yy = useMemo(() => year2FromDateISO(documentDate), [documentDate]);
 
@@ -221,24 +322,49 @@ export default function PurchaseForm({ onSubmit }) {
     const loadNextInvoiceNoPreview = async () => {
       if (invoiceNoDirty) return;
       if (loadingInvoiceRef.current) return;
+
+      // edit modda mevcut kayıt numarası korunur
+      if (
+        initialData &&
+        (initialData.invoiceNo || initialData.documentNo || initialData.draftNo)
+      ) {
+        return;
+      }
+
       loadingInvoiceRef.current = true;
 
       try {
-        const ref = doc(db, "invoice_counters", "purchases");
-        const snap = await getDoc(ref);
+        if (status === "completed") {
+          const ref = doc(db, "invoice_counters", "purchases");
+          const snap = await getDoc(ref);
 
-        const data = snap.exists() ? snap.data() : {};
-        const key = purchaseType === "official" ? "official" : "actual";
+          const data = snap.exists() ? snap.data() : {};
+          const key = purchaseType === "official" ? "official" : "actual";
 
-        const years = (data && typeof data === "object" ? data.years : null) || {};
-        const yearMap = (years && typeof years === "object" ? years[yy] : null) || {};
+          const years =
+            (data && typeof data === "object" ? data.years : null) || {};
+          const yearMap =
+            (years && typeof years === "object" ? years[yy] : null) || {};
 
-        // ✅ yeni şema: years[YY][type]
-        // ✅ geriye uyumluluk: data[type]
-        const currentSeq = Number((yearMap && yearMap[key]) ?? data[key] ?? 0);
-        const nextSeq = currentSeq + 1;
+          const currentSeq = Number((yearMap && yearMap[key]) ?? data[key] ?? 0);
+          const nextSeq = currentSeq + 1;
 
-        setInvoiceNo(formatInvoiceNo(purchaseType, yy, nextSeq));
+          setInvoiceNo(formatInvoiceNo(purchaseType, yy, nextSeq));
+        } else {
+          const ref = doc(db, "draft_counters", "purchases");
+          const snap = await getDoc(ref);
+
+          const data = snap.exists() ? snap.data() : {};
+          const years =
+            (data && typeof data === "object" ? data.years : null) || {};
+          const yearMap =
+            (years && typeof years === "object" ? years[yy] : null) || {};
+
+          const currentSeq = Number((yearMap && yearMap.seq) ?? 0);
+          const nextSeq = currentSeq + 1;
+
+          setInvoiceNo(formatDraftNo(yy, nextSeq));
+        }
       } catch (e) {
         console.error("Fatura No Yükleme Hatası:", e);
         setInvoiceNo("");
@@ -248,7 +374,7 @@ export default function PurchaseForm({ onSubmit }) {
     };
 
     loadNextInvoiceNoPreview();
-  }, [purchaseType, yy, invoiceNoDirty]);
+  }, [purchaseType, yy, invoiceNoDirty, status, initialData]);
 
   /* ===============================
      TOPLAMLAR
@@ -258,9 +384,12 @@ export default function PurchaseForm({ onSubmit }) {
     purchaseType === "official" ? Number(selectedVat || 0) : 0;
 
   const totals = useMemo(() => {
-    const net = items.reduce((s, i) => s + (i.netLineTotal || 0), 0);
-    const vat = items.reduce((s, i) => s + (i.vatLineTotal || 0), 0);
-    const gross = items.reduce((s, i) => s + (i.grossLineTotal || 0), 0);
+    const net = items.reduce((s, i) => s + (i.netLineTotal || i.net || 0), 0);
+    const vat = items.reduce((s, i) => s + (i.vatLineTotal || i.vat || 0), 0);
+    const gross = items.reduce(
+      (s, i) => s + (i.grossLineTotal || i.total || 0),
+      0
+    );
 
     const r = (x) => Math.round((Number(x) || 0) * 100) / 100;
     return { net: r(net), vat: r(vat), gross: r(gross) };
@@ -305,6 +434,9 @@ export default function PurchaseForm({ onSubmit }) {
 
   const buildPayload = (nextStatus) => {
     return {
+      purchaseId: purchaseId || initialData?.id || initialData?.purchaseId || null,
+      id: purchaseId || initialData?.id || initialData?.purchaseId || null,
+
       status: nextStatus,
 
       supplierName: (supplierName || "").trim(),
@@ -334,7 +466,7 @@ export default function PurchaseForm({ onSubmit }) {
       payment: {
         method: paymentMethod,
         isPaid: Boolean(isPaid),
-        paidDate: isPaid ? (paidDate || documentDate || null) : null,
+        paidDate: isPaid ? paidDate || documentDate || null : null,
       },
       dueDate: dueDate || null,
       notes,
@@ -343,8 +475,7 @@ export default function PurchaseForm({ onSubmit }) {
   };
 
   const validate = (nextStatus) => {
-    // Taslakta min kontrol
-    if (nextStatus === "draft") {
+    if (nextStatus === "draft" || nextStatus === "pending") {
       if (!supplierName && !supplierCariId && items.length === 0) {
         alert("Taslak için en az bir alan doldurun (tedarikçi veya satır ekleyin).");
         return false;
@@ -352,7 +483,6 @@ export default function PurchaseForm({ onSubmit }) {
       return true;
     }
 
-    // completed
     if (!supplierName || !documentDate || !warehouseKey || items.length === 0) {
       alert("Lütfen gerekli alanları doldurun: Tedarikçi, Depo, Tarih, Satır öğeleri.");
       return false;
@@ -366,6 +496,30 @@ export default function PurchaseForm({ onSubmit }) {
     await onSubmit(payload);
   };
 
+  const handleDeleteDraft = async () => {
+    if (!purchaseId && !initialData?.id && !initialData?.purchaseId) {
+      alert("Silinecek kayıt bulunamadı.");
+      return;
+    }
+
+    if (status === "completed") {
+      alert("Tamamlanmış satınalma taslak olarak silinemez.");
+      return;
+    }
+
+    if (!onDeleteDraft) {
+      alert("Taslak silme işlemi bu sayfada bağlı değil.");
+      return;
+    }
+
+    const ok = confirm("Bu taslağı silmek istediğine emin misin?");
+    if (!ok) return;
+
+    await onDeleteDraft({
+      purchaseId: purchaseId || initialData?.id || initialData?.purchaseId,
+    });
+  };
+
   /* ===============================
      UI
   ================================ */
@@ -375,6 +529,8 @@ export default function PurchaseForm({ onSubmit }) {
       ? "Onaylandı"
       : status === "pending"
       ? "Onay Bekliyor"
+      : isEditMode
+      ? "Kaydedilmiş Taslak"
       : "Kaydedilmemiş Taslak";
 
   const paymentLabel =
@@ -384,6 +540,10 @@ export default function PurchaseForm({ onSubmit }) {
       ? "Kaspi QR/Biz"
       : "Banka Transferi";
 
+  const titleText = isEditMode
+    ? "Satınalma Kaydını Düzenle"
+    : "Yeni Satınalma Faturası";
+
   return (
     <div className="flex flex-col gap-6">
       {/* Breadcrumb */}
@@ -391,28 +551,38 @@ export default function PurchaseForm({ onSubmit }) {
         <div className="flex items-center gap-2 text-xs text-slate-500 font-medium uppercase tracking-wider">
           <span className="hover:text-[#135bec]">SATINALMA</span>
           <span className="text-slate-300">›</span>
-          <span className="text-slate-900">YENİ SATINALMA FATURASI</span>
+          <span className="text-slate-900">
+            {isEditMode ? "KAYIT DÜZENLE" : "YENİ SATINALMA FATURASI"}
+          </span>
         </div>
 
         <div className="flex justify-between items-end mt-2">
           <div>
             <h1 className="text-3xl font-black tracking-tight text-slate-900">
-              Yeni Satınalma Faturası
+              {titleText}
             </h1>
-            <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-sm text-slate-500">
-                Taslak No:{" "}
+                Belge No:{" "}
                 <span className="font-mono text-[#135bec]">
                   {invoiceNo || "-"}
                 </span>
               </span>
-              <span className="bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+              <span
+                className={
+                  status === "completed"
+                    ? "bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase"
+                    : status === "pending"
+                    ? "bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase"
+                    : "bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded uppercase"
+                }
+              >
                 {statusBadge}
               </span>
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap justify-end">
             <button
               type="button"
               onClick={() => window.print()}
@@ -451,7 +621,10 @@ export default function PurchaseForm({ onSubmit }) {
               <div className="flex bg-slate-100 p-1 rounded-lg">
                 <button
                   type="button"
-                  onClick={() => setStatus("draft")}
+                  onClick={() => {
+                    setStatus("draft");
+                    if (!isEditMode) setInvoiceNoDirty(false);
+                  }}
                   className={
                     status === "draft"
                       ? "flex-1 py-2 text-xs font-bold rounded-md bg-white shadow-sm text-[#135bec]"
@@ -462,7 +635,10 @@ export default function PurchaseForm({ onSubmit }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStatus("pending")}
+                  onClick={() => {
+                    setStatus("pending");
+                    if (!isEditMode) setInvoiceNoDirty(false);
+                  }}
                   className={
                     status === "pending"
                       ? "flex-1 py-2 text-xs font-bold rounded-md bg-white shadow-sm text-[#135bec]"
@@ -473,7 +649,10 @@ export default function PurchaseForm({ onSubmit }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStatus("completed")}
+                  onClick={() => {
+                    setStatus("completed");
+                    if (!isEditMode) setInvoiceNoDirty(false);
+                  }}
                   className={
                     status === "completed"
                       ? "flex-1 py-2 text-xs font-bold rounded-md bg-white shadow-sm text-[#135bec]"
@@ -483,9 +662,10 @@ export default function PurchaseForm({ onSubmit }) {
                   Onaylandı
                 </button>
               </div>
+
               <p className="mt-3 text-[11px] text-slate-500">
-                Not: Şu an yalnızca <b>Onayla ve Stoka Al</b> butonu stok/cari
-                hareketi yazar. <b>Taslak</b> kaydı stok hareketi yazmaz.
+                <b>Taslak</b> ve <b>Onay Bekliyor</b> kayıtları stok, ortalama maliyet ve cari
+                hareketi yazmaz. Sadece <b>Onayla ve Stoka Al</b> final kayıt üretir.
               </p>
             </div>
 
@@ -530,7 +710,6 @@ export default function PurchaseForm({ onSubmit }) {
                 </label>
               </div>
 
-              {/* KDV Kontrolleri */}
               {showVatControls && (
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
@@ -715,7 +894,7 @@ export default function PurchaseForm({ onSubmit }) {
               {/* Fatura No (manuel/oto) */}
               <div className="flex flex-col gap-1.5 md:col-span-3">
                 <label className="text-xs font-bold text-slate-500">
-                  Fatura No
+                  Belge No
                 </label>
                 <input
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-4 text-sm font-mono focus:ring-[#135bec]"
@@ -727,7 +906,7 @@ export default function PurchaseForm({ onSubmit }) {
                   placeholder="Otomatik numara..."
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Inputa dokunmazsan sayaçtan otomatik numara kaydedilir.
+                  Inputa dokunmazsan seçtiğin duruma göre sayaçtan otomatik numara kullanılır.
                 </p>
               </div>
 
@@ -752,6 +931,7 @@ export default function PurchaseForm({ onSubmit }) {
             vatRate={effectiveVatRate}
             vatMode={vatMode}
             hideVat={hideVatColumns}
+            initialItems={items}
           />
 
           {/* ÖDEME + NOT */}
@@ -964,9 +1144,9 @@ export default function PurchaseForm({ onSubmit }) {
                   </p>
                   <div className="flex justify-between items-baseline">
                     <span className="text-3xl font-black text-white">
-                      {new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 }).format(
-  Number(totals.gross || 0)
-)}
+                      {new Intl.NumberFormat("tr-TR", {
+                        maximumFractionDigits: 0,
+                      }).format(Number(totals.gross || 0))}
                     </span>
                     <span className="text-xl font-bold text-slate-400 ml-1">
                       ₸
@@ -987,8 +1167,30 @@ export default function PurchaseForm({ onSubmit }) {
 
                 <button
                   type="button"
+                  onClick={() => handleAction("pending")}
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-600 rounded-xl font-black text-xs tracking-tight transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+                >
+                  <Clock3 size={16} />
+                  ONAY BEKLİYOR OLARAK KAYDET
+                </button>
+
+                {status !== "completed" && isEditMode && !!onDeleteDraft && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteDraft}
+                    className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs tracking-tight transition-all border border-red-500 flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={16} />
+                    TASLAĞI SİL
+                  </button>
+                )}
+
+                <button
+                  type="button"
                   onClick={() => {
-                    if (confirm("Bu faturayı iptal edip temizlemek istiyor musun?")) {
+                    if (
+                      confirm("Bu faturayı temizlemek istiyor musun? Kaydedilmemiş alanlar kaybolur.")
+                    ) {
                       setSupplierCariId(null);
                       setSupplierName("");
                       setSupplierBin("");
@@ -1000,12 +1202,19 @@ export default function PurchaseForm({ onSubmit }) {
                       setAttachments([]);
                       setDueDate("");
                       setPaymentMethod("bank");
+                      setIsPaid(false);
+                      setPaidDate("");
                       setStatus("draft");
+                      setInvoiceNoDirty(false);
+
+                      if (!isEditMode) {
+                        setInvoiceNo("");
+                      }
                     }
                   }}
                   className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs tracking-tight transition-all border border-slate-700"
                 >
-                  FATURAYI İPTAL ET
+                  FORMU TEMİZLE
                 </button>
               </div>
             </div>
@@ -1032,9 +1241,16 @@ export default function PurchaseForm({ onSubmit }) {
                     {items.length} satır • Depo: <b>{warehouseKey}</b>
                   </p>
                 </div>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-[10px] text-slate-500 font-black uppercase">
+                    Belge Tipi
+                  </p>
+                  <p className="text-xs text-slate-700 font-medium mt-1">
+                    {isDraftLike ? "Draft / Pending numarası" : "Final fatura numarası"}
+                  </p>
+                </div>
               </div>
             </div>
-
           </div>
         </div>
       </div>

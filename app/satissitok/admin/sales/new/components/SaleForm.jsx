@@ -13,6 +13,8 @@ import {
   Truck,
   Wallet,
   AlertTriangle,
+  Trash2,
+  Clock3,
 } from "lucide-react";
 
 import { doc, getDoc } from "firebase/firestore";
@@ -47,12 +49,6 @@ function getDefaultVatRate(vats) {
   return Number.isFinite(rate) ? rate : 0;
 }
 
-/* ===============================
-   FATURA NO ÖNİZLEME (SATIŞ)
-   - invoice_counters/sales years[YY][official|actual]
-   - invoiceNoDirty değilse otomatik önizleme gösterir
-================================ */
-
 function pad6(n) {
   return String(Number(n) || 0).padStart(6, "0");
 }
@@ -71,13 +67,37 @@ function formatSaleInvoiceNo(type, yy, seq) {
   return `${prefix}-${yy}-${pad6(seq)}`;
 }
 
+// SD-26-000001
+function formatSaleDraftNo(yy, seq) {
+  return `SD-${yy}-${pad6(seq)}`;
+}
+
+function toISODate(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 10);
+  if (value?.toDate) {
+    const d = value.toDate();
+    return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+  }
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
+
+function normalizeStatus(s) {
+  const x = String(s || "draft").trim().toLowerCase();
+  if (x === "draft" || x === "pending" || x === "completed") return x;
+  return "draft";
+}
+
 export default function SaleForm({
   products,
   caris,
   balances,
   settings,
   onSubmit,
+  onDeleteDraft = null,
   disabled,
+  initialData = null,
 }) {
   const units = useMemo(() => settings?.units || [], [settings]);
   const warehouses = useMemo(() => settings?.warehouses || [], [settings]);
@@ -98,10 +118,12 @@ export default function SaleForm({
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [draftInfo, setDraftInfo] = useState(null);
 
+  const [saleId, setSaleId] = useState("");
+
   // Header-ish
   const [invoiceDate, setInvoiceDate] = useState(todayISO());
   const [dueDate, setDueDate] = useState("");
-  const [processStatus, setProcessStatus] = useState("draft");
+  const [status, setStatus] = useState("draft");
 
   // Sale meta
   const [saleType, setSaleType] = useState("actual"); // official | actual
@@ -122,7 +144,6 @@ export default function SaleForm({
   // Payment
   const [paymentMethod, setPaymentMethod] = useState("bank");
   const [paidAmount, setPaidAmount] = useState(0);
-  // ✅ yeni: tahsilat durumu (cariye işlenecek)
   const [isPaid, setIsPaid] = useState(false);
 
   // Logistics + notes
@@ -150,9 +171,93 @@ export default function SaleForm({
     },
   ]);
 
-  // Draft auto-load (2.b)
+  const isEditMode = !!(initialData?.id || initialData?.saleId || saleId);
+
+  /* ===============================
+     INITIAL DATA LOAD (EDIT FIRST)
+  ================================ */
+
+  useEffect(() => {
+    if (!initialData) return;
+
+    setSaleId(initialData.id || initialData.saleId || "");
+    setInvoiceDate(
+      toISODate(initialData.invoiceDate) ||
+        toISODate(initialData.documentDate) ||
+        todayISO()
+    );
+    setDueDate(toISODate(initialData.dueDate) || "");
+    setStatus(normalizeStatus(initialData.status || "draft"));
+
+    setSaleType(initialData.saleType === "official" ? "official" : "actual");
+    setSaleChannel(initialData.saleChannel || initialData.platformId || defaultPlatform);
+    setVatMode(initialData.vatMode || "exclude");
+
+    const resolvedInvoice =
+      initialData.invoiceNo ||
+      initialData.saleNo ||
+      initialData.draftNo ||
+      "";
+
+    setInvoiceNo(resolvedInvoice);
+    setInvoiceNoDirty(!!resolvedInvoice);
+
+    setCariId(initialData.cariId || "");
+    setCariSearch("");
+
+    const payment = initialData.payment || {};
+    const resolvedPaidAmount = Number(
+      payment.paidAmount ?? initialData.paidAmount ?? 0
+    ) || 0;
+
+    setPaymentMethod(payment.method || initialData.paymentMethod || "bank");
+    setPaidAmount(resolvedPaidAmount);
+    setIsPaid(Boolean(payment.isPaid) || resolvedPaidAmount > 0);
+
+    const meta = initialData.meta || {};
+    const delivery = meta.delivery || {};
+    const notes = meta.notes || {};
+
+    setDeliveryMode(delivery.mode || "pickup");
+    setDeliveryDate(toISODate(delivery.deliveryDate) || "");
+    setPlateNo(delivery.plateNo || "");
+    setLoadingArea(delivery.loadingArea || "Ana Terminal Peron 02");
+    setCustomerNote(notes.customer || "");
+    setInternalNote(notes.internal || "");
+
+    const loadedItems = Array.isArray(initialData.items) ? initialData.items : [];
+    if (loadedItems.length) {
+      setItems(
+        loadedItems.map((x) => ({
+          productId: x.productId || "",
+          productName: x.productName || "",
+          unit: x.unit || defaultUnit,
+          warehouseKey: x.warehouseKey || defaultWarehouse,
+          quantity: Number(x.quantity || 0) || 1,
+          unitPrice: Number(x.unitPrice || 0) || 0,
+          discountRate: Number(x.discountRate || 0) || 0,
+          vatRate: Number(x.vatRate ?? defaultVatRate) || 0,
+          net: Number(x.net || 0) || 0,
+          vat: Number(x.vat || 0) || 0,
+          total: Number(x.total || 0) || 0,
+        }))
+      );
+    }
+
+    setDraftInfo(null);
+  }, [initialData, defaultPlatform, defaultUnit, defaultWarehouse, defaultVatRate]);
+
+  /* ===============================
+     LOCAL DRAFT AUTO-LOAD (ONLY NEW)
+  ================================ */
+
   useEffect(() => {
     if (draftLoaded) return;
+    if (initialData) {
+      setDraftLoaded(true);
+      return;
+    }
+
     setDraftLoaded(true);
 
     try {
@@ -161,10 +266,9 @@ export default function SaleForm({
       const d = JSON.parse(raw);
       if (!d || typeof d !== "object") return;
 
-      // silent load
       setInvoiceDate(d.invoiceDate || todayISO());
       setDueDate(d.dueDate || "");
-      setProcessStatus(d.processStatus || "draft");
+      setStatus(normalizeStatus(d.status || d.processStatus || "draft"));
 
       setSaleType(d.saleType || "actual");
       setSaleChannel(d.saleChannel || defaultPlatform);
@@ -212,9 +316,19 @@ export default function SaleForm({
     } catch {
       // ignore
     }
-  }, [draftLoaded, defaultPlatform, defaultUnit, defaultWarehouse, defaultVatRate]);
+  }, [
+    draftLoaded,
+    initialData,
+    defaultPlatform,
+    defaultUnit,
+    defaultWarehouse,
+    defaultVatRate,
+  ]);
 
-  // When settings arrives, fix defaults for the empty first render
+  /* ===============================
+     SETTINGS DEFAULT PATCH
+  ================================ */
+
   useEffect(() => {
     setItems((prev) =>
       prev.map((r) => ({
@@ -227,7 +341,6 @@ export default function SaleForm({
             : defaultVatRate,
       }))
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultUnit, defaultWarehouse, defaultVatRate]);
 
   const cariOptions = useMemo(() => {
@@ -290,6 +403,7 @@ export default function SaleForm({
       const line = qty * up;
       return s + (line * dr) / 100;
     }, 0);
+
     return {
       net: Math.round(net * 100) / 100,
       vat: Math.round(vat * 100) / 100,
@@ -305,30 +419,57 @@ export default function SaleForm({
 
   const vatDisabled = saleType !== "official";
 
-  // ✅ Satınalma ile aynı mantık: önizleme göster
   const yy = useMemo(() => year2FromDateISO(invoiceDate), [invoiceDate]);
+
+  /* ===============================
+     DOCUMENT NO PREVIEW
+  ================================ */
 
   useEffect(() => {
     const loadPreview = async () => {
       if (invoiceNoDirty) return;
       if (loadingInvoiceRef.current) return;
+
+      // edit modda mevcut numarayı koru
+      if (
+        initialData &&
+        (initialData.invoiceNo || initialData.saleNo || initialData.draftNo)
+      ) {
+        return;
+      }
+
       loadingInvoiceRef.current = true;
 
       try {
-        const ref = doc(db, "invoice_counters", "sales");
-        const snap = await getDoc(ref);
+        if (status === "completed") {
+          const ref = doc(db, "invoice_counters", "sales");
+          const snap = await getDoc(ref);
 
-        const data = snap.exists() ? snap.data() : {};
-        const years = (data && typeof data === "object" ? data.years : null) || {};
-        const yearMap =
-          (years && typeof years === "object" ? years[yy] : null) || {};
+          const data = snap.exists() ? snap.data() : {};
+          const years = (data && typeof data === "object" ? data.years : null) || {};
+          const yearMap =
+            (years && typeof years === "object" ? years[yy] : null) || {};
 
-        const currentSeq = Number(
-          (yearMap && yearMap[saleType]) ?? data[saleType] ?? 0
-        );
-        const nextSeq = currentSeq + 1;
+          const currentSeq = Number(
+            (yearMap && yearMap[saleType]) ?? data[saleType] ?? 0
+          );
+          const nextSeq = currentSeq + 1;
 
-        setInvoiceNo(formatSaleInvoiceNo(saleType, yy, nextSeq));
+          setInvoiceNo(formatSaleInvoiceNo(saleType, yy, nextSeq));
+        } else {
+          const ref = doc(db, "draft_counters", "sales");
+          const snap = await getDoc(ref);
+
+          const data = snap.exists() ? snap.data() : {};
+          const years = (data && typeof data === "object" ? data.years : null) || {};
+          const yearMap =
+            (years && typeof years === "object" ? years[yy] : null) || {};
+
+          const currentSeq = Number((yearMap && yearMap.seq) ?? 0);
+          const nextSeq = currentSeq + 1;
+
+          setInvoiceNo(formatSaleDraftNo(yy, nextSeq));
+        }
       } catch (e) {
         console.error("SALE invoice preview error:", e);
         setInvoiceNo("");
@@ -338,7 +479,7 @@ export default function SaleForm({
     };
 
     loadPreview();
-  }, [saleType, yy, invoiceNoDirty]);
+  }, [saleType, yy, invoiceNoDirty, status, initialData]);
 
   const negativeStockWarnings = useMemo(() => {
     if (!balances) return [];
@@ -369,19 +510,19 @@ export default function SaleForm({
     return warnings;
   }, [balances, items, saleType, defaultWarehouse]);
 
-  function clearDraft() {
+  function clearLocalDraft() {
     try {
       localStorage.removeItem(DRAFT_KEY);
     } catch {}
     setDraftInfo(null);
   }
 
-  function saveDraft() {
+  function saveLocalDraft() {
     const payload = {
       savedAt: Date.now(),
       invoiceDate,
       dueDate,
-      processStatus,
+      status,
       saleType,
       saleChannel,
       vatMode,
@@ -403,15 +544,44 @@ export default function SaleForm({
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
       setDraftInfo({ savedAt: payload.savedAt });
-      alert("Taslak kaydedildi.");
     } catch (e) {
       console.error("DRAFT_SAVE_ERR:", e);
-      alert("Taslak kaydedilemedi.");
     }
   }
 
-  async function submit(mode) {
-    // satır hesaplarını garanti altına al
+  function validate(nextStatus) {
+    if (nextStatus === "draft" || nextStatus === "pending") {
+      if (!cariId && items.filter((x) => x?.productId).length === 0) {
+        alert("Taslak için en az müşteri ya da ürün satırı seçilmiş olmalı.");
+        return false;
+      }
+      return true;
+    }
+
+    if (!invoiceDate) {
+      alert("Fatura tarihi gerekli.");
+      return false;
+    }
+
+    if (!cariId) {
+      alert("Müşteri seçmelisin.");
+      return false;
+    }
+
+    const validRows = items.filter(
+      (r) => r?.productId && Number(r.quantity || 0) > 0
+    );
+    if (!validRows.length) {
+      alert("En az bir geçerli ürün satırı gerekli.");
+      return false;
+    }
+
+    return true;
+  }
+
+  async function submit(nextStatus) {
+    if (!validate(nextStatus)) return;
+
     const fixedItems = (Array.isArray(items) ? [...items] : []).map((r) => {
       const row = { ...r };
       calcLine(row);
@@ -419,23 +589,37 @@ export default function SaleForm({
     });
     setItems(fixedItems);
 
+    const finalPaidAmount = isPaid
+      ? Number(paidAmount || 0) || Number(totals.total || 0) || 0
+      : Number(paidAmount || 0) || 0;
+
     const payload = {
+      saleId: saleId || initialData?.id || initialData?.saleId || null,
+      id: saleId || initialData?.id || initialData?.saleId || null,
+
+      status: nextStatus,
+
       invoiceDate,
       dueDate: dueDate || null,
-      processStatus,
       saleType,
       saleChannel,
+      platformId: saleChannel,
       vatMode,
       invoiceNo: invoiceNo?.trim() || "",
+      invoiceNoAuto: !invoiceNoDirty,
       invoiceNoDirty: Boolean(invoiceNoDirty && invoiceNo?.trim()),
       cariId: cariId || null,
+
+      paymentMethod,
+      paidAmount: finalPaidAmount,
       payment: {
         method: paymentMethod,
-        paidAmount: Number(paidAmount || 0) || 0,
+        paidAmount: finalPaidAmount,
         isPaid: Boolean(isPaid),
       },
+
       meta: {
-        processStatus,
+        status: nextStatus,
         delivery: {
           mode: deliveryMode,
           deliveryDate: deliveryDate || null,
@@ -447,16 +631,49 @@ export default function SaleForm({
           internal: internalNote || "",
         },
       },
+
       items: fixedItems,
     };
 
-    if (mode === "draft") {
-      saveDraft();
-      return;
+    if (nextStatus === "draft" && !initialData && !saleId) {
+      saveLocalDraft();
     }
 
     await onSubmit(payload);
   }
+
+  async function handleDeleteDraft() {
+    const currentSaleId = saleId || initialData?.id || initialData?.saleId;
+    if (!currentSaleId) {
+      clearLocalDraft();
+      alert("Yerel taslak temizlendi.");
+      return;
+    }
+
+    if (status === "completed") {
+      alert("Tamamlanmış satış taslak olarak silinemez.");
+      return;
+    }
+
+    if (!onDeleteDraft) {
+      alert("Taslak silme işlemi bu sayfada bağlı değil.");
+      return;
+    }
+
+    const ok = confirm("Bu taslağı silmek istediğine emin misin?");
+    if (!ok) return;
+
+    await onDeleteDraft({ saleId: currentSaleId });
+  }
+
+  const statusLabel =
+    status === "completed"
+      ? "Onaylandı"
+      : status === "pending"
+      ? "Onay Bekliyor"
+      : isEditMode
+      ? "Kaydedilmiş Taslak"
+      : "Taslak";
 
   return (
     <div className="bg-slate-50 min-h-[70vh]">
@@ -472,15 +689,23 @@ export default function SaleForm({
                 </div>
                 <div>
                   <h1 className="text-2xl font-extrabold text-slate-900 leading-none">
-                    Satış Faturası Oluştur
+                    {isEditMode ? "Satış Kaydını Düzenle" : "Satış Faturası Oluştur"}
                   </h1>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 uppercase">
-                      Taslak
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span
+                      className={
+                        status === "completed"
+                          ? "px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 uppercase"
+                          : status === "pending"
+                          ? "px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200 uppercase"
+                          : "px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 uppercase"
+                      }
+                    >
+                      {statusLabel}
                     </span>
                     <span className="text-slate-300">|</span>
                     <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">
-                      Fatura No:{" "}
+                      Belge No:{" "}
                       <span className="text-slate-900">
                         {invoiceNo?.trim() ? invoiceNo : "Otomatik"}
                       </span>
@@ -522,29 +747,31 @@ export default function SaleForm({
                   />
                 </div>
 
-                <div className="flex flex-col min-w-[160px]">
+                <div className="flex flex-col min-w-[220px]">
                   <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">
                     Süreç Durumu
                   </label>
                   <select
-                    value={processStatus}
-                    onChange={(e) => setProcessStatus(e.target.value)}
+                    value={status}
+                    onChange={(e) => {
+                      setStatus(normalizeStatus(e.target.value));
+                      if (!isEditMode) setInvoiceNoDirty(false);
+                    }}
                     className="h-10 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none px-3"
                     disabled={disabled}
                   >
                     <option value="draft">Taslak</option>
-                    <option value="approved">Onaylandı</option>
-                    <option value="cancelled">İptal</option>
-                    <option value="returned">İade</option>
+                    <option value="pending">Onay Bekliyor</option>
+                    <option value="completed">Onaylandı</option>
                   </select>
                 </div>
               </div>
             </div>
 
-            {draftInfo?.savedAt && (
+            {draftInfo?.savedAt && !initialData && (
               <div className="bg-blue-50 border border-blue-200 text-blue-900 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm">
-                  <span className="font-bold">Taslak yüklendi.</span>
+                  <span className="font-bold">Yerel taslak yüklendi.</span>
                   <span className="ml-2 text-blue-700 text-xs">
                     (Kaydedilme:{" "}
                     {new Date(draftInfo.savedAt).toLocaleString("tr-TR")})
@@ -552,16 +779,16 @@ export default function SaleForm({
                 </div>
                 <button
                   type="button"
-                  onClick={clearDraft}
+                  onClick={clearLocalDraft}
                   className="px-3 py-2 rounded-xl bg-white border border-blue-200 text-blue-700 font-semibold hover:bg-blue-100"
                   disabled={disabled}
                 >
-                  Taslağı Sil
+                  Yerel Taslağı Sil
                 </button>
               </div>
             )}
 
-            {negativeStockWarnings.length > 0 && (
+            {negativeStockWarnings.length > 0 && status === "completed" && (
               <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex gap-3">
                 <AlertTriangle className="mt-0.5" size={18} />
                 <div className="text-sm">
@@ -629,11 +856,11 @@ export default function SaleForm({
 
                   <div className="flex flex-col">
                     <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">
-                      Fatura No (Opsiyonel)
+                      Belge No (Opsiyonel)
                     </label>
                     <input
                       className="border border-slate-200 bg-white rounded-xl text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      placeholder="Boş bırakırsan sistem üretir. Elle yazarsan manuel kaydeder (sayaç yine artar)."
+                      placeholder="Boş bırakırsan sistem üretir."
                       value={invoiceNo}
                       onChange={(e) => {
                         setInvoiceNo(e.target.value);
@@ -775,7 +1002,7 @@ export default function SaleForm({
               </div>
             </div>
 
-            {/* Items (KIRMA!) */}
+            {/* Items */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1036,12 +1263,22 @@ export default function SaleForm({
               <div className="mt-6 space-y-3">
                 <button
                   type="button"
-                  onClick={() => submit("submit")}
+                  onClick={() => submit("completed")}
                   className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-extrabold flex items-center justify-center gap-2 active:scale-95 transition"
                   disabled={disabled}
                 >
                   <Send size={18} />
                   Onayla ve Tamamla
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => submit("pending")}
+                  className="w-full h-11 rounded-xl bg-amber-500 hover:bg-amber-600 font-bold flex items-center justify-center gap-2 active:scale-95 transition"
+                  disabled={disabled}
+                >
+                  <Clock3 size={16} />
+                  Onay Bekliyor
                 </button>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1064,6 +1301,18 @@ export default function SaleForm({
                     Yazdır (PDF)
                   </button>
                 </div>
+
+                {status !== "completed" && isEditMode && !!onDeleteDraft && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteDraft}
+                    className="w-full h-11 rounded-xl bg-red-600 hover:bg-red-700 font-bold flex items-center justify-center gap-2 active:scale-95 transition"
+                    disabled={disabled}
+                  >
+                    <Trash2 size={16} />
+                    Taslağı Sil
+                  </button>
+                )}
               </div>
             </div>
 

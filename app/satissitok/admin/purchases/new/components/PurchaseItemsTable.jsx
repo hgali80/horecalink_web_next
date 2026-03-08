@@ -27,22 +27,42 @@ function productLabel(p) {
   return `${name}${sku ? ` • ${sku}` : ""}${unit ? ` • ${unit}` : ""}`;
 }
 
+function makeEmptyRow() {
+  return {
+    productId: "",
+    productName: "",
+    sku: "",
+    unit: "",
+    qty: 1,
+    unitPrice: 0,
+
+    netUnitPrice: 0,
+    vatUnitPrice: 0,
+    grossUnitPrice: 0,
+
+    netLineTotal: 0,
+    vatLineTotal: 0,
+    grossLineTotal: 0,
+  };
+}
+
 export default function PurchaseItemsTable({
   onChange,
   vatRate = 0,
   vatMode = "inclusive",
   hideVat = false, // fiili fatura = true
   disabled = false,
+  initialItems = [],
 }) {
   const [products, setProducts] = useState([]);
   const [items, setItems] = useState([]);
 
-  // ✅ satıştaki gibi: kırpılmayan (fixed) dropdown
   const [openIndex, setOpenIndex] = useState(-1);
   const [ddPos, setDdPos] = useState({ top: 0, left: 0, width: 0 });
   const [queryByIndex, setQueryByIndex] = useState({});
   const inputRefs = useRef({});
   const closeTimerRef = useRef(null);
+  const initialLoadedRef = useRef(false);
 
   useEffect(() => {
     const load = async () => {
@@ -56,14 +76,10 @@ export default function PurchaseItemsTable({
     onChange(items);
   }, [items, onChange]);
 
-  // =========================
-  // HESAPLAMA (AYNEN KORUNDU)
-  // =========================
   const calcRow = (row) => {
     const qty = num(row.qty);
     const unitPrice = num(row.unitPrice);
 
-    // ✅ FİİLİ FATURA → KDV YOK
     if (hideVat === true) {
       row.netUnitPrice = round2(unitPrice);
       row.vatUnitPrice = 0;
@@ -75,7 +91,6 @@ export default function PurchaseItemsTable({
       return;
     }
 
-    // ✅ RESMİ FATURA → KDV VAR
     const r = num(vatRate || 0);
     const factor = 1 + r / 100;
 
@@ -102,38 +117,85 @@ export default function PurchaseItemsTable({
     row.grossLineTotal = round2(qty * row.grossUnitPrice);
   };
 
-  // =========================
-  // CRUD
-  // =========================
+  function normalizeRow(row) {
+    const normalized = {
+      productId: row?.productId || "",
+      productName: row?.productName || "",
+      sku: row?.sku || row?.stockCode || row?.code || "",
+      unit: row?.unit || "",
+      qty: Math.max(0, num(row?.qty ?? row?.quantity ?? 1)) || 1,
+      unitPrice: Math.max(0, num(row?.unitPrice || 0)),
+
+      netUnitPrice: num(row?.netUnitPrice || 0),
+      vatUnitPrice: num(row?.vatUnitPrice || 0),
+      grossUnitPrice: num(row?.grossUnitPrice || 0),
+
+      netLineTotal: num(row?.netLineTotal ?? row?.net ?? 0),
+      vatLineTotal: num(row?.vatLineTotal ?? row?.vat ?? 0),
+      grossLineTotal: num(row?.grossLineTotal ?? row?.total ?? 0),
+    };
+
+    calcRow(normalized);
+    return normalized;
+  }
+
+  useEffect(() => {
+    if (initialLoadedRef.current) return;
+
+    if (Array.isArray(initialItems) && initialItems.length > 0) {
+      const normalized = initialItems.map((row) => normalizeRow(row));
+      setItems(normalized);
+
+      const q = {};
+      normalized.forEach((row, i) => {
+        q[i] = row.productName
+          ? `${row.productName}${row.sku ? ` • ${row.sku}` : ""}${row.unit ? ` • ${row.unit}` : ""}`
+          : "";
+      });
+      setQueryByIndex(q);
+
+      initialLoadedRef.current = true;
+      return;
+    }
+
+    setItems([makeEmptyRow()]);
+    initialLoadedRef.current = true;
+  }, [initialItems]);
+
+  useEffect(() => {
+    setItems((prev) =>
+      (prev || []).map((row) => {
+        const x = { ...row };
+        calcRow(x);
+        return x;
+      })
+    );
+  }, [vatRate, vatMode, hideVat]);
+
   const addRow = () => {
-    setItems((prev) => [
-      ...prev,
-      {
-        productId: "",
-        productName: "",
-        sku: "",
-        unit: "",
-        qty: 1,
-        unitPrice: 0,
-
-        netUnitPrice: 0,
-        vatUnitPrice: 0,
-        grossUnitPrice: 0,
-
-        netLineTotal: 0,
-        vatLineTotal: 0,
-        grossLineTotal: 0,
-      },
-    ]);
+    setItems((prev) => [...prev, makeEmptyRow()]);
   };
 
   const removeRow = (i) => {
-    setItems((prev) => prev.filter((_, idx) => idx !== i));
-    setQueryByIndex((prev) => {
-      const x = { ...prev };
-      delete x[i];
-      return x;
+    setItems((prev) => {
+      const next = prev.filter((_, idx) => idx !== i);
+      return next.length ? next : [makeEmptyRow()];
     });
+
+    setQueryByIndex((prev) => {
+      const next = {};
+      const oldEntries = Object.entries(prev)
+        .map(([k, v]) => [Number(k), v])
+        .filter(([k]) => k !== i)
+        .sort((a, b) => a[0] - b[0]);
+
+      oldEntries.forEach(([oldIdx, value], newIdx) => {
+        next[newIdx] = value;
+      });
+
+      return next;
+    });
+
     if (openIndex === i) setOpenIndex(-1);
   };
 
@@ -146,9 +208,6 @@ export default function PurchaseItemsTable({
     });
   };
 
-  // =========================
-  // PRODUCT PICKER (SALES İLE AYNI MANTIK)
-  // =========================
   const currentRowLabel = (row) =>
     (row?.productName || "").trim() || (row?.sku ? `${row.sku}` : "") || "";
 
@@ -177,12 +236,12 @@ export default function PurchaseItemsTable({
       productName: (p?.name || "").trim(),
       sku,
       unit: (p?.unit || "").trim(),
+      unitPrice: num(p?.price || 0),
     });
     setQuery(i, productLabel(p));
     setOpenIndex(-1);
   };
 
-  // dropdown açıkken scroll/resize olursa konumu güncelle
   useEffect(() => {
     if (openIndex < 0) return;
 
@@ -193,7 +252,6 @@ export default function PurchaseItemsTable({
       window.removeEventListener("scroll", onMove, true);
       window.removeEventListener("resize", onMove);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openIndex]);
 
   const vatLabel = hideVat ? "0%" : `${num(vatRate || 0)}%`;
@@ -252,7 +310,6 @@ export default function PurchaseItemsTable({
                   {String(i + 1).padStart(2, "0")}
                 </td>
 
-                {/* ✅ ÜRÜN (sales ile aynı dropdown mantığı) */}
                 <td className="px-4 py-4">
                   <div className="flex flex-col gap-1">
                     <div className="relative">
@@ -356,7 +413,6 @@ export default function PurchaseItemsTable({
                   </div>
                 </td>
 
-                {/* QTY */}
                 <td className="px-4 py-4">
                   <input
                     className="w-full bg-slate-50 border border-slate-200 rounded py-1 px-2 text-sm text-center focus:border-[#135bec] focus:ring-0"
@@ -368,14 +424,12 @@ export default function PurchaseItemsTable({
                   />
                 </td>
 
-                {/* UNIT */}
                 <td className="px-4 py-4">
                   <span className="text-xs text-slate-600 font-medium bg-slate-100 px-2 py-1 rounded">
                     {row.unit || "-"}
                   </span>
                 </td>
 
-                {/* UNIT PRICE */}
                 <td className="px-4 py-4">
                   <div className="flex flex-col items-end gap-1">
                     <input
@@ -393,17 +447,14 @@ export default function PurchaseItemsTable({
                   </div>
                 </td>
 
-                {/* VAT */}
                 <td className="px-4 py-4 text-right">
                   <span className="text-xs font-bold text-slate-500">{vatLabel}</span>
                 </td>
 
-                {/* TOTAL */}
                 <td className="px-4 py-4 text-right font-mono font-bold text-sm text-slate-900">
                   {fmt(row.grossLineTotal)}
                 </td>
 
-                {/* DELETE */}
                 <td className="px-6 py-4 text-right">
                   <button
                     type="button"
@@ -418,7 +469,6 @@ export default function PurchaseItemsTable({
               </tr>
             ))}
 
-            {/* QUICK ADD ROW (mevcut UX korundu, sadece işlevsel hale getirildi) */}
             <tr className="bg-slate-50/30">
               <td className="px-4 py-3" colSpan={8}>
                 <div className="flex items-center gap-4 w-full">

@@ -4,6 +4,7 @@ import {
   doc,
   serverTimestamp,
   runTransaction,
+  deleteDoc,
 } from "firebase/firestore";
 import { db } from "@/firebase";
 
@@ -13,11 +14,15 @@ import {
   writeStockBalancesWithAvgCost,
 } from "./stockService";
 
-import { reserveNextInvoiceNo } from "./invoiceCounterService";
+import {
+  reserveNextInvoiceNo,
+  reserveNextDraftNo,
+} from "./invoiceCounterService";
 
 /* ===============================
-   FATURA FORMAT (UI İLE AYNI)
-   PR-26-000001 / PF-26-000001
+   FATURA FORMAT
+   Final: PR-26-000001 / PF-26-000001
+   Draft: PD-26-000001
 ================================ */
 
 function toDateOrNull(dateISO) {
@@ -35,9 +40,99 @@ function round2(n) {
   return Math.round(num(n) * 100) / 100;
 }
 
+function normalizeStatus(status) {
+  const s = String(status || "completed").trim().toLowerCase();
+  if (s === "draft" || s === "pending" || s === "completed" || s === "cancelled") {
+    return s;
+  }
+  return "completed";
+}
+
+function normalizeItems(items) {
+  return Array.isArray(items) ? items : [];
+}
+
+function buildTotals(payload, type) {
+  const t = payload.totals || {};
+  const net = round2(t.net ?? payload.netTotal ?? 0);
+  const vatRaw = t.tax ?? t.vat ?? payload.vatTotal ?? payload.taxTotal ?? 0;
+  const vat = round2(vatRaw);
+  const gross = round2(t.gross ?? payload.grossTotal ?? payload.total ?? net + vat);
+
+  const vatTotal = type === "official" ? vat : 0;
+
+  return {
+    totalsNormalized: {
+      net,
+      tax: vat,
+      vat,
+      gross,
+    },
+    net,
+    vat,
+    vatTotal,
+    gross,
+  };
+}
+
+function buildBasePurchaseData({
+  payload,
+  type,
+  status,
+  warehouseKey,
+  items,
+  totalsNormalized,
+  net,
+  vatTotal,
+  gross,
+}) {
+  return {
+    // tedarikçi
+    supplierName: (payload.supplierName || "").trim(),
+    supplierCariId: payload.supplierCariId || null,
+
+    // ek alanlar
+    supplierBin: (payload.supplierBin || "").trim(),
+    supplierRef: (payload.supplierRef || "").trim(),
+    responsiblePerson: (payload.responsiblePerson || "").trim(),
+
+    // tarihler
+    documentDate: toDateOrNull(payload.documentDate),
+
+    // tür/depo/vergi
+    purchaseType: type,
+    warehouseKey,
+    taxRate: type === "official" ? Number(payload.taxRate || 0) : 0,
+    vatMode: type === "official" ? payload.vatMode || "inclusive" : null,
+
+    // kalemler/toplam
+    items,
+    totals: totalsNormalized,
+
+    // top-level totals
+    netTotal: net,
+    vatTotal,
+    grossTotal: gross,
+
+    // ödeme/not/ek
+    paymentMethod: (payload.paymentMethod || "").trim(),
+    payment: payload.payment || null,
+    dueDate: toDateOrNull(payload.dueDate),
+    notes: (payload.notes || "").trim(),
+    attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
+
+    // durum
+    status,
+    isDraftLike: status !== "completed",
+
+    updatedAt: serverTimestamp(),
+  };
+}
+
 /* =========================================================
-   CREATE PURCHASE
-   ✅ FIX: Transaction rule (ALL READS before ANY WRITES)
+   CREATE / UPDATE PURCHASE
+   - draft/pending => no stock, no avg cost, no cari movement
+   - completed     => normal final flow
 ========================================================= */
 
 export async function createPurchase(payload) {
@@ -47,8 +142,7 @@ export async function createPurchase(payload) {
       throw new Error("purchaseType geçersiz: official | actual olmalı");
     }
 
-    // ✅ UI status: draft | pending | completed
-    const status = (payload.status || "completed").trim() || "completed";
+    const status = normalizeStatus(payload.status || "completed");
     const isFinal = status === "completed";
 
     // Depo – satınalma ekranında seçimi yoksa varsayılan: main
@@ -57,117 +151,170 @@ export async function createPurchase(payload) {
     const manualInvoice = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
     const invoiceNoAutoFlag = payload.invoiceNoAuto === true;
 
-    const items = Array.isArray(payload.items) ? payload.items : [];
+    const items = normalizeItems(payload.items);
+    const purchaseId = (payload.purchaseId || payload.id || "").trim();
+    const isUpdate = !!purchaseId;
 
     /* =====================
        READ PHASE (ALL READS FIRST)
     ===================== */
 
-    const existingBalances = isFinal
+    const purchaseRef = isUpdate
+      ? doc(db, "purchases", purchaseId)
+      : doc(collection(db, "purchases"));
+
+    const existingSnap = isUpdate ? await transaction.get(purchaseRef) : null;
+    const existingData = existingSnap?.exists() ? existingSnap.data() : null;
+
+    if (isUpdate && !existingData) {
+      throw new Error("Güncellenecek satınalma kaydı bulunamadı");
+    }
+
+    const prevStatus = normalizeStatus(existingData?.status || "draft");
+    const prevWasFinal = prevStatus === "completed";
+
+    // Draft/pending -> completed geçişinde stok read gerekir
+    // Yeni completed kayıtta da gerekir
+    const needsStockRead = isFinal && !prevWasFinal;
+
+    const existingBalances = needsStockRead
       ? await readStockBalancesForPurchase({
           transaction,
           items,
         })
       : null;
 
-    // ✅ Sayaç reserve — Bundan sonra read YOK!
-    const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
-      transaction,
-      kind: "purchases",
-      type,
-      dateISO: payload.documentDate,
-    });
+    let invoiceNo = "";
+    let invoiceNoAutoValue = null;
+    let invoiceNoManual = false;
+    let invoiceSequence = existingData?.invoiceSequence ?? null;
+    let invoiceYear2 = existingData?.invoiceYear2 ?? null;
+    let invoiceCounterRef = existingData?.invoiceCounterRef ?? null;
 
-    const invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
+    let draftNo = existingData?.draftNo ?? null;
+    let draftSequence = existingData?.draftSequence ?? null;
+    let draftYear2 = existingData?.draftYear2 ?? null;
+    let draftCounterRef = existingData?.draftCounterRef ?? null;
 
-    // UI / audit
-    const invoiceNoAutoValue = invoiceNo === autoInvoice ? autoInvoice : null;
-    const invoiceNoManual = invoiceNo !== autoInvoice;
+    // FINAL BELGE
+    if (isFinal) {
+      if (prevWasFinal && existingData?.invoiceNo) {
+        // Zaten final belgeyse numara korunur
+        invoiceNo = String(existingData.invoiceNo || "").trim();
+        invoiceNoAutoValue = existingData.invoiceNoAuto ?? null;
+        invoiceNoManual = !!existingData.invoiceNoManual;
+      } else {
+        // Yeni final kayıt ya da draft -> final dönüşümü
+        const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
+          transaction,
+          kind: "purchases",
+          type,
+          dateISO: payload.documentDate,
+        });
+
+        invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
+        invoiceNoAutoValue = invoiceNo === autoInvoice ? autoInvoice : null;
+        invoiceNoManual = invoiceNo !== autoInvoice;
+
+        invoiceSequence = nextSeq;
+        invoiceYear2 = yy;
+        invoiceCounterRef = "invoice_counters/purchases";
+      }
+    } else {
+      // DRAFT / PENDING
+      if (existingData?.draftNo) {
+        // Mevcut taslak güncelleniyor, draft no korunur
+        invoiceNo = existingData.draftNo;
+        draftNo = existingData.draftNo;
+        draftSequence = existingData?.draftSequence ?? null;
+        draftYear2 = existingData?.draftYear2 ?? null;
+        draftCounterRef = existingData?.draftCounterRef ?? "draft_counters/purchases";
+      } else {
+        // Yeni taslak numarası üret
+        const { yy, nextSeq, autoDraftNo } = await reserveNextDraftNo({
+          transaction,
+          kind: "purchases",
+          dateISO: payload.documentDate,
+        });
+
+        invoiceNo = autoDraftNo;
+        draftNo = autoDraftNo;
+        draftSequence = nextSeq;
+        draftYear2 = yy;
+        draftCounterRef = "draft_counters/purchases";
+      }
+
+      invoiceNoAutoValue = null;
+      invoiceNoManual = false;
+
+      // completed olmayan kayıtta normal invoice sequence tutulmaz
+      invoiceSequence = null;
+      invoiceYear2 = null;
+      invoiceCounterRef = null;
+    }
 
     /* =====================
-       TOTALS NORMALIZATION (VAT REPORT READY)
-       UI: totals = { net, tax, gross }
-       Legacy: totals.vat olabilir
+       TOTALS NORMALIZATION
     ===================== */
 
-    const t = payload.totals || {};
-    const net = round2(t.net ?? payload.netTotal ?? 0);
-    const vatRaw = t.tax ?? t.vat ?? payload.vatTotal ?? payload.taxTotal ?? 0;
-    const vat = round2(vatRaw);
-    const gross = round2(t.gross ?? payload.grossTotal ?? payload.total ?? (net + vat));
-
-    // purchaseType=actual ise rapor KDV’si 0 olmalı
-    const vatTotal = type === "official" ? vat : 0;
-
-    // totals objesini geriye uyumlu yaz (tax + vat birlikte)
-    const totalsNormalized = {
-      net,
-      tax: vat, // UI mevcut ana anahtar
-      vat: vat, // rapor/legacy uyumu için alias
-      gross,
-    };
+    const { totalsNormalized, net, vatTotal, gross } = buildTotals(payload, type);
 
     /* =====================
        WRITE PHASE
     ===================== */
 
-    const purchaseRef = doc(collection(db, "purchases"));
+    const baseData = buildBasePurchaseData({
+      payload,
+      type,
+      status,
+      warehouseKey,
+      items,
+      totalsNormalized,
+      net,
+      vatTotal,
+      gross,
+    });
 
-    transaction.set(purchaseRef, {
-      // tedarikçi
-      supplierName: (payload.supplierName || "").trim(),
-      supplierCariId: payload.supplierCariId || null,
-
-      // ✅ yeni alanlar
-      supplierBin: (payload.supplierBin || "").trim(),
-      supplierRef: (payload.supplierRef || "").trim(),
-      responsiblePerson: (payload.responsiblePerson || "").trim(),
+    const docData = {
+      ...baseData,
 
       // fatura
       invoiceNo,
       documentNo: invoiceNo,
       invoiceNoAuto: invoiceNoAutoValue,
       invoiceNoManual,
-      invoiceSequence: nextSeq,
-      invoiceYear2: yy,
-      invoiceCounterRef: "invoice_counters/purchases",
+      invoiceSequence,
+      invoiceYear2,
+      invoiceCounterRef,
 
-      // tarihler
-      documentDate: toDateOrNull(payload.documentDate),
+      // draft info
+      draftNo,
+      draftSequence,
+      draftYear2,
+      draftCounterRef,
 
-      // tür/depo/vergi
-      purchaseType: type,
-      warehouseKey,
-      taxRate: type === "official" ? Number(payload.taxRate || 0) : 0,
-      vatMode: type === "official" ? payload.vatMode || "inclusive" : null,
+      // finalize info
+      approvedAt:
+        status === "completed" && !prevWasFinal ? serverTimestamp() : existingData?.approvedAt ?? null,
+      finalizedAt:
+        status === "completed" && !prevWasFinal ? serverTimestamp() : existingData?.finalizedAt ?? null,
+    };
 
-      // kalemler/toplam
-      items,
-      totals: totalsNormalized,
-
-      // ✅ RAPOR İÇİN TOP-LEVEL TOTALS
-      netTotal: net,
-      vatTotal: vatTotal,
-      grossTotal: gross,
-
-      // ödeme/not/ek
-      paymentMethod: (payload.paymentMethod || "").trim(),
-      payment: payload.payment || null,
-      dueDate: toDateOrNull(payload.dueDate),
-      notes: (payload.notes || "").trim(),
-      attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
-
-      status,
-
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    if (isUpdate) {
+      transaction.update(purchaseRef, docData);
+    } else {
+      transaction.set(purchaseRef, {
+        ...docData,
+        createdAt: serverTimestamp(),
+      });
+    }
 
     /* =====================
-       STOK HAREKETLERİ — Sadece completed
+       STOK HAREKETLERİ
+       Sadece finalleşme anında
     ===================== */
 
-    if (isFinal) {
+    if (needsStockRead) {
       writePurchaseStockMovements({
         transaction,
         purchaseId: purchaseRef.id,
@@ -190,11 +337,11 @@ export async function createPurchase(payload) {
     }
 
     /* =====================
-       CARİ HAREKETİ — Sadece completed
-       ✅ CANONICAL + LEGACY birlikte yazılır
+       CARİ HAREKETİ
+       Sadece finalleşme anında
     ===================== */
 
-    if (isFinal && payload.supplierCariId) {
+    if (needsStockRead && payload.supplierCariId) {
       const desc = (payload.description || payload.notes || "Satınalma faturası").trim();
       const cariTxRef = doc(collection(db, "cari_transactions"));
 
@@ -227,6 +374,37 @@ export async function createPurchase(payload) {
 
     return purchaseRef.id;
   });
+}
+
+/* =========================================================
+   DELETE DRAFT PURCHASE
+   - Sadece draft / pending silinir
+   - completed kayıt burada silinmez
+========================================================= */
+
+export async function deleteDraftPurchase({ purchaseId }) {
+  if (!purchaseId) throw new Error("purchaseId zorunlu");
+
+  const purchaseRef = doc(db, "purchases", purchaseId);
+
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(purchaseRef);
+
+    if (!snap.exists()) {
+      throw new Error("Taslak satınalma bulunamadı");
+    }
+
+    const purchase = snap.data();
+    const status = normalizeStatus(purchase?.status || "draft");
+
+    if (status === "completed") {
+      throw new Error("Tamamlanmış satınalma taslak olarak silinemez");
+    }
+
+    transaction.delete(purchaseRef);
+  });
+
+  return true;
 }
 
 /* =========================================================

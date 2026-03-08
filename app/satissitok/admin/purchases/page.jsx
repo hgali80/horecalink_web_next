@@ -25,14 +25,13 @@ export default function PurchasesListPage() {
   const [loading, setLoading] = useState(true);
 
   const [purchaseType, setPurchaseType] = useState(""); // official | actual
-  const [status, setStatus] = useState(""); // completed | cancelled
+  const [status, setStatus] = useState(""); // draft | pending | completed | cancelled
   const [supplierQ, setSupplierQ] = useState(""); // client-side filter
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        // Firestore filtreleri: type + status
         let q = query(collection(db, "purchases"), orderBy("createdAt", "desc"));
         if (purchaseType) q = query(q, where("purchaseType", "==", purchaseType));
         if (status) q = query(q, where("status", "==", status));
@@ -40,7 +39,6 @@ export default function PurchasesListPage() {
         const snap = await getDocs(q);
         const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-        // Cari map (supplierCariId -> firm)
         const cariSnap = await getDocs(collection(db, "caris"));
         const cariMap = {};
         cariSnap.docs.forEach((c) => {
@@ -67,23 +65,80 @@ export default function PurchasesListPage() {
       const supplierName = (r.supplierName || "").toLowerCase();
       const cariName = (caris[r.supplierCariId] || "").toLowerCase();
       const invoiceNo = (r.invoiceNo || "").toLowerCase();
-      return supplierName.includes(q) || cariName.includes(q) || invoiceNo.includes(q);
+      const draftNo = (r.draftNo || "").toLowerCase();
+      return (
+        supplierName.includes(q) ||
+        cariName.includes(q) ||
+        invoiceNo.includes(q) ||
+        draftNo.includes(q)
+      );
     });
   }, [rows, supplierQ, caris]);
 
   function formatDate(val) {
-    // documentDate: "YYYY-MM-DD" (string) bekleniyor
     if (!val) return "—";
-    if (val?.toDate) return val.toDate().toLocaleDateString("tr-TR"); // Timestamp ise
+    if (val?.toDate) return val.toDate().toLocaleDateString("tr-TR");
     const d = new Date(val);
     if (!Number.isNaN(d.getTime())) return d.toLocaleDateString("tr-TR");
     return String(val);
   }
 
   function getGross(r) {
-    // payload.totals.gross tercih; alternatif field'lar
     const g = r?.totals?.gross ?? r?.grossTotal ?? r?.total ?? 0;
     return Number(g || 0);
+  }
+
+  function getRowHref(r) {
+    if (r.status === "draft" || r.status === "pending") {
+      return `/satissitok/admin/purchases/new?draftId=${r.id}`;
+    }
+    return `/satissitok/admin/purchases/${r.id}`;
+  }
+
+  function getStatusBadge(r) {
+    if (r.status === "draft") {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 uppercase tracking-wider">
+          Taslak
+        </span>
+      );
+    }
+
+    if (r.status === "pending") {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 uppercase tracking-wider">
+          Onay Bekliyor
+        </span>
+      );
+    }
+
+    if (r.status === "cancelled") {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wider">
+          İptal Edildi
+        </span>
+      );
+    }
+
+    return (
+      <span className="text-[11px] text-gray-400 font-medium tracking-tight">
+        Alış faturası kaydı
+      </span>
+    );
+  }
+
+  function getRowStyle(r) {
+    if (r.status === "draft") return "bg-amber-50/70 hover:bg-amber-50";
+    if (r.status === "pending") return "bg-blue-50/60 hover:bg-blue-50";
+    if (r.status === "cancelled") return "bg-gray-50/80";
+    return "hover:bg-indigo-50/30";
+  }
+
+  function getIconStyle(r) {
+    if (r.status === "draft") return "bg-amber-100 text-amber-700";
+    if (r.status === "pending") return "bg-blue-100 text-blue-700";
+    if (r.status === "cancelled") return "bg-gray-200 text-gray-500";
+    return "bg-indigo-50 text-indigo-600";
   }
 
   if (loading) {
@@ -123,8 +178,12 @@ export default function PurchasesListPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Satınalma Yönetimi</h1>
-          <p className="text-sm text-gray-500">Alış faturalarını listeleyin, detayını açın ve iptal edin.</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+            Satınalma Yönetimi
+          </h1>
+          <p className="text-sm text-gray-500">
+            Alış faturalarını listeleyin, taslakları düzenleyin ve detayını açın.
+          </p>
         </div>
 
         <Link
@@ -144,7 +203,9 @@ export default function PurchasesListPage() {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">İşlem Türü</label>
+          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">
+            İşlem Türü
+          </label>
           <select
             className="bg-gray-50 border-none ring-1 ring-gray-200 rounded-lg py-1.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
             value={purchaseType}
@@ -157,20 +218,26 @@ export default function PurchasesListPage() {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Durum</label>
+          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">
+            Durum
+          </label>
           <select
             className="bg-gray-50 border-none ring-1 ring-gray-200 rounded-lg py-1.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
             <option value="">Tümü</option>
+            <option value="draft">Taslak</option>
+            <option value="pending">Onay Bekliyor</option>
             <option value="completed">Tamamlandı</option>
             <option value="cancelled">İptal</option>
           </select>
         </div>
 
         <div className="flex flex-col gap-1 min-w-[260px]">
-          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Tedarikçi / Fatura</label>
+          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">
+            Tedarikçi / Fatura
+          </label>
           <div className="flex items-center gap-2 bg-gray-50 ring-1 ring-gray-200 rounded-lg px-3 py-1.5">
             <Search size={16} className="text-gray-400" />
             <input
@@ -183,7 +250,10 @@ export default function PurchasesListPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-2 text-sm text-gray-500 bg-indigo-50 px-4 py-2 rounded-lg">
-          <span className="font-semibold text-indigo-700">{filteredRows.length}</span> Kayıt Bulundu
+          <span className="font-semibold text-indigo-700">
+            {filteredRows.length}
+          </span>{" "}
+          Kayıt Bulundu
         </div>
       </div>
 
@@ -217,54 +287,59 @@ export default function PurchasesListPage() {
             <tbody className="bg-white divide-y divide-gray-100">
               {filteredRows.map((r) => {
                 const isCancelled = r.status === "cancelled";
+                const isDraftLike = r.status === "draft" || r.status === "pending";
                 const supplier = caris[r.supplierCariId] || r.supplierName || "—";
+                const href = getRowHref(r);
 
                 return (
                   <tr
                     key={r.id}
-                    className={`group hover:bg-indigo-50/30 transition-colors ${isCancelled ? "bg-gray-50/80" : ""}`}
+                    className={`group transition-colors ${getRowStyle(r)}`}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div
-                          className={`p-2 rounded-lg ${isCancelled ? "bg-gray-200" : "bg-indigo-50 text-indigo-600"}`}
-                        >
+                        <div className={`p-2 rounded-lg ${getIconStyle(r)}`}>
                           <CreditCard size={18} />
                         </div>
 
                         <div>
                           <Link
-                            href={`/satissitok/admin/purchases/${r.id}`}
+                            href={href}
                             className={`block font-semibold hover:text-indigo-600 transition-colors ${
                               isCancelled ? "text-gray-400 line-through" : "text-gray-900"
                             }`}
                           >
-                            {r.invoiceNo || "N/A"}
+                            {r.invoiceNo || r.draftNo || "N/A"}
                           </Link>
 
-                          {isCancelled ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wider">
-                              İptal Edildi
-                            </span>
-                          ) : (
-                            <span className="text-[11px] text-gray-400 font-medium tracking-tight">
-                              Alış faturası kaydı
-                            </span>
-                          )}
+                          {getStatusBadge(r)}
                         </div>
                       </div>
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col gap-1">
-                        <span className={`text-sm ${isCancelled ? "text-gray-400" : "text-gray-700"}`}>
+                        <span
+                          className={`text-sm ${
+                            isCancelled ? "text-gray-400" : "text-gray-700"
+                          }`}
+                        >
                           {r.purchaseType === "official" ? "🏢 Resmi" : "📦 Fiili"}
                         </span>
+                        {isDraftLike && (
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            Düzenlenebilir kayıt
+                          </span>
+                        )}
                       </div>
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm font-semibold ${isCancelled ? "text-gray-400" : "text-gray-800"}`}>
+                      <div
+                        className={`text-sm font-semibold ${
+                          isCancelled ? "text-gray-400" : "text-gray-800"
+                        }`}
+                      >
                         {supplier}
                       </div>
                     </td>
@@ -277,17 +352,25 @@ export default function PurchasesListPage() {
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className={`text-base font-bold ${isCancelled ? "text-gray-400 line-through" : "text-gray-900"}`}>
-                        {getGross(r).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}
-                        <span className="text-[10px] ml-1 text-gray-400 font-normal underline decoration-indigo-200">₸</span>
+                      <div
+                        className={`text-base font-bold ${
+                          isCancelled ? "text-gray-400 line-through" : "text-gray-900"
+                        }`}
+                      >
+                        {getGross(r).toLocaleString("tr-TR", {
+                          minimumFractionDigits: 2,
+                        })}
+                        <span className="text-[10px] ml-1 text-gray-400 font-normal underline decoration-indigo-200">
+                          ₸
+                        </span>
                       </div>
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <Link
-                        href={`/satissitok/admin/purchases/${r.id}`}
+                        href={href}
                         className="p-1.5 hover:bg-white rounded-full transition-shadow hover:shadow-sm text-gray-400 hover:text-indigo-600"
-                        title="Detay"
+                        title={isDraftLike ? "Düzenle" : "Detay"}
                       >
                         <ChevronRight size={20} />
                       </Link>
@@ -301,7 +384,9 @@ export default function PurchasesListPage() {
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center gap-2 text-gray-300">
                       <Search size={40} strokeWidth={1} />
-                      <p className="text-sm font-medium italic">Aradığınız kriterlere uygun satınalma bulunamadı.</p>
+                      <p className="text-sm font-medium italic">
+                        Aradığınız kriterlere uygun satınalma bulunamadı.
+                      </p>
                     </div>
                   </td>
                 </tr>

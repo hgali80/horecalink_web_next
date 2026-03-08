@@ -15,20 +15,81 @@ import {
   writeStockBalancesAfterReturn,
 } from "./stockService";
 
-import { reserveNextInvoiceNo } from "./invoiceCounterService";
+import {
+  reserveNextInvoiceNo,
+  reserveNextDraftNo,
+} from "./invoiceCounterService";
 import { createCariTransaction } from "@/app/satissitok/admin/cari/services/cariService";
 
 /* ===============================
-   CREATE SALE (CONFIRMED)
-   ✅ FIX: Transaction rule (ALL READS before ANY WRITES)
-   - Önce stok balance read
-   - Sonra invoice counter reserve (read+write)
-   - Sonra tüm write işlemleri
+   CREATE / UPDATE SALE
+   - draft / pending => no stock, no avgCost, no cari, no item subcollection
+   - completed       => final flow
 ================================ */
+
+function normalizeStatus(status) {
+  const s = String(status || "completed").trim().toLowerCase();
+  if (
+    s === "draft" ||
+    s === "pending" ||
+    s === "completed" ||
+    s === "cancelled" ||
+    s === "returned"
+  ) {
+    return s;
+  }
+  return "completed";
+}
+
+function round2(n) {
+  const x = Number(n) || 0;
+  return Math.round(x * 100) / 100;
+}
+
+function toDateOrNull(dateISO) {
+  if (!dateISO) return null;
+  const d = new Date(dateISO);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function normalizeItems(items) {
+  return Array.isArray(items) ? items : [];
+}
+
+function computeDraftTotals(items, saleType) {
+  let netTotal = 0;
+  let vatTotal = 0;
+  let grossTotal = 0;
+
+  for (const row of items) {
+    if (!row?.productId) continue;
+
+    const net = Number(row.net || 0);
+    const vat = Number(row.vat || 0);
+    const total = Number(row.total || 0);
+
+    netTotal += net;
+    vatTotal += vat;
+    grossTotal += total;
+  }
+
+  netTotal = round2(netTotal);
+  vatTotal = round2(vatTotal);
+  grossTotal = round2(grossTotal);
+
+  return {
+    netTotal,
+    vatTotal: saleType === "official" ? vatTotal : 0,
+    grossTotal,
+  };
+}
 
 export async function createSale(payload) {
   return await runTransaction(db, async (transaction) => {
     const saleType = payload?.saleType === "actual" ? "actual" : "official";
+    const status = normalizeStatus(payload?.status || "completed");
+    const isFinal = status === "completed";
+
     const saleChannel = (payload?.saleChannel || payload?.platformId || "other").trim();
     const cariId = payload?.cariId || null;
 
@@ -36,136 +97,195 @@ export async function createSale(payload) {
     const paymentMethod = (payment.method || payload?.paymentMethod || "").trim();
     const paidAmount = Number(payment.paidAmount ?? payload?.paidAmount ?? 0) || 0;
 
-    const invoiceDateISO = payload?.invoiceDate || new Date().toISOString().slice(0, 10);
+    const invoiceDateISO =
+      payload?.invoiceDate || new Date().toISOString().slice(0, 10);
 
     const manualInvoice = (payload?.invoiceNo || payload?.docNo || "").trim();
     const invoiceNoAutoFlag = payload?.invoiceNoAuto === true;
 
-    const items = Array.isArray(payload?.items) ? payload.items : [];
+    const items = normalizeItems(payload?.items);
+    const saleId = (payload?.saleId || payload?.id || "").trim();
+    const isUpdate = !!saleId;
 
     /* =====================
        READ PHASE (ALL READS FIRST)
     ===================== */
 
-    // 1) Stok bakiyeleri + avgCost oku (READ)
-    const existingBalances = await readStockBalancesForSale({
-      transaction,
-      items,
-      saleType,
-    });
+    const saleRef = isUpdate ? doc(db, "sales", saleId) : doc(collection(db, "sales"));
+    const existingSnap = isUpdate ? await transaction.get(saleRef) : null;
+    const existingData = existingSnap?.exists() ? existingSnap.data() : null;
 
-    // 2) Negatif stok kontrolü (READ yok, sadece hesap)
-    const soldByKey = {};
-    for (const it of items) {
-      if (!it?.productId) continue;
-      const whKey = (it.warehouseKey || "main").trim() || "main";
-      const q = Number(it.quantity || 0);
-      if (!q) continue;
-      const k = `${it.productId}__${whKey}`;
-      soldByKey[k] = (soldByKey[k] || 0) + q;
+    if (isUpdate && !existingData) {
+      throw new Error("Güncellenecek satış kaydı bulunamadı");
     }
 
-    const negativeStockItems = [];
-    for (const [compoundKey, sold] of Object.entries(soldByKey)) {
-      const [productId, warehouseKey] = compoundKey.split("__");
-      const available = Number(existingBalances?.[compoundKey]?.qty || 0);
-      if (available < sold) {
-        negativeStockItems.push({ productId, warehouseKey, available, sold });
+    const prevStatus = normalizeStatus(existingData?.status || "draft");
+    const prevWasFinal = prevStatus === "completed";
+
+    let existingBalances = null;
+    let negativeStockItems = [];
+    let itemsForStock = [];
+
+    // Sadece yeni finalleşme anında stok okunur
+    const needsStockRead = isFinal && !prevWasFinal;
+
+    if (needsStockRead) {
+      // 1) Stok bakiyeleri + avgCost oku
+      existingBalances = await readStockBalancesForSale({
+        transaction,
+        items,
+        saleType,
+      });
+
+      // 2) Negatif stok kontrolü
+      const soldByKey = {};
+      for (const it of items) {
+        if (!it?.productId) continue;
+        const whKey = (it.warehouseKey || "main").trim() || "main";
+        const q = Number(it.quantity || 0);
+        if (!q) continue;
+        const k = `${it.productId}__${whKey}`;
+        soldByKey[k] = (soldByKey[k] || 0) + q;
       }
+
+      for (const [compoundKey, sold] of Object.entries(soldByKey)) {
+        const [productId, warehouseKey] = compoundKey.split("__");
+        const available = Number(existingBalances?.[compoundKey]?.qty || 0);
+        if (available < sold) {
+          negativeStockItems.push({ productId, warehouseKey, available, sold });
+        }
+      }
+
+      itemsForStock = items
+        .filter((r) => r?.productId && Number(r.quantity || 0) > 0)
+        .map((r) => {
+          const whKey = (r.warehouseKey || "main").trim() || "main";
+          return {
+            ...r,
+            warehouseKey: whKey,
+            costAtSale: Number(
+              existingBalances?.[`${r.productId}__${whKey}`]?.avgCost || 0
+            ),
+          };
+        });
     }
 
-    // 3) Sayaç reserve (read+write) — Bundan sonra READ YOK!
-    const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
-      transaction,
-      kind: "sales",
-      type: saleType,
-      dateISO: invoiceDateISO,
-    });
+    let invoiceNo = "";
+    let invoiceNoAuto = null;
+    let invoiceNoManual = false;
+    let invoiceSequence = existingData?.invoiceSequence ?? null;
+    let invoiceYear2 = existingData?.invoiceYear2 ?? null;
+    let invoiceCounterRef = existingData?.invoiceCounterRef ?? null;
 
-    // ✅ Kaydedilecek invoiceNo seçimi
-    const invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
+    let draftNo = existingData?.draftNo ?? null;
+    let draftSequence = existingData?.draftSequence ?? null;
+    let draftYear2 = existingData?.draftYear2 ?? null;
+    let draftCounterRef = existingData?.draftCounterRef ?? null;
 
-    // UI / audit
-    const invoiceNoAuto = invoiceNo === autoInvoice ? autoInvoice : null;
-    const invoiceNoManual = invoiceNo !== autoInvoice;
+    if (isFinal) {
+      if (prevWasFinal && existingData?.invoiceNo) {
+        // zaten final kayıt ise numara korunur
+        invoiceNo = String(existingData.invoiceNo || "").trim();
+        invoiceNoAuto = existingData.invoiceNoAuto ?? null;
+        invoiceNoManual = !!existingData.invoiceNoManual;
+      } else {
+        // yeni final kayıt ya da draft -> final dönüşümü
+        const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
+          transaction,
+          kind: "sales",
+          type: saleType,
+          dateISO: invoiceDateISO,
+        });
+
+        invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
+        invoiceNoAuto = invoiceNo === autoInvoice ? autoInvoice : null;
+        invoiceNoManual = invoiceNo !== autoInvoice;
+
+        invoiceSequence = nextSeq;
+        invoiceYear2 = yy;
+        invoiceCounterRef = "invoice_counters/sales";
+      }
+    } else {
+      if (existingData?.draftNo) {
+        invoiceNo = existingData.draftNo;
+        draftNo = existingData.draftNo;
+        draftSequence = existingData?.draftSequence ?? null;
+        draftYear2 = existingData?.draftYear2 ?? null;
+        draftCounterRef = existingData?.draftCounterRef ?? "draft_counters/sales";
+      } else {
+        const { yy, nextSeq, autoDraftNo } = await reserveNextDraftNo({
+          transaction,
+          kind: "sales",
+          dateISO: invoiceDateISO,
+        });
+
+        invoiceNo = autoDraftNo;
+        draftNo = autoDraftNo;
+        draftSequence = nextSeq;
+        draftYear2 = yy;
+        draftCounterRef = "draft_counters/sales";
+      }
+
+      invoiceNoAuto = null;
+      invoiceNoManual = false;
+      invoiceSequence = null;
+      invoiceYear2 = null;
+      invoiceCounterRef = null;
+    }
 
     /* =====================
-       WRITE PHASE
+       TOTALS / PROFIT
     ===================== */
 
-    const saleRef = doc(collection(db, "sales"));
-
-    // Totals + Profit (snapshot cost used from avgCost)
     let netTotal = 0;
     let vatTotal = 0;
     let grossTotal = 0;
-
     let costTotalUsed = 0;
     let profitTotal = 0;
 
-    // items subcollection
-    const itemsCol = collection(db, "sales", saleRef.id, "items");
+    if (needsStockRead) {
+      for (const row of items) {
+        if (!row?.productId) continue;
 
-    for (const row of items) {
-      if (!row?.productId) continue;
+        const quantity = Number(row.quantity || 0);
+        if (quantity <= 0) continue;
 
-      const quantity = Number(row.quantity || 0);
-      if (quantity <= 0) continue;
+        const net = Number(row.net || 0);
+        const vat = Number(row.vat || 0);
+        const total = Number(row.total || 0);
 
-      const unitPrice = Number(row.unitPrice || 0);
-      const discountRate = Number(row.discountRate || 0);
+        netTotal += net;
+        vatTotal += vat;
+        grossTotal += total;
 
-      const net = Number(row.net || 0);
-      const vat = Number(row.vat || 0);
-      const total = Number(row.total || 0);
+        const whKey = (row.warehouseKey || "main").trim() || "main";
+        const balKey = `${row.productId}__${whKey}`;
+        const avgCost = Number(existingBalances?.[balKey]?.avgCost || 0);
+        const costAtSale = avgCost;
 
-      netTotal += net;
-      vatTotal += vat;
-      grossTotal += total;
+        const lineCost = round2(quantity * costAtSale);
+        const lineProfit = round2(net - lineCost);
 
-      const whKey = (row.warehouseKey || "main").trim() || "main";
-      const balKey = `${row.productId}__${whKey}`;
-      const avgCost = Number(existingBalances?.[balKey]?.avgCost || 0);
-      const costAtSale = avgCost;
+        costTotalUsed += lineCost;
+        profitTotal += lineProfit;
+      }
 
-      const lineCost = Math.round(quantity * costAtSale * 100) / 100;
-      const lineProfit = Math.round((net - lineCost) * 100) / 100;
-
-      costTotalUsed += lineCost;
-      profitTotal += lineProfit;
-
-      const itemRef = doc(itemsCol);
-
-      transaction.set(itemRef, {
-        productId: row.productId,
-        productName: row.productName || "",
-        unit: row.unit || "",
-
-        warehouseKey: whKey,
-
-        quantity,
-        unitPrice,
-        discountRate,
-
-        vatRate: saleType === "official" ? Number(row.vatRate || 0) : 0,
-
-        net,
-        vat: saleType === "official" ? vat : 0,
-        total,
-
-        costAtSale,
-        lineCost,
-        profit: lineProfit,
-      });
+      netTotal = round2(netTotal);
+      vatTotal = round2(vatTotal);
+      grossTotal = round2(grossTotal);
+      costTotalUsed = round2(costTotalUsed);
+      profitTotal = round2(profitTotal);
+    } else {
+      const totals = computeDraftTotals(items, saleType);
+      netTotal = totals.netTotal;
+      vatTotal = totals.vatTotal;
+      grossTotal = totals.grossTotal;
+      costTotalUsed = 0;
+      profitTotal = 0;
+      negativeStockItems = [];
     }
 
-    netTotal = Math.round(netTotal * 100) / 100;
-    vatTotal = Math.round(vatTotal * 100) / 100;
-    grossTotal = Math.round(grossTotal * 100) / 100;
-    costTotalUsed = Math.round(costTotalUsed * 100) / 100;
-    profitTotal = Math.round(profitTotal * 100) / 100;
-
-    // vat summary (tek oran ise yaz, değilse null)
+    // vat summary
     const ratesUsed = Array.from(
       new Set(
         (items || [])
@@ -176,7 +296,11 @@ export async function createSale(payload) {
     const saleVatRate =
       saleType === "official" && ratesUsed.length === 1 ? ratesUsed[0] : null;
 
-    transaction.set(saleRef, {
+    /* =====================
+       WRITE PHASE
+    ===================== */
+
+    const saleData = {
       // legacy alanlar
       saleNo: invoiceNo,
       saleType,
@@ -184,23 +308,31 @@ export async function createSale(payload) {
       // yeni alanlar
       saleChannel,
       platformId: saleChannel,
+
       invoiceNo,
       invoiceNoAuto: invoiceNoAuto || null,
       invoiceNoManual,
-      invoiceSequence: nextSeq,
-      invoiceYear2: yy,
-      invoiceCounterRef: "invoice_counters/sales",
+      invoiceSequence,
+      invoiceYear2,
+      invoiceCounterRef,
+
+      draftNo,
+      draftSequence,
+      draftYear2,
+      draftCounterRef,
 
       cariId: cariId || null,
 
       vatRate: saleType === "official" ? saleVatRate : 0,
       vatRatesUsed: saleType === "official" ? ratesUsed : [],
-      vatMode: saleType === "official" ? (payload?.vatMode || "exclude") : null,
+      vatMode: saleType === "official" ? payload?.vatMode || "exclude" : null,
+
       payment: {
         method: paymentMethod || null,
-        paidAmount: paidAmount > 0 ? Math.round(paidAmount * 100) / 100 : 0,
+        paidAmount: paidAmount > 0 ? round2(paidAmount) : 0,
       },
 
+      items, // draft edit için ana dokümanda da saklıyoruz
       netTotal,
       vatTotal: saleType === "official" ? vatTotal : 0,
       grossTotal,
@@ -211,47 +343,114 @@ export async function createSale(payload) {
       hasNegativeStock: negativeStockItems.length > 0,
       negativeStockItems,
 
-      status: "completed",
+      status,
+      isDraftLike: status !== "completed",
 
-      invoiceDate: invoiceDateISO ? new Date(invoiceDateISO) : null,
-      documentDate: invoiceDateISO ? new Date(invoiceDateISO) : null,
+      invoiceDate: toDateOrNull(invoiceDateISO),
+      documentDate: toDateOrNull(invoiceDateISO),
 
-      createdAt: serverTimestamp(),
+      approvedAt:
+        status === "completed" && !prevWasFinal ? serverTimestamp() : existingData?.approvedAt ?? null,
+      finalizedAt:
+        status === "completed" && !prevWasFinal ? serverTimestamp() : existingData?.finalizedAt ?? null,
+
       updatedAt: serverTimestamp(),
-    });
+    };
 
-    // stok hareketleri (out)
-    const itemsForStock = items
-      .filter((r) => r?.productId && Number(r.quantity || 0) > 0)
-      .map((r) => ({
-        ...r,
-        warehouseKey: (r.warehouseKey || "main").trim() || "main",
-        costAtSale: Number(
-          existingBalances?.[
-            `${r.productId}__${((r.warehouseKey || "main").trim() || "main")}`
-          ]?.avgCost || 0
-        ),
-      }));
+    if (isUpdate) {
+      transaction.set(saleRef, saleData, { merge: true });
+    } else {
+      transaction.set(saleRef, {
+        ...saleData,
+        createdAt: serverTimestamp(),
+      });
+    }
 
-    writeSaleStockMovements({
-      transaction,
-      saleId: saleRef.id,
-      saleType,
-      items: itemsForStock,
-      saleChannel,
-      invoiceNo,
-      invoiceDate: invoiceDateISO,
-    });
+    /* =====================
+       ITEMS SUBCOLLECTION
+       Sadece finalleşme anında yaz
+    ===================== */
 
-    writeStockBalancesAfterSale({
-      transaction,
-      saleType,
-      items: itemsForStock,
-      existingBalances,
-    });
+    if (needsStockRead) {
+      const itemsCol = collection(db, "sales", saleRef.id, "items");
 
-    // CARİ hareketleri
-    if (cariId) {
+      for (const row of items) {
+        if (!row?.productId) continue;
+
+        const quantity = Number(row.quantity || 0);
+        if (quantity <= 0) continue;
+
+        const unitPrice = Number(row.unitPrice || 0);
+        const discountRate = Number(row.discountRate || 0);
+
+        const net = Number(row.net || 0);
+        const vat = Number(row.vat || 0);
+        const total = Number(row.total || 0);
+
+        const whKey = (row.warehouseKey || "main").trim() || "main";
+        const balKey = `${row.productId}__${whKey}`;
+        const avgCost = Number(existingBalances?.[balKey]?.avgCost || 0);
+        const costAtSale = avgCost;
+
+        const lineCost = round2(quantity * costAtSale);
+        const lineProfit = round2(net - lineCost);
+
+        const itemRef = doc(itemsCol);
+
+        transaction.set(itemRef, {
+          productId: row.productId,
+          productName: row.productName || "",
+          unit: row.unit || "",
+
+          warehouseKey: whKey,
+
+          quantity,
+          unitPrice,
+          discountRate,
+
+          vatRate: saleType === "official" ? Number(row.vatRate || 0) : 0,
+
+          net,
+          vat: saleType === "official" ? vat : 0,
+          total,
+
+          costAtSale,
+          lineCost,
+          profit: lineProfit,
+        });
+      }
+    }
+
+    /* =====================
+       STOK HAREKETLERİ
+       Sadece finalleşme anında
+    ===================== */
+
+    if (needsStockRead) {
+      writeSaleStockMovements({
+        transaction,
+        saleId: saleRef.id,
+        saleType,
+        items: itemsForStock,
+        saleChannel,
+        invoiceNo,
+        invoiceDate: invoiceDateISO,
+      });
+
+      writeStockBalancesAfterSale({
+        transaction,
+        saleType,
+        items: itemsForStock,
+        existingBalances,
+      });
+    }
+
+    /* =====================
+       CARİ HAREKETLERİ
+       Sadece finalleşme anında
+    ===================== */
+
+    if (needsStockRead && cariId) {
       createCariTransaction(transaction, {
         cariId,
         type: "debit",
@@ -279,6 +478,32 @@ export async function createSale(payload) {
     }
 
     return { saleId: saleRef.id };
+  });
+}
+
+/* ===============================
+   DELETE DRAFT SALE
+   - Sadece draft / pending silinir
+================================ */
+export async function deleteDraftSale({ saleId }) {
+  if (!saleId) throw new Error("saleId gerekli");
+
+  return await runTransaction(db, async (transaction) => {
+    const saleRef = doc(db, "sales", saleId);
+    const saleSnap = await transaction.get(saleRef);
+
+    if (!saleSnap.exists()) {
+      throw new Error("Taslak satış bulunamadı");
+    }
+
+    const sale = saleSnap.data();
+    const status = normalizeStatus(sale?.status || "draft");
+
+    if (status === "completed") {
+      throw new Error("Tamamlanmış satış taslak olarak silinemez");
+    }
+
+    transaction.delete(saleRef);
   });
 }
 
@@ -341,7 +566,9 @@ export async function cancelSale({ saleId }) {
 
         saleChannel: sale.saleChannel || sale.platformId || null,
         invoiceNo: sale.saleNo || sale.invoiceNo || "",
-        documentDate: sale.documentDate?.toDate ? sale.documentDate.toDate() : null,
+        documentDate: sale.documentDate?.toDate
+          ? sale.documentDate.toDate()
+          : sale.documentDate || null,
 
         createdAt: serverTimestamp(),
       });
@@ -418,7 +645,9 @@ export async function returnSale({ saleId }) {
 
         saleChannel: sale.saleChannel || sale.platformId || null,
         invoiceNo: sale.saleNo || sale.invoiceNo || "",
-        documentDate: sale.documentDate?.toDate ? sale.documentDate.toDate() : null,
+        documentDate: sale.documentDate?.toDate
+          ? sale.documentDate.toDate()
+          : sale.documentDate || null,
 
         createdAt: serverTimestamp(),
       });
