@@ -1,7 +1,7 @@
 // app/satissitok/admin/purchases/new/page.jsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Home } from "lucide-react";
@@ -14,7 +14,7 @@ import {
   deleteDraftPurchase,
 } from "@/app/satissitok/services/purchaseService";
 
-export default function NewPurchasePage() {
+function PurchasePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -67,7 +67,6 @@ export default function NewPurchasePage() {
       console.log("SUBMIT PAYLOAD >>>", payload);
 
       const id = await createPurchase(payload);
-
       const nextStatus = payload?.status || "completed";
 
       if (nextStatus === "draft") {
@@ -118,7 +117,6 @@ export default function NewPurchasePage() {
   return (
     <div className="min-h-screen bg-[#f6f6f8] text-slate-900">
       <main className="p-8 max-w-[1400px] mx-auto w-full">
-        {/* Üst Navigasyon */}
         <div className="flex flex-wrap items-center gap-2 mb-6">
           <button
             type="button"
@@ -158,5 +156,27 @@ export default function NewPurchasePage() {
         )}
       </main>
     </div>
+  );
+}
+
+function PurchasePageFallback() {
+  return (
+    <div className="min-h-screen bg-[#f6f6f8] text-slate-900">
+      <main className="p-8 max-w-[1400px] mx-auto w-full">
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+          <div className="text-sm font-semibold text-slate-600">
+            Sayfa hazırlanıyor...
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default function NewPurchasePage() {
+  return (
+    <Suspense fallback={<PurchasePageFallback />}>
+      <PurchasePageContent />
+    </Suspense>
   );
 }

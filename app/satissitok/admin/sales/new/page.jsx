@@ -1,7 +1,7 @@
 // app/satissitok/admin/sales/new/page.jsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -22,7 +22,6 @@ import {
 } from "@/app/satissitok/services/saleService";
 import { getSettings } from "@/app/satissitok/services/settingsService";
 
-// İkonlar ve UI bileşenleri için basit SVG'ler
 const LoadingIcon = () => (
   <svg
     className="animate-spin h-5 w-5 text-blue-600"
@@ -46,7 +45,7 @@ const LoadingIcon = () => (
   </svg>
 );
 
-export default function NewSalePage() {
+function SalesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -195,7 +194,6 @@ export default function NewSalePage() {
 
   return (
     <main className="w-full px-4 py-6 space-y-6">
-      {/* Top Nav (Geri + Ana Sayfa) */}
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -219,7 +217,6 @@ export default function NewSalePage() {
         </Link>
       </div>
 
-      {/* Üst Başlık ve Navigasyon Bilgisi */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
@@ -243,7 +240,6 @@ export default function NewSalePage() {
         </div>
       </div>
 
-      {/* Form Alanı Kaplayıcısı */}
       <div
         className={`transition-all duration-300 ${
           saving ? "opacity-60 pointer-events-none" : "opacity-100"
@@ -265,7 +261,6 @@ export default function NewSalePage() {
         </div>
       </div>
 
-      {/* Yardımcı Alt Bilgi */}
       <div className="rounded-lg bg-slate-50 p-4 border border-slate-200">
         <p className="text-xs text-slate-500 leading-relaxed italic">
           * Belge numarası, manuel bir giriş yapılmadığı sürece kayıt esnasında sistem tarafından otomatik atanır.
@@ -273,5 +268,24 @@ export default function NewSalePage() {
         </p>
       </div>
     </main>
+  );
+}
+
+function SalesPageFallback() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+      <LoadingIcon />
+      <p className="text-slate-500 text-sm font-medium animate-pulse">
+        Sayfa hazırlanıyor...
+      </p>
+    </div>
+  );
+}
+
+export default function NewSalePage() {
+  return (
+    <Suspense fallback={<SalesPageFallback />}>
+      <SalesPageContent />
+    </Suspense>
   );
 }
