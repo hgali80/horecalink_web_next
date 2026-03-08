@@ -2,23 +2,6 @@
 import { doc } from "firebase/firestore";
 import { db } from "@/firebase";
 
-/**
- * Central, year-aware invoice counter service.
- *
- * Firestore schema:
- * invoice_counters/{kind}
- * {
- *   years: {
- *     "26": { official: 123, actual: 45 },
- *     "27": { official: 1, actual: 0 }
- *   },
- *   updatedAt: serverTimestamp() // optional (set by callers if needed)
- * }
- *
- * kind: "purchases" | "sales"
- * type: "official" | "actual"
- */
-
 function pad6(n) {
   return String(Number(n) || 0).padStart(6, "0");
 }
@@ -35,33 +18,25 @@ export function formatInvoiceNo({ kind, type, yy, seq }) {
   const k = String(kind || "").trim();
   const t = String(type || "").trim();
 
-  // Standardized prefixes
   const prefix =
     k === "purchases"
       ? t === "official"
         ? "PR"
         : "PF"
-      : // sales
-      t === "official"
+      : t === "official"
       ? "SR"
       : "SF";
 
   return `${prefix}-${yy}-${pad6(seq)}`;
 }
 
-/**
- * Reserves next sequence number inside a transaction.
- * - Creates invoice_counters/{kind} if missing.
- * - Keeps counters per year (yy).
- *
- * Returns: { nextSeq, autoInvoice }
- */
-export async function reserveNextInvoiceNo({
-  transaction,
-  kind,
-  type,
-  dateISO,
-}) {
+export function formatDraftNo({ kind, yy, seq }) {
+  const k = String(kind || "").trim();
+  const prefix = k === "purchases" ? "PD" : "SD";
+  return `${prefix}-${yy}-${pad6(seq)}`;
+}
+
+export async function reserveNextInvoiceNo({ transaction, kind, type, dateISO }) {
   const k = String(kind || "").trim();
   if (k !== "purchases" && k !== "sales") {
     throw new Error("kind geçersiz: purchases | sales olmalı");
@@ -82,7 +57,6 @@ export async function reserveNextInvoiceNo({
   const currentSeq = Number(yearMap[t] || 0);
   const nextSeq = currentSeq + 1;
 
-  // Merge back: years.yy.type = nextSeq
   transaction.set(
     counterRef,
     {
@@ -98,4 +72,37 @@ export async function reserveNextInvoiceNo({
 
   const autoInvoice = formatInvoiceNo({ kind: k, type: t, yy, seq: nextSeq });
   return { yy, nextSeq, autoInvoice, counterRefPath: `invoice_counters/${k}` };
+}
+
+export async function reserveNextDraftNo({ transaction, kind, dateISO }) {
+  const k = String(kind || "").trim();
+  if (k !== "purchases" && k !== "sales") {
+    throw new Error("kind geçersiz: purchases | sales olmalı");
+  }
+
+  const yy = year2FromDateISO(dateISO);
+  const counterRef = doc(db, "draft_counters", k);
+  const snap = await transaction.get(counterRef);
+
+  const data = snap.exists() ? snap.data() : {};
+  const years = (data && typeof data === "object" ? data.years : null) || {};
+  const yearMap = (years && typeof years === "object" ? years[yy] : null) || {};
+  const currentSeq = Number(yearMap.seq || 0);
+  const nextSeq = currentSeq + 1;
+
+  transaction.set(
+    counterRef,
+    {
+      years: {
+        [yy]: {
+          ...yearMap,
+          seq: nextSeq,
+        },
+      },
+    },
+    { merge: true }
+  );
+
+  const draftNo = formatDraftNo({ kind: k, yy, seq: nextSeq });
+  return { yy, nextSeq, draftNo, counterRefPath: `draft_counters/${k}` };
 }
