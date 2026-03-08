@@ -78,6 +78,9 @@ export default function SaleForm({
   settings,
   onSubmit,
   disabled,
+  initialData = null,
+  draftMeta = null,
+  isEditingDraft = false,
 }) {
   const units = useMemo(() => settings?.units || [], [settings]);
   const warehouses = useMemo(() => settings?.warehouses || [], [settings]);
@@ -150,21 +153,23 @@ export default function SaleForm({
     },
   ]);
 
-  // Draft auto-load (2.b)
+  // Draft auto-load
   useEffect(() => {
     if (draftLoaded) return;
     setDraftLoaded(true);
 
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (!raw) return;
-      const d = JSON.parse(raw);
+      const d = initialData
+        ? initialData
+        : (() => {
+            const raw = localStorage.getItem(DRAFT_KEY);
+            return raw ? JSON.parse(raw) : null;
+          })();
       if (!d || typeof d !== "object") return;
 
-      // silent load
       setInvoiceDate(d.invoiceDate || todayISO());
       setDueDate(d.dueDate || "");
-      setProcessStatus(d.processStatus || "draft");
+      setProcessStatus(d.processStatus || d.status || "draft");
 
       setSaleType(d.saleType || "actual");
       setSaleChannel(d.saleChannel || defaultPlatform);
@@ -176,16 +181,18 @@ export default function SaleForm({
       setCariId(d.cariId || "");
       setCariSearch("");
 
-      setPaymentMethod(d.paymentMethod || "bank");
-      setPaidAmount(Number(d.paidAmount || 0));
-      setIsPaid(Boolean(d.isPaid));
+      setPaymentMethod(d?.payment?.method || d.paymentMethod || "bank");
+      setPaidAmount(Number(d?.payment?.paidAmount ?? d.paidAmount ?? 0));
+      setIsPaid(Boolean(d?.payment?.isPaid ?? d.isPaid));
 
-      setDeliveryMode(d.deliveryMode || "pickup");
-      setDeliveryDate(d.deliveryDate || "");
-      setPlateNo(d.plateNo || "");
-      setLoadingArea(d.loadingArea || "Ana Terminal Peron 02");
-      setCustomerNote(d.customerNote || "");
-      setInternalNote(d.internalNote || "");
+      const delivery = d?.meta?.delivery || {};
+      const notes = d?.meta?.notes || {};
+      setDeliveryMode(delivery.mode || d.deliveryMode || "pickup");
+      setDeliveryDate(delivery.deliveryDate || d.deliveryDate || "");
+      setPlateNo(delivery.plateNo || d.plateNo || "");
+      setLoadingArea(delivery.loadingArea || d.loadingArea || "Ana Terminal Peron 02");
+      setCustomerNote(notes.customer || d.customerNote || "");
+      setInternalNote(notes.internal || d.internalNote || "");
 
       const loadedItems = Array.isArray(d.items) ? d.items : [];
       if (loadedItems.length) {
@@ -207,12 +214,12 @@ export default function SaleForm({
       }
 
       setDraftInfo({
-        savedAt: d.savedAt || null,
+        savedAt: d.savedAt || d.draftUpdatedAt || d.updatedAt || null,
       });
     } catch {
       // ignore
     }
-  }, [draftLoaded, defaultPlatform, defaultUnit, defaultWarehouse, defaultVatRate]);
+  }, [draftLoaded, initialData, defaultPlatform, defaultUnit, defaultWarehouse, defaultVatRate]);
 
   // When settings arrives, fix defaults for the empty first render
   useEffect(() => {
@@ -452,6 +459,7 @@ export default function SaleForm({
 
     if (mode === "draft") {
       saveDraft();
+      await onSubmit({ ...payload, status: "draft" });
       return;
     }
 
@@ -476,7 +484,7 @@ export default function SaleForm({
                   </h1>
                   <div className="flex items-center gap-2 mt-2">
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 uppercase">
-                      Taslak
+                      {isEditingDraft ? "Firestore Taslak" : "Taslak"}
                     </span>
                     <span className="text-slate-300">|</span>
                     <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">
@@ -485,6 +493,15 @@ export default function SaleForm({
                         {invoiceNo?.trim() ? invoiceNo : "Otomatik"}
                       </span>
                     </p>
+                    {draftMeta?.draftNo ? (
+                      <>
+                        <span className="text-slate-300">|</span>
+                        <p className="text-xs text-amber-700 uppercase tracking-wider font-bold">
+                          Draft No: <span>{draftMeta.draftNo}</span>
+                        </p>
+                      </>
+                    ) : null}
+
                   </div>
                 </div>
               </div>
@@ -547,7 +564,7 @@ export default function SaleForm({
                   <span className="font-bold">Taslak yüklendi.</span>
                   <span className="ml-2 text-blue-700 text-xs">
                     (Kaydedilme:{" "}
-                    {new Date(draftInfo.savedAt).toLocaleString("tr-TR")})
+                    {draftInfo.savedAt?.toDate ? draftInfo.savedAt.toDate().toLocaleString("tr-TR") : new Date(draftInfo.savedAt).toLocaleString("tr-TR")})
                   </span>
                 </div>
                 <button

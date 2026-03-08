@@ -164,6 +164,7 @@ export default function PurchasesListPage() {
             onChange={(e) => setStatus(e.target.value)}
           >
             <option value="">Tümü</option>
+            <option value="draft">Taslak</option>
             <option value="completed">Tamamlandı</option>
             <option value="cancelled">İptal</option>
           </select>
@@ -217,7 +218,9 @@ export default function PurchasesListPage() {
             <tbody className="bg-white divide-y divide-gray-100">
               {filteredRows.map((r) => {
                 const isCancelled = r.status === "cancelled";
+                const isDraft = r.status === "draft";
                 const supplier = caris[r.supplierCariId] || r.supplierName || "—";
+                const href = isDraft ? `/satissitok/admin/purchases/new?draftId=${r.id}` : `/satissitok/admin/purchases/${r.id}`;
 
                 return (
                   <tr
@@ -234,17 +237,21 @@ export default function PurchasesListPage() {
 
                         <div>
                           <Link
-                            href={`/satissitok/admin/purchases/${r.id}`}
+                            href={href}
                             className={`block font-semibold hover:text-indigo-600 transition-colors ${
                               isCancelled ? "text-gray-400 line-through" : "text-gray-900"
                             }`}
                           >
-                            {r.invoiceNo || "N/A"}
+                            {r.invoiceNo || r.draftNo || "N/A"}
                           </Link>
 
                           {isCancelled ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wider">
                               İptal Edildi
+                            </span>
+                          ) : isDraft ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 uppercase tracking-wider">
+                              Taslak
                             </span>
                           ) : (
                             <span className="text-[11px] text-gray-400 font-medium tracking-tight">
@@ -272,7 +279,7 @@ export default function PurchasesListPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2 text-sm text-gray-500 font-medium">
                         <Calendar size={14} className="text-gray-400" />
-                        {formatDate(r.documentDate || r.invoiceDate)}
+{formatDate(r.documentDate || r.invoiceDate || r.draftUpdatedAt || r.updatedAt)}
                       </div>
                     </td>
 
@@ -285,7 +292,7 @@ export default function PurchasesListPage() {
 
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <Link
-                        href={`/satissitok/admin/purchases/${r.id}`}
+                        href={href}
                         className="p-1.5 hover:bg-white rounded-full transition-shadow hover:shadow-sm text-gray-400 hover:text-indigo-600"
                         title="Detay"
                       >

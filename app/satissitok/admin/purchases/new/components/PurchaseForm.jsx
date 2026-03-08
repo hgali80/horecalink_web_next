@@ -54,7 +54,7 @@ function fmtMoney(n) {
   });
 }
 
-export default function PurchaseForm({ onSubmit }) {
+export default function PurchaseForm({ onSubmit, initialData = null, draftMeta = null, isEditingDraft = false }) {
   /* ===============================
      DURUM / TÜR
   ================================ */
@@ -143,6 +143,49 @@ export default function PurchaseForm({ onSubmit }) {
     };
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    if (!initialData) return;
+
+    setStatus(initialData.status || "draft");
+    setPurchaseType(initialData.purchaseType || "official");
+    setVatMode(initialData.vatMode || "inclusive");
+    setSelectedVat(Number(initialData.taxRate ?? 16) || 0);
+
+    setSupplierCariId(initialData.supplierCariId || null);
+    setSupplierName(initialData.supplierName || "");
+    setSupplierBin(initialData.supplierBin || "");
+    setSupplierRef(initialData.supplierRef || "");
+    setResponsiblePerson(initialData.responsiblePerson || "");
+
+    setInvoiceNo(initialData.invoiceNo || "");
+    setInvoiceNoDirty(Boolean(initialData.invoiceNoManual));
+    setDocumentDate(
+      initialData.documentDate?.toDate
+        ? initialData.documentDate.toDate().toISOString().slice(0, 10)
+        : initialData.documentDate
+        ? new Date(initialData.documentDate).toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10)
+    );
+
+    setWarehouseKey(initialData.warehouseKey || "main");
+    setCariSearch(initialData.supplierName || "");
+
+    setItems(Array.isArray(initialData.items) ? initialData.items : []);
+
+    setPaymentMethod(initialData.payment?.method || initialData.paymentMethod || "bank");
+    setIsPaid(Boolean(initialData.payment?.isPaid));
+    setPaidDate(initialData.payment?.paidDate || "");
+
+    const due = initialData.dueDate?.toDate
+      ? initialData.dueDate.toDate().toISOString().slice(0, 10)
+      : initialData.dueDate
+      ? new Date(initialData.dueDate).toISOString().slice(0, 10)
+      : "";
+    setDueDate(due);
+    setNotes(initialData.notes || "");
+    setAttachments(Array.isArray(initialData.attachments) ? initialData.attachments : []);
+  }, [initialData]);
 
   /* ===============================
      CARİ LOAD
@@ -397,13 +440,13 @@ export default function PurchaseForm({ onSubmit }) {
         <div className="flex justify-between items-end mt-2">
           <div>
             <h1 className="text-3xl font-black tracking-tight text-slate-900">
-              Yeni Satınalma Faturası
+              {isEditingDraft ? "Satınalma Taslağını Düzenle" : "Yeni Satınalma Faturası"}
             </h1>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-sm text-slate-500">
                 Taslak No:{" "}
                 <span className="font-mono text-[#135bec]">
-                  {invoiceNo || "-"}
+                  {draftMeta?.draftNo || invoiceNo || "-"}
                 </span>
               </span>
               <span className="bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
