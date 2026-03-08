@@ -15,6 +15,11 @@ import {
 
 import { reserveNextInvoiceNo } from "./invoiceCounterService";
 
+/* ===============================
+   FATURA FORMAT (UI İLE AYNI)
+   PR-26-000001 / PF-26-000001
+================================ */
+
 function toDateOrNull(dateISO) {
   if (!dateISO) return null;
   const d = new Date(dateISO);
@@ -31,9 +36,8 @@ function round2(n) {
 }
 
 /* =========================================================
-   CREATE / SAVE PURCHASE
-   - status=draft    => sadece belge taslağı kaydedilir
-   - status=completed => stok / cari / sayaç yazılır
+   CREATE PURCHASE
+   ✅ FIX: Transaction rule (ALL READS before ANY WRITES)
 ========================================================= */
 
 export async function createPurchase(payload) {
@@ -44,27 +48,25 @@ export async function createPurchase(payload) {
     }
 
     const status = (payload.status || "completed").trim() || "completed";
-    const isDraft = status === "draft";
     const isFinal = status === "completed";
-    const draftId = (payload?.draftId || "").trim() || null;
-
     const warehouseKey = (payload.warehouseKey || "main").trim() || "main";
     const manualInvoice = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
     const invoiceNoAutoFlag = payload.invoiceNoAuto === true;
     const items = Array.isArray(payload.items) ? payload.items : [];
-
+    const draftId = (payload?.draftId || "").trim();
     const purchaseRef = draftId ? doc(db, "purchases", draftId) : doc(collection(db, "purchases"));
-    const existingSnap = draftId ? await transaction.get(purchaseRef) : null;
-    const existingData = existingSnap?.exists() ? existingSnap.data() : null;
-    const createdAtValue = existingData?.createdAt || serverTimestamp();
+    const existingPurchaseSnap = draftId ? await transaction.get(purchaseRef) : null;
 
     const t = payload.totals || {};
     const net = round2(t.net ?? payload.netTotal ?? 0);
     const vatRaw = t.tax ?? t.vat ?? payload.vatTotal ?? payload.taxTotal ?? 0;
     const vat = round2(vatRaw);
     const gross = round2(t.gross ?? payload.grossTotal ?? payload.total ?? (net + vat));
+    const vatTotal = type === "official" ? vat : 0;
+    const totalsNormalized = { net, tax: vat, vat, gross };
 
-    if (isDraft) {
+    if (!isFinal) {
+      const existingCreatedAt = existingPurchaseSnap?.exists() ? existingPurchaseSnap.data()?.createdAt || null : null;
       transaction.set(
         purchaseRef,
         {
@@ -86,14 +88,9 @@ export async function createPurchase(payload) {
           taxRate: type === "official" ? Number(payload.taxRate || 0) : 0,
           vatMode: type === "official" ? payload.vatMode || "inclusive" : null,
           items,
-          totals: {
-            net,
-            tax: vat,
-            vat,
-            gross,
-          },
+          totals: totalsNormalized,
           netTotal: net,
-          vatTotal: type === "official" ? vat : 0,
+          vatTotal,
           grossTotal: gross,
           paymentMethod: (payload.paymentMethod || "").trim(),
           payment: payload.payment || null,
@@ -102,21 +99,18 @@ export async function createPurchase(payload) {
           attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
           status: "draft",
           draftSavedAt: serverTimestamp(),
-          createdAt: createdAtValue,
           updatedAt: serverTimestamp(),
+          createdAt: existingCreatedAt || serverTimestamp(),
         },
         { merge: true }
       );
-
       return purchaseRef.id;
     }
 
-    const existingBalances = isFinal
-      ? await readStockBalancesForPurchase({
-          transaction,
-          items,
-        })
-      : null;
+    const existingBalances = await readStockBalancesForPurchase({
+      transaction,
+      items,
+    });
 
     const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
       transaction,
@@ -128,14 +122,7 @@ export async function createPurchase(payload) {
     const invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
     const invoiceNoAutoValue = invoiceNo === autoInvoice ? autoInvoice : null;
     const invoiceNoManual = invoiceNo !== autoInvoice;
-    const vatTotal = type === "official" ? vat : 0;
-
-    const totalsNormalized = {
-      net,
-      tax: vat,
-      vat,
-      gross,
-    };
+    const existingCreatedAt = existingPurchaseSnap?.exists() ? existingPurchaseSnap.data()?.createdAt || null : null;
 
     transaction.set(
       purchaseRef,
@@ -169,35 +156,33 @@ export async function createPurchase(payload) {
         attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
         status,
         draftSavedAt: null,
-        createdAt: createdAtValue,
         updatedAt: serverTimestamp(),
+        createdAt: existingCreatedAt || serverTimestamp(),
       },
       { merge: true }
     );
 
-    if (isFinal) {
-      writePurchaseStockMovements({
-        transaction,
-        purchaseId: purchaseRef.id,
-        purchaseType: type,
-        items,
-        supplierName: (payload.supplierName || "").trim(),
-        invoiceNo,
-        documentDate: payload.documentDate || null,
-        currency: "KZT",
-        warehouseKey,
-      });
+    writePurchaseStockMovements({
+      transaction,
+      purchaseId: purchaseRef.id,
+      purchaseType: type,
+      items,
+      supplierName: (payload.supplierName || "").trim(),
+      invoiceNo,
+      documentDate: payload.documentDate || null,
+      currency: "KZT",
+      warehouseKey,
+    });
 
-      writeStockBalancesWithAvgCost({
-        transaction,
-        purchaseType: type,
-        items,
-        existingBalances,
-        warehouseKey,
-      });
-    }
+    writeStockBalancesWithAvgCost({
+      transaction,
+      purchaseType: type,
+      items,
+      existingBalances,
+      warehouseKey,
+    });
 
-    if (isFinal && payload.supplierCariId) {
+    if (payload.supplierCariId) {
       const desc = (payload.description || payload.notes || "Satınalma faturası").trim();
       const cariTxRef = doc(collection(db, "cari_transactions"));
 
@@ -225,6 +210,10 @@ export async function createPurchase(payload) {
     return purchaseRef.id;
   });
 }
+
+/* =========================================================
+   CANCEL PURCHASE (MEVCUT YAPI KORUNDU)
+========================================================= */
 
 export async function cancelPurchase({ purchaseId }) {
   if (!purchaseId) throw new Error("purchaseId zorunlu");

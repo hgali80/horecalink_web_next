@@ -54,14 +54,13 @@ function fmtMoney(n) {
   });
 }
 
-export default function PurchaseForm({ onSubmit, initialData = null, draftId = null }) {
+export default function PurchaseForm({ onSubmit, initialData = null }) {
   /* ===============================
      DURUM / TÜR
   ================================ */
 
   // draft | pending | completed
   const [status, setStatus] = useState("draft");
-  const [initialLoaded, setInitialLoaded] = useState(false);
 
   // official | actual
   const [purchaseType, setPurchaseType] = useState("official");
@@ -97,39 +96,6 @@ export default function PurchaseForm({ onSubmit, initialData = null, draftId = n
     new Date().toISOString().slice(0, 10)
   );
 
-  useEffect(() => {
-    if (initialLoaded) return;
-    if (!initialData || typeof initialData !== "object") return;
-
-    setInitialLoaded(true);
-
-    setStatus(initialData.status || "draft");
-    setPurchaseType(initialData.purchaseType || "official");
-    setVatMode(initialData.vatMode || "inclusive");
-    setSelectedVat(Number(initialData.taxRate || 16) || 16);
-
-    setSupplierCariId(initialData.supplierCariId || null);
-    setSupplierName(initialData.supplierName || "");
-    setSupplierBin(initialData.supplierBin || "");
-    setSupplierRef(initialData.supplierRef || "");
-    setResponsiblePerson(initialData.responsiblePerson || "");
-
-    setInvoiceNo(initialData.invoiceNo || "");
-    setInvoiceNoDirty(Boolean(initialData.invoiceNoManual || initialData.invoiceNoDirty));
-
-    setDocumentDate(initialData.documentDate || new Date().toISOString().slice(0, 10));
-    setWarehouseKey(initialData.warehouseKey || "main");
-
-    if (Array.isArray(initialData.items)) setItems(initialData.items);
-
-    setPaymentMethod(initialData.payment?.method || initialData.paymentMethod || "bank");
-    setIsPaid(Boolean(initialData.payment?.isPaid));
-    setPaidDate(initialData.payment?.paidDate || "");
-    setDueDate(initialData.dueDate || "");
-    setNotes(initialData.notes || "");
-    setAttachments(Array.isArray(initialData.attachments) ? initialData.attachments : []);
-  }, [initialLoaded, initialData]);
-
   /* ===============================
      CARİ DROPDOWN
   ================================ */
@@ -157,6 +123,41 @@ export default function PurchaseForm({ onSubmit, initialData = null, draftId = n
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState([]); // metadata only
 
+  const activeDraftId = initialData?.id || initialData?.draftId || null;
+
+  useEffect(() => {
+    if (!initialData || typeof initialData !== "object") return;
+
+    setStatus(initialData.status || "draft");
+    setPurchaseType(initialData.purchaseType || "official");
+    setVatMode(initialData.vatMode || "inclusive");
+    setSupplierCariId(initialData.supplierCariId || null);
+    setSupplierName(initialData.supplierName || "");
+    setSupplierBin(initialData.supplierBin || "");
+    setSupplierRef(initialData.supplierRef || "");
+    setResponsiblePerson(initialData.responsiblePerson || "");
+    setInvoiceNo(initialData.invoiceNo || "");
+    setInvoiceNoDirty(Boolean(initialData.invoiceNo));
+
+    const toISO = (v) => {
+      if (!v) return "";
+      if (typeof v === "string") return v.slice(0, 10);
+      if (v?.toDate) return v.toDate().toISOString().slice(0, 10);
+      const d = new Date(v);
+      return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+    };
+
+    setDocumentDate(toISO(initialData.documentDate) || new Date().toISOString().slice(0, 10));
+    setWarehouseKey(initialData.warehouseKey || "main");
+    setItems(Array.isArray(initialData.items) ? initialData.items : []);
+    setPaymentMethod(initialData.payment?.method || initialData.paymentMethod || "bank");
+    setIsPaid(Boolean(initialData.payment?.isPaid));
+    setPaidDate(toISO(initialData.payment?.paidDate));
+    setDueDate(toISO(initialData.dueDate));
+    setNotes(initialData.notes || "");
+    setAttachments(Array.isArray(initialData.attachments) ? initialData.attachments : []);
+  }, [initialData]);
+
   /* ===============================
      SETTINGS LOAD
   ================================ */
@@ -168,16 +169,12 @@ export default function PurchaseForm({ onSubmit, initialData = null, draftId = n
       const vats = settings?.taxes?.vat || [];
       setVatRates(vats);
       const defVat = vats.find((v) => v.default === true);
-      if (!initialData?.taxRate) {
-        setSelectedVat(defVat ? Number(defVat.rate) : 16);
-      }
+      setSelectedVat(defVat ? Number(defVat.rate) : 16);
 
       const wh = (settings?.warehouses || []).filter((w) => w.active !== false);
       setWarehouses(wh);
       const defWh = wh.find((w) => w.default === true) || wh[0];
-      if (!initialData?.warehouseKey) {
-        setWarehouseKey(defWh?.key || "main");
-      }
+      setWarehouseKey(defWh?.key || "main");
     };
     loadSettings();
   }, []);
@@ -343,7 +340,6 @@ export default function PurchaseForm({ onSubmit, initialData = null, draftId = n
 
   const buildPayload = (nextStatus) => {
     return {
-      draftId: draftId || null,
       status: nextStatus,
 
       supplierName: (supplierName || "").trim(),
@@ -378,6 +374,7 @@ export default function PurchaseForm({ onSubmit, initialData = null, draftId = n
       dueDate: dueDate || null,
       notes,
       attachments,
+      draftId: activeDraftId || null,
     };
   };
 

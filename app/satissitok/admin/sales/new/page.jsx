@@ -3,8 +3,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { useRouter, useSearchParams } from "next/navigation";
+import { collection, doc, getDoc, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/firebase";
 import { ArrowLeft, Home } from "lucide-react";
 
@@ -12,7 +12,6 @@ import SaleForm from "./components/SaleForm";
 import { createSale } from "@/app/satissitok/services/saleService";
 import { getSettings } from "@/app/satissitok/services/settingsService";
 
-// İkonlar ve UI bileşenleri için basit SVG'ler
 const LoadingIcon = () => (
   <svg
     className="animate-spin h-5 w-5 text-blue-600"
@@ -29,8 +28,18 @@ const LoadingIcon = () => (
   </svg>
 );
 
+function tsToISO(v) {
+  if (!v) return "";
+  if (typeof v === "string") return v.slice(0, 10);
+  if (v?.toDate) return v.toDate().toISOString().slice(0, 10);
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
+
 export default function NewSalePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const draftId = (searchParams.get("draftId") || "").trim();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,24 +48,28 @@ export default function NewSalePage() {
   const [caris, setCaris] = useState([]);
   const [balances, setBalances] = useState({});
   const [settings, setSettings] = useState(null);
+  const [initialData, setInitialData] = useState(null);
 
   useEffect(() => {
     loadAll();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId]);
 
   async function loadAll() {
     setLoading(true);
     try {
-      const [p, c, b, s] = await Promise.all([
+      const [p, c, b, s, draftDoc] = await Promise.all([
         loadProducts(),
         loadCaris(),
         loadBalances(),
         getSettings(),
+        loadDraft(draftId),
       ]);
       setProducts(p);
       setCaris(c);
       setBalances(b);
       setSettings(s);
+      setInitialData(draftDoc);
     } finally {
       setLoading(false);
     }
@@ -81,22 +94,44 @@ export default function NewSalePage() {
     return map;
   }
 
+  async function loadDraft(id) {
+    if (!id) return null;
+    const snap = await getDoc(doc(db, "sales", id));
+    if (!snap.exists()) return null;
+    const data = snap.data();
+    return {
+      id: snap.id,
+      ...data,
+      invoiceDate: tsToISO(data.invoiceDate || data.documentDate),
+      dueDate: tsToISO(data.dueDate),
+      draftSavedAt: tsToISO(data.draftSavedAt) || data.draftSavedAt || null,
+      updatedAt: tsToISO(data.updatedAt) || data.updatedAt || null,
+    };
+  }
+
   async function handleSubmit(payload) {
     if (saving) return;
 
     setSaving(true);
     try {
-      // ✅ Fatura numarası üretimi saleService içinde merkezi olarak yapılıyor.
-      // invoiceNoAuto = true  => sistem üretir (SR-YY-000001 / SF-YY-000001)
-      // invoiceNoAuto = false => manuel kaydeder (boşsa sistem üretir)
       const res = await createSale({
         ...payload,
-        invoiceNoAuto: payload.invoiceNoDirty ? false : true,
+        invoiceNoAuto: payload.status === "draft" ? false : payload.invoiceNoDirty ? false : true,
       });
 
       if (!res?.saleId) {
         throw new Error("Satış kaydı oluşturuldu ama ID alınamadı.");
       }
+
+      if (payload.status === "draft") {
+        alert("Satış taslağı kaydedildi.");
+        router.push("/satissitok/admin/sales");
+        return;
+      }
+
+      try {
+        localStorage.removeItem("satissitok_sale_draft_v1");
+      } catch {}
 
       router.push(`/satissitok/admin/sales/${res.saleId}`);
     } catch (e) {
@@ -118,7 +153,6 @@ export default function NewSalePage() {
 
   return (
     <main className="w-full px-4 py-6 space-y-6">
-      {/* Top Nav (Geri + Ana Sayfa) */}
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -142,10 +176,11 @@ export default function NewSalePage() {
         </Link>
       </div>
 
-      {/* Üst Başlık ve Navigasyon Bilgisi */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Yeni Satış Oluştur</h1>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+            {draftId ? "Satış Taslağını Düzenle" : "Yeni Satış Oluştur"}
+          </h1>
           <p className="text-slate-500 text-sm">
             Sistemdeki stok ve cari bilgilerini kullanarak satış işlemini başlatın.
           </p>
@@ -155,6 +190,11 @@ export default function NewSalePage() {
           <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">
             Fatura Modülü
           </span>
+          {draftId && (
+            <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full font-medium border border-amber-100">
+              Taslak Düzenleme
+            </span>
+          )}
           {saving && (
             <span className="flex items-center gap-2 px-3 py-1 bg-amber-50 text-amber-700 rounded-full font-medium border border-amber-100">
               <span className="w-2 h-2 bg-amber-500 rounded-full animate-ping"></span>
@@ -164,27 +204,26 @@ export default function NewSalePage() {
         </div>
       </div>
 
-      {/* Form Alanı Kaplayıcısı */}
-<div className={`transition-all duration-300 ${saving ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
-  <div className="relative bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
-    <div className="p-1">
-      <SaleForm
-        products={products}
-        caris={caris}
-        balances={balances}
-        settings={settings}
-        onSubmit={handleSubmit}
-        disabled={saving}
-      />
-    </div>
-  </div>
-</div>
+      <div className={`transition-all duration-300 ${saving ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
+        <div className="relative bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
+          <div className="p-1">
+            <SaleForm
+              products={products}
+              caris={caris}
+              balances={balances}
+              settings={settings}
+              onSubmit={handleSubmit}
+              disabled={saving}
+              initialData={initialData}
+            />
+          </div>
+        </div>
+      </div>
 
-      {/* Yardımcı Alt Bilgi */}
       <div className="rounded-lg bg-slate-50 p-4 border border-slate-200">
         <p className="text-xs text-slate-500 leading-relaxed italic">
-          * Fatura numarası, manuel bir giriş yapılmadığı sürece kayıt esnasında sistem tarafından otomatik olarak
-          (SR-YYXXXXXX) formatında atanacaktır.
+          * Taslak kaydı stok ve cari hareketi oluşturmaz. Final kayıt sırasında sistem fatura numarasını üretir ve tüm
+          resmi/fiili akışı çalıştırır.
         </p>
       </div>
     </main>

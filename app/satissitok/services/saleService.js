@@ -18,65 +18,73 @@ import {
 import { reserveNextInvoiceNo } from "./invoiceCounterService";
 import { createCariTransaction } from "@/app/satissitok/admin/cari/services/cariService";
 
-function round2(n) {
-  return Math.round((Number(n) || 0) * 100) / 100;
+function num(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : 0;
 }
 
-function toDateOrNull(dateISO) {
-  if (!dateISO) return null;
-  const d = new Date(dateISO);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function buildSaleDraftTotals(items = []) {
-  let netTotal = 0;
-  let vatTotal = 0;
-  let grossTotal = 0;
-
-  for (const row of items) {
-    if (!row?.productId) continue;
-    netTotal += Number(row.net || 0);
-    vatTotal += Number(row.vat || 0);
-    grossTotal += Number(row.total || 0);
-  }
-
-  return {
-    netTotal: round2(netTotal),
-    vatTotal: round2(vatTotal),
-    grossTotal: round2(grossTotal),
-  };
+function normalizeDraftItems(items = [], saleType = "actual") {
+  return (Array.isArray(items) ? items : [])
+    .filter((row) => row && (row.productId || row.productName))
+    .map((row) => ({
+      productId: row.productId || "",
+      productName: row.productName || "",
+      unit: row.unit || "",
+      warehouseKey: (row.warehouseKey || "main").trim() || "main",
+      quantity: num(row.quantity || 0),
+      unitPrice: num(row.unitPrice || 0),
+      discountRate: num(row.discountRate || 0),
+      vatRate: saleType === "official" ? num(row.vatRate || 0) : 0,
+      net: num(row.net || 0),
+      vat: saleType === "official" ? num(row.vat || 0) : 0,
+      total: num(row.total || 0),
+    }));
 }
 
 /* ===============================
    CREATE / SAVE SALE
-   - status=draft    => sadece belge taslağı kaydedilir
-   - status=completed => stok / cari / sayaç yazılır
+   - draft: only document write, no stock/cari/counter
+   - completed: full final transaction
 ================================ */
-
 export async function createSale(payload) {
   return await runTransaction(db, async (transaction) => {
-    const saleType = payload?.saleType === "actual" ? "actual" : "official";
+    const saleType = payload?.saleType === "official" ? "official" : "actual";
+    const status = (payload?.status || "completed").trim() || "completed";
+    const isDraft = status === "draft";
+
     const saleChannel = (payload?.saleChannel || payload?.platformId || "other").trim();
     const cariId = payload?.cariId || null;
-    const status = payload?.status === "draft" ? "draft" : "completed";
-    const draftId = (payload?.draftId || "").trim() || null;
+    const invoiceDateISO = payload?.invoiceDate || new Date().toISOString().slice(0, 10);
+    const dueDateISO = payload?.dueDate || null;
 
     const payment = payload?.payment || {};
     const paymentMethod = (payment.method || payload?.paymentMethod || "").trim();
-    const paidAmount = Number(payment.paidAmount ?? payload?.paidAmount ?? 0) || 0;
+    const paidAmount = num(payment.paidAmount ?? payload?.paidAmount ?? 0);
+    const isPaid = Boolean(payment.isPaid ?? payload?.isPaid ?? false);
 
-    const invoiceDateISO = payload?.invoiceDate || new Date().toISOString().slice(0, 10);
     const manualInvoice = (payload?.invoiceNo || payload?.docNo || "").trim();
     const invoiceNoAutoFlag = payload?.invoiceNoAuto === true;
     const items = Array.isArray(payload?.items) ? payload.items : [];
 
+    const draftId = (payload?.draftId || "").trim();
     const saleRef = draftId ? doc(db, "sales", draftId) : doc(collection(db, "sales"));
-    const existingSnap = draftId ? await transaction.get(saleRef) : null;
-    const existingData = existingSnap?.exists() ? existingSnap.data() : null;
-    const createdAtValue = existingData?.createdAt || serverTimestamp();
+    const existingSaleSnap = draftId ? await transaction.get(saleRef) : null;
 
-    if (status === "draft") {
-      const totals = buildSaleDraftTotals(items);
+    if (isDraft) {
+      const normalizedItems = normalizeDraftItems(items, saleType);
+      const netTotal = Math.round(normalizedItems.reduce((s, r) => s + num(r.net), 0) * 100) / 100;
+      const vatTotalRaw = Math.round(normalizedItems.reduce((s, r) => s + num(r.vat), 0) * 100) / 100;
+      const grossTotal = Math.round(normalizedItems.reduce((s, r) => s + num(r.total), 0) * 100) / 100;
+      const vatTotal = saleType === "official" ? vatTotalRaw : 0;
+      const ratesUsed = Array.from(
+        new Set(
+          normalizedItems
+            .filter((x) => x?.productId)
+            .map((x) => Number(x.vatRate || 0))
+        )
+      );
+
+      const existingCreatedAt = existingSaleSnap?.exists() ? existingSaleSnap.data()?.createdAt || null : null;
 
       transaction.set(
         saleRef,
@@ -92,29 +100,33 @@ export async function createSale(payload) {
           invoiceYear2: null,
           invoiceCounterRef: null,
           cariId,
-          vatMode: payload?.vatMode || "exclude",
+          vatRate: saleType === "official" && ratesUsed.length === 1 ? ratesUsed[0] : 0,
+          vatRatesUsed: saleType === "official" ? ratesUsed : [],
+          vatMode: saleType === "official" ? (payload?.vatMode || "exclude") : null,
           payment: {
             method: paymentMethod || null,
-            paidAmount: round2(paidAmount),
-            isPaid: Boolean(payment.isPaid),
+            paidAmount: paidAmount > 0 ? Math.round(paidAmount * 100) / 100 : 0,
+            isPaid,
           },
-          netTotal: totals.netTotal,
-          vatTotal: saleType === "official" ? totals.vatTotal : 0,
-          grossTotal: totals.grossTotal,
+          processStatus: payload?.processStatus || "draft",
+          dueDate: dueDateISO ? new Date(dueDateISO) : null,
+          meta: payload?.meta || null,
+          customerNote: payload?.meta?.notes?.customer || "",
+          internalNote: payload?.meta?.notes?.internal || "",
+          items: normalizedItems,
+          netTotal,
+          vatTotal,
+          grossTotal,
           costTotalUsed: 0,
           profitTotal: 0,
           hasNegativeStock: false,
           negativeStockItems: [],
           status: "draft",
-          processStatus: payload?.processStatus || "draft",
-          invoiceDate: toDateOrNull(invoiceDateISO),
-          documentDate: toDateOrNull(invoiceDateISO),
-          dueDate: toDateOrNull(payload?.dueDate),
-          meta: payload?.meta || {},
-          items,
+          invoiceDate: invoiceDateISO ? new Date(invoiceDateISO) : null,
+          documentDate: invoiceDateISO ? new Date(invoiceDateISO) : null,
           draftSavedAt: serverTimestamp(),
-          createdAt: createdAtValue,
           updatedAt: serverTimestamp(),
+          createdAt: existingCreatedAt || serverTimestamp(),
         },
         { merge: true }
       );
@@ -123,9 +135,8 @@ export async function createSale(payload) {
     }
 
     /* =====================
-       READ PHASE (ALL READS FIRST)
+       FINAL READ PHASE
     ===================== */
-
     const existingBalances = await readStockBalancesForSale({
       transaction,
       items,
@@ -172,7 +183,6 @@ export async function createSale(payload) {
 
     for (const row of items) {
       if (!row?.productId) continue;
-
       const quantity = Number(row.quantity || 0);
       if (quantity <= 0) continue;
 
@@ -190,7 +200,6 @@ export async function createSale(payload) {
       const balKey = `${row.productId}__${whKey}`;
       const avgCost = Number(existingBalances?.[balKey]?.avgCost || 0);
       const costAtSale = avgCost;
-
       const lineCost = Math.round(quantity * costAtSale * 100) / 100;
       const lineProfit = Math.round((net - lineCost) * 100) / 100;
 
@@ -216,11 +225,11 @@ export async function createSale(payload) {
       });
     }
 
-    netTotal = round2(netTotal);
-    vatTotal = round2(vatTotal);
-    grossTotal = round2(grossTotal);
-    costTotalUsed = round2(costTotalUsed);
-    profitTotal = round2(profitTotal);
+    netTotal = Math.round(netTotal * 100) / 100;
+    vatTotal = Math.round(vatTotal * 100) / 100;
+    grossTotal = Math.round(grossTotal * 100) / 100;
+    costTotalUsed = Math.round(costTotalUsed * 100) / 100;
+    profitTotal = Math.round(profitTotal * 100) / 100;
 
     const ratesUsed = Array.from(
       new Set(
@@ -230,6 +239,7 @@ export async function createSale(payload) {
       )
     );
     const saleVatRate = saleType === "official" && ratesUsed.length === 1 ? ratesUsed[0] : null;
+    const existingCreatedAt = existingSaleSnap?.exists() ? existingSaleSnap.data()?.createdAt || null : null;
 
     transaction.set(
       saleRef,
@@ -250,9 +260,15 @@ export async function createSale(payload) {
         vatMode: saleType === "official" ? (payload?.vatMode || "exclude") : null,
         payment: {
           method: paymentMethod || null,
-          paidAmount: paidAmount > 0 ? round2(paidAmount) : 0,
-          isPaid: Boolean(payment.isPaid),
+          paidAmount: paidAmount > 0 ? Math.round(paidAmount * 100) / 100 : 0,
+          isPaid,
         },
+        processStatus: payload?.processStatus || "approved",
+        dueDate: dueDateISO ? new Date(dueDateISO) : null,
+        meta: payload?.meta || null,
+        customerNote: payload?.meta?.notes?.customer || "",
+        internalNote: payload?.meta?.notes?.internal || "",
+        items: normalizeDraftItems(items, saleType),
         netTotal,
         vatTotal: saleType === "official" ? vatTotal : 0,
         grossTotal,
@@ -261,15 +277,11 @@ export async function createSale(payload) {
         hasNegativeStock: negativeStockItems.length > 0,
         negativeStockItems,
         status: "completed",
-        processStatus: payload?.processStatus || "approved",
-        invoiceDate: toDateOrNull(invoiceDateISO),
-        documentDate: toDateOrNull(invoiceDateISO),
-        dueDate: toDateOrNull(payload?.dueDate),
-        meta: payload?.meta || {},
-        items,
+        invoiceDate: invoiceDateISO ? new Date(invoiceDateISO) : null,
+        documentDate: invoiceDateISO ? new Date(invoiceDateISO) : null,
         draftSavedAt: null,
-        createdAt: createdAtValue,
         updatedAt: serverTimestamp(),
+        createdAt: existingCreatedAt || serverTimestamp(),
       },
       { merge: true }
     );
@@ -310,9 +322,9 @@ export async function createSale(payload) {
         source: "sale",
         refId: saleRef.id,
         amount: grossTotal,
-        documentNo: invoiceNo,
-        description: "Satış faturası",
-        operationDate: toDateOrNull(invoiceDateISO),
+        operationDate: invoiceDateISO,
+        currency: "KZT",
+        note: `Satış faturası: ${invoiceNo}`,
       });
 
       if (paidAmount > 0) {
@@ -321,10 +333,11 @@ export async function createSale(payload) {
           type: "credit",
           source: "sale_payment",
           refId: saleRef.id,
-          amount: Math.min(round2(paidAmount), grossTotal),
-          documentNo: invoiceNo,
-          description: "Satış tahsilatı",
-          operationDate: toDateOrNull(invoiceDateISO),
+          amount: paidAmount,
+          operationDate: invoiceDateISO,
+          currency: "KZT",
+          paymentMethod: paymentMethod || null,
+          note: `Tahsilat (${paymentMethod || ""}) - ${invoiceNo}`,
         });
       }
     }
@@ -333,6 +346,9 @@ export async function createSale(payload) {
   });
 }
 
+/* ===============================
+   CANCEL SALE (reverse stock, mark cancelled)
+================================ */
 export async function cancelSale({ saleId }) {
   if (!saleId) throw new Error("saleId gerekli");
 
@@ -376,21 +392,16 @@ export async function cancelSale({ saleId }) {
         productId: it.productId,
         productName: it.productName || "",
         unit: it.unit || "",
-
         qty,
-
         type: "sale_cancel",
         saleId,
         saleType,
         bucket: saleType === "official" ? "official" : "actual",
-
         unitCost: Number(it.costAtSale || 0),
         totalCost: Math.round(qty * Number(it.costAtSale || 0) * 100) / 100,
-
         saleChannel: sale.saleChannel || sale.platformId || null,
         invoiceNo: sale.saleNo || sale.invoiceNo || "",
         documentDate: sale.documentDate?.toDate ? sale.documentDate.toDate() : null,
-
         createdAt: serverTimestamp(),
       });
     }
@@ -453,21 +464,16 @@ export async function returnSale({ saleId }) {
         productId: it.productId,
         productName: it.productName || "",
         unit: it.unit || "",
-
         qty,
-
         type: "sale_return",
         saleId,
         saleType,
         bucket: saleType === "official" ? "official" : "actual",
-
         unitCost: Number(it.costAtSale || 0),
         totalCost: Math.round(qty * Number(it.costAtSale || 0) * 100) / 100,
-
         saleChannel: sale.saleChannel || sale.platformId || null,
         invoiceNo: sale.saleNo || sale.invoiceNo || "",
         documentDate: sale.documentDate?.toDate ? sale.documentDate.toDate() : null,
-
         createdAt: serverTimestamp(),
       });
     }
