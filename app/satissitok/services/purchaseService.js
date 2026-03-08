@@ -2,10 +2,8 @@
 import {
   collection,
   doc,
-  getDoc,
-  runTransaction,
   serverTimestamp,
-  setDoc,
+  runTransaction,
 } from "firebase/firestore";
 import { db } from "@/firebase";
 
@@ -16,6 +14,11 @@ import {
 } from "./stockService";
 
 import { reserveNextInvoiceNo } from "./invoiceCounterService";
+
+/* ===============================
+   FATURA FORMAT (UI İLE AYNI)
+   PR-26-000001 / PF-26-000001
+================================ */
 
 function toDateOrNull(dateISO) {
   if (!dateISO) return null;
@@ -32,114 +35,42 @@ function round2(n) {
   return Math.round(num(n) * 100) / 100;
 }
 
-function createDraftNo(prefix = "PD") {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `${prefix}-${y}${m}${day}-${rand}`;
-}
+/* =========================================================
+   CREATE PURCHASE
+   ✅ FIX: Transaction rule (ALL READS before ANY WRITES)
+========================================================= */
 
-function normalizeTotals(payload = {}) {
-  const t = payload.totals || {};
-  const net = round2(t.net ?? payload.netTotal ?? 0);
-  const vatRaw = t.tax ?? t.vat ?? payload.vatTotal ?? payload.taxTotal ?? 0;
-  const vat = round2(vatRaw);
-  const gross = round2(t.gross ?? payload.grossTotal ?? payload.total ?? (net + vat));
-  return {
-    net,
-    tax: vat,
-    vat,
-    gross,
-  };
-}
-
-export async function savePurchaseDraft(payload, draftId = null) {
-  const purchaseRef = draftId ? doc(db, "purchases", draftId) : doc(collection(db, "purchases"));
-  const snap = await getDoc(purchaseRef);
-  const current = snap.exists() ? snap.data() : null;
-  const totalsNormalized = normalizeTotals(payload);
-  const purchaseType = payload?.purchaseType === "actual" ? "actual" : "official";
-
-  await setDoc(
-    purchaseRef,
-    {
-      supplierName: (payload.supplierName || "").trim(),
-      supplierCariId: payload.supplierCariId || null,
-      supplierBin: (payload.supplierBin || "").trim(),
-      supplierRef: (payload.supplierRef || "").trim(),
-      responsiblePerson: (payload.responsiblePerson || "").trim(),
-
-      draftNo: current?.draftNo || payload?.draftNo || createDraftNo("PD"),
-      invoiceNo: null,
-      documentNo: null,
-      invoiceNoAuto: null,
-      invoiceNoManual: false,
-      invoiceSequence: null,
-      invoiceYear2: null,
-      invoiceCounterRef: null,
-
-      documentDate: toDateOrNull(payload.documentDate),
-      purchaseType,
-      warehouseKey: (payload.warehouseKey || "main").trim() || "main",
-      taxRate: purchaseType === "official" ? Number(payload.taxRate || 0) : 0,
-      vatMode: purchaseType === "official" ? payload.vatMode || "inclusive" : null,
-
-      items: Array.isArray(payload.items) ? payload.items : [],
-      totals: totalsNormalized,
-      netTotal: totalsNormalized.net,
-      vatTotal: purchaseType === "official" ? totalsNormalized.vat : 0,
-      grossTotal: totalsNormalized.gross,
-
-      paymentMethod: (payload.paymentMethod || "").trim(),
-      payment: payload.payment || null,
-      dueDate: toDateOrNull(payload.dueDate),
-      notes: (payload.notes || "").trim(),
-      attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
-
-      status: "draft",
-      isDraft: true,
-      createdAt: current?.createdAt || serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      draftCreatedAt: current?.draftCreatedAt || serverTimestamp(),
-      draftUpdatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
-
-  return purchaseRef.id;
-}
-
-export async function getPurchaseDraft(draftId) {
-  if (!draftId) return null;
-  const snap = await getDoc(doc(db, "purchases", draftId));
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
-}
-
-export async function finalizePurchase(payload) {
+export async function createPurchase(payload) {
   return await runTransaction(db, async (transaction) => {
-    const type = payload.purchaseType;
+    const type = payload.purchaseType; // official | actual
     if (type !== "official" && type !== "actual") {
       throw new Error("purchaseType geçersiz: official | actual olmalı");
     }
 
-    const draftId = payload?.draftId || null;
-    const purchaseRef = draftId ? doc(db, "purchases", draftId) : doc(collection(db, "purchases"));
-    const existingDraftSnap = draftId ? await transaction.get(purchaseRef) : null;
-    const existingDraft = existingDraftSnap?.exists() ? existingDraftSnap.data() : null;
+    // ✅ UI status: draft | pending | completed
+    const status = (payload.status || "completed").trim() || "completed";
+    const isFinal = status === "completed";
 
+    // Depo – satınalma ekranında seçimi yoksa varsayılan: main
     const warehouseKey = (payload.warehouseKey || "main").trim() || "main";
+
     const manualInvoice = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
     const invoiceNoAutoFlag = payload.invoiceNoAuto === true;
+
     const items = Array.isArray(payload.items) ? payload.items : [];
 
-    const existingBalances = await readStockBalancesForPurchase({
-      transaction,
-      items,
-    });
+    /* =====================
+       READ PHASE (ALL READS FIRST)
+    ===================== */
 
+    const existingBalances = isFinal
+      ? await readStockBalancesForPurchase({
+          transaction,
+          items,
+        })
+      : null;
+
+    // ✅ Sayaç reserve — Bundan sonra read YOK!
     const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
       transaction,
       kind: "purchases",
@@ -148,90 +79,132 @@ export async function finalizePurchase(payload) {
     });
 
     const invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
+
+    // UI / audit
     const invoiceNoAutoValue = invoiceNo === autoInvoice ? autoInvoice : null;
     const invoiceNoManual = invoiceNo !== autoInvoice;
 
-    const totalsNormalized = normalizeTotals(payload);
-    const gross = totalsNormalized.gross;
-    const net = totalsNormalized.net;
-    const vat = totalsNormalized.vat;
+    /* =====================
+       TOTALS NORMALIZATION (VAT REPORT READY)
+       UI: totals = { net, tax, gross }
+       Legacy: totals.vat olabilir
+    ===================== */
+
+    const t = payload.totals || {};
+    const net = round2(t.net ?? payload.netTotal ?? 0);
+    const vatRaw = t.tax ?? t.vat ?? payload.vatTotal ?? payload.taxTotal ?? 0;
+    const vat = round2(vatRaw);
+    const gross = round2(t.gross ?? payload.grossTotal ?? payload.total ?? (net + vat));
+
+    // purchaseType=actual ise rapor KDV’si 0 olmalı
     const vatTotal = type === "official" ? vat : 0;
 
-    transaction.set(
-      purchaseRef,
-      {
-        supplierName: (payload.supplierName || "").trim(),
-        supplierCariId: payload.supplierCariId || null,
-        supplierBin: (payload.supplierBin || "").trim(),
-        supplierRef: (payload.supplierRef || "").trim(),
-        responsiblePerson: (payload.responsiblePerson || "").trim(),
+    // totals objesini geriye uyumlu yaz (tax + vat birlikte)
+    const totalsNormalized = {
+      net,
+      tax: vat, // UI mevcut ana anahtar
+      vat: vat, // rapor/legacy uyumu için alias
+      gross,
+    };
 
-        draftNo: existingDraft?.draftNo || payload?.draftNo || null,
-        invoiceNo,
-        documentNo: invoiceNo,
-        invoiceNoAuto: invoiceNoAutoValue,
-        invoiceNoManual,
-        invoiceSequence: nextSeq,
-        invoiceYear2: yy,
-        invoiceCounterRef: "invoice_counters/purchases",
+    /* =====================
+       WRITE PHASE
+    ===================== */
 
-        documentDate: toDateOrNull(payload.documentDate),
-        purchaseType: type,
-        warehouseKey,
-        taxRate: type === "official" ? Number(payload.taxRate || 0) : 0,
-        vatMode: type === "official" ? payload.vatMode || "inclusive" : null,
+    const purchaseRef = doc(collection(db, "purchases"));
 
-        items,
-        totals: totalsNormalized,
-        netTotal: net,
-        vatTotal,
-        grossTotal: gross,
-
-        paymentMethod: (payload.paymentMethod || "").trim(),
-        payment: payload.payment || null,
-        dueDate: toDateOrNull(payload.dueDate),
-        notes: (payload.notes || "").trim(),
-        attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
-
-        status: "completed",
-        isDraft: false,
-        finalizedAt: serverTimestamp(),
-        createdAt: existingDraft?.createdAt || serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        draftCreatedAt: existingDraft?.draftCreatedAt || null,
-        draftUpdatedAt: existingDraft?.draftUpdatedAt || null,
-      },
-      { merge: true }
-    );
-
-    writePurchaseStockMovements({
-      transaction,
-      purchaseId: purchaseRef.id,
-      purchaseType: type,
-      items,
+    transaction.set(purchaseRef, {
+      // tedarikçi
       supplierName: (payload.supplierName || "").trim(),
+      supplierCariId: payload.supplierCariId || null,
+
+      // ✅ yeni alanlar
+      supplierBin: (payload.supplierBin || "").trim(),
+      supplierRef: (payload.supplierRef || "").trim(),
+      responsiblePerson: (payload.responsiblePerson || "").trim(),
+
+      // fatura
       invoiceNo,
-      documentDate: payload.documentDate || null,
-      currency: "KZT",
-      warehouseKey,
-    });
+      documentNo: invoiceNo,
+      invoiceNoAuto: invoiceNoAutoValue,
+      invoiceNoManual,
+      invoiceSequence: nextSeq,
+      invoiceYear2: yy,
+      invoiceCounterRef: "invoice_counters/purchases",
 
-    writeStockBalancesWithAvgCost({
-      transaction,
+      // tarihler
+      documentDate: toDateOrNull(payload.documentDate),
+
+      // tür/depo/vergi
       purchaseType: type,
-      items,
-      existingBalances,
       warehouseKey,
+      taxRate: type === "official" ? Number(payload.taxRate || 0) : 0,
+      vatMode: type === "official" ? payload.vatMode || "inclusive" : null,
+
+      // kalemler/toplam
+      items,
+      totals: totalsNormalized,
+
+      // ✅ RAPOR İÇİN TOP-LEVEL TOTALS
+      netTotal: net,
+      vatTotal: vatTotal,
+      grossTotal: gross,
+
+      // ödeme/not/ek
+      paymentMethod: (payload.paymentMethod || "").trim(),
+      payment: payload.payment || null,
+      dueDate: toDateOrNull(payload.dueDate),
+      notes: (payload.notes || "").trim(),
+      attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
+
+      status,
+
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
 
-    if (payload.supplierCariId) {
+    /* =====================
+       STOK HAREKETLERİ — Sadece completed
+    ===================== */
+
+    if (isFinal) {
+      writePurchaseStockMovements({
+        transaction,
+        purchaseId: purchaseRef.id,
+        purchaseType: type,
+        items,
+        supplierName: (payload.supplierName || "").trim(),
+        invoiceNo,
+        documentDate: payload.documentDate || null,
+        currency: "KZT",
+        warehouseKey,
+      });
+
+      writeStockBalancesWithAvgCost({
+        transaction,
+        purchaseType: type,
+        items,
+        existingBalances,
+        warehouseKey,
+      });
+    }
+
+    /* =====================
+       CARİ HAREKETİ — Sadece completed
+       ✅ CANONICAL + LEGACY birlikte yazılır
+    ===================== */
+
+    if (isFinal && payload.supplierCariId) {
       const desc = (payload.description || payload.notes || "Satınalma faturası").trim();
       const cariTxRef = doc(collection(db, "cari_transactions"));
 
       transaction.set(cariTxRef, {
         cariId: payload.supplierCariId,
+
         operationDate: toDateOrNull(payload.documentDate),
         dueDate: toDateOrNull(payload.dueDate),
+
+        // canonical
         operationType: "purchase_invoice",
         direction: "credit",
         amount: gross,
@@ -241,23 +214,19 @@ export async function finalizePurchase(payload) {
         paymentMethod: (payload.paymentMethod || "").trim() || null,
         operationCategory: payload.operationCategory || "trade_goods",
         currency: "KZT",
+
+        // legacy
         debit: 0,
         credit: gross,
         description: desc,
         source: "purchase",
+
         createdAt: serverTimestamp(),
       });
     }
 
     return purchaseRef.id;
   });
-}
-
-export async function createPurchase(payload) {
-  if ((payload?.status || "").trim() === "draft") {
-    return savePurchaseDraft(payload, payload?.draftId || null);
-  }
-  return finalizePurchase(payload);
 }
 
 /* =========================================================
@@ -320,6 +289,8 @@ export async function cancelPurchase({ purchaseId }) {
         transaction.set(cariTxRef, {
           cariId: purchase.supplierCariId,
           operationDate: new Date(),
+
+          // canonical
           operationType: "purchase_cancel",
           direction: "debit",
           amount: gross,
@@ -327,10 +298,13 @@ export async function cancelPurchase({ purchaseId }) {
           documentNo: purchase.invoiceNo,
           note: desc,
           currency: "KZT",
+
+          // legacy
           debit: gross,
           credit: 0,
           description: desc,
           source: "purchase_cancel",
+
           createdAt: serverTimestamp(),
         });
       }

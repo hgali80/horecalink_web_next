@@ -2,11 +2,9 @@
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   runTransaction,
   serverTimestamp,
-  setDoc,
 } from "firebase/firestore";
 import { db } from "@/firebase";
 
@@ -20,101 +18,19 @@ import {
 import { reserveNextInvoiceNo } from "./invoiceCounterService";
 import { createCariTransaction } from "@/app/satissitok/admin/cari/services/cariService";
 
-function round2(n) {
-  return Math.round((Number(n) || 0) * 100) / 100;
-}
+/* ===============================
+   CREATE SALE (CONFIRMED)
+   ✅ FIX: Transaction rule (ALL READS before ANY WRITES)
+   - Önce stok balance read
+   - Sonra invoice counter reserve (read+write)
+   - Sonra tüm write işlemleri
+================================ */
 
-function toDateOrNull(dateISO) {
-  if (!dateISO) return null;
-  const d = new Date(dateISO);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function createDraftNo(prefix = "SD") {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `${prefix}-${y}${m}${day}-${rand}`;
-}
-
-function normalizeSaleDraftPayload(payload = {}) {
-  const payment = payload?.payment || {};
-  return {
-    status: "draft",
-    isDraft: true,
-    draftNo: payload?.draftNo || null,
-
-    invoiceDate: payload?.invoiceDate || new Date().toISOString().slice(0, 10),
-    dueDate: payload?.dueDate || null,
-    processStatus: payload?.processStatus || "draft",
-
-    saleType: payload?.saleType === "official" ? "official" : "actual",
-    saleChannel: (payload?.saleChannel || payload?.platformId || "other").trim(),
-    vatMode: payload?.vatMode || "exclude",
-
-    invoiceNo: null,
-    invoiceNoAuto: null,
-    invoiceNoManual: false,
-    invoiceSequence: null,
-    invoiceYear2: null,
-    invoiceCounterRef: null,
-
-    cariId: payload?.cariId || null,
-    payment: {
-      method: payment?.method || payload?.paymentMethod || null,
-      paidAmount: round2(payment?.paidAmount ?? payload?.paidAmount ?? 0),
-      isPaid: Boolean(payment?.isPaid ?? payload?.isPaid ?? false),
-    },
-    meta: payload?.meta || null,
-    items: Array.isArray(payload?.items) ? payload.items : [],
-
-    netTotal: round2(payload?.netTotal ?? 0),
-    vatTotal: round2(payload?.vatTotal ?? 0),
-    grossTotal: round2(payload?.grossTotal ?? 0),
-
-    updatedAt: serverTimestamp(),
-    draftUpdatedAt: serverTimestamp(),
-  };
-}
-
-export async function saveSaleDraft(payload, draftId = null) {
-  const saleRef = draftId ? doc(db, "sales", draftId) : doc(collection(db, "sales"));
-  const snap = await getDoc(saleRef);
-  const current = snap.exists() ? snap.data() : null;
-  const normalized = normalizeSaleDraftPayload(payload);
-
-  await setDoc(
-    saleRef,
-    {
-      ...normalized,
-      draftNo: current?.draftNo || payload?.draftNo || createDraftNo("SD"),
-      createdAt: current?.createdAt || serverTimestamp(),
-      draftCreatedAt: current?.draftCreatedAt || serverTimestamp(),
-    },
-    { merge: true }
-  );
-
-  return {
-    saleId: saleRef.id,
-    draftNo: current?.draftNo || payload?.draftNo || null,
-  };
-}
-
-export async function getSaleDraft(draftId) {
-  if (!draftId) return null;
-  const snap = await getDoc(doc(db, "sales", draftId));
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
-}
-
-export async function finalizeSale(payload) {
+export async function createSale(payload) {
   return await runTransaction(db, async (transaction) => {
     const saleType = payload?.saleType === "actual" ? "actual" : "official";
     const saleChannel = (payload?.saleChannel || payload?.platformId || "other").trim();
     const cariId = payload?.cariId || null;
-    const draftId = payload?.draftId || null;
 
     const payment = payload?.payment || {};
     const paymentMethod = (payment.method || payload?.paymentMethod || "").trim();
@@ -127,16 +43,18 @@ export async function finalizeSale(payload) {
 
     const items = Array.isArray(payload?.items) ? payload.items : [];
 
-    const saleRef = draftId ? doc(db, "sales", draftId) : doc(collection(db, "sales"));
-    const existingDraftSnap = draftId ? await transaction.get(saleRef) : null;
-    const existingDraft = existingDraftSnap?.exists() ? existingDraftSnap.data() : null;
+    /* =====================
+       READ PHASE (ALL READS FIRST)
+    ===================== */
 
+    // 1) Stok bakiyeleri + avgCost oku (READ)
     const existingBalances = await readStockBalancesForSale({
       transaction,
       items,
       saleType,
     });
 
+    // 2) Negatif stok kontrolü (READ yok, sadece hesap)
     const soldByKey = {};
     for (const it of items) {
       if (!it?.productId) continue;
@@ -156,6 +74,7 @@ export async function finalizeSale(payload) {
       }
     }
 
+    // 3) Sayaç reserve (read+write) — Bundan sonra READ YOK!
     const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
       transaction,
       kind: "sales",
@@ -163,16 +82,28 @@ export async function finalizeSale(payload) {
       dateISO: invoiceDateISO,
     });
 
+    // ✅ Kaydedilecek invoiceNo seçimi
     const invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
+
+    // UI / audit
     const invoiceNoAuto = invoiceNo === autoInvoice ? autoInvoice : null;
     const invoiceNoManual = invoiceNo !== autoInvoice;
 
+    /* =====================
+       WRITE PHASE
+    ===================== */
+
+    const saleRef = doc(collection(db, "sales"));
+
+    // Totals + Profit (snapshot cost used from avgCost)
     let netTotal = 0;
     let vatTotal = 0;
     let grossTotal = 0;
+
     let costTotalUsed = 0;
     let profitTotal = 0;
 
+    // items subcollection
     const itemsCol = collection(db, "sales", saleRef.id, "items");
 
     for (const row of items) {
@@ -209,26 +140,32 @@ export async function finalizeSale(payload) {
         productId: row.productId,
         productName: row.productName || "",
         unit: row.unit || "",
+
         warehouseKey: whKey,
+
         quantity,
         unitPrice,
         discountRate,
+
         vatRate: saleType === "official" ? Number(row.vatRate || 0) : 0,
+
         net,
         vat: saleType === "official" ? vat : 0,
         total,
+
         costAtSale,
         lineCost,
         profit: lineProfit,
       });
     }
 
-    netTotal = round2(netTotal);
-    vatTotal = round2(vatTotal);
-    grossTotal = round2(grossTotal);
-    costTotalUsed = round2(costTotalUsed);
-    profitTotal = round2(profitTotal);
+    netTotal = Math.round(netTotal * 100) / 100;
+    vatTotal = Math.round(vatTotal * 100) / 100;
+    grossTotal = Math.round(grossTotal * 100) / 100;
+    costTotalUsed = Math.round(costTotalUsed * 100) / 100;
+    profitTotal = Math.round(profitTotal * 100) / 100;
 
+    // vat summary (tek oran ise yaz, değilse null)
     const ratesUsed = Array.from(
       new Set(
         (items || [])
@@ -239,60 +176,51 @@ export async function finalizeSale(payload) {
     const saleVatRate =
       saleType === "official" && ratesUsed.length === 1 ? ratesUsed[0] : null;
 
-    transaction.set(
-      saleRef,
-      {
-        saleNo: invoiceNo,
-        saleType,
-        saleChannel,
-        platformId: saleChannel,
-        invoiceNo,
-        invoiceNoAuto: invoiceNoAuto || null,
-        invoiceNoManual,
-        invoiceSequence: nextSeq,
-        invoiceYear2: yy,
-        invoiceCounterRef: "invoice_counters/sales",
+    transaction.set(saleRef, {
+      // legacy alanlar
+      saleNo: invoiceNo,
+      saleType,
 
-        cariId: cariId || null,
+      // yeni alanlar
+      saleChannel,
+      platformId: saleChannel,
+      invoiceNo,
+      invoiceNoAuto: invoiceNoAuto || null,
+      invoiceNoManual,
+      invoiceSequence: nextSeq,
+      invoiceYear2: yy,
+      invoiceCounterRef: "invoice_counters/sales",
 
-        vatRate: saleType === "official" ? saleVatRate : 0,
-        vatRatesUsed: saleType === "official" ? ratesUsed : [],
-        vatMode: saleType === "official" ? payload?.vatMode || "exclude" : null,
-        payment: {
-          method: paymentMethod || null,
-          paidAmount: paidAmount > 0 ? round2(paidAmount) : 0,
-          isPaid: Boolean(payment?.isPaid ?? false),
-        },
+      cariId: cariId || null,
 
-        netTotal,
-        vatTotal: saleType === "official" ? vatTotal : 0,
-        grossTotal,
-        costTotalUsed,
-        profitTotal,
-
-        hasNegativeStock: negativeStockItems.length > 0,
-        negativeStockItems,
-
-        status: "completed",
-        isDraft: false,
-        draftNo: existingDraft?.draftNo || payload?.draftNo || null,
-        draftCreatedAt: existingDraft?.draftCreatedAt || null,
-        draftUpdatedAt: existingDraft?.draftUpdatedAt || null,
-        finalizedAt: serverTimestamp(),
-
-        processStatus: payload?.processStatus || "approved",
-        meta: payload?.meta || null,
-        items,
-
-        invoiceDate: toDateOrNull(invoiceDateISO),
-        documentDate: toDateOrNull(invoiceDateISO),
-
-        createdAt: existingDraft?.createdAt || serverTimestamp(),
-        updatedAt: serverTimestamp(),
+      vatRate: saleType === "official" ? saleVatRate : 0,
+      vatRatesUsed: saleType === "official" ? ratesUsed : [],
+      vatMode: saleType === "official" ? (payload?.vatMode || "exclude") : null,
+      payment: {
+        method: paymentMethod || null,
+        paidAmount: paidAmount > 0 ? Math.round(paidAmount * 100) / 100 : 0,
       },
-      { merge: true }
-    );
 
+      netTotal,
+      vatTotal: saleType === "official" ? vatTotal : 0,
+      grossTotal,
+
+      costTotalUsed,
+      profitTotal,
+
+      hasNegativeStock: negativeStockItems.length > 0,
+      negativeStockItems,
+
+      status: "completed",
+
+      invoiceDate: invoiceDateISO ? new Date(invoiceDateISO) : null,
+      documentDate: invoiceDateISO ? new Date(invoiceDateISO) : null,
+
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    // stok hareketleri (out)
     const itemsForStock = items
       .filter((r) => r?.productId && Number(r.quantity || 0) > 0)
       .map((r) => ({
@@ -322,6 +250,7 @@ export async function finalizeSale(payload) {
       existingBalances,
     });
 
+    // CARİ hareketleri
     if (cariId) {
       createCariTransaction(transaction, {
         cariId,
@@ -351,13 +280,6 @@ export async function finalizeSale(payload) {
 
     return { saleId: saleRef.id };
   });
-}
-
-export async function createSale(payload) {
-  if (payload?.status === "draft") {
-    return saveSaleDraft(payload, payload?.draftId || null);
-  }
-  return finalizeSale(payload);
 }
 
 /* ===============================
@@ -406,16 +328,21 @@ export async function cancelSale({ saleId }) {
         productId: it.productId,
         productName: it.productName || "",
         unit: it.unit || "",
+
         qty,
+
         type: "sale_cancel",
         saleId,
         saleType,
         bucket: saleType === "official" ? "official" : "actual",
+
         unitCost: Number(it.costAtSale || 0),
         totalCost: Math.round(qty * Number(it.costAtSale || 0) * 100) / 100,
+
         saleChannel: sale.saleChannel || sale.platformId || null,
         invoiceNo: sale.saleNo || sale.invoiceNo || "",
         documentDate: sale.documentDate?.toDate ? sale.documentDate.toDate() : null,
+
         createdAt: serverTimestamp(),
       });
     }
@@ -478,16 +405,21 @@ export async function returnSale({ saleId }) {
         productId: it.productId,
         productName: it.productName || "",
         unit: it.unit || "",
+
         qty,
+
         type: "sale_return",
         saleId,
         saleType,
         bucket: saleType === "official" ? "official" : "actual",
+
         unitCost: Number(it.costAtSale || 0),
         totalCost: Math.round(qty * Number(it.costAtSale || 0) * 100) / 100,
+
         saleChannel: sale.saleChannel || sale.platformId || null,
         invoiceNo: sale.saleNo || sale.invoiceNo || "",
         documentDate: sale.documentDate?.toDate ? sale.documentDate.toDate() : null,
+
         createdAt: serverTimestamp(),
       });
     }
