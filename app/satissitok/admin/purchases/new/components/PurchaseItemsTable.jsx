@@ -43,7 +43,135 @@ function makeEmptyRow() {
     netLineTotal: 0,
     vatLineTotal: 0,
     grossLineTotal: 0,
+
+    // ✅ yeni meta alanlar
+    priceSource: "auto",
+    lastPurchaseUnitPrice: 0,
+    lastPurchaseDate: "",
+    lastPurchaseDocNo: "",
   };
+}
+
+function normalizeText(v) {
+  return String(v || "").trim().toLowerCase();
+}
+
+function sameText(a, b) {
+  return normalizeText(a) === normalizeText(b);
+}
+
+function getDateMs(v) {
+  if (!v) return 0;
+
+  if (typeof v?.toDate === "function") {
+    const d = v.toDate();
+    return d instanceof Date && !Number.isNaN(d.getTime()) ? d.getTime() : 0;
+  }
+
+  if (v instanceof Date) {
+    return Number.isNaN(v.getTime()) ? 0 : v.getTime();
+  }
+
+  if (typeof v === "number") return v;
+
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+function formatDateTR(v) {
+  const ms = getDateMs(v);
+  if (!ms) return "";
+  return new Date(ms).toLocaleDateString("tr-TR");
+}
+
+function getPurchaseItems(doc) {
+  if (Array.isArray(doc?.items)) return doc.items;
+  if (Array.isArray(doc?.lines)) return doc.lines;
+  if (Array.isArray(doc?.products)) return doc.products;
+  return [];
+}
+
+function getPurchaseSupplierId(doc) {
+  return (
+    doc?.supplierId ||
+    doc?.cariId ||
+    doc?.vendorId ||
+    doc?.supplier?.id ||
+    doc?.cari?.id ||
+    ""
+  );
+}
+
+function getPurchaseSupplierName(doc) {
+  return (
+    doc?.supplierName ||
+    doc?.cariName ||
+    doc?.vendorName ||
+    doc?.supplier?.name ||
+    doc?.cari?.name ||
+    ""
+  );
+}
+
+function getPurchaseDocNo(doc) {
+  return (
+    doc?.invoiceNo ||
+    doc?.docNo ||
+    doc?.documentNo ||
+    doc?.purchaseNo ||
+    doc?.purchaseNumber ||
+    ""
+  );
+}
+
+function getPurchaseDateValue(doc) {
+  return (
+    doc?.invoiceDate ||
+    doc?.date ||
+    doc?.createdAt ||
+    doc?.updatedAt ||
+    null
+  );
+}
+
+function getPurchaseStatus(doc) {
+  return normalizeText(doc?.status || doc?.state || "");
+}
+
+function getItemProductId(item) {
+  return String(item?.productId || item?.id || "").trim();
+}
+
+function getItemUnitPrice(item) {
+  const price =
+    item?.unitPrice ??
+    item?.purchaseUnitPrice ??
+    item?.lastPurchaseUnitPrice ??
+    item?.costPrice ??
+    item?.price ??
+    0;
+
+  return round2(num(price));
+}
+
+function isValidCompletedPurchase(doc) {
+  const status = getPurchaseStatus(doc);
+
+  // status hiç yoksa da eski kayıtları kaçırmamak için geçerli kabul ediyoruz
+  if (!status) return true;
+
+  // taslak / iptal / silinmiş benzeri kayıtları dışarıda bırak
+  if (
+    status === "draft" ||
+    status === "cancelled" ||
+    status === "canceled" ||
+    status === "deleted"
+  ) {
+    return false;
+  }
+
+  // tamamlanmış / kaydedilmiş / gönderilmiş benzeri durumlar geçerli
+  return true;
 }
 
 export default function PurchaseItemsTable({
@@ -53,8 +181,11 @@ export default function PurchaseItemsTable({
   hideVat = false,
   disabled = false,
   initialItems = [],
+  supplierId = "",
+  supplierName = "",
 }) {
   const [products, setProducts] = useState([]);
+  const [purchases, setPurchases] = useState([]);
   const [items, setItems] = useState([makeEmptyRow()]);
 
   const [openIndex, setOpenIndex] = useState(-1);
@@ -65,9 +196,15 @@ export default function PurchaseItemsTable({
 
   useEffect(() => {
     const load = async () => {
-      const snap = await getDocs(collection(db, "products"));
-      setProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const [productsSnap, purchasesSnap] = await Promise.all([
+        getDocs(collection(db, "products")),
+        getDocs(collection(db, "purchases")),
+      ]);
+
+      setProducts(productsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setPurchases(purchasesSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
+
     load();
   }, []);
 
@@ -132,14 +269,17 @@ export default function PurchaseItemsTable({
       netLineTotal: num(row?.netLineTotal ?? row?.net ?? 0),
       vatLineTotal: num(row?.vatLineTotal ?? row?.vat ?? 0),
       grossLineTotal: num(row?.grossLineTotal ?? row?.total ?? 0),
+
+      priceSource: row?.priceSource || "auto",
+      lastPurchaseUnitPrice: num(row?.lastPurchaseUnitPrice || 0),
+      lastPurchaseDate: row?.lastPurchaseDate || "",
+      lastPurchaseDocNo: row?.lastPurchaseDocNo || "",
     };
 
     calcRow(normalized);
     return normalized;
   }
 
-  // ✅ KRİTİK FIX:
-  // initialItems sonradan gelirse de tabloya bas
   useEffect(() => {
     if (Array.isArray(initialItems) && initialItems.length > 0) {
       const normalized = initialItems.map((row) => normalizeRow(row));
@@ -147,16 +287,12 @@ export default function PurchaseItemsTable({
 
       const nextQueries = {};
       normalized.forEach((row, i) => {
-        nextQueries[i] =
-          row.productName ||
-          row.sku ||
-          "";
+        nextQueries[i] = row.productName || row.sku || "";
       });
       setQueryByIndex(nextQueries);
       return;
     }
 
-    // sadece gerçekten boşsa tek boş satır bırak
     setItems((prev) => {
       if (Array.isArray(prev) && prev.length > 0) return prev;
       return [makeEmptyRow()];
@@ -230,18 +366,114 @@ export default function PurchaseItemsTable({
     closeTimerRef.current = setTimeout(() => setOpenIndex(-1), 150);
   };
 
+  const findLatestPurchaseInfo = ({ productId, supplierId, supplierName }) => {
+    const targetProductId = String(productId || "").trim();
+    const targetSupplierId = String(supplierId || "").trim();
+    const targetSupplierName = String(supplierName || "").trim();
+
+    if (!targetProductId) return null;
+    if (!targetSupplierId && !targetSupplierName) return null;
+
+    const matched = [];
+
+    for (const purchase of purchases || []) {
+      if (!isValidCompletedPurchase(purchase)) continue;
+
+      const purchaseSupplierId = String(getPurchaseSupplierId(purchase) || "").trim();
+      const purchaseSupplierName = String(getPurchaseSupplierName(purchase) || "").trim();
+
+      let supplierMatched = false;
+
+      if (targetSupplierId && purchaseSupplierId) {
+        supplierMatched = targetSupplierId === purchaseSupplierId;
+      } else if (targetSupplierName && purchaseSupplierName) {
+        supplierMatched = sameText(targetSupplierName, purchaseSupplierName);
+      }
+
+      if (!supplierMatched) continue;
+
+      const rows = getPurchaseItems(purchase);
+      if (!Array.isArray(rows) || rows.length === 0) continue;
+
+      for (const row of rows) {
+        if (getItemProductId(row) !== targetProductId) continue;
+
+        const price = getItemUnitPrice(row);
+        const dateValue = getPurchaseDateValue(purchase);
+        const dateMs = getDateMs(dateValue);
+
+        matched.push({
+          unitPrice: price,
+          dateValue,
+          dateMs,
+          docNo: getPurchaseDocNo(purchase),
+        });
+      }
+    }
+
+    if (!matched.length) return null;
+
+    matched.sort((a, b) => b.dateMs - a.dateMs);
+    return matched[0];
+  };
+
   const pickProduct = (i, p) => {
     const sku = (p?.sku || p?.stockCode || p?.code || "").trim();
+
+    const latest = findLatestPurchaseInfo({
+      productId: p.id,
+      supplierId,
+      supplierName,
+    });
+
     patchRow(i, {
       productId: p.id,
       productName: (p?.name || "").trim(),
       sku,
       unit: (p?.unit || "").trim(),
-      unitPrice: num(p?.price || 0),
+      unitPrice: latest ? num(latest.unitPrice) : 0,
+
+      priceSource: "auto",
+      lastPurchaseUnitPrice: latest ? num(latest.unitPrice) : 0,
+      lastPurchaseDate: latest ? formatDateTR(latest.dateValue) : "",
+      lastPurchaseDocNo: latest?.docNo || "",
     });
+
     setQuery(i, productLabel(p));
     setOpenIndex(-1);
   };
+
+  // ✅ tedarikçi değişirse manuel olmayan satırları yeniden fiyatlandır
+  useEffect(() => {
+    if (!supplierId && !supplierName) return;
+    if (!Array.isArray(items) || items.length === 0) return;
+
+    setItems((prev) =>
+      prev.map((row) => {
+        if (!row?.productId) return row;
+        if (row?.priceSource === "manual") return row;
+
+        const latest = findLatestPurchaseInfo({
+          productId: row.productId,
+          supplierId,
+          supplierName,
+        });
+
+        const next = {
+          ...row,
+          unitPrice: latest ? num(latest.unitPrice) : 0,
+          priceSource: "auto",
+          lastPurchaseUnitPrice: latest ? num(latest.unitPrice) : 0,
+          lastPurchaseDate: latest ? formatDateTR(latest.dateValue) : "",
+          lastPurchaseDocNo: latest?.docNo || "",
+        };
+
+        calcRow(next);
+        return next;
+      })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supplierId, supplierName, purchases]);
 
   useEffect(() => {
     if (openIndex < 0) return;
@@ -328,12 +560,18 @@ export default function PurchaseItemsTable({
                           const v = e.target.value;
                           setQuery(i, v);
                           setOpenIndex(i);
+
                           if (!v) {
                             patchRow(i, {
                               productId: "",
                               productName: "",
                               sku: "",
                               unit: "",
+                              unitPrice: 0,
+                              priceSource: "auto",
+                              lastPurchaseUnitPrice: 0,
+                              lastPurchaseDate: "",
+                              lastPurchaseDocNo: "",
                             });
                           }
                         }}
@@ -346,6 +584,7 @@ export default function PurchaseItemsTable({
                             const q = String(queryByIndex[i] ?? currentRowLabel(row))
                               .trim()
                               .toLowerCase();
+
                             const list = (products || [])
                               .filter((p) => {
                                 const label = productLabel(p).toLowerCase();
@@ -354,6 +593,7 @@ export default function PurchaseItemsTable({
                                 return label.includes(q) || id.includes(q);
                               })
                               .slice(0, 1);
+
                             if (list[0]) pickProduct(i, list[0]);
                           }
                         }}
@@ -411,6 +651,14 @@ export default function PurchaseItemsTable({
                     <span className="text-[10px] text-slate-400 font-mono">
                       SKU: {row.sku || row.productId || "-"}
                     </span>
+
+                    {(row.lastPurchaseDate || row.lastPurchaseDocNo || num(row.lastPurchaseUnitPrice) > 0) && (
+                      <span className="text-[10px] text-emerald-600 font-mono">
+                        Son alış: {fmt(row.lastPurchaseUnitPrice)}{" "}
+                        {row.lastPurchaseDate ? `• ${row.lastPurchaseDate}` : ""}
+                        {row.lastPurchaseDocNo ? ` • ${row.lastPurchaseDocNo}` : ""}
+                      </span>
+                    )}
                   </div>
                 </td>
 
@@ -439,7 +687,12 @@ export default function PurchaseItemsTable({
                       min={0}
                       value={row.unitPrice}
                       disabled={disabled}
-                      onChange={(e) => patchRow(i, { unitPrice: e.target.value })}
+                      onChange={(e) =>
+                        patchRow(i, {
+                          unitPrice: e.target.value,
+                          priceSource: "manual",
+                        })
+                      }
                       placeholder="0"
                     />
                     <div className="text-[10px] text-slate-400 font-mono">
