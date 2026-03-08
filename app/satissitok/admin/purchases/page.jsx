@@ -25,7 +25,7 @@ export default function PurchasesListPage() {
   const [loading, setLoading] = useState(true);
 
   const [purchaseType, setPurchaseType] = useState(""); // official | actual
-  const [status, setStatus] = useState(""); // draft | completed | cancelled
+  const [status, setStatus] = useState(""); // completed | cancelled
   const [supplierQ, setSupplierQ] = useState(""); // client-side filter
 
   useEffect(() => {
@@ -164,7 +164,6 @@ export default function PurchasesListPage() {
             onChange={(e) => setStatus(e.target.value)}
           >
             <option value="">Tümü</option>
-            <option value="draft">Taslak</option>
             <option value="completed">Tamamlandı</option>
             <option value="cancelled">İptal</option>
           </select>
@@ -218,9 +217,7 @@ export default function PurchasesListPage() {
             <tbody className="bg-white divide-y divide-gray-100">
               {filteredRows.map((r) => {
                 const isCancelled = r.status === "cancelled";
-                const isDraft = r.status === "draft";
                 const supplier = caris[r.supplierCariId] || r.supplierName || "—";
-                const href = isDraft ? `/satissitok/admin/purchases/new?draftId=${r.id}` : `/satissitok/admin/purchases/${r.id}`;
 
                 return (
                   <tr
@@ -237,7 +234,7 @@ export default function PurchasesListPage() {
 
                         <div>
                           <Link
-                            href={href}
+                            href={`/satissitok/admin/purchases/${r.id}`}
                             className={`block font-semibold hover:text-indigo-600 transition-colors ${
                               isCancelled ? "text-gray-400 line-through" : "text-gray-900"
                             }`}
@@ -245,11 +242,7 @@ export default function PurchasesListPage() {
                             {r.invoiceNo || "N/A"}
                           </Link>
 
-                          {isDraft ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 uppercase tracking-wider">
-                              Taslak
-                            </span>
-                          ) : isCancelled ? (
+                          {isCancelled ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wider">
                               İptal Edildi
                             </span>

@@ -54,7 +54,7 @@ function fmtMoney(n) {
   });
 }
 
-export default function PurchaseForm({ onSubmit, initialData = null }) {
+export default function PurchaseForm({ onSubmit }) {
   /* ===============================
      DURUM / TÜR
   ================================ */
@@ -122,41 +122,6 @@ export default function PurchaseForm({ onSubmit, initialData = null }) {
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState([]); // metadata only
-
-  const activeDraftId = initialData?.id || initialData?.draftId || null;
-
-  useEffect(() => {
-    if (!initialData || typeof initialData !== "object") return;
-
-    setStatus(initialData.status || "draft");
-    setPurchaseType(initialData.purchaseType || "official");
-    setVatMode(initialData.vatMode || "inclusive");
-    setSupplierCariId(initialData.supplierCariId || null);
-    setSupplierName(initialData.supplierName || "");
-    setSupplierBin(initialData.supplierBin || "");
-    setSupplierRef(initialData.supplierRef || "");
-    setResponsiblePerson(initialData.responsiblePerson || "");
-    setInvoiceNo(initialData.invoiceNo || "");
-    setInvoiceNoDirty(Boolean(initialData.invoiceNo));
-
-    const toISO = (v) => {
-      if (!v) return "";
-      if (typeof v === "string") return v.slice(0, 10);
-      if (v?.toDate) return v.toDate().toISOString().slice(0, 10);
-      const d = new Date(v);
-      return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
-    };
-
-    setDocumentDate(toISO(initialData.documentDate) || new Date().toISOString().slice(0, 10));
-    setWarehouseKey(initialData.warehouseKey || "main");
-    setItems(Array.isArray(initialData.items) ? initialData.items : []);
-    setPaymentMethod(initialData.payment?.method || initialData.paymentMethod || "bank");
-    setIsPaid(Boolean(initialData.payment?.isPaid));
-    setPaidDate(toISO(initialData.payment?.paidDate));
-    setDueDate(toISO(initialData.dueDate));
-    setNotes(initialData.notes || "");
-    setAttachments(Array.isArray(initialData.attachments) ? initialData.attachments : []);
-  }, [initialData]);
 
   /* ===============================
      SETTINGS LOAD
@@ -374,7 +339,6 @@ export default function PurchaseForm({ onSubmit, initialData = null }) {
       dueDate: dueDate || null,
       notes,
       attachments,
-      draftId: activeDraftId || null,
     };
   };
 

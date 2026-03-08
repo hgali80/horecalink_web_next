@@ -1,93 +1,49 @@
 // app/satissitok/admin/purchases/new/page.jsx
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/firebase";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Home } from "lucide-react";
 
 import PurchaseForm from "./components/PurchaseForm";
 import { createPurchase } from "@/app/satissitok/services/purchaseService";
 
-function tsToISO(v) {
-  if (!v) return "";
-  if (typeof v === "string") return v.slice(0, 10);
-  if (v?.toDate) return v.toDate().toISOString().slice(0, 10);
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
-}
-
 export default function NewPurchasePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const draftId = (searchParams.get("draftId") || "").trim();
-  const [initialData, setInitialData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const run = async () => {
-      setLoading(true);
-      try {
-        if (!draftId) {
-          setInitialData(null);
-          return;
-        }
-        const snap = await getDoc(doc(db, "purchases", draftId));
-        if (!snap.exists()) {
-          setInitialData(null);
-          return;
-        }
-        const data = snap.data();
-        setInitialData({
-          id: snap.id,
-          ...data,
-          documentDate: tsToISO(data.documentDate),
-          dueDate: tsToISO(data.dueDate),
-          payment: {
-            ...(data.payment || {}),
-            paidDate: tsToISO(data.payment?.paidDate),
-          },
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    run();
-  }, [draftId]);
 
   const savePurchase = async (payload) => {
     try {
+      console.log("SUBMIT PAYLOAD >>>", payload);
+
       const id = await createPurchase(payload);
 
-      if (payload?.status === "draft") {
-        alert("Satınalma taslağı kaydedildi.");
-        router.push("/satissitok/admin/purchases");
-        return;
-      }
-
-      alert(`Satınalma kaydedildi. ID: ${id}`);
-      router.push(`/satissitok/admin/purchases/${id}`);
+      alert(
+        payload?.status === "draft"
+          ? `Taslak kaydedildi. ID: ${id}`
+          : `Satınalma kaydedildi. ID: ${id}`
+      );
     } catch (e) {
+      // 🔴 GERÇEK HATAYI SAKLAMA
       console.error("PURCHASE ERROR >>>", e);
-      const message = e?.message || e?.code || (typeof e === "string" ? e : JSON.stringify(e));
+
+      const message =
+        e?.message || e?.code || (typeof e === "string" ? e : JSON.stringify(e));
+
       alert(`HATA:\n${message}`);
     }
   };
 
-  if (loading) {
-    return <div className="min-h-screen bg-[#f6f6f8]" />;
-  }
-
   return (
     <div className="min-h-screen bg-[#f6f6f8] text-slate-900">
       <main className="p-8 max-w-[1400px] mx-auto w-full">
+        {/* Üst Navigasyon */}
         <div className="flex flex-wrap items-center gap-2 mb-6">
           <button
             type="button"
             onClick={() => router.back()}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 active:scale-95 transition-all shadow-sm"
+            aria-label="Geri"
+            title="Geri"
           >
             <ArrowLeft size={18} />
             <span className="text-sm font-semibold">Geri</span>
@@ -96,13 +52,15 @@ export default function NewPurchasePage() {
           <Link
             href="/satissitok/admin"
             className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 active:scale-95 transition-all shadow-sm"
+            aria-label="Satış/Stok Ana Sayfa"
+            title="Satış/Stok Ana Sayfa"
           >
             <Home size={18} />
             <span className="text-sm font-semibold">Ana Sayfa</span>
           </Link>
         </div>
 
-        <PurchaseForm onSubmit={savePurchase} initialData={initialData} />
+        <PurchaseForm onSubmit={savePurchase} />
       </main>
     </div>
   );

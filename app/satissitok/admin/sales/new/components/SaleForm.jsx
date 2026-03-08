@@ -78,7 +78,6 @@ export default function SaleForm({
   settings,
   onSubmit,
   disabled,
-  initialData = null,
 }) {
   const units = useMemo(() => settings?.units || [], [settings]);
   const warehouses = useMemo(() => settings?.warehouses || [], [settings]);
@@ -98,7 +97,6 @@ export default function SaleForm({
 
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [draftInfo, setDraftInfo] = useState(null);
-  const activeDraftId = initialData?.id || initialData?.draftId || null;
 
   // Header-ish
   const [invoiceDate, setInvoiceDate] = useState(todayISO());
@@ -152,32 +150,42 @@ export default function SaleForm({
     },
   ]);
 
-  // Draft auto-load: Firestore draft first, localStorage fallback
+  // Draft auto-load (2.b)
   useEffect(() => {
     if (draftLoaded) return;
     setDraftLoaded(true);
 
-    const d = initialData && typeof initialData === "object" ? initialData : null;
-    if (d) {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== "object") return;
+
+      // silent load
       setInvoiceDate(d.invoiceDate || todayISO());
       setDueDate(d.dueDate || "");
-      setProcessStatus(d.processStatus || d.status || "draft");
+      setProcessStatus(d.processStatus || "draft");
+
       setSaleType(d.saleType || "actual");
-      setSaleChannel(d.saleChannel || d.platformId || defaultPlatform);
+      setSaleChannel(d.saleChannel || defaultPlatform);
       setVatMode(d.vatMode || "exclude");
+
       setInvoiceNo(d.invoiceNo || "");
-      setInvoiceNoDirty(Boolean(d.invoiceNo));
+      setInvoiceNoDirty(Boolean(d.invoiceNoDirty));
+
       setCariId(d.cariId || "");
       setCariSearch("");
-      setPaymentMethod(d.payment?.method || d.paymentMethod || "bank");
-      setPaidAmount(Number(d.payment?.paidAmount ?? d.paidAmount ?? 0) || 0);
-      setIsPaid(Boolean(d.payment?.isPaid ?? d.isPaid));
-      setDeliveryMode(d.meta?.delivery?.mode || d.deliveryMode || "pickup");
-      setDeliveryDate(d.meta?.delivery?.deliveryDate || d.deliveryDate || "");
-      setPlateNo(d.meta?.delivery?.plateNo || d.plateNo || "");
-      setLoadingArea(d.meta?.delivery?.loadingArea || d.loadingArea || "Ana Terminal Peron 02");
-      setCustomerNote(d.meta?.notes?.customer || d.customerNote || "");
-      setInternalNote(d.meta?.notes?.internal || d.internalNote || "");
+
+      setPaymentMethod(d.paymentMethod || "bank");
+      setPaidAmount(Number(d.paidAmount || 0));
+      setIsPaid(Boolean(d.isPaid));
+
+      setDeliveryMode(d.deliveryMode || "pickup");
+      setDeliveryDate(d.deliveryDate || "");
+      setPlateNo(d.plateNo || "");
+      setLoadingArea(d.loadingArea || "Ana Terminal Peron 02");
+      setCustomerNote(d.customerNote || "");
+      setInternalNote(d.internalNote || "");
 
       const loadedItems = Array.isArray(d.items) ? d.items : [];
       if (loadedItems.length) {
@@ -199,62 +207,12 @@ export default function SaleForm({
       }
 
       setDraftInfo({
-        savedAt: d.draftSavedAt || d.updatedAt || d.savedAt || null,
-        source: "firestore",
+        savedAt: d.savedAt || null,
       });
-      return;
-    }
-
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (!raw) return;
-      const local = JSON.parse(raw);
-      if (!local || typeof local !== "object") return;
-
-      setInvoiceDate(local.invoiceDate || todayISO());
-      setDueDate(local.dueDate || "");
-      setProcessStatus(local.processStatus || "draft");
-      setSaleType(local.saleType || "actual");
-      setSaleChannel(local.saleChannel || defaultPlatform);
-      setVatMode(local.vatMode || "exclude");
-      setInvoiceNo(local.invoiceNo || "");
-      setInvoiceNoDirty(Boolean(local.invoiceNoDirty));
-      setCariId(local.cariId || "");
-      setCariSearch("");
-      setPaymentMethod(local.paymentMethod || "bank");
-      setPaidAmount(Number(local.paidAmount || 0));
-      setIsPaid(Boolean(local.isPaid));
-      setDeliveryMode(local.deliveryMode || "pickup");
-      setDeliveryDate(local.deliveryDate || "");
-      setPlateNo(local.plateNo || "");
-      setLoadingArea(local.loadingArea || "Ana Terminal Peron 02");
-      setCustomerNote(local.customerNote || "");
-      setInternalNote(local.internalNote || "");
-
-      const loadedItems = Array.isArray(local.items) ? local.items : [];
-      if (loadedItems.length) {
-        setItems(
-          loadedItems.map((x) => ({
-            productId: x.productId || "",
-            productName: x.productName || "",
-            unit: x.unit || defaultUnit,
-            warehouseKey: x.warehouseKey || defaultWarehouse,
-            quantity: Number(x.quantity || 0) || 1,
-            unitPrice: Number(x.unitPrice || 0) || 0,
-            discountRate: Number(x.discountRate || 0) || 0,
-            vatRate: Number(x.vatRate ?? defaultVatRate) || 0,
-            net: Number(x.net || 0) || 0,
-            vat: Number(x.vat || 0) || 0,
-            total: Number(x.total || 0) || 0,
-          }))
-        );
-      }
-
-      setDraftInfo({ savedAt: local.savedAt || null, source: "local" });
     } catch {
       // ignore
     }
-  }, [draftLoaded, initialData, defaultPlatform, defaultUnit, defaultWarehouse, defaultVatRate]);
+  }, [draftLoaded, defaultPlatform, defaultUnit, defaultWarehouse, defaultVatRate]);
 
   // When settings arrives, fix defaults for the empty first render
   useEffect(() => {
@@ -418,8 +376,8 @@ export default function SaleForm({
     setDraftInfo(null);
   }
 
-  function saveDraftLocal(payloadForDraft) {
-    const localPayload = {
+  function saveDraft() {
+    const payload = {
       savedAt: Date.now(),
       invoiceDate,
       dueDate,
@@ -439,14 +397,16 @@ export default function SaleForm({
       loadingArea,
       customerNote,
       internalNote,
-      items: payloadForDraft?.items || items,
+      items,
     };
 
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(localPayload));
-      setDraftInfo({ savedAt: localPayload.savedAt, source: "local" });
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+      setDraftInfo({ savedAt: payload.savedAt });
+      alert("Taslak kaydedildi.");
     } catch (e) {
       console.error("DRAFT_SAVE_ERR:", e);
+      alert("Taslak kaydedilemedi.");
     }
   }
 
@@ -491,26 +451,11 @@ export default function SaleForm({
     };
 
     if (mode === "draft") {
-      if (!cariId && !fixedItems.some((x) => x.productId || x.productName)) {
-        alert("Taslak için en az müşteri veya ürün satırı gir.");
-        return;
-      }
-
-      const draftPayload = {
-        ...payload,
-        status: "draft",
-        draftId: activeDraftId || null,
-      };
-      saveDraftLocal(draftPayload);
-      await onSubmit(draftPayload);
+      saveDraft();
       return;
     }
 
-    await onSubmit({
-      ...payload,
-      status: "completed",
-      draftId: activeDraftId || null,
-    });
+    await onSubmit(payload);
   }
 
   return (
