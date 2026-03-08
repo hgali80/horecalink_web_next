@@ -927,12 +927,12 @@ export default function PurchaseForm({
 
           {/* SATIR ÖĞELERİ */}
           <PurchaseItemsTable
-            onChange={setItems}
-            vatRate={effectiveVatRate}
-            vatMode={vatMode}
-            hideVat={hideVatColumns}
-            initialItems={items}
-          />
+  onChange={setItems}
+  vatRate={effectiveVatRate}
+  vatMode={vatMode}
+  hideVat={hideVatColumns}
+  initialItems={initialData?.items || []}
+/>
 
           {/* ÖDEME + NOT */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
