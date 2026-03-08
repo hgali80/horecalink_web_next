@@ -20,6 +20,8 @@ import { db } from "@/firebase";
 
 import SaleItemsTable from "./SaleItemsTable";
 
+const DRAFT_KEY = "satissitok_sale_draft_v1";
+
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -64,8 +66,8 @@ function year2FromDateISO(dateISO) {
 }
 
 // SR-26-000001 / SF-26-000001
-function formatSaleInvoiceNo(type, yy, seq, isDraft = false) {
-  const prefix = isDraft ? "SD" : type === "official" ? "SR" : "SF";
+function formatSaleInvoiceNo(type, yy, seq) {
+  const prefix = type === "official" ? "SR" : "SF";
   return `${prefix}-${yy}-${pad6(seq)}`;
 }
 
@@ -76,8 +78,6 @@ export default function SaleForm({
   settings,
   onSubmit,
   disabled,
-  initialData = null,
-  onDeleteDraft = null,
 }) {
   const units = useMemo(() => settings?.units || [], [settings]);
   const warehouses = useMemo(() => settings?.warehouses || [], [settings]);
@@ -95,6 +95,7 @@ export default function SaleForm({
   );
   const defaultVatRate = useMemo(() => getDefaultVatRate(vatRates), [vatRates]);
 
+  const [draftLoaded, setDraftLoaded] = useState(false);
   const [draftInfo, setDraftInfo] = useState(null);
 
   // Header-ish
@@ -149,33 +150,69 @@ export default function SaleForm({
     },
   ]);
 
-
+  // Draft auto-load (2.b)
   useEffect(() => {
-    if (!initialData) return;
-    setDraftInfo({ savedAt: Date.now() });
-    const dt = initialData.invoiceDate?.toDate ? initialData.invoiceDate.toDate() : initialData.invoiceDate ? new Date(initialData.invoiceDate) : null;
-    if (dt && !Number.isNaN(dt.getTime())) setInvoiceDate(dt.toISOString().slice(0, 10));
-    const due = initialData.dueDate?.toDate ? initialData.dueDate.toDate() : initialData.dueDate ? new Date(initialData.dueDate) : null;
-    setDueDate(due && !Number.isNaN(due.getTime()) ? due.toISOString().slice(0,10) : "");
-    setProcessStatus(initialData.status || "draft");
-    setSaleType(initialData.saleType || "actual");
-    setSaleChannel(initialData.saleChannel || initialData.platformId || defaultPlatform);
-    setVatMode(initialData.vatMode || "exclude");
-    setInvoiceNo(initialData.invoiceNo || initialData.draftNo || "");
-    setInvoiceNoDirty(false);
-    setCariId(initialData.cariId || "");
-    setPaymentMethod(initialData.payment?.method || "bank");
-    setPaidAmount(Number(initialData.payment?.paidAmount || 0));
-    setIsPaid(Boolean(initialData.payment?.isPaid));
-    setDeliveryMode(initialData.meta?.delivery?.mode || "pickup");
-    setDeliveryDate(initialData.meta?.delivery?.deliveryDate || "");
-    setPlateNo(initialData.meta?.delivery?.plateNo || "");
-    setLoadingArea(initialData.meta?.delivery?.loadingArea || "Ana Terminal Peron 02");
-    setCustomerNote(initialData.meta?.notes?.customer || "");
-    setInternalNote(initialData.meta?.notes?.internal || "");
-    const loadedItems = Array.isArray(initialData.draftItems) ? initialData.draftItems : [];
-    if (loadedItems.length) setItems(loadedItems);
-  }, [initialData, defaultPlatform]);
+    if (draftLoaded) return;
+    setDraftLoaded(true);
+
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== "object") return;
+
+      // silent load
+      setInvoiceDate(d.invoiceDate || todayISO());
+      setDueDate(d.dueDate || "");
+      setProcessStatus(d.processStatus || "draft");
+
+      setSaleType(d.saleType || "actual");
+      setSaleChannel(d.saleChannel || defaultPlatform);
+      setVatMode(d.vatMode || "exclude");
+
+      setInvoiceNo(d.invoiceNo || "");
+      setInvoiceNoDirty(Boolean(d.invoiceNoDirty));
+
+      setCariId(d.cariId || "");
+      setCariSearch("");
+
+      setPaymentMethod(d.paymentMethod || "bank");
+      setPaidAmount(Number(d.paidAmount || 0));
+      setIsPaid(Boolean(d.isPaid));
+
+      setDeliveryMode(d.deliveryMode || "pickup");
+      setDeliveryDate(d.deliveryDate || "");
+      setPlateNo(d.plateNo || "");
+      setLoadingArea(d.loadingArea || "Ana Terminal Peron 02");
+      setCustomerNote(d.customerNote || "");
+      setInternalNote(d.internalNote || "");
+
+      const loadedItems = Array.isArray(d.items) ? d.items : [];
+      if (loadedItems.length) {
+        setItems(
+          loadedItems.map((x) => ({
+            productId: x.productId || "",
+            productName: x.productName || "",
+            unit: x.unit || defaultUnit,
+            warehouseKey: x.warehouseKey || defaultWarehouse,
+            quantity: Number(x.quantity || 0) || 1,
+            unitPrice: Number(x.unitPrice || 0) || 0,
+            discountRate: Number(x.discountRate || 0) || 0,
+            vatRate: Number(x.vatRate ?? defaultVatRate) || 0,
+            net: Number(x.net || 0) || 0,
+            vat: Number(x.vat || 0) || 0,
+            total: Number(x.total || 0) || 0,
+          }))
+        );
+      }
+
+      setDraftInfo({
+        savedAt: d.savedAt || null,
+      });
+    } catch {
+      // ignore
+    }
+  }, [draftLoaded, defaultPlatform, defaultUnit, defaultWarehouse, defaultVatRate]);
 
   // When settings arrives, fix defaults for the empty first render
   useEffect(() => {
@@ -291,7 +328,7 @@ export default function SaleForm({
         );
         const nextSeq = currentSeq + 1;
 
-        setInvoiceNo(formatSaleInvoiceNo(saleType, yy, nextSeq, processStatus !== "completed"));
+        setInvoiceNo(formatSaleInvoiceNo(saleType, yy, nextSeq));
       } catch (e) {
         console.error("SALE invoice preview error:", e);
         setInvoiceNo("");
@@ -301,7 +338,7 @@ export default function SaleForm({
     };
 
     loadPreview();
-  }, [saleType, yy, invoiceNoDirty, processStatus]);
+  }, [saleType, yy, invoiceNoDirty]);
 
   const negativeStockWarnings = useMemo(() => {
     if (!balances) return [];
@@ -332,9 +369,44 @@ export default function SaleForm({
     return warnings;
   }, [balances, items, saleType, defaultWarehouse]);
 
-  async function clearDraft() {
-    if (typeof onDeleteDraft === "function") {
-      await onDeleteDraft();
+  function clearDraft() {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {}
+    setDraftInfo(null);
+  }
+
+  function saveDraft() {
+    const payload = {
+      savedAt: Date.now(),
+      invoiceDate,
+      dueDate,
+      processStatus,
+      saleType,
+      saleChannel,
+      vatMode,
+      invoiceNo,
+      invoiceNoDirty,
+      cariId,
+      paymentMethod,
+      paidAmount,
+      isPaid,
+      deliveryMode,
+      deliveryDate,
+      plateNo,
+      loadingArea,
+      customerNote,
+      internalNote,
+      items,
+    };
+
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+      setDraftInfo({ savedAt: payload.savedAt });
+      alert("Taslak kaydedildi.");
+    } catch (e) {
+      console.error("DRAFT_SAVE_ERR:", e);
+      alert("Taslak kaydedilemedi.");
     }
   }
 
@@ -350,8 +422,6 @@ export default function SaleForm({
     const payload = {
       invoiceDate,
       dueDate: dueDate || null,
-      saleId: initialData?.id || null,
-      status: mode === "draft" ? "draft" : processStatus,
       processStatus,
       saleType,
       saleChannel,
@@ -365,6 +435,7 @@ export default function SaleForm({
         isPaid: Boolean(isPaid),
       },
       meta: {
+        processStatus,
         delivery: {
           mode: deliveryMode,
           deliveryDate: deliveryDate || null,
@@ -377,8 +448,12 @@ export default function SaleForm({
         },
       },
       items: fixedItems,
-      totals,
     };
+
+    if (mode === "draft") {
+      saveDraft();
+      return;
+    }
 
     await onSubmit(payload);
   }
@@ -458,14 +533,15 @@ export default function SaleForm({
                     disabled={disabled}
                   >
                     <option value="draft">Taslak</option>
-                    <option value="pending">Onay Bekliyor</option>
-                    <option value="completed">Onaylandı</option>
+                    <option value="approved">Onaylandı</option>
+                    <option value="cancelled">İptal</option>
+                    <option value="returned">İade</option>
                   </select>
                 </div>
               </div>
             </div>
 
-            {initialData?.id && draftInfo?.savedAt && (
+            {draftInfo?.savedAt && (
               <div className="bg-blue-50 border border-blue-200 text-blue-900 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm">
                   <span className="font-bold">Taslak yüklendi.</span>
@@ -965,7 +1041,7 @@ export default function SaleForm({
                   disabled={disabled}
                 >
                   <Send size={18} />
-                  {processStatus === "completed" ? "Onayla ve Tamamla" : "Kaydet"}
+                  Onayla ve Tamamla
                 </button>
 
                 <div className="grid grid-cols-2 gap-3">

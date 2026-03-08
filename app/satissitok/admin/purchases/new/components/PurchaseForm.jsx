@@ -41,8 +41,8 @@ function year2FromDateISO(dateISO) {
 }
 
 // PR-26-000001 / PF-26-000001
-function formatInvoiceNo(type, yy, seq, isDraft = false) {
-  const prefix = isDraft ? "PD" : type === "official" ? "PR" : "PF";
+function formatInvoiceNo(type, yy, seq) {
+  const prefix = type === "official" ? "PR" : "PF";
   return `${prefix}-${yy}-${pad6(seq)}`;
 }
 
@@ -54,7 +54,7 @@ function fmtMoney(n) {
   });
 }
 
-export default function PurchaseForm({ onSubmit, initialData = null, onDeleteDraft = null, disabled = false }) {
+export default function PurchaseForm({ onSubmit }) {
   /* ===============================
      DURUM / TÜR
   ================================ */
@@ -218,31 +218,6 @@ export default function PurchaseForm({ onSubmit, initialData = null, onDeleteDra
   const yy = useMemo(() => year2FromDateISO(documentDate), [documentDate]);
 
   useEffect(() => {
-    if (!initialData) return;
-    setStatus(initialData.status || "draft");
-    setPurchaseType(initialData.purchaseType || "official");
-    setVatMode(initialData.vatMode || "inclusive");
-    setSupplierCariId(initialData.supplierCariId || null);
-    setSupplierName(initialData.supplierName || "");
-    setSupplierBin(initialData.supplierBin || "");
-    setSupplierRef(initialData.supplierRef || "");
-    setResponsiblePerson(initialData.responsiblePerson || "");
-    setInvoiceNo(initialData.invoiceNo || initialData.draftNo || "");
-    setInvoiceNoDirty(false);
-    const dd = initialData.documentDate?.toDate ? initialData.documentDate.toDate() : initialData.documentDate ? new Date(initialData.documentDate) : null;
-    if (dd && !Number.isNaN(dd.getTime())) setDocumentDate(dd.toISOString().slice(0,10));
-    setWarehouseKey(initialData.warehouseKey || "main");
-    setSelectedVat(Number(initialData.taxRate || 0));
-    setItems(Array.isArray(initialData.items) ? initialData.items : []);
-    setPaymentMethod(initialData.paymentMethod || initialData.payment?.method || "bank");
-    setIsPaid(Boolean(initialData.payment?.isPaid));
-    const due = initialData.dueDate?.toDate ? initialData.dueDate.toDate() : initialData.dueDate ? new Date(initialData.dueDate) : null;
-    if (due && !Number.isNaN(due.getTime())) setDueDate(due.toISOString().slice(0,10));
-    setNotes(initialData.notes || "");
-    setAttachments(Array.isArray(initialData.attachments) ? initialData.attachments : []);
-  }, [initialData]);
-
-  useEffect(() => {
     const loadNextInvoiceNoPreview = async () => {
       if (invoiceNoDirty) return;
       if (loadingInvoiceRef.current) return;
@@ -263,7 +238,7 @@ export default function PurchaseForm({ onSubmit, initialData = null, onDeleteDra
         const currentSeq = Number((yearMap && yearMap[key]) ?? data[key] ?? 0);
         const nextSeq = currentSeq + 1;
 
-        setInvoiceNo(formatInvoiceNo(purchaseType, yy, nextSeq, status !== "completed"));
+        setInvoiceNo(formatInvoiceNo(purchaseType, yy, nextSeq));
       } catch (e) {
         console.error("Fatura No Yükleme Hatası:", e);
         setInvoiceNo("");
@@ -330,7 +305,6 @@ export default function PurchaseForm({ onSubmit, initialData = null, onDeleteDra
 
   const buildPayload = (nextStatus) => {
     return {
-      purchaseId: initialData?.id || null,
       status: nextStatus,
 
       supplierName: (supplierName || "").trim(),
@@ -1004,24 +978,12 @@ export default function PurchaseForm({ onSubmit, initialData = null, onDeleteDra
               <div className="mt-8 flex flex-col gap-3">
                 <button
                   type="button"
-                  onClick={() => handleAction(status === "completed" ? "completed" : "draft")}
+                  onClick={() => handleAction("draft")}
                   className="w-full py-4 bg-[#135bec] hover:bg-blue-700 rounded-xl font-black text-sm tracking-tight transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
-                  disabled={disabled}
                 >
                   <Save size={18} />
-                  {status === "completed" ? "ONAYLA VE KAYDET" : "TASLAĞI KAYDET"}
+                  TASLAĞI KAYDET
                 </button>
-
-                {initialData?.id && status !== "completed" && typeof onDeleteDraft === "function" && (
-                  <button
-                    type="button"
-                    onClick={onDeleteDraft}
-                    className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs tracking-tight transition-all border border-red-500"
-                    disabled={disabled}
-                  >
-                    TASLAĞI SİL
-                  </button>
-                )}
 
                 <button
                   type="button"
