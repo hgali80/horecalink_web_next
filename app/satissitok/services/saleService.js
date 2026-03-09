@@ -160,12 +160,25 @@ export async function createSale(payload) {
         .filter((r) => r?.productId && Number(r.quantity || 0) > 0)
         .map((r) => {
           const whKey = (r.warehouseKey || "main").trim() || "main";
+          const bal = existingBalances?.[`${r.productId}__${whKey}`] || {};
+
+          const avgCost = Number(bal.avgCost || 0);
+          const manualPurchaseUnitCost = Number(
+            r.purchaseUnitCost ?? r.costAtSale ?? 0
+          );
+          const costAtSale =
+            manualPurchaseUnitCost > 0 ? manualPurchaseUnitCost : avgCost;
+
           return {
             ...r,
             warehouseKey: whKey,
-            costAtSale: Number(
-              existingBalances?.[`${r.productId}__${whKey}`]?.avgCost || 0
-            ),
+            purchaseUnitCost: manualPurchaseUnitCost > 0 ? manualPurchaseUnitCost : 0,
+            costAtSale,
+            costSource:
+              manualPurchaseUnitCost > 0
+                ? "manual"
+                : bal.costSource || (saleType === "official" ? "official" : "actual"),
+            fallbackOfficialAvgCost: Number(bal.fallbackOfficialAvgCost || 0),
           };
         });
     }
@@ -260,8 +273,14 @@ export async function createSale(payload) {
 
         const whKey = (row.warehouseKey || "main").trim() || "main";
         const balKey = `${row.productId}__${whKey}`;
-        const avgCost = Number(existingBalances?.[balKey]?.avgCost || 0);
-        const costAtSale = avgCost;
+        const bal = existingBalances?.[balKey] || {};
+
+        const avgCost = Number(bal.avgCost || 0);
+        const manualPurchaseUnitCost = Number(
+          row.purchaseUnitCost ?? row.costAtSale ?? 0
+        );
+        const costAtSale =
+          manualPurchaseUnitCost > 0 ? manualPurchaseUnitCost : avgCost;
 
         const lineCost = round2(quantity * costAtSale);
         const lineProfit = round2(net - lineCost);
@@ -389,8 +408,21 @@ export async function createSale(payload) {
 
         const whKey = (row.warehouseKey || "main").trim() || "main";
         const balKey = `${row.productId}__${whKey}`;
-        const avgCost = Number(existingBalances?.[balKey]?.avgCost || 0);
-        const costAtSale = avgCost;
+        const bal = existingBalances?.[balKey] || {};
+
+        const avgCost = Number(bal.avgCost || 0);
+        const manualPurchaseUnitCost = Number(
+          row.purchaseUnitCost ?? row.costAtSale ?? 0
+        );
+        const costAtSale =
+          manualPurchaseUnitCost > 0 ? manualPurchaseUnitCost : avgCost;
+
+        const costSource =
+          manualPurchaseUnitCost > 0
+            ? "manual"
+            : bal.costSource || (saleType === "official" ? "official" : "actual");
+
+        const fallbackOfficialAvgCost = Number(bal.fallbackOfficialAvgCost || 0);
 
         const lineCost = round2(quantity * costAtSale);
         const lineProfit = round2(net - lineCost);
@@ -414,7 +446,10 @@ export async function createSale(payload) {
           vat: saleType === "official" ? vat : 0,
           total,
 
+          purchaseUnitCost: manualPurchaseUnitCost > 0 ? manualPurchaseUnitCost : 0,
           costAtSale,
+          costSource,
+          fallbackOfficialAvgCost,
           lineCost,
           profit: lineProfit,
         });
@@ -538,6 +573,7 @@ export async function cancelSale({ saleId }) {
       items: items.map((i) => ({
         productId: i.productId,
         quantity: i.quantity,
+        warehouseKey: i.warehouseKey || "main",
       })),
       existingBalances,
     });
@@ -561,8 +597,12 @@ export async function cancelSale({ saleId }) {
         saleType,
         bucket: saleType === "official" ? "official" : "actual",
 
+        warehouseKey: (it.warehouseKey || "main").trim() || "main",
+
         unitCost: Number(it.costAtSale || 0),
         totalCost: Math.round(qty * Number(it.costAtSale || 0) * 100) / 100,
+        costSource: it.costSource || null,
+        fallbackOfficialAvgCost: Number(it.fallbackOfficialAvgCost || 0),
 
         saleChannel: sale.saleChannel || sale.platformId || null,
         invoiceNo: sale.saleNo || sale.invoiceNo || "",
@@ -617,6 +657,7 @@ export async function returnSale({ saleId }) {
       items: items.map((i) => ({
         productId: i.productId,
         quantity: i.quantity,
+        warehouseKey: i.warehouseKey || "main",
       })),
       existingBalances,
     });
@@ -640,8 +681,12 @@ export async function returnSale({ saleId }) {
         saleType,
         bucket: saleType === "official" ? "official" : "actual",
 
+        warehouseKey: (it.warehouseKey || "main").trim() || "main",
+
         unitCost: Number(it.costAtSale || 0),
         totalCost: Math.round(qty * Number(it.costAtSale || 0) * 100) / 100,
+        costSource: it.costSource || null,
+        fallbackOfficialAvgCost: Number(it.fallbackOfficialAvgCost || 0),
 
         saleChannel: sale.saleChannel || sale.platformId || null,
         invoiceNo: sale.saleNo || sale.invoiceNo || "",

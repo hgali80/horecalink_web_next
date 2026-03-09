@@ -28,6 +28,23 @@ function getAvailableQty({ balances, productId, warehouseKey, bucketKey }) {
   return num(wh?.qty ?? legacy?.qty ?? 0);
 }
 
+function getAvgCost({ balances, productId, warehouseKey, saleType }) {
+  const data = balances?.[productId] || {};
+  const wh = data?.warehouses?.[warehouseKey] || {};
+  const official = wh?.official || data?.official || {};
+  const actual = wh?.actual || data?.actual || {};
+
+  if (saleType === "official") {
+    return num(official?.avgCost ?? 0);
+  }
+
+  const actualQty = num(actual?.qty ?? 0);
+  const actualAvg = num(actual?.avgCost ?? 0);
+  const officialAvg = num(official?.avgCost ?? 0);
+
+  return actualQty <= 0 && officialAvg > 0 ? officialAvg : actualAvg;
+}
+
 function calcRow({ row, saleType, vatMode }) {
   const qty = Math.max(0, num(row.quantity));
   const unitPrice = Math.max(0, num(row.unitPrice));
@@ -67,7 +84,10 @@ function calcRow({ row, saleType, vatMode }) {
   };
 }
 
-function normalizeRow(row, { defaultUnit, defaultWarehouse, defaultVatRate, saleType, vatMode }) {
+function normalizeRow(
+  row,
+  { defaultUnit, defaultWarehouse, defaultVatRate, saleType, vatMode }
+) {
   const safe = {
     productId: row?.productId || "",
     productName: row?.productName || "",
@@ -83,6 +103,10 @@ function normalizeRow(row, { defaultUnit, defaultWarehouse, defaultVatRate, sale
     net: num(row?.net || 0),
     vat: num(row?.vat || 0),
     total: num(row?.total || 0),
+    purchaseUnitCost: Math.max(
+      0,
+      num(row?.purchaseUnitCost ?? row?.costAtSale ?? 0)
+    ),
   };
 
   const calc = calcRow({ row: safe, saleType, vatMode });
@@ -102,6 +126,7 @@ function makeEmptyRow({ defaultUnit, defaultWarehouse, defaultVatRate }) {
     net: 0,
     vat: 0,
     total: 0,
+    purchaseUnitCost: 0,
   };
 }
 
@@ -119,6 +144,8 @@ export default function SaleItemsTable({
   defaultWarehouse,
   defaultVatRate,
   disabled,
+  showPurchaseCost = false,
+  allowPurchaseCostEdit = false,
 }) {
   const bucketKey = saleType === "official" ? "official" : "actual";
 
@@ -209,21 +236,26 @@ export default function SaleItemsTable({
 
   function pickProduct(i, p) {
     const label = productLabel(p);
+    const warehouseKey = items?.[i]?.warehouseKey || defaultWarehouse;
+
+    const defaultPurchaseUnitCost = getAvgCost({
+      balances,
+      productId: p.id,
+      warehouseKey,
+      saleType,
+    });
 
     const patch = {
       productId: p.id,
       productName: label,
       unitPrice: num(p?.price || 0),
-      unit:
-        p?.unit ||
-        p?.unitKey ||
-        items?.[i]?.unit ||
-        defaultUnit,
-      warehouseKey: items?.[i]?.warehouseKey || defaultWarehouse,
+      unit: p?.unit || p?.unitKey || items?.[i]?.unit || defaultUnit,
+      warehouseKey,
       vatRate:
         saleType === "official"
           ? Math.max(0, num(p?.vatRate ?? items?.[i]?.vatRate ?? defaultVatRate))
           : 0,
+      purchaseUnitCost: Math.max(0, num(defaultPurchaseUnitCost)),
     };
 
     updateRow(i, patch);
@@ -231,7 +263,6 @@ export default function SaleItemsTable({
     setOpenIndex(-1);
   }
 
-  // Recalc when saleType/vatMode/defaults change
   useEffect(() => {
     setItems((prev) =>
       (prev || []).map((row) =>
@@ -246,7 +277,6 @@ export default function SaleItemsTable({
     );
   }, [setItems, saleType, vatMode, defaultUnit, defaultWarehouse, defaultVatRate]);
 
-  // Keep query text synced when external items change (edit load)
   useEffect(() => {
     const next = {};
     (items || []).forEach((row, i) => {
@@ -298,7 +328,11 @@ export default function SaleItemsTable({
       </div>
 
       <div className="overflow-x-auto relative">
-        <table className="min-w-[2400px] w-full text-sm">
+        <table
+          className={`w-full text-sm ${
+            showPurchaseCost ? "min-w-[2580px]" : "min-w-[2400px]"
+          }`}
+        >
           <thead className="bg-slate-50 text-slate-600">
             <tr>
               <th className="w-10 px-3 py-3 text-left"></th>
@@ -308,6 +342,9 @@ export default function SaleItemsTable({
               <th className="px-4 py-3 text-right">Miktar</th>
               <th className="px-4 py-3 text-right">Stok</th>
               <th className="px-4 py-3 text-right">Birim Fiyat</th>
+              {showPurchaseCost && (
+                <th className="px-4 py-3 text-right">Alış Fiyatı</th>
+              )}
               <th className="px-4 py-3 text-right">İskonto %</th>
               <th className="px-4 py-3 text-right">KDV %</th>
               <th className="px-4 py-3 text-right">Ara Toplam</th>
@@ -319,14 +356,29 @@ export default function SaleItemsTable({
 
           <tbody className="divide-y divide-slate-100">
             {(items || []).map((row, i) => {
+              const warehouseKey = row.warehouseKey || defaultWarehouse;
+
               const avail = row.productId
                 ? getAvailableQty({
                     balances,
                     productId: row.productId,
-                    warehouseKey: row.warehouseKey || defaultWarehouse,
+                    warehouseKey,
                     bucketKey,
                   })
                 : 0;
+
+              const computedPurchaseUnitCost = row.productId
+                ? getAvgCost({
+                    balances,
+                    productId: row.productId,
+                    warehouseKey,
+                    saleType,
+                  })
+                : 0;
+
+              const purchaseUnitCost = num(
+                row.purchaseUnitCost ?? computedPurchaseUnitCost
+              );
 
               return (
                 <tr key={i} className="hover:bg-slate-50">
@@ -352,7 +404,11 @@ export default function SaleItemsTable({
                             setQuery(i, v);
                             setOpenIndex(i);
                             if (!v) {
-                              updateRow(i, { productId: "", productName: "" });
+                              updateRow(i, {
+                                productId: "",
+                                productName: "",
+                                purchaseUnitCost: 0,
+                              });
                             }
                           }}
                           onBlur={() => closeDropdownSoon()}
@@ -485,6 +541,28 @@ export default function SaleItemsTable({
                     />
                   </td>
 
+                  {showPurchaseCost && (
+                    <td className="px-4 py-3 text-right">
+                      {allowPurchaseCostEdit ? (
+                        <input
+                          className="w-28 text-right text-xs border border-amber-200 rounded-xl px-2 py-2 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={purchaseUnitCost}
+                          onChange={(e) =>
+                            updateRow(i, { purchaseUnitCost: e.target.value })
+                          }
+                          disabled={disabled}
+                        />
+                      ) : (
+                        <div className="w-28 ml-auto text-right text-xs font-semibold text-slate-700">
+                          {fmtMoney(purchaseUnitCost)}
+                        </div>
+                      )}
+                    </td>
+                  )}
+
                   <td className="px-4 py-3 text-right">
                     <input
                       className="w-20 text-right text-xs border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -532,7 +610,10 @@ export default function SaleItemsTable({
 
           <tfoot className="bg-slate-50">
             <tr>
-              <td colSpan={9} className="px-4 py-3 text-right text-slate-600">
+              <td
+                colSpan={showPurchaseCost ? 10 : 9}
+                className="px-4 py-3 text-right text-slate-600"
+              >
                 Toplamlar
               </td>
               <td className="px-4 py-3 text-right font-semibold">{fmtMoney(totals.net)}</td>

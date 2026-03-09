@@ -209,6 +209,8 @@ export async function readStockBalancesForSale({
       map[key] = {
         qty: Number(officialBucket.qty) || 0,
         avgCost: Number(officialBucket.avgCost) || 0,
+        costSource: "official",
+        fallbackOfficialAvgCost: Number(officialBucket.avgCost) || 0,
       };
       continue;
     }
@@ -297,7 +299,7 @@ export function writeStockBalancesAfterSale({
 }) {
   const bucketKey = saleType === "official" ? "official" : "actual";
 
-  // 🔒 aynı üründen birden çok satır olabilir → aggregate (product+warehouse)
+  // aynı üründen birden çok satır olabilir → aggregate (product+warehouse)
   const outByKey = {};
   for (const item of items || []) {
     if (!item?.productId) continue;
@@ -313,7 +315,7 @@ export function writeStockBalancesAfterSale({
     const prev = existingBalances?.[compoundKey] || { qty: 0, avgCost: 0 };
     const oldQty = Number(prev.qty) || 0;
 
-    // 🔴 NEGATİF STOĞA İZİN VAR (UYARI UI'DA)
+    // negatif stoğa izin var
     const newQty = oldQty - Number(outQty || 0);
 
     const ref = doc(db, "stock_balances", productId);
@@ -324,7 +326,7 @@ export function writeStockBalancesAfterSale({
           [whKey]: {
             [bucketKey]: {
               qty: newQty,
-              avgCost: prev.avgCost || 0, // satışta avg değişmez
+              avgCost: Number(prev.avgCost) || 0, // satışta avg değişmez
               updatedAt: serverTimestamp(),
             },
           },
@@ -338,6 +340,12 @@ export function writeStockBalancesAfterSale({
 /**
  * WRITE PHASE
  * Satış iade / iptal sonrası stok geri ekleme
+ *
+ * DÜZELTME:
+ * - warehouse bazlı çalışır
+ * - compound key: productId__warehouseKey
+ * - mevcut avgCost korunur
+ * - warehouses.{wh}.{bucket} modeline yazar
  */
 export function writeStockBalancesAfterReturn({
   transaction,
@@ -347,29 +355,38 @@ export function writeStockBalancesAfterReturn({
 }) {
   const bucketKey = saleType === "official" ? "official" : "actual";
 
-  // 🔒 aynı üründen birden çok satır olabilir → aggregate
-  const inByProduct = {};
+  // aynı üründen birden çok satır olabilir → aggregate (product+warehouse)
+  const inByKey = {};
   for (const item of items || []) {
     if (!item?.productId) continue;
+
+    const whKey = safeWarehouseKey(item.warehouseKey);
     const q = Number(item.quantity || 0);
     if (!q) continue;
-    inByProduct[item.productId] = (inByProduct[item.productId] || 0) + q;
+
+    const k = `${item.productId}__${whKey}`;
+    inByKey[k] = (inByKey[k] || 0) + q;
   }
 
-  for (const [productId, qty] of Object.entries(inByProduct)) {
-    const prev = existingBalances?.[productId] || {};
+  for (const [compoundKey, inQty] of Object.entries(inByKey)) {
+    const [productId, whKey] = compoundKey.split("__");
+    const prev = existingBalances?.[compoundKey] || { qty: 0, avgCost: 0 };
     const oldQty = Number(prev.qty) || 0;
 
-    const newQty = oldQty + Number(qty || 0);
+    const newQty = oldQty + Number(inQty || 0);
 
     const ref = doc(db, "stock_balances", productId);
     transaction.set(
       ref,
       {
-        [bucketKey]: {
-          qty: newQty,
-          avgCost: prev.avgCost || 0,
-          updatedAt: serverTimestamp(),
+        warehouses: {
+          [whKey]: {
+            [bucketKey]: {
+              qty: newQty,
+              avgCost: Number(prev.avgCost) || 0,
+              updatedAt: serverTimestamp(),
+            },
+          },
         },
       },
       { merge: true }

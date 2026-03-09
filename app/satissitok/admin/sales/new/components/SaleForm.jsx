@@ -117,6 +117,8 @@ export default function SaleForm({
 
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [draftInfo, setDraftInfo] = useState(null);
+  const [showPurchaseCost, setShowPurchaseCost] = useState(false);
+  const [allowPurchaseCostEdit, setAllowPurchaseCostEdit] = useState(false);
 
   const [saleId, setSaleId] = useState("");
 
@@ -168,6 +170,7 @@ export default function SaleForm({
       net: 0,
       vat: 0,
       total: 0,
+      purchaseUnitCost: 0,
     },
   ]);
 
@@ -240,6 +243,7 @@ export default function SaleForm({
           net: Number(x.net || 0) || 0,
           vat: Number(x.vat || 0) || 0,
           total: Number(x.total || 0) || 0,
+          purchaseUnitCost: Number(x.purchaseUnitCost ?? x.costAtSale ?? 0) || 0,
         }))
       );
     }
@@ -306,6 +310,7 @@ export default function SaleForm({
             net: Number(x.net || 0) || 0,
             vat: Number(x.vat || 0) || 0,
             total: Number(x.total || 0) || 0,
+            purchaseUnitCost: Number(x.purchaseUnitCost ?? x.costAtSale ?? 0) || 0,
           }))
         );
       }
@@ -339,6 +344,7 @@ export default function SaleForm({
           Number.isFinite(Number(r.vatRate)) && Number(r.vatRate) >= 0
             ? Number(r.vatRate)
             : defaultVatRate,
+        purchaseUnitCost: Number(r.purchaseUnitCost || 0) || 0,
       }))
     );
   }, [defaultUnit, defaultWarehouse, defaultVatRate]);
@@ -430,7 +436,6 @@ export default function SaleForm({
       if (invoiceNoDirty) return;
       if (loadingInvoiceRef.current) return;
 
-      // edit modda mevcut numarayı koru
       if (
         initialData &&
         (initialData.invoiceNo || initialData.saleNo || initialData.draftNo)
@@ -538,7 +543,10 @@ export default function SaleForm({
       loadingArea,
       customerNote,
       internalNote,
-      items,
+      items: (Array.isArray(items) ? items : []).map((r) => ({
+        ...r,
+        purchaseUnitCost: Number(r.purchaseUnitCost || 0) || 0,
+      })),
     };
 
     try {
@@ -583,14 +591,22 @@ export default function SaleForm({
     if (!validate(nextStatus)) return;
 
     const fixedItems = (Array.isArray(items) ? [...items] : []).map((r) => {
-      const row = { ...r };
+      const row = {
+        ...r,
+        purchaseUnitCost: Math.max(0, Number(r.purchaseUnitCost || 0) || 0),
+      };
       calcLine(row);
       return row;
     });
     setItems(fixedItems);
 
+    const totalFromFixedItems = fixedItems.reduce(
+      (sum, r) => sum + (Number(r.total) || 0),
+      0
+    );
+
     const finalPaidAmount = isPaid
-      ? Number(paidAmount || 0) || Number(totals.total || 0) || 0
+      ? Number(paidAmount || 0) || Number(totalFromFixedItems || 0) || 0
       : Number(paidAmount || 0) || 0;
 
     const payload = {
@@ -1012,6 +1028,47 @@ export default function SaleForm({
                 <div className="text-xs text-slate-500">Alt+N: satır ekle</div>
               </div>
 
+              <div className="px-4 pt-4">
+                <div className="border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 bg-slate-50">
+                  <div>
+                    <div className="text-sm font-bold text-slate-900">
+                      Satış maliyet görünümü
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Alış fiyatını satır bazında göster, gerekirse manuel düzelt.
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300"
+                        checked={showPurchaseCost}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setShowPurchaseCost(checked);
+                          if (!checked) setAllowPurchaseCostEdit(false);
+                        }}
+                        disabled={disabled}
+                      />
+                      Alış fiyatını göster
+                    </label>
+
+                    <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300"
+                        checked={allowPurchaseCostEdit}
+                        onChange={(e) => setAllowPurchaseCostEdit(e.target.checked)}
+                        disabled={disabled || !showPurchaseCost}
+                      />
+                      Düzenlemeye aç
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               <SaleItemsTable
                 products={products}
                 balances={balances}
@@ -1026,6 +1083,8 @@ export default function SaleForm({
                 defaultWarehouse={defaultWarehouse}
                 defaultVatRate={defaultVatRate}
                 disabled={disabled}
+                showPurchaseCost={showPurchaseCost}
+                allowPurchaseCostEdit={allowPurchaseCostEdit}
               />
             </div>
 
