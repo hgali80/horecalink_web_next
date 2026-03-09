@@ -180,6 +180,28 @@ export default function SaleItemsTable({
     return productLabel(p) || String(row.productName || "");
   }
 
+  function getRowUnitOptions(row) {
+    const base = Array.isArray(units) ? [...units] : [];
+    const selectedUnit = String(row?.unit || "").trim();
+
+    if (!selectedUnit) return base;
+
+    const exists = base.some(
+      (u) => String(u?.key || "").trim() === selectedUnit
+    );
+
+    if (exists) return base;
+
+    return [
+      ...base,
+      {
+        key: selectedUnit,
+        name: selectedUnit,
+        label: selectedUnit,
+      },
+    ];
+  }
+
   function updateRow(i, patch) {
     setItems((prev) => {
       const next = [...prev];
@@ -245,11 +267,14 @@ export default function SaleItemsTable({
       saleType,
     });
 
+    const firestoreUnit =
+      p?.unit || p?.unitKey || p?.saleUnit || p?.barcodeUnit || "";
+
     const patch = {
       productId: p.id,
       productName: label,
       unitPrice: num(p?.price || 0),
-      unit: p?.unit || p?.unitKey || items?.[i]?.unit || defaultUnit,
+      unit: firestoreUnit || items?.[i]?.unit || defaultUnit,
       warehouseKey,
       vatRate:
         saleType === "official"
@@ -327,173 +352,194 @@ export default function SaleItemsTable({
         </button>
       </div>
 
-      <div className="overflow-x-auto relative">
-        <table
-          className={`w-full text-sm ${
-            showPurchaseCost ? "min-w-[2580px]" : "min-w-[2400px]"
-          }`}
-        >
-          <thead className="bg-slate-50 text-slate-600">
-            <tr>
-              <th className="w-10 px-3 py-3 text-left"></th>
-              <th className="px-4 py-3 text-left">Ürün</th>
-              <th className="px-4 py-3 text-left">Depo</th>
-              <th className="px-4 py-3 text-left">Birim</th>
-              <th className="px-4 py-3 text-right">Miktar</th>
-              <th className="px-4 py-3 text-right">Stok</th>
-              <th className="px-4 py-3 text-right">Birim Fiyat</th>
-              {showPurchaseCost && (
-                <th className="px-4 py-3 text-right">Alış Fiyatı</th>
-              )}
-              <th className="px-4 py-3 text-right">İskonto %</th>
-              <th className="px-4 py-3 text-right">KDV %</th>
-              <th className="px-4 py-3 text-right">Ara Toplam</th>
-              <th className="px-4 py-3 text-right">KDV</th>
-              <th className="px-4 py-3 text-right">Toplam</th>
-              <th className="w-10 px-3 py-3 text-right"></th>
-            </tr>
-          </thead>
+      <div className="p-3 md:p-4 space-y-3">
+        {(items || []).map((row, i) => {
+          const warehouseKey = row.warehouseKey || defaultWarehouse;
 
-          <tbody className="divide-y divide-slate-100">
-            {(items || []).map((row, i) => {
-              const warehouseKey = row.warehouseKey || defaultWarehouse;
+          const avail = row.productId
+            ? getAvailableQty({
+                balances,
+                productId: row.productId,
+                warehouseKey,
+                bucketKey,
+              })
+            : 0;
 
-              const avail = row.productId
-                ? getAvailableQty({
-                    balances,
-                    productId: row.productId,
-                    warehouseKey,
-                    bucketKey,
-                  })
-                : 0;
+          const computedPurchaseUnitCost = row.productId
+            ? getAvgCost({
+                balances,
+                productId: row.productId,
+                warehouseKey,
+                saleType,
+              })
+            : 0;
 
-              const computedPurchaseUnitCost = row.productId
-                ? getAvgCost({
-                    balances,
-                    productId: row.productId,
-                    warehouseKey,
-                    saleType,
-                  })
-                : 0;
+          const purchaseUnitCost = num(
+            row.purchaseUnitCost ?? computedPurchaseUnitCost
+          );
 
-              const purchaseUnitCost = num(
-                row.purchaseUnitCost ?? computedPurchaseUnitCost
-              );
+          const rowUnitOptions = getRowUnitOptions(row);
 
-              return (
-                <tr key={i} className="hover:bg-slate-50">
-                  <td className="px-3 py-3 text-slate-400">
+          return (
+            <div
+              key={i}
+              className="rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition-colors"
+            >
+              <div className="p-3 md:p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="pt-2 text-slate-400 hidden md:block">
                     <GripVertical className="w-4 h-4" />
-                  </td>
+                  </div>
 
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="relative">
-                        <input
-                          ref={(el) => (inputRefs.current[i] = el)}
-                          className="w-full text-sm font-bold bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          value={queryByIndex[i] ?? currentRowLabel(row)}
-                          onFocus={() => {
-                            updateDdPosForIndex(i);
-                            if (queryByIndex[i] == null) setQuery(i, currentRowLabel(row));
-                            setOpenIndex(i);
+                  <div className="flex-1 min-w-0">
+                    <div className="relative">
+                      <input
+                        ref={(el) => (inputRefs.current[i] = el)}
+                        className="w-full text-sm md:text-base font-bold bg-white border border-slate-200 rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={queryByIndex[i] ?? currentRowLabel(row)}
+                        onFocus={() => {
+                          updateDdPosForIndex(i);
+                          if (queryByIndex[i] == null) {
+                            setQuery(i, currentRowLabel(row));
+                          }
+                          setOpenIndex(i);
+                        }}
+                        onChange={(e) => {
+                          updateDdPosForIndex(i);
+                          const v = e.target.value;
+                          setQuery(i, v);
+                          setOpenIndex(i);
+                          if (!v) {
+                            updateRow(i, {
+                              productId: "",
+                              productName: "",
+                              purchaseUnitCost: 0,
+                            });
+                          }
+                        }}
+                        onBlur={() => closeDropdownSoon()}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setOpenIndex(-1);
+                          }
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const q = String(
+                              queryByIndex[i] ?? currentRowLabel(row)
+                            )
+                              .trim()
+                              .toLowerCase();
+
+                            const list = (products || [])
+                              .filter((p) => {
+                                const label = productLabel(p).toLowerCase();
+                                const id = String(p.id || "").toLowerCase();
+                                if (!q) return true;
+                                return label.includes(q) || id.includes(q);
+                              })
+                              .slice(0, 1);
+
+                            if (list[0]) pickProduct(i, list[0]);
+                          }
+                        }}
+                        placeholder="Ürün ara / seç…"
+                        disabled={disabled}
+                      />
+
+                      {openIndex === i && (
+                        <div
+                          className="fixed z-[9999] max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg"
+                          style={{
+                            top: ddPos.top,
+                            left: ddPos.left,
+                            width: Math.max(360, ddPos.width),
                           }}
-                          onChange={(e) => {
-                            updateDdPosForIndex(i);
-                            const v = e.target.value;
-                            setQuery(i, v);
-                            setOpenIndex(i);
-                            if (!v) {
-                              updateRow(i, {
-                                productId: "",
-                                productName: "",
-                                purchaseUnitCost: 0,
-                              });
+                        >
+                          {(() => {
+                            const q = String(
+                              queryByIndex[i] ?? currentRowLabel(row)
+                            )
+                              .trim()
+                              .toLowerCase();
+
+                            const list = (products || [])
+                              .filter((p) => {
+                                const label = productLabel(p).toLowerCase();
+                                const id = String(p.id || "").toLowerCase();
+                                if (!q) return true;
+                                return label.includes(q) || id.includes(q);
+                              })
+                              .slice(0, 80);
+
+                            if (!list.length) {
+                              return (
+                                <div className="px-3 py-2 text-sm text-slate-500">
+                                  Sonuç yok
+                                </div>
+                              );
                             }
-                          }}
-                          onBlur={() => closeDropdownSoon()}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") {
-                              setOpenIndex(-1);
-                            }
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              const q = String(queryByIndex[i] ?? currentRowLabel(row))
-                                .trim()
-                                .toLowerCase();
-                              const list = (products || [])
-                                .filter((p) => {
-                                  const label = productLabel(p).toLowerCase();
-                                  const id = String(p.id || "").toLowerCase();
-                                  if (!q) return true;
-                                  return label.includes(q) || id.includes(q);
-                                })
-                                .slice(0, 1);
-                              if (list[0]) pickProduct(i, list[0]);
-                            }
-                          }}
-                          placeholder="Ürün ara / seç…"
-                          disabled={disabled}
-                        />
 
-                        {openIndex === i && (
-                          <div
-                            className="fixed z-[9999] max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg"
-                            style={{
-                              top: ddPos.top,
-                              left: ddPos.left,
-                              width: Math.max(360, ddPos.width),
-                            }}
-                          >
-                            {(() => {
-                              const q = String(queryByIndex[i] ?? currentRowLabel(row))
-                                .trim()
-                                .toLowerCase();
-
-                              const list = (products || [])
-                                .filter((p) => {
-                                  const label = productLabel(p).toLowerCase();
-                                  const id = String(p.id || "").toLowerCase();
-                                  if (!q) return true;
-                                  return label.includes(q) || id.includes(q);
-                                })
-                                .slice(0, 80);
-
-                              if (!list.length) {
-                                return (
-                                  <div className="px-3 py-2 text-sm text-slate-500">
-                                    Sonuç yok
-                                  </div>
-                                );
-                              }
-
-                              return list.map((p) => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
-                                  onMouseDown={(e) => e.preventDefault()}
-                                  onClick={() => pickProduct(i, p)}
-                                >
+                            return list.map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => pickProduct(i, p)}
+                              >
+                                <div className="font-medium">
                                   {productLabel(p)}
-                                </button>
-                              ));
-                            })()}
-                          </div>
-                        )}
-                      </div>
+                                </div>
+                                <div className="text-xs text-slate-400">
+                                  SKU: {p.id || "-"}{" "}
+                                  {(p?.unit || p?.unitKey) ? `• Birim: ${p?.unit || p?.unitKey}` : ""}
+                                </div>
+                              </button>
+                            ));
+                          })()}
+                        </div>
+                      )}
+                    </div>
 
-                      <span className="text-[10px] text-slate-400">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1">
                         SKU: {row.productId || "-"}
                       </span>
+                      <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-1">
+                        Stok: {fmtMoney(avail)}
+                      </span>
+                      {showPurchaseCost && (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-2 py-1">
+                          Alış: {fmtMoney(purchaseUnitCost)}
+                        </span>
+                      )}
                     </div>
-                  </td>
+                  </div>
 
-                  <td className="px-4 py-3">
+                  <div className="shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => removeRow(i)}
+                      disabled={disabled || (items || []).length <= 1}
+                      className="p-2 rounded-xl hover:bg-red-50 text-red-600 disabled:opacity-30"
+                      title="Sil"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+                  <label className="block">
+                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
+                      Depo
+                    </div>
                     <select
-                      className="text-xs bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={row.warehouseKey || defaultWarehouse}
-                      onChange={(e) => updateRow(i, { warehouseKey: e.target.value })}
+                      onChange={(e) =>
+                        updateRow(i, { warehouseKey: e.target.value })
+                      }
                       disabled={disabled}
                     >
                       {(warehouses || []).map((w) => (
@@ -502,50 +548,62 @@ export default function SaleItemsTable({
                         </option>
                       ))}
                     </select>
-                  </td>
+                  </label>
 
-                  <td className="px-4 py-3">
+                  <label className="block">
+                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
+                      Birim
+                    </div>
                     <select
-                      className="text-xs bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={row.unit || defaultUnit}
                       onChange={(e) => updateRow(i, { unit: e.target.value })}
                       disabled={disabled}
                     >
-                      {(units || []).map((u) => (
+                      {rowUnitOptions.map((u) => (
                         <option key={u.key} value={u.key}>
                           {u.name || u.label || u.key}
                         </option>
                       ))}
                     </select>
-                  </td>
+                  </label>
 
-                  <td className="px-4 py-3 text-right">
+                  <label className="block">
+                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
+                      Miktar
+                    </div>
                     <input
-                      className="w-24 text-right text-xs border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-right text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       type="number"
                       value={row.quantity}
                       onChange={(e) => updateRow(i, { quantity: e.target.value })}
                       disabled={disabled}
                     />
-                  </td>
+                  </label>
 
-                  <td className="px-4 py-3 text-right text-xs">{fmtMoney(avail)}</td>
-
-                  <td className="px-4 py-3 text-right">
+                  <label className="block">
+                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
+                      Birim Fiyat
+                    </div>
                     <input
-                      className="w-28 text-right text-xs border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-right text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       type="number"
                       value={row.unitPrice}
-                      onChange={(e) => updateRow(i, { unitPrice: e.target.value })}
+                      onChange={(e) =>
+                        updateRow(i, { unitPrice: e.target.value })
+                      }
                       disabled={disabled}
                     />
-                  </td>
+                  </label>
 
                   {showPurchaseCost && (
-                    <td className="px-4 py-3 text-right">
+                    <label className="block">
+                      <div className="mb-1 text-[11px] font-semibold text-slate-500">
+                        Alış Fiyatı
+                      </div>
                       {allowPurchaseCostEdit ? (
                         <input
-                          className="w-28 text-right text-xs border border-amber-200 rounded-xl px-2 py-2 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          className="w-full text-right text-xs border border-amber-200 rounded-xl px-3 py-2.5 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500"
                           type="number"
                           min="0"
                           step="0.01"
@@ -556,27 +614,39 @@ export default function SaleItemsTable({
                           disabled={disabled}
                         />
                       ) : (
-                        <div className="w-28 ml-auto text-right text-xs font-semibold text-slate-700">
+                        <div className="w-full text-right text-xs font-semibold text-slate-700 border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50">
                           {fmtMoney(purchaseUnitCost)}
                         </div>
                       )}
-                    </td>
+                    </label>
                   )}
 
-                  <td className="px-4 py-3 text-right">
+                  <label className="block">
+                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
+                      İskonto %
+                    </div>
                     <input
-                      className="w-20 text-right text-xs border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-right text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       type="number"
                       value={row.discountRate}
-                      onChange={(e) => updateRow(i, { discountRate: e.target.value })}
+                      onChange={(e) =>
+                        updateRow(i, { discountRate: e.target.value })
+                      }
                       disabled={disabled}
                     />
-                  </td>
+                  </label>
 
-                  <td className="px-4 py-3 text-right">
+                  <label className="block">
+                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
+                      KDV %
+                    </div>
                     <select
-                      className="w-20 text-right text-xs bg-transparent border border-slate-200 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={saleType === "official" ? row.vatRate ?? defaultVatRate : 0}
+                      className="w-full text-right text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={
+                        saleType === "official"
+                          ? row.vatRate ?? defaultVatRate
+                          : 0
+                      }
                       onChange={(e) => updateRow(i, { vatRate: e.target.value })}
                       disabled={disabled || saleType !== "official"}
                     >
@@ -586,43 +656,73 @@ export default function SaleItemsTable({
                         </option>
                       ))}
                     </select>
-                  </td>
+                  </label>
 
-                  <td className="px-4 py-3 text-right text-xs">{fmtMoney(row.net)}</td>
-                  <td className="px-4 py-3 text-right text-xs">{fmtMoney(row.vat)}</td>
-                  <td className="px-4 py-3 text-right font-semibold">{fmtMoney(row.total)}</td>
+                  <div className="block">
+                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
+                      Toplam
+                    </div>
+                    <div className="w-full text-right text-sm font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 text-slate-900">
+                      {fmtMoney(row.total)}
+                    </div>
+                  </div>
+                </div>
 
-                  <td className="px-3 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => removeRow(i)}
-                      disabled={disabled || (items || []).length <= 1}
-                      className="p-2 rounded-xl hover:bg-red-50 text-red-600 disabled:opacity-30"
-                      title="Sil"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2">
+                    <div className="text-[11px] text-slate-500 mb-1">
+                      Ara Toplam
+                    </div>
+                    <div className="text-sm font-semibold text-right">
+                      {fmtMoney(row.net)}
+                    </div>
+                  </div>
 
-          <tfoot className="bg-slate-50">
-            <tr>
-              <td
-                colSpan={showPurchaseCost ? 10 : 9}
-                className="px-4 py-3 text-right text-slate-600"
-              >
-                Toplamlar
-              </td>
-              <td className="px-4 py-3 text-right font-semibold">{fmtMoney(totals.net)}</td>
-              <td className="px-4 py-3 text-right font-semibold">{fmtMoney(totals.vat)}</td>
-              <td className="px-4 py-3 text-right font-semibold">{fmtMoney(totals.total)}</td>
-              <td className="px-3 py-3"></td>
-            </tr>
-          </tfoot>
-        </table>
+                  <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2">
+                    <div className="text-[11px] text-slate-500 mb-1">KDV</div>
+                    <div className="text-sm font-semibold text-right">
+                      {fmtMoney(row.vat)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-blue-50 border border-blue-200 px-3 py-2">
+                    <div className="text-[11px] text-blue-700 mb-1">
+                      Genel Toplam
+                    </div>
+                    <div className="text-base font-bold text-right text-blue-900">
+                      {fmtMoney(row.total)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-xl bg-white border border-slate-200 px-4 py-3">
+              <div className="text-xs text-slate-500 mb-1">Toplam Ara Toplam</div>
+              <div className="text-lg font-bold text-right">
+                {fmtMoney(totals.net)}
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white border border-slate-200 px-4 py-3">
+              <div className="text-xs text-slate-500 mb-1">Toplam KDV</div>
+              <div className="text-lg font-bold text-right">
+                {fmtMoney(totals.vat)}
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-blue-600 text-white border border-blue-600 px-4 py-3">
+              <div className="text-xs text-blue-100 mb-1">Genel Toplam</div>
+              <div className="text-xl font-extrabold text-right">
+                {fmtMoney(totals.total)}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
