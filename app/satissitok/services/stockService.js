@@ -172,6 +172,17 @@ export function writeStockBalancesWithAvgCost({
 /**
  * READ PHASE
  * Satış öncesi stok kontrolü ve avgCost okuma
+ *
+ * KRİTİK KURAL:
+ * - official satışta official bucket okunur
+ * - actual satışta normalde actual bucket okunur
+ * - ancak actual qty <= 0 ve official avgCost > 0 ise
+ *   maliyet official avgCost'tan fallback alınır
+ *
+ * Böylece:
+ * - resmi alınıp fiili satılan ürünlerde
+ * - fiili stok boşken maliyet 0 çıkmaz
+ * - kar hesaplaması bozulmaz
  */
 export async function readStockBalancesForSale({
   transaction,
@@ -179,10 +190,10 @@ export async function readStockBalancesForSale({
   saleType, // "official" | "actual"
 }) {
   const map = {};
-  const bucketKey = saleType === "official" ? "official" : "actual";
 
   for (const item of items || []) {
     if (!item?.productId) continue;
+
     const whKey = safeWarehouseKey(item.warehouseKey);
     const key = `${item.productId}__${whKey}`;
     if (map[key]) continue;
@@ -191,7 +202,30 @@ export async function readStockBalancesForSale({
     const snap = await transaction.get(ref);
     const data = snap.exists() ? snap.data() : {};
 
-    map[key] = getBucketFromDocData(data, whKey, bucketKey);
+    const officialBucket = getBucketFromDocData(data, whKey, "official");
+    const actualBucket = getBucketFromDocData(data, whKey, "actual");
+
+    if (saleType === "official") {
+      map[key] = {
+        qty: Number(officialBucket.qty) || 0,
+        avgCost: Number(officialBucket.avgCost) || 0,
+      };
+      continue;
+    }
+
+    const actualQty = Number(actualBucket.qty) || 0;
+    const actualAvgCost = Number(actualBucket.avgCost) || 0;
+    const officialAvgCost = Number(officialBucket.avgCost) || 0;
+
+    const shouldUseOfficialFallback =
+      actualQty <= 0 && officialAvgCost > 0;
+
+    map[key] = {
+      qty: actualQty,
+      avgCost: shouldUseOfficialFallback ? officialAvgCost : actualAvgCost,
+      costSource: shouldUseOfficialFallback ? "official_fallback" : "actual",
+      fallbackOfficialAvgCost: officialAvgCost,
+    };
   }
 
   return map;
