@@ -22,7 +22,16 @@ import ProductCard from "../../components/ProductCard";
 import { auth } from "../../../firebase";
 
 // ICONLAR
-import { Heart, Minus, Plus, X, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
+import {
+  Heart,
+  Minus,
+  Plus,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeft,
+  Share2,
+} from "lucide-react";
 
 // ✅ i18n (merkezi yapı)
 import { useLang } from "../../context/LanguageContext";
@@ -171,21 +180,24 @@ export default function ProductDetailPage() {
 
         const p = { id: snap.id, ...snap.data() };
 
-// 🔒 Webde yayınlı değilse veya pasifse gösterme
-if (p?.active === false || p?.webPublished === false) {
-  setError(t("productDetail.notFound"));
-  setLoading(false);
-  return;
-}
+        // 🔒 Webde yayınlı değilse veya pasifse gösterme
+        if (p?.active === false || p?.webPublished === false) {
+          setError(t("productDetail.notFound"));
+          setLoading(false);
+          return;
+        }
 
-setProduct(p);
+        setProduct(p);
 
         if (p.image_names?.length > 0) {
-          const urls = await Promise.all(p.image_names.map((name) => loadImage(name)));
+          const urls = await Promise.all(
+            p.image_names.map((name) => loadImage(name))
+          );
           const filtered = urls.filter(Boolean);
           setImageUrls(filtered);
-          // görsel index güvenliği
-          setCurrentImageIndex((idx) => Math.max(0, Math.min(idx, Math.max(0, filtered.length - 1))));
+          setCurrentImageIndex((idx) =>
+            Math.max(0, Math.min(idx, Math.max(0, filtered.length - 1)))
+          );
         }
 
         // BENZER ÜRÜNLER
@@ -289,6 +301,55 @@ setProduct(p);
     setQuantity(newQty);
   };
 
+  // 🔥 PAYLAŞ
+  const handleShare = async () => {
+    try {
+      const shareUrl = window.location.href;
+      const shareTitle = product?.name || "Ürün";
+      const shareText = `${shareTitle} - HorecaLink`;
+
+      if (navigator.share) {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        alert(
+          t("productDetail.linkCopied") || "Ürün linki kopyalandı."
+        );
+        return;
+      }
+
+      window.prompt(
+        t("productDetail.copyLink") || "Bu linki kopyalayın:",
+        shareUrl
+      );
+    } catch (err) {
+      // Kullanıcı share penceresini kapattıysa sessiz geç
+      if (err?.name === "AbortError") return;
+
+      try {
+        const shareUrl = window.location.href;
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+          alert(
+            t("productDetail.linkCopied") || "Ürün linki kopyalandı."
+          );
+          return;
+        }
+      } catch {}
+
+      alert(
+        t("productDetail.shareError") || "Paylaşım sırasında bir hata oluştu."
+      );
+    }
+  };
+
   // ✅ Stok kodu alanı (farklı alan isimlerine tolerans)
   const stockCode =
     product?.stock_code ??
@@ -333,7 +394,6 @@ setProduct(p);
       {/* ✅ Navigasyon / Breadcrumb */}
       <section className="max-w-6xl mx-auto px-3 pt-5">
         <div className="flex items-center gap-2 text-sm text-gray-600">
-          
           <div className="hidden sm:flex items-center gap-2">
             <span className="text-gray-300">/</span>
             <Link href="/" className="hover:text-gray-900">
@@ -341,22 +401,24 @@ setProduct(p);
             </Link>
             <span className="text-gray-300">/</span>
             <Link
-  href={{
-    pathname: "/categories",
-    query: {
-      main: product.main_category,
-      sub: product.sub_category,
-    },
-  }}
-  className="hover:text-gray-900"
->
-  {t("nav.categories") || "Ürünler"}
-</Link>
+              href={{
+                pathname: "/categories",
+                query: {
+                  main: product.main_category,
+                  sub: product.sub_category,
+                },
+              }}
+              className="hover:text-gray-900"
+            >
+              {t("nav.categories") || "Ürünler"}
+            </Link>
 
             {product?.main_category && (
               <>
                 <span className="text-gray-300">/</span>
-                <span className="text-gray-900 font-medium">{product.main_category}</span>
+                <span className="text-gray-900 font-medium">
+                  {product.main_category}
+                </span>
               </>
             )}
           </div>
@@ -382,7 +444,10 @@ setProduct(p);
                 type="button"
                 onClick={() => openLightbox(currentImageIndex)}
                 className="relative bg-white border rounded-xl overflow-hidden w-full max-w-[450px] aspect-square flex items-center justify-center"
-                aria-label={t("productDetail.openFullscreen") || "Görseli tam ekranda aç"}
+                aria-label={
+                  t("productDetail.openFullscreen") ||
+                  "Görseli tam ekranda aç"
+                }
               >
                 {imageUrls.length > 0 ? (
                   <Image
@@ -393,7 +458,9 @@ setProduct(p);
                     className="object-contain"
                   />
                 ) : (
-                  <span className="text-gray-400">{t("productDetail.noImage")}</span>
+                  <span className="text-gray-400">
+                    {t("productDetail.noImage")}
+                  </span>
                 )}
               </button>
             </div>
@@ -406,9 +473,13 @@ setProduct(p);
                     key={idx}
                     onClick={() => setCurrentImageIndex(idx)}
                     className={`border rounded-lg ${
-                      idx === currentImageIndex ? "border-indigo-600" : "border-gray-200"
+                      idx === currentImageIndex
+                        ? "border-indigo-600"
+                        : "border-gray-200"
                     }`}
-                    aria-label={t("productDetail.openImage", { index: idx + 1 })}
+                    aria-label={t("productDetail.openImage", {
+                      index: idx + 1,
+                    })}
                   >
                     <Image
                       src={src}
@@ -471,7 +542,9 @@ setProduct(p);
 
               {/* ✅ Stok Kodu */}
               <div className="text-sm text-gray-600">
-                <span className="text-gray-500">{t("productDetail.stockCode") || "Stok Kodu"}:</span>{" "}
+                <span className="text-gray-500">
+                  {t("productDetail.stockCode") || "Stok Kodu"}:
+                </span>{" "}
                 <span className="font-medium text-gray-900">{stockCode}</span>
               </div>
 
@@ -514,6 +587,15 @@ setProduct(p);
                 </div>
               )}
 
+              {/* PAYLAŞ BUTONU */}
+              <button
+                onClick={handleShare}
+                className="w-full py-3 rounded-lg border text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
+              >
+                <Share2 size={18} />
+                {t("productDetail.share") || "Paylaş"}
+              </button>
+
               <Link
                 href="/categories"
                 className="block w-full py-3 text-center border rounded-lg text-sm text-gray-700 hover:bg-gray-50"
@@ -546,29 +628,31 @@ setProduct(p);
           className="fixed inset-0 z-[9999] bg-black/90"
           role="dialog"
           aria-modal="true"
-          aria-label={t("productDetail.fullscreenGallery") || "Tam ekran galeri"}
+          aria-label={
+            t("productDetail.fullscreenGallery") || "Tam ekran galeri"
+          }
           onClick={(e) => {
-            // sadece backdrop tıklanınca kapat
             if (e.target === e.currentTarget) closeLightbox();
           }}
         >
           {/* ÜST BAR */}
           <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-3">
             <div className="text-white/80 text-sm">
-              {imageUrls.length ? `${lightboxIndex + 1} / ${imageUrls.length}` : ""}
+              {imageUrls.length
+                ? `${lightboxIndex + 1} / ${imageUrls.length}`
+                : ""}
             </div>
 
             <button
-  onClick={(e) => {
-    e.stopPropagation();
-    closeLightbox();
-  }}
-  className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
-  aria-label={t("common.close") || "Kapat"}
->
-  <X size={22} />
-</button>
-
+              onClick={(e) => {
+                e.stopPropagation();
+                closeLightbox();
+              }}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+              aria-label={t("common.close") || "Kapat"}
+            >
+              <X size={22} />
+            </button>
           </div>
 
           {/* GÖRSEL ALANI */}
