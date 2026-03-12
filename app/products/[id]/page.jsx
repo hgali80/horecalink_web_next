@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
   getFirestore,
   doc,
@@ -15,11 +15,10 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { app } from "../../../firebase";
+import { app, auth } from "../../../firebase";
 import Image from "next/image";
 import Link from "next/link";
 import ProductCard from "../../components/ProductCard";
-import { auth } from "../../../firebase";
 
 // ICONLAR
 import {
@@ -29,7 +28,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  ArrowLeft,
   Share2,
 } from "lucide-react";
 
@@ -38,7 +36,6 @@ import { useLang } from "../../context/LanguageContext";
 
 export default function ProductDetailPage() {
   const { id } = useParams();
-  const router = useRouter();
   const db = getFirestore(app);
   const storage = getStorage(app);
   const { user } = useAuth();
@@ -198,6 +195,9 @@ export default function ProductDetailPage() {
           setCurrentImageIndex((idx) =>
             Math.max(0, Math.min(idx, Math.max(0, filtered.length - 1)))
           );
+        } else {
+          setImageUrls([]);
+          setCurrentImageIndex(0);
         }
 
         // BENZER ÜRÜNLER
@@ -215,6 +215,8 @@ export default function ProductDetailPage() {
           );
 
           setRelatedProducts(related);
+        } else {
+          setRelatedProducts([]);
         }
       } catch {
         setError(t("productDetail.loadError"));
@@ -234,7 +236,7 @@ export default function ProductDetailPage() {
     const favRef = doc(db, "users", currentUserId, "favorites", product.id);
 
     getDoc(favRef).then((snap) => {
-      if (snap.exists()) setIsFavorite(true);
+      setIsFavorite(snap.exists());
     });
   }, [product, db]);
 
@@ -247,6 +249,7 @@ export default function ProductDetailPage() {
 
     getDoc(cartRef).then((snap) => {
       if (snap.exists()) setQuantity(snap.data().quantity);
+      else setQuantity(0);
     });
   }, [product, db]);
 
@@ -276,7 +279,10 @@ export default function ProductDetailPage() {
   const updateBasket = async (newQty) => {
     const currentUserId = auth.currentUser?.uid;
 
-    if (!currentUserId) return alert(t("productDetail.loginToBasket"));
+    if (!currentUserId) {
+      alert(t("productDetail.loginToBasket"));
+      return;
+    }
 
     const basketRef = doc(db, "users", currentUserId, "basket", product.id);
 
@@ -319,9 +325,7 @@ export default function ProductDetailPage() {
 
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareUrl);
-        alert(
-          t("productDetail.linkCopied") || "Ürün linki kopyalandı."
-        );
+        alert(t("productDetail.linkCopied") || "Ürün linki kopyalandı.");
         return;
       }
 
@@ -337,9 +341,7 @@ export default function ProductDetailPage() {
         const shareUrl = window.location.href;
         if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(shareUrl);
-          alert(
-            t("productDetail.linkCopied") || "Ürün linki kopyalandı."
-          );
+          alert(t("productDetail.linkCopied") || "Ürün linki kopyalandı.");
           return;
         }
       } catch {}
@@ -429,15 +431,28 @@ export default function ProductDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
           {/* SOL TARAF — GÖRSEL */}
           <div className="relative">
-            {/* FAVORİ KALP BUTONU */}
-            <button
-              onClick={toggleFavorite}
-              className={`absolute right-4 top-4 z-10 p-3 rounded-full shadow 
-              ${isFavorite ? "bg-red-500 text-white" : "bg-white text-gray-600"}`}
-              aria-label={t("productDetail.favorite")}
-            >
-              <Heart size={20} />
-            </button>
+            {/* FAVORİ + PAYLAŞ BUTONLARI */}
+            <div className="absolute right-4 top-4 z-10 flex gap-2">
+              <button
+                onClick={handleShare}
+                className="p-3 rounded-full shadow bg-white text-gray-600 hover:bg-gray-100"
+                aria-label={t("productDetail.share") || "Paylaş"}
+              >
+                <Share2 size={20} />
+              </button>
+
+              <button
+                onClick={toggleFavorite}
+                className={`p-3 rounded-full shadow ${
+                  isFavorite
+                    ? "bg-red-500 text-white"
+                    : "bg-white text-gray-600"
+                }`}
+                aria-label={t("productDetail.favorite")}
+              >
+                <Heart size={20} />
+              </button>
+            </div>
 
             <div className="flex justify-center">
               <button
@@ -521,7 +536,9 @@ export default function ProductDetailPage() {
 
               <div className="p-4 text-sm text-gray-600">
                 {activeTab === "description" && (
-                  <p>{product.description || t("productDetail.noDescription")}</p>
+                  <p>
+                    {product.description || t("productDetail.noDescription")}
+                  </p>
                 )}
 
                 {activeTab === "specs" && (
@@ -586,15 +603,6 @@ export default function ProductDetailPage() {
                   </button>
                 </div>
               )}
-
-              {/* PAYLAŞ BUTONU */}
-              <button
-                onClick={handleShare}
-                className="w-full py-3 rounded-lg border text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
-              >
-                <Share2 size={18} />
-                {t("productDetail.share") || "Paylaş"}
-              </button>
 
               <Link
                 href="/categories"
