@@ -1,706 +1,999 @@
 // app/products/[id]/page.jsx
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useAuth } from "../../context/AuthContext";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
 import {
   getFirestore,
   doc,
   getDoc,
-  collection,
-  getDocs,
   setDoc,
   deleteDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  limit,
 } from "firebase/firestore";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { app, auth } from "../../../firebase";
-import Image from "next/image";
-import Link from "next/link";
-import ProductCard from "../../components/ProductCard";
-
-// ICONLAR
+import { app } from "../../../firebase";
+import { useAuth } from "../../context/AuthContext";
+import { usePathname } from "next/navigation";
+import { getT } from "../../lib/i18n";
 import {
   Heart,
+  ShoppingCart,
   Minus,
   Plus,
-  X,
   ChevronLeft,
   ChevronRight,
+  Package,
+  Tag,
+  Layers,
+  FileText,
+  Wrench,
+  ArrowLeft,
+  CheckCircle,
   Share2,
+  ZoomIn,
 } from "lucide-react";
 
-// ✅ i18n (merkezi yapı)
-import { useLang } from "../../context/LanguageContext";
+const SUPPORTED = ["tr", "ru", "kz", "en"];
 
 export default function ProductDetailPage() {
   const { id } = useParams();
-  const db = getFirestore(app);
-  const storage = getStorage(app);
+  const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
-  const { t } = useLang();
+  const currentUserId = user?.uid;
 
   const [product, setProduct] = useState(null);
-  const [imageUrls, setImageUrls] = useState([]);
-  const [relatedProducts, setRelatedProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  // ⭐ FAVORİ
+  const [images, setImages] = useState([]);
+  const [activeImg, setActiveImg] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
-
-  // ⭐ SEPET MİKTARI
   const [quantity, setQuantity] = useState(0);
-
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("description");
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [relatedImages, setRelatedImages] = useState({});
+  const [imgLoading, setImgLoading] = useState(true);
+  const [lightbox, setLightbox] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
 
-  // ✅ LIGHTBOX (tam ekran)
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [activeLang, setActiveLang] = useState("tr");
 
-  const hasMultipleImages = imageUrls.length > 1;
+  const db = getFirestore(app);
+  const storage = getStorage(app);
 
-  const openLightbox = useCallback(
-    (idx) => {
-      if (!imageUrls?.length) return;
-      const safeIdx = Math.max(0, Math.min(idx, imageUrls.length - 1));
-      setLightboxIndex(safeIdx);
-      setIsLightboxOpen(true);
-    },
-    [imageUrls]
-  );
-
-  const closeLightbox = useCallback(() => {
-    setIsLightboxOpen(false);
-  }, []);
-
-  const prevLightbox = useCallback(() => {
-    if (!imageUrls?.length) return;
-    setLightboxIndex((i) => (i - 1 + imageUrls.length) % imageUrls.length);
-  }, [imageUrls]);
-
-  const nextLightbox = useCallback(() => {
-    if (!imageUrls?.length) return;
-    setLightboxIndex((i) => (i + 1) % imageUrls.length);
-  }, [imageUrls]);
-
-  // 🔒 Lightbox açıkken body scroll kapat
   useEffect(() => {
-    if (!isLightboxOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev || "";
-    };
-  }, [isLightboxOpen]);
+    const segments = pathname?.split("/").filter(Boolean) || [];
+    const first = segments[0];
+    if (SUPPORTED.includes(first)) { setActiveLang(first); return; }
+    const saved = typeof window !== "undefined" && localStorage.getItem("hl_lang");
+    if (saved && SUPPORTED.includes(saved)) setActiveLang(saved);
+  }, [pathname]);
 
-  // ⌨️ Lightbox klavye kontrolü (ESC / oklar)
+  const t = getT(activeLang);
+
+  // Fetch product
   useEffect(() => {
-    if (!isLightboxOpen) return;
+    if (!id) return;
+    setLoading(true);
+    getDoc(doc(db, "products", id))
+      .then((snap) => {
+        if (!snap.exists()) { setError(t("productDetail.notFound")); return; }
+        setProduct({ id: snap.id, ...snap.data() });
+      })
+      .catch(() => setError(t("productDetail.loadError")))
+      .finally(() => setLoading(false));
+  }, [id]);
 
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") closeLightbox();
-      if (e.key === "ArrowLeft") prevLightbox();
-      if (e.key === "ArrowRight") nextLightbox();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isLightboxOpen, closeLightbox, prevLightbox, nextLightbox]);
-
-  // 📱 Lightbox swipe (mobil)
+  // Fetch images
   useEffect(() => {
-    if (!isLightboxOpen) return;
+    if (!product?.image_names?.length) return;
+    Promise.all(
+      product.image_names.map((img) =>
+        getDownloadURL(ref(storage, `product_images/${img}`))
+      )
+    )
+      .then(setImages)
+      .catch(() => {});
+  }, [product]);
 
-    let startX = 0;
-    let startY = 0;
-    let isTouching = false;
-
-    const onTouchStart = (e) => {
-      if (!e.touches?.length) return;
-      isTouching = true;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-    };
-
-    const onTouchEnd = (e) => {
-      if (!isTouching) return;
-      isTouching = false;
-
-      const touch = e.changedTouches?.[0];
-      if (!touch) return;
-
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-
-      // yatay swipe öncelikli
-      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
-        if (dx > 0) prevLightbox();
-        else nextLightbox();
-      }
-    };
-
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchend", onTouchEnd, { passive: true });
-
-    return () => {
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [isLightboxOpen, prevLightbox, nextLightbox]);
-
-  // 🔥 Görsel yükleme fonksiyonu
-  async function loadImage(imageName) {
-    try {
-      return await getDownloadURL(ref(storage, `product_images/${imageName}`));
-    } catch {
-      return null;
-    }
-  }
-
-  // 🔥 Ürünü + görselleri + benzer ürünleri getir
+  // Favorite & cart state
   useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setLoading(true);
-
-        const docRef = doc(db, "products", id);
-        const snap = await getDoc(docRef);
-
-        if (!snap.exists()) {
-          setError(t("productDetail.notFound"));
-          setLoading(false);
-          return;
-        }
-
-        const p = { id: snap.id, ...snap.data() };
-
-        // 🔒 Webde yayınlı değilse veya pasifse gösterme
-        if (p?.active === false || p?.webPublished === false) {
-          setError(t("productDetail.notFound"));
-          setLoading(false);
-          return;
-        }
-
-        setProduct(p);
-
-        if (p.image_names?.length > 0) {
-          const urls = await Promise.all(
-            p.image_names.map((name) => loadImage(name))
-          );
-          const filtered = urls.filter(Boolean);
-          setImageUrls(filtered);
-          setCurrentImageIndex((idx) =>
-            Math.max(0, Math.min(idx, Math.max(0, filtered.length - 1)))
-          );
-        } else {
-          setImageUrls([]);
-          setCurrentImageIndex(0);
-        }
-
-        // BENZER ÜRÜNLER
-        if (p.binding_codes?.length > 0) {
-          const snapAll = await getDocs(collection(db, "products"));
-          const allProducts = snapAll.docs.map((d) => ({
-            id: d.id,
-            ...d.data(),
-          }));
-
-          const related = allProducts.filter(
-            (x) =>
-              x.id !== p.id &&
-              x.binding_codes?.some((c) => p.binding_codes.includes(c))
-          );
-
-          setRelatedProducts(related);
-        } else {
-          setRelatedProducts([]);
-        }
-      } catch {
-        setError(t("productDetail.loadError"));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProduct();
-  }, [id, t, db, storage]);
-
-  // 🔥 ÜRÜN FAVORİDE Mİ?
-  useEffect(() => {
-    const currentUserId = auth.currentUser?.uid;
-    if (!currentUserId || !product) return;
-
-    const favRef = doc(db, "users", currentUserId, "favorites", product.id);
-
-    getDoc(favRef).then((snap) => {
-      setIsFavorite(snap.exists());
-    });
-  }, [product, db]);
-
-  // 🔥 ÜRÜN SEPETTE Mİ? MİKTAR KAÇ?
-  useEffect(() => {
-    const currentUserId = auth.currentUser?.uid;
-    if (!currentUserId || !product) return;
-
-    const cartRef = doc(db, "users", currentUserId, "basket", product.id);
-
-    getDoc(cartRef).then((snap) => {
+    if (!currentUserId || !id) return;
+    getDoc(doc(db, "users", currentUserId, "favorites", id)).then((snap) =>
+      setIsFavorite(snap.exists())
+    );
+    getDoc(doc(db, "users", currentUserId, "basket", id)).then((snap) => {
       if (snap.exists()) setQuantity(snap.data().quantity);
-      else setQuantity(0);
     });
-  }, [product, db]);
+  }, [currentUserId, id]);
 
-  // 🔥 FAVORİ TOGGLE
-  const toggleFavorite = async () => {
-    const currentUserId = auth.currentUser?.uid;
+  // Related products
+  useEffect(() => {
+    if (!product?.main_category) return;
+    const q = query(
+      collection(db, "products"),
+      where("main_category", "==", product.main_category),
+      limit(5)
+    );
+    getDocs(q).then(async (snap) => {
+      const items = snap.docs
+        .filter((d) => d.id !== id)
+        .slice(0, 4)
+        .map((d) => ({ id: d.id, ...d.data() }));
+      setRelatedProducts(items);
 
-    if (!currentUserId) {
-      alert(t("productDetail.loginToFavorite"));
-      return;
-    }
+      // fetch first image for each
+      const imgMap = {};
+      await Promise.all(
+        items.map(async (item) => {
+          if (item.image_names?.[0]) {
+            try {
+              imgMap[item.id] = await getDownloadURL(
+                ref(storage, `product_images/${item.image_names[0]}`)
+              );
+            } catch {}
+          }
+        })
+      );
+      setRelatedImages(imgMap);
+    });
+  }, [product]);
 
-    const favRef = doc(db, "users", currentUserId, "favorites", product.id);
-
-    if (isFavorite) {
-      await deleteDoc(favRef);
-      setIsFavorite(false);
-    } else {
-      await setDoc(favRef, {
-        createdAt: new Date(),
-      });
-      setIsFavorite(true);
-    }
+  const toggleFavorite = async (e) => {
+    e?.preventDefault();
+    if (!currentUserId) return alert(t("productDetail.loginToFavorite"));
+    const favRef = doc(db, "users", currentUserId, "favorites", id);
+    if (isFavorite) { await deleteDoc(favRef); setIsFavorite(false); }
+    else { await setDoc(favRef, { createdAt: new Date() }); setIsFavorite(true); }
   };
 
-  // 🔥 SEPET GÜNCELLE
-  const updateBasket = async (newQty) => {
-    const currentUserId = auth.currentUser?.uid;
-
-    if (!currentUserId) {
-      alert(t("productDetail.loginToBasket"));
-      return;
-    }
-
-    const basketRef = doc(db, "users", currentUserId, "basket", product.id);
-
+  const updateCart = async (newQty) => {
+    if (!currentUserId) return alert(t("productDetail.loginToBasket"));
+    const cartRef = doc(db, "users", currentUserId, "basket", id);
     if (newQty <= 0) {
-      await deleteDoc(basketRef);
+      await deleteDoc(cartRef);
       setQuantity(0);
-      return;
-    }
-
-    await setDoc(basketRef, {
-      productId: product.id,
-      name: product.name || product.name,
-      price: product.price || 0,
-      unit: product.unit || "-",
-      quantity: newQty,
-      image: product.image_names?.[0] || null,
-      main_category: product.main_category || null,
-      sub_category: product.sub_category || null,
-      updatedAt: new Date(),
-    });
-
-    setQuantity(newQty);
-  };
-
-  // 🔥 PAYLAŞ
-  const handleShare = async () => {
-    try {
-      const shareUrl = window.location.href;
-      const shareTitle = product?.name || "Ürün";
-      const shareText = `${shareTitle} - HorecaLink`;
-
-      if (navigator.share) {
-        await navigator.share({
-          title: shareTitle,
-          text: shareText,
-          url: shareUrl,
-        });
-        return;
-      }
-
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareUrl);
-        alert(t("productDetail.linkCopied") || "Ürün linki kopyalandı.");
-        return;
-      }
-
-      window.prompt(
-        t("productDetail.copyLink") || "Bu linki kopyalayın:",
-        shareUrl
-      );
-    } catch (err) {
-      // Kullanıcı share penceresini kapattıysa sessiz geç
-      if (err?.name === "AbortError") return;
-
-      try {
-        const shareUrl = window.location.href;
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(shareUrl);
-          alert(t("productDetail.linkCopied") || "Ürün linki kopyalandı.");
-          return;
-        }
-      } catch {}
-
-      alert(
-        t("productDetail.shareError") || "Paylaşım sırasında bir hata oluştu."
-      );
+    } else {
+      await setDoc(cartRef, {
+        productId: id,
+        name: product.name_tr || product.name,
+        price: product.price || 0,
+        unit: product.unit || "-",
+        quantity: newQty,
+        image: product.image_names?.[0] || null,
+        main_category: product.main_category || null,
+        sub_category: product.sub_category || null,
+        addedAt: new Date(),
+      });
+      setQuantity(newQty);
     }
   };
 
-  // ✅ Stok kodu alanı (farklı alan isimlerine tolerans)
-  const stockCode =
-    product?.stock_code ??
-    product?.stockCode ??
-    product?.sku ??
-    product?.code ??
-    product?.barcode ??
-    "-";
+  const handleAddToCart = async () => {
+    await updateCart(1);
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 2000);
+  };
 
-  // ---------------------------
-  // DURUMLAR
-  // ---------------------------
+  const prevImg = () => setActiveImg((p) => (p - 1 + images.length) % images.length);
+  const nextImg = () => setActiveImg((p) => (p + 1) % images.length);
+
+  // Keyboard lightbox
+  useEffect(() => {
+    if (!lightbox) return;
+    const handler = (e) => {
+      if (e.key === "ArrowLeft") prevImg();
+      if (e.key === "ArrowRight") nextImg();
+      if (e.key === "Escape") setLightbox(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [lightbox, images.length]);
+
+  // ─── LOADING ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center text-gray-500">
-        {t("productDetail.loading")}
-      </main>
+      <>
+        <style>{skeletonCSS}</style>
+        <div className="pd-skeleton">
+          <div className="pd-skeleton__img" />
+          <div className="pd-skeleton__body">
+            <div className="pd-skeleton__line pd-skeleton__line--lg" />
+            <div className="pd-skeleton__line pd-skeleton__line--md" />
+            <div className="pd-skeleton__line pd-skeleton__line--sm" />
+            <div className="pd-skeleton__line pd-skeleton__line--btn" />
+          </div>
+        </div>
+      </>
     );
   }
 
-  if (error) {
+  if (error || !product) {
     return (
-      <main className="min-h-screen flex items-center justify-center text-red-600">
-        {error}
-      </main>
+      <>
+        <style>{mainCSS}</style>
+        <div className="pd-error">
+          <Package size={48} strokeWidth={1} />
+          <h2>{error || t("productDetail.notFound")}</h2>
+          <button className="pd-btn-primary" onClick={() => router.back()}>
+            <ArrowLeft size={16} /> {t("productDetail.backToCategories")}
+          </button>
+        </div>
+      </>
     );
   }
 
-  if (!product) {
-    return (
-      <main className="min-h-screen flex items-center justify-center text-gray-500">
-        {t("productDetail.notFound")}
-      </main>
-    );
-  }
+  const productName = product[`name_${activeLang}`] || product.name || "";
+  const description = product[`description_${activeLang}`] || product.description || "";
+  const specs = product[`specs_${activeLang}`] || product.specs || "";
 
-  // ---------------------------
-  // TASARIM
-  // ---------------------------
   return (
-    <main className="min-h-screen bg-gray-50 pb-12">
-      {/* ✅ Navigasyon / Breadcrumb */}
-      <section className="max-w-6xl mx-auto px-3 pt-5">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <div className="hidden sm:flex items-center gap-2">
-            <span className="text-gray-300">/</span>
-            <Link href="/" className="hover:text-gray-900">
-              {t("nav.home") || "Ana Sayfa"}
-            </Link>
-            <span className="text-gray-300">/</span>
-            <Link
-              href={{
-                pathname: "/categories",
-                query: {
-                  main: product.main_category,
-                  sub: product.sub_category,
-                },
-              }}
-              className="hover:text-gray-900"
-            >
-              {t("nav.categories") || "Ürünler"}
-            </Link>
+    <>
+      <style>{mainCSS}</style>
 
-            {product?.main_category && (
+      {/* ── LIGHTBOX ─────────────────────────────────────── */}
+      {lightbox && (
+        <div className="pd-lightbox" onClick={() => setLightbox(false)}>
+          <div className="pd-lightbox__inner" onClick={(e) => e.stopPropagation()}>
+            <button className="pd-lightbox__close" onClick={() => setLightbox(false)}>✕</button>
+            {images.length > 1 && (
               <>
-                <span className="text-gray-300">/</span>
-                <span className="text-gray-900 font-medium">
-                  {product.main_category}
-                </span>
+                <button className="pd-lightbox__nav pd-lightbox__nav--prev" onClick={prevImg}>
+                  <ChevronLeft size={28} />
+                </button>
+                <button className="pd-lightbox__nav pd-lightbox__nav--next" onClick={nextImg}>
+                  <ChevronRight size={28} />
+                </button>
               </>
+            )}
+            <div className="pd-lightbox__img-wrap">
+              <Image
+                src={images[activeImg]}
+                alt={productName}
+                fill
+                className="pd-lightbox__img"
+              />
+            </div>
+            {images.length > 1 && (
+              <div className="pd-lightbox__counter">
+                {activeImg + 1} / {images.length}
+              </div>
             )}
           </div>
         </div>
-      </section>
+      )}
 
-      <section className="max-w-6xl mx-auto px-3 mt-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
-          {/* SOL TARAF — GÖRSEL */}
-          <div className="relative">
-            {/* FAVORİ + PAYLAŞ BUTONLARI */}
-            <div className="absolute right-4 top-4 z-10 flex gap-2">
-              <button
-                onClick={handleShare}
-                className="p-3 rounded-full shadow bg-white text-gray-600 hover:bg-gray-100"
-                aria-label={t("productDetail.share") || "Paylaş"}
-              >
-                <Share2 size={20} />
-              </button>
+      <div className="pd-page">
+        {/* ── BREADCRUMB ───────────────────────────────── */}
+        <nav className="pd-breadcrumb">
+          <Link href="/" className="pd-breadcrumb__item">{t("breadcrumb.home")}</Link>
+          <span className="pd-breadcrumb__sep">›</span>
+          <Link href="/categories" className="pd-breadcrumb__item">{t("header.menu.products")}</Link>
+          {product.main_category && (
+            <>
+              <span className="pd-breadcrumb__sep">›</span>
+              <span className="pd-breadcrumb__item pd-breadcrumb__item--current">
+                {t(`category.main.${product.main_category}`) || product.main_category}
+              </span>
+            </>
+          )}
+          <span className="pd-breadcrumb__sep">›</span>
+          <span className="pd-breadcrumb__item pd-breadcrumb__item--current">{productName}</span>
+        </nav>
 
-              <button
-                onClick={toggleFavorite}
-                className={`p-3 rounded-full shadow ${
-                  isFavorite
-                    ? "bg-red-500 text-white"
-                    : "bg-white text-gray-600"
-                }`}
-                aria-label={t("productDetail.favorite")}
-              >
-                <Heart size={20} />
-              </button>
-            </div>
+        {/* ── MAIN GRID ────────────────────────────────── */}
+        <div className="pd-main">
 
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={() => openLightbox(currentImageIndex)}
-                className="relative bg-white border rounded-xl overflow-hidden w-full max-w-[450px] aspect-square flex items-center justify-center"
-                aria-label={
-                  t("productDetail.openFullscreen") ||
-                  "Görseli tam ekranda aç"
-                }
-              >
-                {imageUrls.length > 0 ? (
+          {/* LEFT: Gallery */}
+          <div className="pd-gallery">
+            {/* Main Image */}
+            <div className="pd-gallery__main" onClick={() => images.length > 0 && setLightbox(true)}>
+              {images.length > 0 ? (
+                <>
+                  {imgLoading && <div className="pd-gallery__shimmer" />}
                   <Image
-                    src={imageUrls[currentImageIndex]}
-                    alt={product.name || product.name}
-                    width={450}
-                    height={450}
-                    className="object-contain"
+                    src={images[activeImg]}
+                    alt={productName}
+                    fill
+                    className="pd-gallery__img"
+                    onLoad={() => setImgLoading(false)}
+                    priority
                   />
-                ) : (
-                  <span className="text-gray-400">
-                    {t("productDetail.noImage")}
-                  </span>
-                )}
-              </button>
+                  <div className="pd-gallery__zoom-hint">
+                    <ZoomIn size={18} />
+                  </div>
+                  {images.length > 1 && (
+                    <>
+                      <button className="pd-gallery__arrow pd-gallery__arrow--left" onClick={(e) => { e.stopPropagation(); prevImg(); }}>
+                        <ChevronLeft size={20} />
+                      </button>
+                      <button className="pd-gallery__arrow pd-gallery__arrow--right" onClick={(e) => { e.stopPropagation(); nextImg(); }}>
+                        <ChevronRight size={20} />
+                      </button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="pd-gallery__empty">
+                  <Package size={56} strokeWidth={1} />
+                  <span>{t("productDetail.noImage")}</span>
+                </div>
+              )}
             </div>
 
-            {/* Thumbnail */}
-            {imageUrls.length > 1 && (
-              <div className="flex gap-3 mt-3 overflow-x-auto">
-                {imageUrls.map((src, idx) => (
+            {/* Thumbnails */}
+            {images.length > 1 && (
+              <div className="pd-gallery__thumbs">
+                {images.map((url, i) => (
                   <button
-                    key={idx}
-                    onClick={() => setCurrentImageIndex(idx)}
-                    className={`border rounded-lg ${
-                      idx === currentImageIndex
-                        ? "border-indigo-600"
-                        : "border-gray-200"
-                    }`}
-                    aria-label={t("productDetail.openImage", {
-                      index: idx + 1,
-                    })}
+                    key={i}
+                    className={`pd-gallery__thumb ${i === activeImg ? "pd-gallery__thumb--active" : ""}`}
+                    onClick={() => setActiveImg(i)}
+                    aria-label={t("productDetail.thumbnailAlt")}
                   >
-                    <Image
-                      src={src}
-                      width={80}
-                      height={80}
-                      alt={t("productDetail.thumbnailAlt")}
-                      className="object-contain w-20 h-20"
-                    />
+                    <Image src={url} alt="" fill className="pd-gallery__thumb-img" />
                   </button>
                 ))}
               </div>
             )}
-
-            {/* Açıklama / Teknik Özellikler */}
-            <div className="mt-6 bg-white rounded-xl border shadow-sm">
-              <div className="border-b flex text-sm">
-                <button
-                  onClick={() => setActiveTab("description")}
-                  className={`flex-1 py-2 ${
-                    activeTab === "description"
-                      ? "border-b-2 border-indigo-600 text-indigo-600"
-                      : "text-gray-500"
-                  }`}
-                >
-                  {t("productDetail.tabs.description")}
-                </button>
-
-                <button
-                  onClick={() => setActiveTab("specs")}
-                  className={`flex-1 py-2 ${
-                    activeTab === "specs"
-                      ? "border-b-2 border-indigo-600 text-indigo-600"
-                      : "text-gray-500"
-                  }`}
-                >
-                  {t("productDetail.tabs.specs")}
-                </button>
-              </div>
-
-              <div className="p-4 text-sm text-gray-600">
-                {activeTab === "description" && (
-                  <p>
-                    {product.description || t("productDetail.noDescription")}
-                  </p>
-                )}
-
-                {activeTab === "specs" && (
-                  <pre className="whitespace-pre-wrap">
-                    {product.specs || t("productDetail.noSpecs")}
-                  </pre>
-                )}
-              </div>
-            </div>
           </div>
 
-          {/* SAĞ TARAF — FİYAT + SEPET */}
-          <aside>
-            <div className="bg-white rounded-xl shadow-sm border p-4 space-y-4">
-              <h1 className="text-xl font-semibold">
-                {product.name || product.name}
-              </h1>
-
-              {/* ✅ Stok Kodu */}
-              <div className="text-sm text-gray-600">
-                <span className="text-gray-500">
-                  {t("productDetail.stockCode") || "Stok Kodu"}:
-                </span>{" "}
-                <span className="font-medium text-gray-900">{stockCode}</span>
+          {/* RIGHT: Info */}
+          <div className="pd-info">
+            {/* Category badge */}
+            {product.main_category && (
+              <div className="pd-info__badge">
+                <Layers size={13} />
+                {t(`category.main.${product.main_category}`) || product.main_category}
+                {product.sub_category && (
+                  <> › {t(`category.sub.${product.sub_category}`) || product.sub_category}</>
+                )}
               </div>
+            )}
 
-              <div className="border-t pt-3">
-                <p className="text-3xl font-bold text-indigo-600">
-                  {product.price?.toLocaleString()} ₸
-                </p>
-                <p className="text-sm text-gray-500">
-                  {t("productDetail.unit")}: {product.unit}
-                </p>
+            {/* Name */}
+            <h1 className="pd-info__name">{productName}</h1>
+
+            {/* Stock Code */}
+            {product.stock_code && (
+              <div className="pd-info__stock">
+                <Tag size={13} />
+                {t("productDetail.stockCode")}: <strong>{product.stock_code}</strong>
               </div>
+            )}
 
-              {/* SEPET */}
+            {/* Divider */}
+            <div className="pd-info__divider" />
+
+            {/* Price */}
+            <div className="pd-info__price-block">
+              {product.price ? (
+                <>
+                  <span className="pd-info__price">
+                    {product.price.toLocaleString()} ₸
+                  </span>
+                  {product.unit && (
+                    <span className="pd-info__price-unit">/ {product.unit}</span>
+                  )}
+                </>
+              ) : (
+                <span className="pd-info__no-price">{t("productDetail.noPrice") || t("productcard.noPrice")}</span>
+              )}
+            </div>
+
+            {/* Unit info */}
+            {product.unit && (
+              <div className="pd-info__unit-row">
+                <span className="pd-info__unit-label">{t("productDetail.unit")}:</span>
+                <span className="pd-info__unit-val">{product.unit}</span>
+              </div>
+            )}
+
+            <div className="pd-info__divider" />
+
+            {/* Cart Actions */}
+            <div className="pd-info__actions">
               {quantity === 0 ? (
                 <button
-                  onClick={() => updateBasket(1)}
-                  className="w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+                  className={`pd-btn-cart ${addedToCart ? "pd-btn-cart--added" : ""}`}
+                  onClick={handleAddToCart}
                 >
-                  {t("productDetail.addToBasket")}
+                  {addedToCart ? (
+                    <><CheckCircle size={18} /> {activeLang === "tr" ? "Sepete Eklendi!" : activeLang === "ru" ? "Добавлено!" : "Added!"}</>
+                  ) : (
+                    <><ShoppingCart size={18} /> {t("productDetail.addToBasket")}</>
+                  )}
                 </button>
               ) : (
-                <div className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2">
-                  <button
-                    onClick={() => updateBasket(quantity - 1)}
-                    className="text-red-600"
-                    aria-label={t("productDetail.decrease")}
-                  >
+                <div className="pd-info__qty">
+                  <button className="pd-info__qty-btn pd-info__qty-btn--minus" onClick={() => updateCart(quantity - 1)}>
                     <Minus size={18} />
                   </button>
-
-                  <span className="font-semibold">{quantity}</span>
-
-                  <button
-                    onClick={() => updateBasket(quantity + 1)}
-                    className="text-indigo-600"
-                    aria-label={t("productDetail.increase")}
-                  >
+                  <span className="pd-info__qty-num">{quantity}</span>
+                  <button className="pd-info__qty-btn pd-info__qty-btn--plus" onClick={() => updateCart(quantity + 1)}>
                     <Plus size={18} />
                   </button>
                 </div>
               )}
 
-              <Link
-                href="/categories"
-                className="block w-full py-3 text-center border rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+              <button
+                className={`pd-btn-fav ${isFavorite ? "pd-btn-fav--active" : ""}`}
+                onClick={toggleFavorite}
+                aria-label={t("productDetail.favorite")}
+                title={t("productDetail.favorite")}
               >
-                {t("productDetail.backToCategories")}
-              </Link>
+                <Heart size={20} fill={isFavorite ? "currentColor" : "none"} />
+              </button>
+
+              <button
+                className="pd-btn-share"
+                onClick={() => {
+                  if (navigator.share) navigator.share({ title: productName, url: window.location.href });
+                  else navigator.clipboard.writeText(window.location.href);
+                }}
+                aria-label="Paylaş"
+                title="Paylaş"
+              >
+                <Share2 size={20} />
+              </button>
             </div>
-          </aside>
-        </div>
-      </section>
 
-      {/* BENZER ÜRÜNLER */}
-      {relatedProducts.length > 0 && (
-        <section className="max-w-6xl mx-auto px-3 mt-10">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            {t("productDetail.related")}
-          </h2>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-            {relatedProducts.map((p) => (
-              <ProductCard key={p.id} product={p} currentUserId={user?.uid} />
-            ))}
+            {/* Trust badges */}
+            <div className="pd-info__trust">
+              <span className="pd-info__trust-item">✓ {activeLang === "tr" ? "Hızlı Teslimat" : activeLang === "ru" ? "Быстрая доставка" : "Fast Delivery"}</span>
+              <span className="pd-info__trust-item">✓ {activeLang === "tr" ? "Güvenli Ödeme" : activeLang === "ru" ? "Безопасная оплата" : "Secure Payment"}</span>
+              <span className="pd-info__trust-item">✓ {activeLang === "tr" ? "B2B Destek" : activeLang === "ru" ? "B2B Поддержка" : "B2B Support"}</span>
+            </div>
           </div>
-        </section>
-      )}
+        </div>
 
-      {/* ✅ FULLSCREEN LIGHTBOX */}
-      {isLightboxOpen && (
-        <div
-          className="fixed inset-0 z-[9999] bg-black/90"
-          role="dialog"
-          aria-modal="true"
-          aria-label={
-            t("productDetail.fullscreenGallery") || "Tam ekran galeri"
-          }
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeLightbox();
-          }}
-        >
-          {/* ÜST BAR */}
-          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-3">
-            <div className="text-white/80 text-sm">
-              {imageUrls.length
-                ? `${lightboxIndex + 1} / ${imageUrls.length}`
-                : ""}
-            </div>
-
+        {/* ── TABS ─────────────────────────────────────── */}
+        <div className="pd-tabs">
+          <div className="pd-tabs__nav">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                closeLightbox();
-              }}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
-              aria-label={t("common.close") || "Kapat"}
+              className={`pd-tabs__btn ${activeTab === "description" ? "pd-tabs__btn--active" : ""}`}
+              onClick={() => setActiveTab("description")}
             >
-              <X size={22} />
+              <FileText size={16} />
+              {t("productDetail.tabs.description")}
+            </button>
+            <button
+              className={`pd-tabs__btn ${activeTab === "specs" ? "pd-tabs__btn--active" : ""}`}
+              onClick={() => setActiveTab("specs")}
+            >
+              <Wrench size={16} />
+              {t("productDetail.tabs.specs")}
             </button>
           </div>
 
-          {/* GÖRSEL ALANI */}
-          <div className="absolute inset-0 flex items-center justify-center px-2">
-            <div className="relative w-full h-full max-w-6xl">
-              {imageUrls?.[lightboxIndex] && (
-                <Image
-                  src={imageUrls[lightboxIndex]}
-                  alt={product.name || product.name}
-                  fill
-                  sizes="100vw"
-                  className="object-contain"
-                  priority
-                />
-              )}
+          <div className="pd-tabs__panel">
+            {activeTab === "description" ? (
+              <div className="pd-tabs__content">
+                {description
+                  ? description.split("\n").map((line, i) => <p key={i}>{line}</p>)
+                  : <p className="pd-tabs__empty">{t("productDetail.noDescription")}</p>
+                }
+              </div>
+            ) : (
+              <div className="pd-tabs__content">
+                {specs ? (
+                  <div className="pd-specs">
+                    {specs.split("\n").filter(Boolean).map((line, i) => {
+                      const [key, ...rest] = line.split(":");
+                      return rest.length > 0 ? (
+                        <div key={i} className="pd-specs__row">
+                          <span className="pd-specs__key">{key.trim()}</span>
+                          <span className="pd-specs__val">{rest.join(":").trim()}</span>
+                        </div>
+                      ) : (
+                        <div key={i} className="pd-specs__row pd-specs__row--full">
+                          <span>{line}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="pd-tabs__empty">{t("productDetail.noSpecs")}</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── RELATED PRODUCTS ─────────────────────────── */}
+        {relatedProducts.length > 0 && (
+          <div className="pd-related">
+            <h2 className="pd-related__title">{t("productDetail.related")}</h2>
+            <div className="pd-related__grid">
+              {relatedProducts.map((rp) => {
+                const rpName = rp[`name_${activeLang}`] || rp.name || "";
+                return (
+                  <Link key={rp.id} href={`/products/${rp.id}`} className="pd-rcard">
+                    <div className="pd-rcard__img-wrap">
+                      {relatedImages[rp.id] ? (
+                        <Image
+                          src={relatedImages[rp.id]}
+                          alt={rpName}
+                          fill
+                          className="pd-rcard__img"
+                        />
+                      ) : (
+                        <div className="pd-rcard__no-img">
+                          <Package size={28} strokeWidth={1} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="pd-rcard__body">
+                      <p className="pd-rcard__name">{rpName}</p>
+                      <p className="pd-rcard__price">
+                        {rp.price ? `${rp.price.toLocaleString()} ₸` : t("productcard.noPrice")}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
+        )}
 
-          {/* SOL/SAĞ OKLAR */}
-          {hasMultipleImages && (
-            <>
-              <button
-                onClick={prevLightbox}
-                className="absolute left-3 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
-                aria-label={t("productDetail.prevImage") || "Önceki görsel"}
-              >
-                <ChevronLeft size={26} />
-              </button>
-
-              <button
-                onClick={nextLightbox}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
-                aria-label={t("productDetail.nextImage") || "Sonraki görsel"}
-              >
-                <ChevronRight size={26} />
-              </button>
-            </>
-          )}
+        {/* ── BACK BUTTON ──────────────────────────────── */}
+        <div className="pd-back">
+          <button className="pd-btn-back" onClick={() => router.back()}>
+            <ArrowLeft size={16} />
+            {t("productDetail.backToCategories")}
+          </button>
         </div>
-      )}
-    </main>
+      </div>
+    </>
   );
 }
+
+// ─── CSS ──────────────────────────────────────────────────────────────────────
+
+const mainCSS = `
+  .pd-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 20px 64px;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #0A2540;
+  }
+
+  /* BREADCRUMB */
+  .pd-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 12.5px;
+    color: #8A9BB0;
+    margin-bottom: 28px;
+  }
+  .pd-breadcrumb__item {
+    color: #8A9BB0;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .pd-breadcrumb__item:hover { color: #0077CC; }
+  .pd-breadcrumb__item--current { color: #0A2540; font-weight: 500; }
+  .pd-breadcrumb__sep { color: #C5D0DC; font-size: 14px; }
+
+  /* MAIN GRID */
+  .pd-main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+    margin-bottom: 48px;
+  }
+  @media (max-width: 768px) {
+    .pd-main { grid-template-columns: 1fr; gap: 28px; }
+  }
+
+  /* GALLERY */
+  .pd-gallery__main {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1/1;
+    background: #F5F7FA;
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: zoom-in;
+    border: 1.5px solid #E8EDF3;
+  }
+  .pd-gallery__img {
+    object-fit: contain;
+    padding: 20px;
+    transition: transform 0.4s ease;
+  }
+  .pd-gallery__main:hover .pd-gallery__img { transform: scale(1.04); }
+  .pd-gallery__shimmer {
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, #EEF1F6 25%, #E4E8EF 50%, #EEF1F6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 16px;
+    z-index: 1;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .pd-gallery__zoom-hint {
+    position: absolute;
+    top: 12px; right: 12px;
+    background: rgba(255,255,255,0.9);
+    border: 1px solid #E3E8EF;
+    border-radius: 8px;
+    padding: 6px 8px;
+    color: #7A8FA6;
+    display: flex; align-items: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .pd-gallery__main:hover .pd-gallery__zoom-hint { opacity: 1; }
+  .pd-gallery__empty {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; color: #A0AEC0;
+    font-size: 13px;
+  }
+  .pd-gallery__arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(255,255,255,0.92);
+    border: 1px solid #E3E8EF;
+    border-radius: 50%;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 3;
+    transition: all 0.2s; color: #0A2540;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .pd-gallery__arrow:hover { background: #0A2540; color: white; }
+  .pd-gallery__arrow--left { left: 12px; }
+  .pd-gallery__arrow--right { right: 12px; }
+  .pd-gallery__thumbs {
+    display: flex; gap: 10px;
+    margin-top: 12px; flex-wrap: wrap;
+  }
+  .pd-gallery__thumb {
+    position: relative;
+    width: 68px; height: 68px;
+    border-radius: 10px;
+    border: 2px solid #E3E8EF;
+    overflow: hidden; cursor: pointer;
+    background: #F5F7FA;
+    transition: border-color 0.2s, transform 0.15s;
+    flex-shrink: 0;
+  }
+  .pd-gallery__thumb:hover { transform: translateY(-2px); border-color: #0077CC; }
+  .pd-gallery__thumb--active { border-color: #0A2540; box-shadow: 0 0 0 3px rgba(10,37,64,0.12); }
+  .pd-gallery__thumb-img { object-fit: contain; padding: 4px; }
+
+  /* INFO */
+  .pd-info__badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #EBF4FF; color: #0069CC;
+    font-size: 12px; font-weight: 600;
+    padding: 5px 12px; border-radius: 20px;
+    margin-bottom: 16px;
+    letter-spacing: 0.2px;
+  }
+  .pd-info__name {
+    font-size: clamp(20px, 3vw, 28px);
+    font-weight: 700; line-height: 1.3;
+    color: #0A2540; margin: 0 0 12px;
+  }
+  .pd-info__stock {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: #7A8FA6;
+    background: #F5F7FA; padding: 5px 12px;
+    border-radius: 6px; margin-bottom: 4px;
+  }
+  .pd-info__divider {
+    height: 1px; background: #E8EDF3;
+    margin: 20px 0;
+  }
+  .pd-info__price-block {
+    display: flex; align-items: baseline; gap: 8px;
+    margin-bottom: 8px;
+  }
+  .pd-info__price {
+    font-size: 32px; font-weight: 800;
+    color: #0A2540; line-height: 1;
+    letter-spacing: -0.5px;
+  }
+  .pd-info__price-unit {
+    font-size: 15px; color: #8A9BB0; font-weight: 500;
+  }
+  .pd-info__no-price {
+    font-size: 16px; color: #A0AEC0; font-style: italic;
+  }
+  .pd-info__unit-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13.5px; color: #5A7184; margin-bottom: 4px;
+  }
+  .pd-info__unit-label { color: #A0AEC0; }
+  .pd-info__unit-val { font-weight: 600; color: #0A2540; }
+
+  /* ACTIONS */
+  .pd-info__actions {
+    display: flex; gap: 12px; align-items: center;
+    flex-wrap: wrap;
+  }
+  .pd-btn-cart {
+    flex: 1; min-width: 180px;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    background: linear-gradient(135deg, #0A2540 0%, #0D3461 100%);
+    color: white; border: none; border-radius: 12px;
+    padding: 14px 24px; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: all 0.25s;
+    letter-spacing: 0.2px;
+    box-shadow: 0 4px 16px rgba(10,37,64,0.2);
+  }
+  .pd-btn-cart:hover {
+    background: linear-gradient(135deg, #0D3461 0%, #1149A3 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(10,37,64,0.28);
+  }
+  .pd-btn-cart--added {
+    background: linear-gradient(135deg, #0DB67A 0%, #059669 100%) !important;
+    box-shadow: 0 4px 16px rgba(13,182,122,0.3) !important;
+  }
+  .pd-info__qty {
+    flex: 1; min-width: 160px;
+    display: flex; align-items: center;
+    background: #F5F7FA; border: 2px solid #E3E8EF;
+    border-radius: 12px; overflow: hidden;
+  }
+  .pd-info__qty-btn {
+    flex: 0 0 48px; height: 50px;
+    border: none; background: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #5A7184; transition: all 0.15s; font-size: 18px;
+  }
+  .pd-info__qty-btn:hover { background: #E3E8EF; }
+  .pd-info__qty-btn--minus:hover { color: #E53E3E; }
+  .pd-info__qty-btn--plus:hover { color: #0DB67A; }
+  .pd-info__qty-num {
+    flex: 1; text-align: center;
+    font-size: 18px; font-weight: 800; color: #0A2540;
+  }
+  .pd-btn-fav {
+    width: 50px; height: 50px;
+    border-radius: 12px;
+    border: 2px solid #E3E8EF;
+    background: white; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #A0AEC0; transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .pd-btn-fav:hover { border-color: #FFC7C7; color: #E53E3E; background: #FFF0F0; }
+  .pd-btn-fav--active { border-color: #FFC7C7; color: #E53E3E; background: #FFF0F0; }
+  .pd-btn-share {
+    width: 50px; height: 50px;
+    border-radius: 12px;
+    border: 2px solid #E3E8EF;
+    background: white; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #A0AEC0; transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .pd-btn-share:hover { border-color: #B3D4FF; color: #0069CC; background: #EBF4FF; }
+
+  /* Trust badges */
+  .pd-info__trust {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-top: 20px;
+  }
+  .pd-info__trust-item {
+    font-size: 12px; color: #5A7184;
+    background: #F5F7FA; border: 1px solid #E3E8EF;
+    padding: 5px 12px; border-radius: 20px;
+    font-weight: 500;
+  }
+
+  /* TABS */
+  .pd-tabs {
+    background: white;
+    border: 1.5px solid #E8EDF3;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 48px;
+  }
+  .pd-tabs__nav {
+    display: flex;
+    border-bottom: 1.5px solid #E8EDF3;
+    background: #F8FAFC;
+  }
+  .pd-tabs__btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 16px 28px;
+    border: none; background: none;
+    font-size: 14px; font-weight: 600;
+    color: #7A8FA6; cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1.5px;
+  }
+  .pd-tabs__btn:hover { color: #0A2540; }
+  .pd-tabs__btn--active {
+    color: #0A2540;
+    border-bottom-color: #0A2540;
+    background: white;
+  }
+  .pd-tabs__panel { padding: 28px 32px; }
+  @media (max-width: 600px) { .pd-tabs__panel { padding: 20px 18px; } }
+  .pd-tabs__content { line-height: 1.75; color: #3D5166; font-size: 14.5px; }
+  .pd-tabs__content p { margin: 0 0 12px; }
+  .pd-tabs__empty { color: #A0AEC0; font-style: italic; font-size: 14px; }
+
+  /* SPECS TABLE */
+  .pd-specs { border: 1px solid #E8EDF3; border-radius: 10px; overflow: hidden; }
+  .pd-specs__row {
+    display: grid; grid-template-columns: 200px 1fr;
+    border-bottom: 1px solid #E8EDF3;
+  }
+  .pd-specs__row:last-child { border-bottom: none; }
+  .pd-specs__row:nth-child(even) { background: #F8FAFC; }
+  .pd-specs__row--full { grid-template-columns: 1fr; }
+  .pd-specs__key {
+    padding: 12px 16px; font-size: 13.5px;
+    font-weight: 600; color: #5A7184;
+    border-right: 1px solid #E8EDF3;
+  }
+  .pd-specs__val { padding: 12px 16px; font-size: 13.5px; color: #0A2540; }
+  @media (max-width: 560px) {
+    .pd-specs__row { grid-template-columns: 1fr; }
+    .pd-specs__key { border-right: none; border-bottom: 1px solid #E8EDF3; padding-bottom: 6px; }
+    .pd-specs__val { padding-top: 6px; }
+  }
+
+  /* RELATED */
+  .pd-related { margin-bottom: 40px; }
+  .pd-related__title {
+    font-size: 20px; font-weight: 700;
+    color: #0A2540; margin: 0 0 20px;
+  }
+  .pd-related__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .pd-rcard {
+    background: white;
+    border: 1.5px solid #E3E8EF;
+    border-radius: 12px; overflow: hidden;
+    text-decoration: none;
+    transition: all 0.22s;
+    display: flex; flex-direction: column;
+  }
+  .pd-rcard:hover {
+    border-color: rgba(0,119,204,0.35);
+    box-shadow: 0 6px 20px rgba(10,37,64,0.1);
+    transform: translateY(-2px);
+  }
+  .pd-rcard__img-wrap {
+    position: relative; width: 100%; aspect-ratio: 1/1;
+    background: #F5F7FA; border-bottom: 1px solid #E8EDF3;
+  }
+  .pd-rcard__img { object-fit: contain; padding: 10px; }
+  .pd-rcard__no-img {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    color: #CBD5E0;
+  }
+  .pd-rcard__body { padding: 12px 14px; flex: 1; }
+  .pd-rcard__name {
+    font-size: 13px; font-weight: 500; color: #0A2540;
+    line-height: 1.4; margin: 0 0 6px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .pd-rcard__price { font-size: 14px; font-weight: 700; color: #0A2540; margin: 0; }
+
+  /* BACK */
+  .pd-back { margin-top: 12px; }
+  .pd-btn-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px;
+    background: #F5F7FA; border: 1.5px solid #E3E8EF;
+    border-radius: 10px; font-size: 13.5px;
+    font-weight: 600; color: #5A7184;
+    cursor: pointer; text-decoration: none;
+    transition: all 0.2s;
+  }
+  .pd-btn-back:hover { background: #0A2540; color: white; border-color: #0A2540; }
+
+  /* LIGHTBOX */
+  .pd-lightbox {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(5,15,30,0.92);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.18s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .pd-lightbox__inner {
+    position: relative;
+    width: min(90vw, 800px);
+    aspect-ratio: 1/1;
+    background: #111;
+    border-radius: 12px; overflow: hidden;
+  }
+  .pd-lightbox__img { object-fit: contain; padding: 16px; }
+  .pd-lightbox__close {
+    position: absolute; top: 12px; right: 14px;
+    z-index: 2; background: rgba(255,255,255,0.15);
+    border: none; color: white; border-radius: 8px;
+    width: 36px; height: 36px; font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .pd-lightbox__close:hover { background: rgba(255,255,255,0.3); }
+  .pd-lightbox__nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    z-index: 2; background: rgba(255,255,255,0.12);
+    border: none; color: white; border-radius: 50%;
+    width: 48px; height: 48px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .pd-lightbox__nav:hover { background: rgba(255,255,255,0.25); }
+  .pd-lightbox__nav--prev { left: 12px; }
+  .pd-lightbox__nav--next { right: 12px; }
+  .pd-lightbox__counter {
+    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.5); color: white;
+    padding: 4px 14px; border-radius: 20px; font-size: 13px;
+  }
+
+  /* ERROR */
+  .pd-error {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: 60vh; gap: 16px; color: #A0AEC0;
+    text-align: center;
+  }
+  .pd-error h2 { font-size: 18px; color: #5A7184; margin: 0; }
+  .pd-btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 24px; background: #0A2540; color: white;
+    border: none; border-radius: 10px; font-size: 14px;
+    font-weight: 600; cursor: pointer; text-decoration: none;
+    transition: opacity 0.2s; margin-top: 8px;
+  }
+  .pd-btn-primary:hover { opacity: 0.88; }
+`;
+
+const skeletonCSS = `
+  .pd-skeleton {
+    max-width: 1200px; margin: 32px auto;
+    padding: 0 20px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 48px;
+  }
+  @media (max-width: 768px) { .pd-skeleton { grid-template-columns: 1fr; } }
+  .pd-skeleton__img {
+    width: 100%; aspect-ratio: 1/1;
+    border-radius: 16px;
+    background: linear-gradient(90deg, #EEF1F6 25%, #E4E8EF 50%, #EEF1F6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+  .pd-skeleton__body { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; }
+  .pd-skeleton__line {
+    border-radius: 6px;
+    background: linear-gradient(90deg, #EEF1F6 25%, #E4E8EF 50%, #EEF1F6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+  .pd-skeleton__line--lg { height: 32px; width: 80%; }
+  .pd-skeleton__line--md { height: 18px; width: 55%; }
+  .pd-skeleton__line--sm { height: 14px; width: 40%; }
+  .pd-skeleton__line--btn { height: 50px; width: 100%; margin-top: 20px; border-radius: 12px; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+`;

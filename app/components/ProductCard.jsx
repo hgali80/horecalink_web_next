@@ -14,12 +14,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { app } from "../../firebase";
-import {
-  Heart,
-  ShoppingCart,
-  Minus,
-  Plus,
-} from "lucide-react";
+import { Heart, ShoppingCart, Minus, Plus, Package } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { getT } from "../lib/i18n";
 
@@ -29,9 +24,10 @@ export default function ProductCard({ product }) {
   const { user } = useAuth();
   const currentUserId = user?.uid;
   const [images, setImages] = useState([]);
-  const [currentImage, setCurrentImage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [quantity, setQuantity] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+  const [imgLoading, setImgLoading] = useState(true);
 
   const db = getFirestore(app);
   const storage = getStorage(app);
@@ -39,25 +35,16 @@ export default function ProductCard({ product }) {
 
   const [activeLang, setActiveLang] = useState("tr");
 
-  // 🔹 Dil tespiti
   useEffect(() => {
     const segments = pathname?.split("/").filter(Boolean) || [];
     const first = segments[0];
-
-    if (SUPPORTED.includes(first)) {
-      setActiveLang(first);
-      return;
-    }
-
+    if (SUPPORTED.includes(first)) { setActiveLang(first); return; }
     const saved = localStorage.getItem("hl_lang");
-    if (saved && SUPPORTED.includes(saved)) {
-      setActiveLang(saved);
-    }
+    if (saved && SUPPORTED.includes(saved)) setActiveLang(saved);
   }, [pathname]);
 
   const t = getT(activeLang);
 
-  // 🔥 Görselleri çek
   useEffect(() => {
     const fetchImages = async () => {
       try {
@@ -69,67 +56,39 @@ export default function ProductCard({ product }) {
           );
           setImages(urls);
         }
-      } catch (error) {
-        console.error("Görseller yüklenemedi:", error);
-      }
+      } catch {}
     };
-
     fetchImages();
   }, [product.image_names, storage]);
 
-  // 🔥 Favori kontrolü
   useEffect(() => {
     if (!currentUserId) return;
-    const favRef = doc(db, "users", currentUserId, "favorites", product.id);
+    getDoc(doc(db, "users", currentUserId, "favorites", product.id)).then(
+      (snap) => setIsFavorite(snap.exists())
+    );
+  }, [currentUserId, product.id, db]);
 
-    getDoc(favRef).then((snap) => {
-      setIsFavorite(snap.exists());
+  useEffect(() => {
+    if (!currentUserId) return;
+    getDoc(doc(db, "users", currentUserId, "basket", product.id)).then((snap) => {
+      if (snap.exists()) setQuantity(snap.data().quantity);
     });
   }, [currentUserId, product.id, db]);
 
-  // 🔥 Sepetteki miktarı kontrol et
-  useEffect(() => {
-    if (!currentUserId) return;
-    const cartRef = doc(db, "users", currentUserId, "basket", product.id);
-
-    getDoc(cartRef).then((snap) => {
-      if (snap.exists()) {
-        setQuantity(snap.data().quantity);
-      }
-    });
-  }, [currentUserId, product.id, db]);
-
-  // 🔥 Favori toggle
   const toggleFavorite = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
+    e.preventDefault(); e.stopPropagation();
     if (!currentUserId) return alert(t("productcard.loginFavorite"));
-
     const favRef = doc(db, "users", currentUserId, "favorites", product.id);
-
-    if (isFavorite) {
-      await deleteDoc(favRef);
-      setIsFavorite(false);
-    } else {
-      await setDoc(favRef, { createdAt: new Date() });
-      setIsFavorite(true);
-    }
+    if (isFavorite) { await deleteDoc(favRef); setIsFavorite(false); }
+    else { await setDoc(favRef, { createdAt: new Date() }); setIsFavorite(true); }
   };
 
-  // 🔥 Sepet güncelleme
   const updateCart = async (e, newQty) => {
-    e.preventDefault();
-    e.stopPropagation();
-
+    e.preventDefault(); e.stopPropagation();
     if (!currentUserId) return alert(t("productcard.loginCart"));
-
     const cartRef = doc(db, "users", currentUserId, "basket", product.id);
-
-    if (newQty <= 0) {
-      await deleteDoc(cartRef);
-      setQuantity(0);
-    } else {
+    if (newQty <= 0) { await deleteDoc(cartRef); setQuantity(0); }
+    else {
       await setDoc(cartRef, {
         productId: product.id,
         name: product.name_tr || product.name,
@@ -146,80 +105,293 @@ export default function ProductCard({ product }) {
   };
 
   return (
-    <div className="bg-white shadow-md rounded-2xl overflow-hidden hover:shadow-lg transition">
-      <Link href={`/products/${product.id}`}>
-        <div className="relative w-full h-52 overflow-hidden">
-          {images.length > 0 ? (
-            <Image
-              src={images[currentImage]}
-              alt={product.name}
-              width={300}
-              height={300}
-              className="object-contain w-full h-52"
-            />
-          ) : (
-            <div className="w-full h-52 bg-gray-100 flex items-center justify-center">
-              {t("productcard.noImage")}
-            </div>
-          )}
+    <>
+      <style>{`
+        .pcard {
+          background: #FFFFFF;
+          border: 1.5px solid #E3E8EF;
+          border-radius: 12px;
+          overflow: hidden;
+          transition: border-color 0.2s, box-shadow 0.25s, transform 0.2s;
+          position: relative;
+          display: flex;
+          flex-direction: column;
+        }
 
-          <button
-            onClick={toggleFavorite}
-            className={`absolute top-2 right-2 p-2 rounded-full shadow 
-              ${isFavorite ? "bg-red-500 text-white" : "bg-white text-gray-600"}`}
-          >
-            <Heart size={18} />
-          </button>
-        </div>
-      </Link>
+        .pcard:hover {
+          border-color: rgba(0,180,216,0.45);
+          box-shadow: 0 6px 24px rgba(10,37,64,0.11);
+          transform: translateY(-2px);
+        }
 
-      <div className="p-4">
+        .pcard__img-wrap {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          background: #F7F9FC;
+          overflow: hidden;
+          border-bottom: 1px solid #E3E8EF;
+        }
+
+        .pcard__img {
+          object-fit: contain;
+          padding: 10px;
+          transition: transform 0.3s ease;
+        }
+
+        .pcard:hover .pcard__img { transform: scale(1.04); }
+
+        .pcard__no-img {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          color: #9BA8B5;
+          font-size: 12px;
+        }
+
+        .pcard__fav {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          border: 1.5px solid #E3E8EF;
+          background: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+          z-index: 2;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .pcard__fav:hover { transform: scale(1.1); }
+        .pcard__fav--active { background: #FFF0F0; border-color: #FFC7C7; color: #E53E3E; }
+
+        .pcard__img-loading {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, #F0F4F8 25%, #E8EDF3 50%, #F0F4F8 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.4s infinite;
+        }
+
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        .pcard__body {
+          padding: 14px 14px 12px;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+        }
+
+        .pcard__name {
+          font-size: 13.5px;
+          font-weight: 500;
+          color: #0A2540;
+          line-height: 1.4;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 38px;
+          margin: 0 0 10px;
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+
+        .pcard__name:hover { color: #00B4D8; }
+
+        .pcard__meta {
+          margin-top: auto;
+        }
+
+        .pcard__price-row {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+          margin-bottom: 4px;
+        }
+
+        .pcard__price {
+          font-size: 17px;
+          font-weight: 700;
+          color: #0A2540;
+          line-height: 1;
+        }
+
+        .pcard__no-price {
+          font-size: 13px;
+          color: #9BA8B5;
+          font-style: italic;
+        }
+
+        .pcard__unit {
+          font-size: 11.5px;
+          color: #9BA8B5;
+          margin-bottom: 12px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .pcard__unit::before {
+          content: '';
+          display: inline-block;
+          width: 3px;
+          height: 3px;
+          background: #9BA8B5;
+          border-radius: 50%;
+        }
+
+        .pcard__add-btn {
+          width: 100%;
+          padding: 9px 12px;
+          background: linear-gradient(135deg, #0A2540, #0D3461);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          transition: all 0.2s;
+          letter-spacing: 0.2px;
+        }
+
+        .pcard__add-btn:hover {
+          background: linear-gradient(135deg, #0D3461, #1149A3);
+          box-shadow: 0 4px 12px rgba(10,37,64,0.25);
+        }
+
+        .pcard__qty {
+          display: flex;
+          align-items: center;
+          background: #F7F9FC;
+          border: 1.5px solid #E3E8EF;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        .pcard__qty-btn {
+          flex: 0 0 36px;
+          height: 36px;
+          border: none;
+          background: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 0.15s;
+          color: #5A7184;
+        }
+
+        .pcard__qty-btn:hover { background: #E3E8EF; }
+        .pcard__qty-btn--minus:hover { color: #E53E3E; }
+        .pcard__qty-btn--plus:hover { color: #0DB67A; }
+
+        .pcard__qty-num {
+          flex: 1;
+          text-align: center;
+          font-size: 15px;
+          font-weight: 700;
+          color: #0A2540;
+        }
+      `}</style>
+
+      <div
+        className="pcard"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {/* IMAGE */}
         <Link href={`/products/${product.id}`}>
-          <h3 className="text-gray-800 font-medium text-sm line-clamp-2 h-10">
-            {product.name}
-          </h3>
+          <div className="pcard__img-wrap">
+            {images.length > 0 ? (
+              <>
+                {imgLoading && <div className="pcard__img-loading" />}
+                <Image
+                  src={images[0]}
+                  alt={product.name || ""}
+                  fill
+                  className="pcard__img"
+                  onLoad={() => setImgLoading(false)}
+                />
+              </>
+            ) : (
+              <div className="pcard__no-img">
+                <Package size={28} />
+                <span>{t("productcard.noImage")}</span>
+              </div>
+            )}
 
-          <p className="text-gray-800 text-lg font-semibold mt-2">
-            {product.price
-              ? `${product.price.toLocaleString()} ₸`
-              : t("productcard.noPrice")}
-          </p>
-
-          <p className="text-xs text-gray-500 mt-1">
-            {t("productcard.unit")}: {product.unit || "-"}
-          </p>
+            <button
+              onClick={toggleFavorite}
+              className={`pcard__fav ${isFavorite ? "pcard__fav--active" : ""}`}
+            >
+              <Heart size={15} fill={isFavorite ? "#E53E3E" : "none"} stroke={isFavorite ? "#E53E3E" : "#9BA8B5"} />
+            </button>
+          </div>
         </Link>
 
-        <div className="mt-3">
-          {quantity === 0 ? (
-            <button
-              onClick={(e) => updateCart(e, 1)}
-              className="w-full bg-emerald-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-emerald-700"
-            >
-              <ShoppingCart size={16} />
-              {t("productcard.addToCart")}
-            </button>
-          ) : (
-            <div className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2">
-              <button
-                onClick={(e) => updateCart(e, quantity - 1)}
-                className="text-red-600"
-              >
-                <Minus size={18} />
-              </button>
+        {/* BODY */}
+        <div className="pcard__body">
+          <Link href={`/products/${product.id}`} className="pcard__name">
+            {product.name}
+          </Link>
 
-              <span className="font-semibold">{quantity}</span>
-
-              <button
-                onClick={(e) => updateCart(e, quantity + 1)}
-                className="text-emerald-600"
-              >
-                <Plus size={18} />
-              </button>
+          <div className="pcard__meta">
+            <div className="pcard__price-row">
+              {product.price ? (
+                <span className="pcard__price">
+                  {product.price.toLocaleString()} ₸
+                </span>
+              ) : (
+                <span className="pcard__no-price">{t("productcard.noPrice")}</span>
+              )}
             </div>
-          )}
+
+            <div className="pcard__unit">
+              {t("productcard.unit")}: {product.unit || "—"}
+            </div>
+
+            {quantity === 0 ? (
+              <button className="pcard__add-btn" onClick={(e) => updateCart(e, 1)}>
+                <ShoppingCart size={14} />
+                {t("productcard.addToCart")}
+              </button>
+            ) : (
+              <div className="pcard__qty">
+                <button
+                  className="pcard__qty-btn pcard__qty-btn--minus"
+                  onClick={(e) => updateCart(e, quantity - 1)}
+                >
+                  <Minus size={15} />
+                </button>
+                <span className="pcard__qty-num">{quantity}</span>
+                <button
+                  className="pcard__qty-btn pcard__qty-btn--plus"
+                  onClick={(e) => updateCart(e, quantity + 1)}
+                >
+                  <Plus size={15} />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
