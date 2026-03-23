@@ -143,21 +143,27 @@ export default function ProductDetailPage() {
   };
 
   useEffect(() => {
-    if (!id) return;
+  if (!id) return;
 
-    setLoading(true);
+  setLoading(true);
+  setError(null);
 
-    getDoc(doc(db, "products", id))
-      .then((snap) => {
-        if (!snap.exists()) {
-          setError(t("productDetail.notFound"));
-          return;
-        }
-        setProduct({ id: snap.id, ...snap.data() });
-      })
-      .catch(() => setError(t("productDetail.loadError")))
-      .finally(() => setLoading(false));
-  }, [id, db, t]);
+  getDoc(doc(db, "products", id))
+    .then((snap) => {
+      if (!snap.exists()) {
+        setError(getT(activeLang)("productDetail.notFound"));
+        setProduct(null);
+        return;
+      }
+
+      setProduct({ id: snap.id, ...snap.data() });
+    })
+    .catch(() => {
+      setError(getT(activeLang)("productDetail.loadError"));
+      setProduct(null);
+    })
+    .finally(() => setLoading(false));
+}, [id, activeLang]);
 
   useEffect(() => {
     if (!product?.image_names?.length) return;
