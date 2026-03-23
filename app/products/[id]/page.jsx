@@ -1,8 +1,8 @@
 // app/products/[id]/page.jsx
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -20,7 +20,6 @@ import {
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { app } from "../../../firebase";
 import { useAuth } from "../../context/AuthContext";
-import { usePathname } from "next/navigation";
 import { getT } from "../../lib/i18n";
 import {
   Heart,
@@ -62,7 +61,6 @@ export default function ProductDetailPage() {
   const [imgLoading, setImgLoading] = useState(true);
   const [lightbox, setLightbox] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
-
   const [activeLang, setActiveLang] = useState("tr");
 
   const db = getFirestore(app);
@@ -71,29 +69,99 @@ export default function ProductDetailPage() {
   useEffect(() => {
     const segments = pathname?.split("/").filter(Boolean) || [];
     const first = segments[0];
-    if (SUPPORTED.includes(first)) { setActiveLang(first); return; }
-    const saved = typeof window !== "undefined" && localStorage.getItem("hl_lang");
-    if (saved && SUPPORTED.includes(saved)) setActiveLang(saved);
+
+    if (SUPPORTED.includes(first)) {
+      setActiveLang(first);
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("hl_lang");
+      if (saved && SUPPORTED.includes(saved)) {
+        setActiveLang(saved);
+      }
+    }
   }, [pathname]);
 
   const t = getT(activeLang);
 
-  // Fetch product
+  const isRealTranslation = (value, key) => {
+    return Boolean(value) && value !== key;
+  };
+
+  const slugifyCategoryValue = (value) => {
+    if (!value || typeof value !== "string") return "";
+
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/ç/g, "c")
+      .replace(/ğ/g, "g")
+      .replace(/ı/g, "i")
+      .replace(/İ/g, "i")
+      .replace(/ö/g, "o")
+      .replace(/ş/g, "s")
+      .replace(/ü/g, "u")
+      .replace(/â/g, "a")
+      .replace(/î/g, "i")
+      .replace(/û/g, "u")
+      .replace(/[-/\\]+/g, " ")
+      .replace(/[()'".,:]+/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  };
+
+  const translateCategoryValue = (prefix, rawValue) => {
+    if (!rawValue) return "";
+
+    const directKey = `${prefix}.${rawValue}`;
+    const directTranslated = t(directKey);
+    if (isRealTranslation(directTranslated, directKey)) {
+      return directTranslated;
+    }
+
+    const slug = slugifyCategoryValue(rawValue);
+    if (slug) {
+      const slugKey = `${prefix}.${slug}`;
+      const slugTranslated = t(slugKey);
+      if (isRealTranslation(slugTranslated, slugKey)) {
+        return slugTranslated;
+      }
+    }
+
+    return rawValue;
+  };
+
+  const translateMainCategory = (value) => {
+    return translateCategoryValue("category.main", value);
+  };
+
+  const translateSubCategory = (value) => {
+    return translateCategoryValue("category.sub", value);
+  };
+
   useEffect(() => {
     if (!id) return;
+
     setLoading(true);
+
     getDoc(doc(db, "products", id))
       .then((snap) => {
-        if (!snap.exists()) { setError(t("productDetail.notFound")); return; }
+        if (!snap.exists()) {
+          setError(t("productDetail.notFound"));
+          return;
+        }
         setProduct({ id: snap.id, ...snap.data() });
       })
       .catch(() => setError(t("productDetail.loadError")))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, db, t]);
 
-  // Fetch images
   useEffect(() => {
     if (!product?.image_names?.length) return;
+
     Promise.all(
       product.image_names.map((img) =>
         getDownloadURL(ref(storage, `product_images/${img}`))
@@ -101,35 +169,37 @@ export default function ProductDetailPage() {
     )
       .then(setImages)
       .catch(() => {});
-  }, [product]);
+  }, [product, storage]);
 
-  // Favorite & cart state
   useEffect(() => {
     if (!currentUserId || !id) return;
+
     getDoc(doc(db, "users", currentUserId, "favorites", id)).then((snap) =>
       setIsFavorite(snap.exists())
     );
+
     getDoc(doc(db, "users", currentUserId, "basket", id)).then((snap) => {
       if (snap.exists()) setQuantity(snap.data().quantity);
     });
-  }, [currentUserId, id]);
+  }, [currentUserId, id, db]);
 
-  // Related products
   useEffect(() => {
     if (!product?.main_category) return;
+
     const q = query(
       collection(db, "products"),
       where("main_category", "==", product.main_category),
       limit(5)
     );
+
     getDocs(q).then(async (snap) => {
       const items = snap.docs
         .filter((d) => d.id !== id)
         .slice(0, 4)
         .map((d) => ({ id: d.id, ...d.data() }));
+
       setRelatedProducts(items);
 
-      // fetch first image for each
       const imgMap = {};
       await Promise.all(
         items.map(async (item) => {
@@ -142,21 +212,38 @@ export default function ProductDetailPage() {
           }
         })
       );
+
       setRelatedImages(imgMap);
     });
-  }, [product]);
+  }, [product, id, db, storage]);
 
   const toggleFavorite = async (e) => {
     e?.preventDefault();
-    if (!currentUserId) return alert(t("productDetail.loginToFavorite"));
+
+    if (!currentUserId) {
+      alert(t("productDetail.loginToFavorite"));
+      return;
+    }
+
     const favRef = doc(db, "users", currentUserId, "favorites", id);
-    if (isFavorite) { await deleteDoc(favRef); setIsFavorite(false); }
-    else { await setDoc(favRef, { createdAt: new Date() }); setIsFavorite(true); }
+
+    if (isFavorite) {
+      await deleteDoc(favRef);
+      setIsFavorite(false);
+    } else {
+      await setDoc(favRef, { createdAt: new Date() });
+      setIsFavorite(true);
+    }
   };
 
   const updateCart = async (newQty) => {
-    if (!currentUserId) return alert(t("productDetail.loginToBasket"));
+    if (!currentUserId) {
+      alert(t("productDetail.loginToBasket"));
+      return;
+    }
+
     const cartRef = doc(db, "users", currentUserId, "basket", id);
+
     if (newQty <= 0) {
       await deleteDoc(cartRef);
       setQuantity(0);
@@ -182,22 +269,27 @@ export default function ProductDetailPage() {
     setTimeout(() => setAddedToCart(false), 2000);
   };
 
-  const prevImg = () => setActiveImg((p) => (p - 1 + images.length) % images.length);
-  const nextImg = () => setActiveImg((p) => (p + 1) % images.length);
+  const prevImg = () => {
+    setActiveImg((p) => (p - 1 + images.length) % images.length);
+  };
 
-  // Keyboard lightbox
+  const nextImg = () => {
+    setActiveImg((p) => (p + 1) % images.length);
+  };
+
   useEffect(() => {
     if (!lightbox) return;
+
     const handler = (e) => {
       if (e.key === "ArrowLeft") prevImg();
       if (e.key === "ArrowRight") nextImg();
       if (e.key === "Escape") setLightbox(false);
     };
+
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [lightbox, images.length]);
 
-  // ─── LOADING ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <>
@@ -231,28 +323,47 @@ export default function ProductDetailPage() {
   }
 
   const productName = product[`name_${activeLang}`] || product.name || "";
-  const description = product[`description_${activeLang}`] || product.description || "";
+  const description =
+    product[`description_${activeLang}`] || product.description || "";
   const specs = product[`specs_${activeLang}`] || product.specs || "";
+
+  const translatedMainCategory = translateMainCategory(product.main_category);
+  const translatedSubCategory = translateSubCategory(product.sub_category);
 
   return (
     <>
       <style>{mainCSS}</style>
 
-      {/* ── LIGHTBOX ─────────────────────────────────────── */}
       {lightbox && (
         <div className="pd-lightbox" onClick={() => setLightbox(false)}>
-          <div className="pd-lightbox__inner" onClick={(e) => e.stopPropagation()}>
-            <button className="pd-lightbox__close" onClick={() => setLightbox(false)}>✕</button>
+          <div
+            className="pd-lightbox__inner"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="pd-lightbox__close"
+              onClick={() => setLightbox(false)}
+            >
+              ✕
+            </button>
+
             {images.length > 1 && (
               <>
-                <button className="pd-lightbox__nav pd-lightbox__nav--prev" onClick={prevImg}>
+                <button
+                  className="pd-lightbox__nav pd-lightbox__nav--prev"
+                  onClick={prevImg}
+                >
                   <ChevronLeft size={28} />
                 </button>
-                <button className="pd-lightbox__nav pd-lightbox__nav--next" onClick={nextImg}>
+                <button
+                  className="pd-lightbox__nav pd-lightbox__nav--next"
+                  onClick={nextImg}
+                >
                   <ChevronRight size={28} />
                 </button>
               </>
             )}
+
             <div className="pd-lightbox__img-wrap">
               <Image
                 src={images[activeImg]}
@@ -261,6 +372,7 @@ export default function ProductDetailPage() {
                 className="pd-lightbox__img"
               />
             </div>
+
             {images.length > 1 && (
               <div className="pd-lightbox__counter">
                 {activeImg + 1} / {images.length}
@@ -271,30 +383,38 @@ export default function ProductDetailPage() {
       )}
 
       <div className="pd-page">
-        {/* ── BREADCRUMB ───────────────────────────────── */}
         <nav className="pd-breadcrumb">
-          <Link href="/" className="pd-breadcrumb__item">{t("breadcrumb.home")}</Link>
+          <Link href="/" className="pd-breadcrumb__item">
+            {t("breadcrumb.home")}
+          </Link>
+
           <span className="pd-breadcrumb__sep">›</span>
-          <Link href="/categories" className="pd-breadcrumb__item">{t("header.menu.products")}</Link>
+
+          <Link href="/categories" className="pd-breadcrumb__item">
+            {t("header.menu.products")}
+          </Link>
+
           {product.main_category && (
             <>
               <span className="pd-breadcrumb__sep">›</span>
               <span className="pd-breadcrumb__item pd-breadcrumb__item--current">
-                {t(`category.main.${product.main_category}`) || product.main_category}
+                {translatedMainCategory}
               </span>
             </>
           )}
+
           <span className="pd-breadcrumb__sep">›</span>
-          <span className="pd-breadcrumb__item pd-breadcrumb__item--current">{productName}</span>
+          <span className="pd-breadcrumb__item pd-breadcrumb__item--current">
+            {productName}
+          </span>
         </nav>
 
-        {/* ── MAIN GRID ────────────────────────────────── */}
         <div className="pd-main">
-
-          {/* LEFT: Gallery */}
           <div className="pd-gallery">
-            {/* Main Image */}
-            <div className="pd-gallery__main" onClick={() => images.length > 0 && setLightbox(true)}>
+            <div
+              className="pd-gallery__main"
+              onClick={() => images.length > 0 && setLightbox(true)}
+            >
               {images.length > 0 ? (
                 <>
                   {imgLoading && <div className="pd-gallery__shimmer" />}
@@ -309,12 +429,25 @@ export default function ProductDetailPage() {
                   <div className="pd-gallery__zoom-hint">
                     <ZoomIn size={18} />
                   </div>
+
                   {images.length > 1 && (
                     <>
-                      <button className="pd-gallery__arrow pd-gallery__arrow--left" onClick={(e) => { e.stopPropagation(); prevImg(); }}>
+                      <button
+                        className="pd-gallery__arrow pd-gallery__arrow--left"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          prevImg();
+                        }}
+                      >
                         <ChevronLeft size={20} />
                       </button>
-                      <button className="pd-gallery__arrow pd-gallery__arrow--right" onClick={(e) => { e.stopPropagation(); nextImg(); }}>
+                      <button
+                        className="pd-gallery__arrow pd-gallery__arrow--right"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nextImg();
+                        }}
+                      >
                         <ChevronRight size={20} />
                       </button>
                     </>
@@ -328,40 +461,40 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* Thumbnails */}
             {images.length > 1 && (
               <div className="pd-gallery__thumbs">
                 {images.map((url, i) => (
                   <button
                     key={i}
-                    className={`pd-gallery__thumb ${i === activeImg ? "pd-gallery__thumb--active" : ""}`}
+                    className={`pd-gallery__thumb ${
+                      i === activeImg ? "pd-gallery__thumb--active" : ""
+                    }`}
                     onClick={() => setActiveImg(i)}
                     aria-label={t("productDetail.thumbnailAlt")}
                   >
-                    <Image src={url} alt="" fill className="pd-gallery__thumb-img" />
+                    <Image
+                      src={url}
+                      alt=""
+                      fill
+                      className="pd-gallery__thumb-img"
+                    />
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* RIGHT: Info */}
           <div className="pd-info">
-            {/* Category badge */}
             {product.main_category && (
               <div className="pd-info__badge">
                 <Layers size={13} />
-                {t(`category.main.${product.main_category}`) || product.main_category}
-                {product.sub_category && (
-                  <> › {t(`category.sub.${product.sub_category}`) || product.sub_category}</>
-                )}
+                {translatedMainCategory}
+                {product.sub_category && <> › {translatedSubCategory}</>}
               </div>
             )}
 
-            {/* Name */}
             <h1 className="pd-info__name">{productName}</h1>
 
-            {/* Stock Code */}
             {product.stock_code && (
               <div className="pd-info__stock">
                 <Tag size={13} />
@@ -369,10 +502,8 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Divider */}
             <div className="pd-info__divider" />
 
-            {/* Price */}
             <div className="pd-info__price-block">
               {product.price ? (
                 <>
@@ -384,59 +515,90 @@ export default function ProductDetailPage() {
                   )}
                 </>
               ) : (
-                <span className="pd-info__no-price">{t("productDetail.noPrice") || t("productcard.noPrice")}</span>
+                <span className="pd-info__no-price">
+                  {t("productDetail.noPrice") || t("productcard.noPrice")}
+                </span>
               )}
             </div>
 
-            {/* Unit info */}
             {product.unit && (
               <div className="pd-info__unit-row">
-                <span className="pd-info__unit-label">{t("productDetail.unit")}:</span>
+                <span className="pd-info__unit-label">
+                  {t("productDetail.unit")}:
+                </span>
                 <span className="pd-info__unit-val">{product.unit}</span>
               </div>
             )}
 
             <div className="pd-info__divider" />
 
-            {/* Cart Actions */}
             <div className="pd-info__actions">
               {quantity === 0 ? (
                 <button
-                  className={`pd-btn-cart ${addedToCart ? "pd-btn-cart--added" : ""}`}
+                  className={`pd-btn-cart ${
+                    addedToCart ? "pd-btn-cart--added" : ""
+                  }`}
                   onClick={handleAddToCart}
                 >
                   {addedToCart ? (
-                    <><CheckCircle size={18} /> {activeLang === "tr" ? "Sepete Eklendi!" : activeLang === "ru" ? "Добавлено!" : "Added!"}</>
+                    <>
+                      <CheckCircle size={18} />
+                      {activeLang === "tr"
+                        ? "Sepete Eklendi!"
+                        : activeLang === "ru"
+                        ? "Добавлено!"
+                        : "Added!"}
+                    </>
                   ) : (
-                    <><ShoppingCart size={18} /> {t("productDetail.addToBasket")}</>
+                    <>
+                      <ShoppingCart size={18} />
+                      {t("productDetail.addToBasket")}
+                    </>
                   )}
                 </button>
               ) : (
                 <div className="pd-info__qty">
-                  <button className="pd-info__qty-btn pd-info__qty-btn--minus" onClick={() => updateCart(quantity - 1)}>
+                  <button
+                    className="pd-info__qty-btn pd-info__qty-btn--minus"
+                    onClick={() => updateCart(quantity - 1)}
+                  >
                     <Minus size={18} />
                   </button>
                   <span className="pd-info__qty-num">{quantity}</span>
-                  <button className="pd-info__qty-btn pd-info__qty-btn--plus" onClick={() => updateCart(quantity + 1)}>
+                  <button
+                    className="pd-info__qty-btn pd-info__qty-btn--plus"
+                    onClick={() => updateCart(quantity + 1)}
+                  >
                     <Plus size={18} />
                   </button>
                 </div>
               )}
 
               <button
-                className={`pd-btn-fav ${isFavorite ? "pd-btn-fav--active" : ""}`}
+                className={`pd-btn-fav ${
+                  isFavorite ? "pd-btn-fav--active" : ""
+                }`}
                 onClick={toggleFavorite}
                 aria-label={t("productDetail.favorite")}
                 title={t("productDetail.favorite")}
               >
-                <Heart size={20} fill={isFavorite ? "currentColor" : "none"} />
+                <Heart
+                  size={20}
+                  fill={isFavorite ? "currentColor" : "none"}
+                />
               </button>
 
               <button
                 className="pd-btn-share"
                 onClick={() => {
-                  if (navigator.share) navigator.share({ title: productName, url: window.location.href });
-                  else navigator.clipboard.writeText(window.location.href);
+                  if (navigator.share) {
+                    navigator.share({
+                      title: productName,
+                      url: window.location.href,
+                    });
+                  } else {
+                    navigator.clipboard.writeText(window.location.href);
+                  }
                 }}
                 aria-label="Paylaş"
                 title="Paylaş"
@@ -445,27 +607,50 @@ export default function ProductDetailPage() {
               </button>
             </div>
 
-            {/* Trust badges */}
             <div className="pd-info__trust">
-              <span className="pd-info__trust-item">✓ {activeLang === "tr" ? "Hızlı Teslimat" : activeLang === "ru" ? "Быстрая доставка" : "Fast Delivery"}</span>
-              <span className="pd-info__trust-item">✓ {activeLang === "tr" ? "Güvenli Ödeme" : activeLang === "ru" ? "Безопасная оплата" : "Secure Payment"}</span>
-              <span className="pd-info__trust-item">✓ {activeLang === "tr" ? "B2B Destek" : activeLang === "ru" ? "B2B Поддержка" : "B2B Support"}</span>
+              <span className="pd-info__trust-item">
+                ✓{" "}
+                {activeLang === "tr"
+                  ? "Hızlı Teslimat"
+                  : activeLang === "ru"
+                  ? "Быстрая доставка"
+                  : "Fast Delivery"}
+              </span>
+              <span className="pd-info__trust-item">
+                ✓{" "}
+                {activeLang === "tr"
+                  ? "Güvenli Ödeme"
+                  : activeLang === "ru"
+                  ? "Безопасная оплата"
+                  : "Secure Payment"}
+              </span>
+              <span className="pd-info__trust-item">
+                ✓{" "}
+                {activeLang === "tr"
+                  ? "B2B Destek"
+                  : activeLang === "ru"
+                  ? "B2B Поддержка"
+                  : "B2B Support"}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* ── TABS ─────────────────────────────────────── */}
         <div className="pd-tabs">
           <div className="pd-tabs__nav">
             <button
-              className={`pd-tabs__btn ${activeTab === "description" ? "pd-tabs__btn--active" : ""}`}
+              className={`pd-tabs__btn ${
+                activeTab === "description" ? "pd-tabs__btn--active" : ""
+              }`}
               onClick={() => setActiveTab("description")}
             >
               <FileText size={16} />
               {t("productDetail.tabs.description")}
             </button>
             <button
-              className={`pd-tabs__btn ${activeTab === "specs" ? "pd-tabs__btn--active" : ""}`}
+              className={`pd-tabs__btn ${
+                activeTab === "specs" ? "pd-tabs__btn--active" : ""
+              }`}
               onClick={() => setActiveTab("specs")}
             >
               <Wrench size={16} />
@@ -476,28 +661,40 @@ export default function ProductDetailPage() {
           <div className="pd-tabs__panel">
             {activeTab === "description" ? (
               <div className="pd-tabs__content">
-                {description
-                  ? description.split("\n").map((line, i) => <p key={i}>{line}</p>)
-                  : <p className="pd-tabs__empty">{t("productDetail.noDescription")}</p>
-                }
+                {description ? (
+                  description.split("\n").map((line, i) => <p key={i}>{line}</p>)
+                ) : (
+                  <p className="pd-tabs__empty">
+                    {t("productDetail.noDescription")}
+                  </p>
+                )}
               </div>
             ) : (
               <div className="pd-tabs__content">
                 {specs ? (
                   <div className="pd-specs">
-                    {specs.split("\n").filter(Boolean).map((line, i) => {
-                      const [key, ...rest] = line.split(":");
-                      return rest.length > 0 ? (
-                        <div key={i} className="pd-specs__row">
-                          <span className="pd-specs__key">{key.trim()}</span>
-                          <span className="pd-specs__val">{rest.join(":").trim()}</span>
-                        </div>
-                      ) : (
-                        <div key={i} className="pd-specs__row pd-specs__row--full">
-                          <span>{line}</span>
-                        </div>
-                      );
-                    })}
+                    {specs
+                      .split("\n")
+                      .filter(Boolean)
+                      .map((line, i) => {
+                        const [key, ...rest] = line.split(":");
+
+                        return rest.length > 0 ? (
+                          <div key={i} className="pd-specs__row">
+                            <span className="pd-specs__key">{key.trim()}</span>
+                            <span className="pd-specs__val">
+                              {rest.join(":").trim()}
+                            </span>
+                          </div>
+                        ) : (
+                          <div
+                            key={i}
+                            className="pd-specs__row pd-specs__row--full"
+                          >
+                            <span>{line}</span>
+                          </div>
+                        );
+                      })}
                   </div>
                 ) : (
                   <p className="pd-tabs__empty">{t("productDetail.noSpecs")}</p>
@@ -507,7 +704,6 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* ── RELATED PRODUCTS ─────────────────────────── */}
         {relatedProducts.length > 0 && (
           <div className="pd-related">
             <h2 className="pd-related__title">{t("productDetail.related")}</h2>
@@ -515,7 +711,11 @@ export default function ProductDetailPage() {
               {relatedProducts.map((rp) => {
                 const rpName = rp[`name_${activeLang}`] || rp.name || "";
                 return (
-                  <Link key={rp.id} href={`/products/${rp.id}`} className="pd-rcard">
+                  <Link
+                    key={rp.id}
+                    href={`/products/${rp.id}`}
+                    className="pd-rcard"
+                  >
                     <div className="pd-rcard__img-wrap">
                       {relatedImages[rp.id] ? (
                         <Image
@@ -533,7 +733,9 @@ export default function ProductDetailPage() {
                     <div className="pd-rcard__body">
                       <p className="pd-rcard__name">{rpName}</p>
                       <p className="pd-rcard__price">
-                        {rp.price ? `${rp.price.toLocaleString()} ₸` : t("productcard.noPrice")}
+                        {rp.price
+                          ? `${rp.price.toLocaleString()} ₸`
+                          : t("productcard.noPrice")}
                       </p>
                     </div>
                   </Link>
@@ -543,7 +745,6 @@ export default function ProductDetailPage() {
           </div>
         )}
 
-        {/* ── BACK BUTTON ──────────────────────────────── */}
         <div className="pd-back">
           <button className="pd-btn-back" onClick={() => router.back()}>
             <ArrowLeft size={16} />
@@ -555,8 +756,6 @@ export default function ProductDetailPage() {
   );
 }
 
-// ─── CSS ──────────────────────────────────────────────────────────────────────
-
 const mainCSS = `
   .pd-page {
     max-width: 1200px;
@@ -566,7 +765,6 @@ const mainCSS = `
     color: #0A2540;
   }
 
-  /* BREADCRUMB */
   .pd-breadcrumb {
     display: flex;
     align-items: center;
@@ -585,7 +783,6 @@ const mainCSS = `
   .pd-breadcrumb__item--current { color: #0A2540; font-weight: 500; }
   .pd-breadcrumb__sep { color: #C5D0DC; font-size: 14px; }
 
-  /* MAIN GRID */
   .pd-main {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -597,7 +794,6 @@ const mainCSS = `
     .pd-main { grid-template-columns: 1fr; gap: 28px; }
   }
 
-  /* GALLERY */
   .pd-gallery__main {
     position: relative;
     width: 100%;
@@ -675,7 +871,6 @@ const mainCSS = `
   .pd-gallery__thumb--active { border-color: #0A2540; box-shadow: 0 0 0 3px rgba(10,37,64,0.12); }
   .pd-gallery__thumb-img { object-fit: contain; padding: 4px; }
 
-  /* INFO */
   .pd-info__badge {
     display: inline-flex; align-items: center; gap: 6px;
     background: #EBF4FF; color: #0069CC;
@@ -721,7 +916,6 @@ const mainCSS = `
   .pd-info__unit-label { color: #A0AEC0; }
   .pd-info__unit-val { font-weight: 600; color: #0A2540; }
 
-  /* ACTIONS */
   .pd-info__actions {
     display: flex; gap: 12px; align-items: center;
     flex-wrap: wrap;
@@ -786,7 +980,6 @@ const mainCSS = `
   }
   .pd-btn-share:hover { border-color: #B3D4FF; color: #0069CC; background: #EBF4FF; }
 
-  /* Trust badges */
   .pd-info__trust {
     display: flex; flex-wrap: wrap; gap: 10px;
     margin-top: 20px;
@@ -798,7 +991,6 @@ const mainCSS = `
     font-weight: 500;
   }
 
-  /* TABS */
   .pd-tabs {
     background: white;
     border: 1.5px solid #E8EDF3;
@@ -833,7 +1025,6 @@ const mainCSS = `
   .pd-tabs__content p { margin: 0 0 12px; }
   .pd-tabs__empty { color: #A0AEC0; font-style: italic; font-size: 14px; }
 
-  /* SPECS TABLE */
   .pd-specs { border: 1px solid #E8EDF3; border-radius: 10px; overflow: hidden; }
   .pd-specs__row {
     display: grid; grid-template-columns: 200px 1fr;
@@ -854,7 +1045,6 @@ const mainCSS = `
     .pd-specs__val { padding-top: 6px; }
   }
 
-  /* RELATED */
   .pd-related { margin-bottom: 40px; }
   .pd-related__title {
     font-size: 20px; font-weight: 700;
@@ -897,7 +1087,6 @@ const mainCSS = `
   }
   .pd-rcard__price { font-size: 14px; font-weight: 700; color: #0A2540; margin: 0; }
 
-  /* BACK */
   .pd-back { margin-top: 12px; }
   .pd-btn-back {
     display: inline-flex; align-items: center; gap: 8px;
@@ -910,7 +1099,6 @@ const mainCSS = `
   }
   .pd-btn-back:hover { background: #0A2540; color: white; border-color: #0A2540; }
 
-  /* LIGHTBOX */
   .pd-lightbox {
     position: fixed; inset: 0; z-index: 9999;
     background: rgba(5,15,30,0.92);
@@ -952,7 +1140,6 @@ const mainCSS = `
     padding: 4px 14px; border-radius: 20px; font-size: 13px;
   }
 
-  /* ERROR */
   .pd-error {
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
