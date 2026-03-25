@@ -97,7 +97,9 @@ export const categoryData = {
         "cake_spatulas",
         "pizza_knives",
         "doner_knives",
-        "meat_tenderizers"
+        "meat_tenderizers",
+        "knife_accessories",
+        "fish_knives"
       ],
 
       tea_coffee_equipment: [
@@ -105,7 +107,8 @@ export const categoryData = {
         "coffee_stoves",
         "coffee_machines",
         "double_wall_tea_machines",
-        "copper_teapots"
+        "copper_teapots",
+        "tea_machine_accessories"
       ],
 
       cooking_equipment: [
@@ -118,7 +121,12 @@ export const categoryData = {
         "crepe_machines",
         "pancake_machines",
         "sausage_cookers",
-        "pasta_cookers"
+        "pasta_cookers",
+        "fryer_accessories",
+        "grill_accessories",
+        "pans_and_sautes",
+        "pots",
+        "skewers"
       ],
 
       cooling_equipment: [
@@ -131,12 +139,23 @@ export const categoryData = {
       service_equipment: [
         "soup_warmers",
         "bain_marie",
-        "heated_sauce_warmers"
+        "heated_sauce_warmers",
+        "hot_service_equipment",
+        "service_accessories",
+        "copper_service_products",
+        "pizza_accessories",
+        "gastronorm_containers",
+        "spice_shakers",
+        "sauce_dispensers",
+        "strainers",
+        "kitchen_helpers"
       ],
 
       dishwashers: [
         "hood_type_dishwashers",
-        "undercounter_dishwashers"
+        "undercounter_dishwashers",
+        "dishwasher_accessories",
+        "bar_washing_equipment"
       ],
 
       preparation_equipment: [
@@ -148,7 +167,12 @@ export const categoryData = {
         "mixers",
         "dough_kneaders",
         "dough_rollers",
-        "meat_grinders"
+        "meat_grinders",
+        "hygiene_equipment",
+        "meat_preparation_equipment",
+        "meat_preparation_accessories",
+        "preparation_accessories",
+        "cutting_boards"
       ]
     }
   },

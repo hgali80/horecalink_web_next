@@ -194,6 +194,8 @@ export const categoryMap = {
   pizza_knives: { main: "Chef Bıçakları", sub: "Pizza Bıçakları" },
   doner_knives: { main: "Chef Bıçakları", sub: "Döner Bıçakları" },
   meat_tenderizers: { main: "Chef Bıçakları", sub: "Et Dövecekleri" },
+  knife_accessories: { main: "Chef Bıçakları", sub: "Bıçak Aksesuarları" },
+  fish_knives: { main: "Chef Bıçakları", sub: "Balık Bıçakları" },
 
   tea_machines: { main: "Çay Kahve Grubu", sub: "Çay Makineleri" },
   coffee_stoves: { main: "Çay Kahve Grubu", sub: "Kahveci Ocakları" },
@@ -205,6 +207,10 @@ export const categoryMap = {
   copper_teapots: {
     main: "Çay Kahve Grubu",
     sub: "Bakır Çaydanlıklar",
+  },
+  tea_machine_accessories: {
+    main: "Çay Kahve Grubu",
+    sub: "Çay Makinesi Aksesuarları",
   },
 
   toasters: { main: "Pişirme Grubu", sub: "Tost Makineleri" },
@@ -235,6 +241,20 @@ export const categoryMap = {
     main: "Pişirme Grubu",
     sub: "Makarna Haşlama Makineleri",
   },
+  fryer_accessories: {
+    main: "Pişirme Grubu",
+    sub: "Fritöz Aksesuarları",
+  },
+  grill_accessories: {
+    main: "Pişirme Grubu",
+    sub: "Izgara Aksesuarları",
+  },
+  pans_and_sautes: {
+    main: "Pişirme Grubu",
+    sub: "Tavalar ve Sote",
+  },
+  pots: { main: "Pişirme Grubu", sub: "Tencereler" },
+  skewers: { main: "Pişirme Grubu", sub: "Şişler" },
 
   juice_ayran_coolers: {
     main: "Soğutma Grubu",
@@ -256,6 +276,42 @@ export const categoryMap = {
     main: "Servis Ürünleri",
     sub: "Isıtıcılı Sosluklar",
   },
+  hot_service_equipment: {
+    main: "Servis Ürünleri",
+    sub: "Sıcak Servis Ekipmanları",
+  },
+  service_accessories: {
+    main: "Servis Ürünleri",
+    sub: "Servis Aksesuarları",
+  },
+  copper_service_products: {
+    main: "Servis Ürünleri",
+    sub: "Bakır Servis Ürünleri",
+  },
+  pizza_accessories: {
+    main: "Servis Ürünleri",
+    sub: "Pizza Aksesuarları",
+  },
+  gastronorm_containers: {
+    main: "Servis Ürünleri",
+    sub: "Gastronorm Kapları",
+  },
+  spice_shakers: {
+    main: "Servis Ürünleri",
+    sub: "Baharatlıklar",
+  },
+  sauce_dispensers: {
+    main: "Servis Ürünleri",
+    sub: "Sosluklar ve Dağıtıcılar",
+  },
+  strainers: {
+    main: "Servis Ürünleri",
+    sub: "Süzgeçler",
+  },
+  kitchen_helpers: {
+    main: "Servis Ürünleri",
+    sub: "Mutfak Yardımcıları",
+  },
 
   hood_type_dishwashers: {
     main: "Bulaşık Makineleri",
@@ -264,6 +320,14 @@ export const categoryMap = {
   undercounter_dishwashers: {
     main: "Bulaşık Makineleri",
     sub: "Tezgah Altı Bulaşık Makineleri",
+  },
+  dishwasher_accessories: {
+    main: "Bulaşık Makineleri",
+    sub: "Bulaşık Makinesi Aksesuarları",
+  },
+  bar_washing_equipment: {
+    main: "Bulaşık Makineleri",
+    sub: "Bar Yıkama Ekipmanları",
   },
 
   orange_juicers: {
@@ -295,6 +359,26 @@ export const categoryMap = {
   meat_grinders: {
     main: "Hazırlık Ekipmanları",
     sub: "Kıyma Makineleri",
+  },
+  hygiene_equipment: {
+    main: "Hazırlık Ekipmanları",
+    sub: "Hijyen Ekipmanları",
+  },
+  meat_preparation_equipment: {
+    main: "Hazırlık Ekipmanları",
+    sub: "Et Hazırlama Ekipmanları",
+  },
+  meat_preparation_accessories: {
+    main: "Hazırlık Ekipmanları",
+    sub: "Et Hazırlama Aksesuarları",
+  },
+  preparation_accessories: {
+    main: "Hazırlık Ekipmanları",
+    sub: "Hazırlık Aksesuarları",
+  },
+  cutting_boards: {
+    main: "Hazırlık Ekipmanları",
+    sub: "Kesim Tahtaları",
   },
 
   /* =====================================================
