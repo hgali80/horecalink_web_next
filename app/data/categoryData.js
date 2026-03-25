@@ -99,7 +99,9 @@ export const categoryData = {
         "doner_knives",
         "meat_tenderizers",
         "knife_accessories",
-        "fish_knives"
+        "fish_knives",
+        "knife_magnets",
+        "ice_cream_scoops"
       ],
 
       tea_coffee_equipment: [
@@ -173,7 +175,9 @@ export const categoryData = {
         "meat_preparation_accessories",
         "preparation_accessories",
         "cutting_boards"
-      ]
+      ],
+
+      camp_products: []
     }
   },
 

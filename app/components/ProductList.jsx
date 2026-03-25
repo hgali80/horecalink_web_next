@@ -11,6 +11,40 @@ import { categoryMap } from "../data/categoryMap";
 import { categoryData } from "../data/categoryData";
 import { useLang } from "../context/LanguageContext";
 
+const CATEGORY_ALIASES = {
+  "alunminyum konteyner": "aluminyum konteyner",
+  "paketleme strec filmleri": "paketleme streç filmleri",
+  "çatal bıçak kaşık": "çatal - bıçak - kaşık",
+  "çatal – bıçak – kaşık": "çatal - bıçak - kaşık",
+  "catal bicak kasik": "çatal - bıçak - kaşık",
+};
+
+function normalizeCategoryValue(value) {
+  return String(value || "")
+    .toLocaleLowerCase("tr")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[–—−]/g, "-")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function applyCategoryAlias(value) {
+  return CATEGORY_ALIASES[value] || value;
+}
+
+function normalizeCategory(value) {
+  return applyCategoryAlias(normalizeCategoryValue(value));
+}
+
+function matchesCategoryPair(product, expectedMain, expectedSub) {
+  return (
+    normalizeCategory(product?.main_category) === normalizeCategory(expectedMain) &&
+    normalizeCategory(product?.sub_category) === normalizeCategory(expectedSub)
+  );
+}
+
 export default function ProductList({
   filterSubCategory,
   filterMainCategory,
@@ -25,26 +59,40 @@ export default function ProductList({
 
   const mapItem = filterSubCategory ? categoryMap[filterSubCategory] : null;
 
-  const mainSubKeys = useMemo(() => {
-    if (!filterGroup || !filterMainCategory) return [];
-    const grp = categoryData?.[filterGroup];
-    const arr = grp?.mainCategories?.[filterMainCategory];
-    return Array.isArray(arr) ? arr : [];
-  }, [filterGroup, filterMainCategory]);
+  const targetCategoryPairs = useMemo(() => {
+    if (filterSubCategory) {
+      return mapItem ? [{ main: mapItem.main, sub: mapItem.sub }] : [];
+    }
 
-  const firestoreSubValues = useMemo(() => {
-    if (!mainSubKeys.length) return [];
-    const values = mainSubKeys
-      .map((subKey) => categoryMap?.[subKey]?.sub)
-      .filter(Boolean);
-    return Array.from(new Set(values));
-  }, [mainSubKeys]);
+    if (filterGroup && filterMainCategory) {
+      const grp = categoryData?.[filterGroup];
+      const subKeys = grp?.mainCategories?.[filterMainCategory] || [];
+
+      return subKeys
+        .map((subKey) => categoryMap?.[subKey])
+        .filter(Boolean)
+        .map((item) => ({ main: item.main, sub: item.sub }));
+    }
+
+    return [];
+  }, [filterSubCategory, mapItem, filterGroup, filterMainCategory]);
 
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
 
       try {
+        const q = query(
+          collection(db, "products"),
+          where("active", "==", true),
+          where("webPublished", "==", true)
+        );
+
+        const snap = await getDocs(q);
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        let nextProducts = list;
+
         if (filterSubCategory) {
           if (!mapItem) {
             console.warn("[ProductList] categoryMap eşleşmedi:", filterSubCategory);
@@ -52,62 +100,34 @@ export default function ProductList({
             return;
           }
 
-          const q = query(
-  collection(db, "products"),
-  where("active", "==", true),
-  where("webPublished", "==", true),
-  where("sub_category", "==", mapItem.sub)
-);
-          const snap = await getDocs(q);
-          const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          setProducts(list);
-          return;
-        }
-
-        if (filterMainCategory) {
+          nextProducts = list.filter((product) =>
+            matchesCategoryPair(product, mapItem.main, mapItem.sub)
+          );
+        } else if (filterMainCategory) {
           if (!filterGroup) {
             console.warn("[ProductList] main filtre var ama group yok.");
             setProducts([]);
             return;
           }
 
-          if (!firestoreSubValues.length) {
-            console.warn("[ProductList] main->sub listesi boş. group/main:", filterGroup, filterMainCategory);
+          if (!targetCategoryPairs.length) {
+            console.warn(
+              "[ProductList] main kategori için kategori eşleşmesi bulunamadı:",
+              filterGroup,
+              filterMainCategory
+            );
             setProducts([]);
             return;
           }
 
-          const chunks = [];
-          for (let i = 0; i < firestoreSubValues.length; i += 30) {
-            chunks.push(firestoreSubValues.slice(i, i + 30));
-          }
-
-          const all = [];
-          for (const part of chunks) {
-            const q = query(
-  collection(db, "products"),
-  where("active", "==", true),
-  where("webPublished", "==", true),
-  where("sub_category", "in", part)
-);
-            const snap = await getDocs(q);
-            snap.docs.forEach((d) => all.push({ id: d.id, ...d.data() }));
-          }
-
-          const uniq = Array.from(new Map(all.map((p) => [p.id, p])).values());
-          setProducts(uniq);
-          return;
+          nextProducts = list.filter((product) =>
+            targetCategoryPairs.some((pair) =>
+              matchesCategoryPair(product, pair.main, pair.sub)
+            )
+          );
         }
 
-        const q = query(
-  collection(db, "products"),
-  where("active", "==", true),
-  where("webPublished", "==", true)
-);
-
-const snap = await getDocs(q);
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setProducts(list);
+        setProducts(nextProducts.sort((a, b) => (a.order ?? 999999) - (b.order ?? 999999)));
       } catch (err) {
         console.error("[ProductList] Ürünler yüklenirken hata:", err);
         setProducts([]);
@@ -117,9 +137,8 @@ const snap = await getDocs(q);
     };
 
     fetchProducts();
-  }, [db, filterSubCategory, filterMainCategory, filterGroup, mapItem, firestoreSubValues]);
+  }, [db, filterSubCategory, filterMainCategory, filterGroup, mapItem, targetCategoryPairs]);
 
-  // 🔎 Basit client-side arama (ad/marka/kod)
   const filtered = useMemo(() => {
     const q = String(searchQuery || "").trim().toLowerCase();
     if (!q) return products;

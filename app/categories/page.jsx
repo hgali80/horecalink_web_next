@@ -24,6 +24,30 @@ import { app } from "../../firebase";
 import ProductCard from "../components/ProductCard";
 
 const ITEMS_PER_PAGE = 18;
+const CATEGORY_ALIASES = {
+  "alunminyum konteyner": "aluminyum konteyner",
+  "paketleme strec filmleri": "paketleme streç filmleri",
+  "çatal bıçak kaşık": "çatal - bıçak - kaşık",
+  "çatal – bıçak – kaşık": "çatal - bıçak - kaşık",
+  "catal bicak kasik": "çatal - bıçak - kaşık",
+};
+
+function normalizeCategoryValue(value) {
+  return String(value || "")
+    .toLocaleLowerCase("tr")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[–—−]/g, "-")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function normalizeCategory(value) {
+  const normalized = normalizeCategoryValue(value);
+  return CATEGORY_ALIASES[normalized] || normalized;
+}
+
 
 function CategoriesContent() {
   const searchParams = useSearchParams();
@@ -85,9 +109,13 @@ function CategoriesContent() {
   const filteredProducts = useMemo(() => {
     return allProducts
       .filter((p) => {
-        const slug = Object.keys(categoryMap).find(
-          (k) => categoryMap[k].main === p.main_category && categoryMap[k].sub === p.sub_category
-        );
+        const slug = Object.keys(categoryMap).find((k) => {
+          const item = categoryMap[k];
+          return (
+            normalizeCategory(item?.main) === normalizeCategory(p.main_category) &&
+            normalizeCategory(item?.sub) === normalizeCategory(p.sub_category)
+          );
+        });
         if (!slug) return false;
 
         const belongsToGroup = Object.values(categoryData[selectedGroup].mainCategories).some(

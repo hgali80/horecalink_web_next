@@ -165,7 +165,7 @@ export const categoryMap = {
   // DEPOLAMA & TAŞIMA
   packaging_stretch_films: {
     main: "Depolama ve Taşıma Ürünleri",
-    sub: "Paketleme Strec Filmleri",
+    sub: "Paketleme Streç Filmleri",
   },
   packing_tapes: {
     main: "Depolama ve Taşıma Ürünleri",
@@ -196,6 +196,8 @@ export const categoryMap = {
   meat_tenderizers: { main: "Chef Bıçakları", sub: "Et Dövecekleri" },
   knife_accessories: { main: "Chef Bıçakları", sub: "Bıçak Aksesuarları" },
   fish_knives: { main: "Chef Bıçakları", sub: "Balık Bıçakları" },
+  knife_magnets: { main: "Chef Bıçakları", sub: "Bıçak Mıknatısı" },
+  ice_cream_scoops: { main: "Chef Bıçakları", sub: "Dondurma Kaşığı" },
 
   tea_machines: { main: "Çay Kahve Grubu", sub: "Çay Makineleri" },
   coffee_stoves: { main: "Çay Kahve Grubu", sub: "Kahveci Ocakları" },
