@@ -44,37 +44,37 @@ export default function Home() {
   }, []);
 
   const categoryCards = useMemo(
-    () => [
-      {
-        title: t("home.hero.category.kurumsal") || "Kurumsal Çözümler & Hijyen",
-        desc:
-          t("home.categories.kurumsal.desc") ||
-          "Oteller ve tesisler için endüstriyel hijyen ve kurumsal sarf malzemeleri.",
-        image: "/kart_kurumsal.jpg",
-        href: "/categories?group=institutional",
-        cta: t("home.categories.kurumsal.cta") || "Ürünleri İncele",
-      },
-      {
-        title: t("home.hero.category.yatirim") || "Proje & Yatırım",
-        desc:
-          t("home.categories.yatirim.desc") ||
-          "Yeni projeleriniz için komple mutfak tasarımı ve anahtar teslim kurulumlar.",
-        image: "/kart_yatirim.jpg",
-        href: "/categories?group=equipment",
-        cta: t("home.categories.yatirim.cta") || "Çözümlere Göz At",
-      },
-      {
-        title: t("home.hero.category.paslanmaz") || "Endüstriyel Mutfak & Sarf",
-        desc:
-          t("home.categories.endustriyel.desc") ||
-          "Günlük operasyonlar için dayanıklı mutfak gereçleri ve paketleme ürünleri.",
-        image: "/kart_paslanmaz.jpg",
-        href: "/categories?group=stainless_steel",
-        cta: t("home.categories.endustriyel.cta") || "Kataloğu Gör",
-      },
-    ],
-    [t]
-  );
+  () => [
+    {
+      title: t("home.hero.category.kurumsal") || "Kurumsal Çözümler & Hijyen",
+      desc:
+        t("home.categories.kurumsal.desc") ||
+        "Oteller ve tesisler için endüstriyel hijyen ve kurumsal sarf malzemeleri.",
+      image: "/kart_kurumsal.jpg",
+      href: "/catalog/institutional",
+      cta: t("home.categories.kurumsal.cta") || "Ürünleri İncele",
+    },
+    {
+      title: t("home.hero.category.yatirim") || "Proje & Yatırım",
+      desc:
+        t("home.categories.yatirim.desc") ||
+        "Yeni projeleriniz için komple mutfak tasarımı ve anahtar teslim kurulumlar.",
+      image: "/kart_yatirim.jpg",
+      href: "/catalog/equipment",
+      cta: t("home.categories.yatirim.cta") || "Çözümlere Göz At",
+    },
+    {
+      title: t("home.hero.category.paslanmaz") || "Endüstriyel Mutfak & Sarf",
+      desc:
+        t("home.categories.endustriyel.desc") ||
+        "Günlük operasyonlar için dayanıklı mutfak gereçleri ve paketleme ürünleri.",
+      image: "/kart_paslanmaz.jpg",
+      href: "/catalog/stainless",
+      cta: t("home.categories.endustriyel.cta") || "Kataloğu Gör",
+    },
+  ],
+  [t]
+);
 
   const topFeatured = featuredProducts.slice(0, 4);
 

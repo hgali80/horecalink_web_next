@@ -1,15 +1,24 @@
 // app/components/CategoryGrid.jsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { db } from "../firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { getT } from "../lib/i18n";
+import { categoryMap } from "../data/categoryMap";
 
 const SUPPORTED = ["tr", "ru", "kz", "en"];
+const STORAGE_BUCKET = "horecakatolog-e2d10.appspot.com";
+
+const GROUP_LABELS = {
+  institutional: "Kurumsal",
+  equipment: "Yatırım",
+  stainless: "Paslanmaz",
+  accessories: "Aksesuar",
+};
 
 export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
   const [products, setProducts] = useState([]);
@@ -18,7 +27,6 @@ export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
   const pathname = usePathname();
   const [activeLang, setActiveLang] = useState("tr");
 
-  // 🔹 Dil tespiti (standart)
   useEffect(() => {
     const segments = pathname?.split("/").filter(Boolean) || [];
     const first = segments[0];
@@ -37,17 +45,16 @@ export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
   const t = getT(activeLang);
   const prefix = SUPPORTED.includes(activeLang) ? `/${activeLang}` : "";
 
-  // 🔹 Firestore'dan ürünleri çek (AYNI)
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const q = query(
-  collection(db, "products"),
-  where("active", "==", true),
-  where("webPublished", "==", true)
-);
+          collection(db, "products"),
+          where("active", "==", true),
+          where("webPublished", "==", true)
+        );
 
-const querySnapshot = await getDocs(q);
+        const querySnapshot = await getDocs(q);
         const productList = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -59,96 +66,120 @@ const querySnapshot = await getDocs(q);
         setLoading(false);
       }
     };
+
     fetchProducts();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="text-center text-gray-500 mt-10">
-        {t("categoryGrid.loading")}
-      </div>
-    );
-  }
+  const visibleProducts = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
 
-  if (!products.length) {
-    return (
-      <div className="text-center text-gray-500 mt-10">
-        {t("categoryGrid.noProducts")}
-      </div>
-    );
-  }
+    return products
+      .filter((p) => {
+        if (selectedGroup && p.groupKey !== selectedGroup) return false;
 
-  // 🔹 Arama (AYNI)
-  const term = searchTerm.toLowerCase();
-  const filteredProducts = products.filter((p) =>
-    p.name?.toLowerCase().includes(term)
-  );
+        if (!term) return true;
 
-  // 🔹 Grup filtresi (AYNI)
-  const visibleProducts = selectedGroup
-    ? filteredProducts.filter(
-        (p) => p.group?.toLowerCase() === selectedGroup.toLowerCase()
-      )
-    : filteredProducts;
+        const haystack = [
+          p.name,
+          p.name_tr,
+          p.manufacturerCode,
+          p.brand,
+          p.description,
+          p.shortDescription,
+          p.tags,
+          p.subcategoryKey,
+          p.categoryKey,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
 
-  // 🔹 Ana kategoriye göre grupla
-  const groupedByMainCategory = visibleProducts.reduce((acc, product) => {
-    const raw = product.main_category;
+        return haystack.includes(term);
+      })
+      .sort((a, b) => {
+        const ao = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : 999999;
+        const bo = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : 999999;
+        return ao - bo;
+      });
+  }, [products, selectedGroup, searchTerm]);
 
-    const mainCategory = raw
-      ? t(`categoryGrid.main.${raw}`, { default: raw })
-      : t("categoryGrid.otherCategory");
+  const groupedByCategory = useMemo(() => {
+    return visibleProducts.reduce((acc, product) => {
+      const meta = categoryMap[product.subcategoryKey];
+      const categoryKey = product.categoryKey || "other";
+      const categoryTitle =
+        meta?.categoryLabel ||
+        t(`category.main.${categoryKey}`) ||
+        categoryKey;
 
-    if (!acc[mainCategory]) acc[mainCategory] = [];
-    acc[mainCategory].push(product);
-    return acc;
-  }, {});
+      if (!acc[categoryTitle]) acc[categoryTitle] = [];
+      acc[categoryTitle].push(product);
+      return acc;
+    }, {});
+  }, [visibleProducts, t]);
 
-  const mainCategories = Object.entries(groupedByMainCategory);
+  const categoryGroups = Object.entries(groupedByCategory);
 
-  // 🔹 Firebase Storage linki (AYNI)
   const getFirebaseImageUrl = (imageName) => {
-    return `https://firebasestorage.googleapis.com/v0/b/horecakatolog-e2d10.appspot.com/o/product_images%2F${encodeURIComponent(
+    return `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/product_images%2F${encodeURIComponent(
       imageName
     )}?alt=media`;
   };
 
-  // 🔹 Görsel seçimi (AYNI)
   const getImagePath = (product) => {
-    if (product.image_names?.length) {
-      return getFirebaseImageUrl(product.image_names[0]);
+    if (product.imageBase) {
+      return getFirebaseImageUrl(product.imageBase);
     }
 
-    if (product.sub_category) {
-      const iconFile = product.sub_category
-        .toLowerCase()
-        .replace(/\s+/g, "_")
-        .replace(/[ğüşıöç]/g, (c) =>
-          ({ ğ: "g", ü: "u", ş: "s", ı: "i", ö: "o", ç: "c" }[c])
-        );
-      return `/category_icons/${iconFile}.png`;
+    const subKey = product.subcategoryKey;
+    if (subKey) {
+      return `/category_icons/${subKey}.png`;
     }
 
     return null;
   };
 
+  if (loading) {
+    return (
+      <div className="text-center text-gray-500 mt-10">
+        {t("categoryGrid.loading") || "Yükleniyor..."}
+      </div>
+    );
+  }
+
+  if (!visibleProducts.length) {
+    return (
+      <div className="text-center text-gray-500 mt-10">
+        {t("categoryGrid.noProducts") || "Ürün bulunamadı"}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-10">
-      {mainCategories.map(([mainTitle, items], i) => (
-        <div key={i}>
+      {selectedGroup && (
+        <div className="text-sm text-gray-500">
+          {t("categoryGrid.group") || "Grup"}:{" "}
+          <span className="font-medium text-slate-700">
+            {t(`category.group.${selectedGroup}`) || GROUP_LABELS[selectedGroup] || selectedGroup}
+          </span>
+        </div>
+      )}
+
+      {categoryGroups.map(([categoryTitle, items]) => (
+        <div key={categoryTitle}>
           <h2 className="text-xl font-semibold text-slate-800 mb-4 border-b border-gray-200 pb-2">
-            {mainTitle}
+            {categoryTitle}
           </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {items.map((product, index) => {
+            {items.map((product) => {
               const imageSrc = getImagePath(product);
-
-              const productName = product.name || "";
+              const productName = product.name || product.name_tr || "";
 
               return (
                 <Link
-                  key={index}
+                  key={product.id}
                   href={`${prefix}/products/${product.id}`}
                   className="block bg-white rounded-xl shadow-sm hover:shadow-md overflow-hidden transition transform hover:-translate-y-1"
                 >
@@ -159,13 +190,13 @@ const querySnapshot = await getDocs(q);
                         alt={productName}
                         fill
                         className="object-cover"
-                        onError={(e) =>
-                          (e.currentTarget.style.display = "none")
-                        }
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
                       />
                     ) : (
                       <div className="text-gray-400 text-xs">
-                        {t("categoryGrid.noImage")}
+                        {t("categoryGrid.noImage") || "Görsel yok"}
                       </div>
                     )}
                   </div>
@@ -174,9 +205,10 @@ const querySnapshot = await getDocs(q);
                     <h3 className="text-sm font-medium text-slate-700 truncate">
                       {productName}
                     </h3>
-                    {product.stock_code && (
+
+                    {product.manufacturerCode && (
                       <p className="text-xs text-gray-400 mt-1">
-                        {product.stock_code}
+                        {product.manufacturerCode}
                       </p>
                     )}
                   </div>

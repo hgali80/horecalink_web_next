@@ -1,23 +1,23 @@
 // app/components/CategoryTabs.jsx
+// app/components/CategoryTabs.jsx
 "use client";
 
 import React from "react";
 import { useLang } from "../context/LanguageContext";
 
+const GROUPS = [
+  { key: "institutional", fallback: "Kurumsal" },
+  { key: "equipment", fallback: "Yatırım" },
+  { key: "stainless", fallback: "Paslanmaz" },
+  { key: "accessories", fallback: "Aksesuar" },
+];
+
 export default function CategoryTabs({ selectedGroup, onSelectGroup }) {
   const { t } = useLang();
 
-  const groups = [
-    { key: "kurumsal", label: t("categoryTabs.kurumsal") },
-    { key: "yatirim", label: t("categoryTabs.yatirim") },
-    { key: "paslanmaz", label: t("categoryTabs.paslanmaz") },
-    { key: "temizlik", label: t("categoryTabs.temizlik") },
-    { key: "ambalaj", label: t("categoryTabs.ambalaj") },
-  ];
-
   return (
     <div className="w-full bg-white border-b flex justify-center flex-wrap gap-3 py-4">
-      {groups.map((group) => (
+      {GROUPS.map((group) => (
         <button
           key={group.key}
           onClick={() => onSelectGroup(group.key)}
@@ -27,7 +27,7 @@ export default function CategoryTabs({ selectedGroup, onSelectGroup }) {
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
-          {group.label}
+          {t(`category.group.${group.key}`) || group.fallback}
         </button>
       ))}
     </div>

@@ -1,397 +1,169 @@
-// app/components/ProductCard.jsx
+//app/components/ProductCard.jsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
 import Image from "next/image";
 import Link from "next/link";
-import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  deleteDoc,
-  getDoc,
-} from "firebase/firestore";
-import { app } from "../../firebase";
-import { Heart, ShoppingCart, Minus, Plus, Package } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { getT } from "../lib/i18n";
+import { ArrowUpRight, FileText, Package2 } from "lucide-react";
 
-const SUPPORTED = ["tr", "ru", "kz", "en"];
+const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
+
+function cleanText(value) {
+  if (value === null || value === undefined) return "";
+  const text = String(value).trim();
+  if (!text) return "";
+  if (text.toLowerCase() === "null") return "";
+  return text;
+}
+
+function formatPrice(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+
+  return new Intl.NumberFormat("ru-RU", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(numeric);
+}
+
+function getProductHref(product) {
+  const slug = cleanText(product?.slug);
+  const id = cleanText(product?.id);
+  return `/products/${slug || id}`;
+}
+
+function getProductName(product) {
+  return (
+    cleanText(product?.name) ||
+    cleanText(product?.name_ru) ||
+    cleanText(product?.name_tr) ||
+    "Товар"
+  );
+}
+
+function getProductDescription(product) {
+  return (
+    cleanText(product?.shortDescription) ||
+    cleanText(product?.shortDescription_ru) ||
+    cleanText(product?.description) ||
+    ""
+  );
+}
+
+function getProductCode(product) {
+  return (
+    cleanText(product?.manufacturerCode) ||
+    cleanText(product?.sku) ||
+    cleanText(product?.id)
+  );
+}
+
+function getBrand(product) {
+  return cleanText(product?.brand) || "HorecaLink";
+}
+
+function getImageUrl(product) {
+  const imageName = Array.isArray(product?.image_names)
+    ? product.image_names[0]
+    : "";
+  if (!imageName) return null;
+
+  return `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/product_images%2F${encodeURIComponent(
+    imageName
+  )}?alt=media`;
+}
 
 export default function ProductCard({ product }) {
-  const { user } = useAuth();
-  const currentUserId = user?.uid;
-  const [images, setImages] = useState([]);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [quantity, setQuantity] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-  const [imgLoading, setImgLoading] = useState(true);
-
-  const db = getFirestore(app);
-  const storage = getStorage(app);
-  const pathname = usePathname();
-
-  const [activeLang, setActiveLang] = useState("tr");
-
-  useEffect(() => {
-    const segments = pathname?.split("/").filter(Boolean) || [];
-    const first = segments[0];
-    if (SUPPORTED.includes(first)) { setActiveLang(first); return; }
-    const saved = localStorage.getItem("hl_lang");
-    if (saved && SUPPORTED.includes(saved)) setActiveLang(saved);
-  }, [pathname]);
-
-  const t = getT(activeLang);
-
-  useEffect(() => {
-    const fetchImages = async () => {
-      try {
-        if (product.image_names?.length > 0) {
-          const urls = await Promise.all(
-            product.image_names.map((img) =>
-              getDownloadURL(ref(storage, `product_images/${img}`))
-            )
-          );
-          setImages(urls);
-        }
-      } catch {}
-    };
-    fetchImages();
-  }, [product.image_names, storage]);
-
-  useEffect(() => {
-    if (!currentUserId) return;
-    getDoc(doc(db, "users", currentUserId, "favorites", product.id)).then(
-      (snap) => setIsFavorite(snap.exists())
-    );
-  }, [currentUserId, product.id, db]);
-
-  useEffect(() => {
-    if (!currentUserId) return;
-    getDoc(doc(db, "users", currentUserId, "basket", product.id)).then((snap) => {
-      if (snap.exists()) setQuantity(snap.data().quantity);
-    });
-  }, [currentUserId, product.id, db]);
-
-  const toggleFavorite = async (e) => {
-    e.preventDefault(); e.stopPropagation();
-    if (!currentUserId) return alert(t("productcard.loginFavorite"));
-    const favRef = doc(db, "users", currentUserId, "favorites", product.id);
-    if (isFavorite) { await deleteDoc(favRef); setIsFavorite(false); }
-    else { await setDoc(favRef, { createdAt: new Date() }); setIsFavorite(true); }
-  };
-
-  const updateCart = async (e, newQty) => {
-    e.preventDefault(); e.stopPropagation();
-    if (!currentUserId) return alert(t("productcard.loginCart"));
-    const cartRef = doc(db, "users", currentUserId, "basket", product.id);
-    if (newQty <= 0) { await deleteDoc(cartRef); setQuantity(0); }
-    else {
-      await setDoc(cartRef, {
-        productId: product.id,
-        name: product.name_tr || product.name,
-        price: product.price || 0,
-        unit: product.unit || "-",
-        quantity: newQty,
-        image: product.image_names?.[0] || null,
-        main_category: product.main_category || null,
-        sub_category: product.sub_category || null,
-        addedAt: new Date(),
-      });
-      setQuantity(newQty);
-    }
-  };
+  const href = getProductHref(product);
+  const title = getProductName(product);
+  const description = getProductDescription(product);
+  const code = getProductCode(product);
+  const brand = getBrand(product);
+  const imageUrl = getImageUrl(product);
+  const formattedPrice = formatPrice(product?.price);
+  const unit = cleanText(product?.unit) || "шт";
 
   return (
-    <>
-      <style>{`
-        .pcard {
-          background: #FFFFFF;
-          border: 1.5px solid #E3E8EF;
-          border-radius: 12px;
-          overflow: hidden;
-          transition: border-color 0.2s, box-shadow 0.25s, transform 0.2s;
-          position: relative;
-          display: flex;
-          flex-direction: column;
-        }
+    <article className="group flex h-full flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_14px_30px_rgba(29,50,70,0.05)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(29,50,70,0.08)]">
+      <Link href={href} className="relative block bg-[#f5f7f9]">
+        <div className="absolute left-4 top-4 z-10">
+          <span className="inline-flex rounded-full bg-white px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1d3246] shadow-sm">
+            {brand}
+          </span>
+        </div>
 
-        .pcard:hover {
-          border-color: rgba(0,180,216,0.45);
-          box-shadow: 0 6px 24px rgba(10,37,64,0.11);
-          transform: translateY(-2px);
-        }
-
-        .pcard__img-wrap {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 1 / 1;
-          background: #F7F9FC;
-          overflow: hidden;
-          border-bottom: 1px solid #E3E8EF;
-        }
-
-        .pcard__img {
-          object-fit: contain;
-          padding: 10px;
-          transition: transform 0.3s ease;
-        }
-
-        .pcard:hover .pcard__img { transform: scale(1.04); }
-
-        .pcard__no-img {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          color: #9BA8B5;
-          font-size: 12px;
-        }
-
-        .pcard__fav {
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          width: 34px;
-          height: 34px;
-          border-radius: 50%;
-          border: 1.5px solid #E3E8EF;
-          background: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.2s;
-          z-index: 2;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        }
-
-        .pcard__fav:hover { transform: scale(1.1); }
-        .pcard__fav--active { background: #FFF0F0; border-color: #FFC7C7; color: #E53E3E; }
-
-        .pcard__img-loading {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(90deg, #F0F4F8 25%, #E8EDF3 50%, #F0F4F8 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.4s infinite;
-        }
-
-        @keyframes shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-
-        .pcard__body {
-          padding: 14px 14px 12px;
-          display: flex;
-          flex-direction: column;
-          flex: 1;
-        }
-
-        .pcard__name {
-          font-size: 13.5px;
-          font-weight: 500;
-          color: #0A2540;
-          line-height: 1.4;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-          min-height: 38px;
-          margin: 0 0 10px;
-          text-decoration: none;
-          transition: color 0.15s;
-        }
-
-        .pcard__name:hover { color: #00B4D8; }
-
-        .pcard__meta {
-          margin-top: auto;
-        }
-
-        .pcard__price-row {
-          display: flex;
-          align-items: baseline;
-          gap: 6px;
-          margin-bottom: 4px;
-        }
-
-        .pcard__price {
-          font-size: 17px;
-          font-weight: 700;
-          color: #0A2540;
-          line-height: 1;
-        }
-
-        .pcard__no-price {
-          font-size: 13px;
-          color: #9BA8B5;
-          font-style: italic;
-        }
-
-        .pcard__unit {
-          font-size: 11.5px;
-          color: #9BA8B5;
-          margin-bottom: 12px;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .pcard__unit::before {
-          content: '';
-          display: inline-block;
-          width: 3px;
-          height: 3px;
-          background: #9BA8B5;
-          border-radius: 50%;
-        }
-
-        .pcard__add-btn {
-          width: 100%;
-          padding: 9px 12px;
-          background: linear-gradient(135deg, #0A2540, #0D3461);
-          color: white;
-          border: none;
-          border-radius: 8px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-          transition: all 0.2s;
-          letter-spacing: 0.2px;
-        }
-
-        .pcard__add-btn:hover {
-          background: linear-gradient(135deg, #0D3461, #1149A3);
-          box-shadow: 0 4px 12px rgba(10,37,64,0.25);
-        }
-
-        .pcard__qty {
-          display: flex;
-          align-items: center;
-          background: #F7F9FC;
-          border: 1.5px solid #E3E8EF;
-          border-radius: 8px;
-          overflow: hidden;
-        }
-
-        .pcard__qty-btn {
-          flex: 0 0 36px;
-          height: 36px;
-          border: none;
-          background: none;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 0.15s;
-          color: #5A7184;
-        }
-
-        .pcard__qty-btn:hover { background: #E3E8EF; }
-        .pcard__qty-btn--minus:hover { color: #E53E3E; }
-        .pcard__qty-btn--plus:hover { color: #0DB67A; }
-
-        .pcard__qty-num {
-          flex: 1;
-          text-align: center;
-          font-size: 15px;
-          font-weight: 700;
-          color: #0A2540;
-        }
-      `}</style>
-
-      <div
-        className="pcard"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        {/* IMAGE */}
-        <Link href={`/products/${product.id}`}>
-          <div className="pcard__img-wrap">
-            {images.length > 0 ? (
-              <>
-                {imgLoading && <div className="pcard__img-loading" />}
-                <Image
-                  src={images[0]}
-                  alt={product.name || ""}
-                  fill
-                  className="pcard__img"
-                  onLoad={() => setImgLoading(false)}
-                />
-              </>
-            ) : (
-              <div className="pcard__no-img">
-                <Package size={28} />
-                <span>{t("productcard.noImage")}</span>
+        <div className="relative aspect-[4/3.3] w-full overflow-hidden">
+          {imageUrl ? (
+            <Image
+              src={imageUrl}
+              alt={title}
+              fill
+              unoptimized
+              className="object-contain p-4 transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="flex flex-col items-center gap-2 text-slate-400">
+                <Package2 className="h-10 w-10" strokeWidth={1.75} />
+                <span className="text-sm font-medium">Фото отсутствует</span>
               </div>
-            )}
+            </div>
+          )}
+        </div>
+      </Link>
 
-            <button
-              onClick={toggleFavorite}
-              className={`pcard__fav ${isFavorite ? "pcard__fav--active" : ""}`}
-            >
-              <Heart size={15} fill={isFavorite ? "#E53E3E" : "none"} stroke={isFavorite ? "#E53E3E" : "#9BA8B5"} />
-            </button>
-          </div>
-        </Link>
+      <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
+        <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+          Код: {code || "-"}
+        </div>
 
-        {/* BODY */}
-        <div className="pcard__body">
-          <Link href={`/products/${product.id}`} className="pcard__name">
-            {product.name}
+        <h3 className="line-clamp-2 min-h-[58px] text-[16px] font-semibold leading-[1.08] tracking-[-0.035em] text-[#12263a]">
+          <Link href={href}>{title}</Link>
+        </h3>
+
+        {description ? (
+          <p className="mt-3 line-clamp-2 min-h-[44px] text-[13px] leading-5 text-slate-500">
+            {description}
+          </p>
+        ) : (
+          <div className="mt-3 min-h-[44px]" />
+        )}
+
+        <div className="mt-6">
+          {formattedPrice ? (
+            <div className="flex items-end gap-1 text-[#12263a]">
+              <span className="text-[18px] font-extrabold tracking-[-0.03em]">
+                {formattedPrice}
+              </span>
+              <span className="pb-[2px] text-[13px] font-bold">₸</span>
+              <span className="pb-[2px] text-[12px] text-slate-500">
+                / {unit}
+              </span>
+            </div>
+          ) : (
+            <div className="text-[14px] font-semibold text-slate-500">
+              Цена по запросу
+            </div>
+          )}
+        </div>
+
+        <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+          <Link
+            href={href}
+            className="inline-flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.14em] text-[#1d3246] transition hover:text-[#34495e]"
+          >
+            Подробнее
+            <ArrowUpRight className="h-4 w-4" />
           </Link>
 
-          <div className="pcard__meta">
-            <div className="pcard__price-row">
-              {product.price ? (
-                <span className="pcard__price">
-                  {product.price.toLocaleString()} ₸
-                </span>
-              ) : (
-                <span className="pcard__no-price">{t("productcard.noPrice")}</span>
-              )}
-            </div>
-
-            <div className="pcard__unit">
-              {t("productcard.unit")}: {product.unit || "—"}
-            </div>
-
-            {quantity === 0 ? (
-              <button className="pcard__add-btn" onClick={(e) => updateCart(e, 1)}>
-                <ShoppingCart size={14} />
-                {t("productcard.addToCart")}
-              </button>
-            ) : (
-              <div className="pcard__qty">
-                <button
-                  className="pcard__qty-btn pcard__qty-btn--minus"
-                  onClick={(e) => updateCart(e, quantity - 1)}
-                >
-                  <Minus size={15} />
-                </button>
-                <span className="pcard__qty-num">{quantity}</span>
-                <button
-                  className="pcard__qty-btn pcard__qty-btn--plus"
-                  onClick={(e) => updateCart(e, quantity + 1)}
-                >
-                  <Plus size={15} />
-                </button>
-              </div>
-            )}
-          </div>
+          <Link
+            href={`/teklif-talep?productId=${encodeURIComponent(product?.id || "")}`}
+            className="inline-flex items-center gap-2 rounded-full bg-[#1d3246] px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-white transition hover:bg-[#243f58]"
+          >
+            <FileText className="h-4 w-4" />
+            Запросить КП
+          </Link>
         </div>
       </div>
-    </>
+    </article>
   );
 }
