@@ -1,50 +1,86 @@
-// app/components/UserMenu.jsx
 "use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { LayoutDashboard, LogIn, LogOut, PackageSearch, ReceiptText } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
-export default function UserMenu({ mobile = false }) {
+export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
   const router = useRouter();
   const { user, logout } = useAuth();
 
+  const baseLinkClass = mobile
+    ? "inline-flex w-full items-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+    : "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100";
+
+  const primaryLinkClass = mobile
+    ? "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#1d3246] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#243f58]"
+    : "inline-flex items-center gap-2 rounded-xl bg-[#1d3246] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#243f58]";
+
+  const dangerButtonClass = mobile
+    ? "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700"
+    : "inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700";
+
+  const wrapperClass = mobile
+    ? "flex w-full flex-col items-stretch gap-3"
+    : "flex items-center gap-2";
+
   const handleLogout = async () => {
     await logout();
+    onNavigate();
     router.push("/");
   };
 
-  if (!user) {
-    return null;
-  }
-
   return (
-    <div
-      className={`flex items-center ${
-        mobile ? "flex-col items-start gap-3" : "gap-4"
-      } text-sm`}
-    >
+    <div className={wrapperClass}>
       <Link
-        href="/satissitok/admin"
-        className="text-gray-700 transition hover:text-blue-600"
+        href="/teklifler"
+        onClick={onNavigate}
+        className={baseLinkClass}
       >
-        Yönetim Paneli
+        <ReceiptText size={18} />
+        Tekliflerim
       </Link>
 
       <Link
         href="/teklif-talep"
-        className="rounded-md bg-blue-700 px-3 py-1 text-white transition hover:bg-blue-800"
+        onClick={onNavigate}
+        className={primaryLinkClass}
       >
-        Teklif Al
+        <PackageSearch size={18} />
+        Teklif Oluştur
       </Link>
 
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="rounded-md bg-red-600 px-3 py-1 text-white transition hover:bg-red-700"
-      >
-        Çıkış Yap
-      </button>
+      {user?.role === "admin" ? (
+        <Link
+          href="/satissitok/admin"
+          onClick={onNavigate}
+          className={baseLinkClass}
+        >
+          <LayoutDashboard size={18} />
+          Yönetim Paneli
+        </Link>
+      ) : null}
+
+      {user ? (
+        <button
+          type="button"
+          onClick={handleLogout}
+          className={dangerButtonClass}
+        >
+          <LogOut size={18} />
+          Çıkış Yap
+        </button>
+      ) : (
+        <Link
+          href="/login"
+          onClick={onNavigate}
+          className={baseLinkClass}
+        >
+          <LogIn size={18} />
+          Giriş Yap
+        </Link>
+      )}
     </div>
   );
 }

@@ -38,6 +38,7 @@ import {
 } from "../services/quoteDraftService";
 import {
   createQuoteRequest,
+  getGuestQuoteRequests,
   getUserQuoteRequests,
 } from "../services/quoteService";
 
@@ -153,6 +154,9 @@ function getStatusMeta(status) {
 }
 
 function QuoteHistoryCard({ item }) {
+  const href = item?.userId
+    ? `/teklifler/${item?.id}`
+    : `/teklifler/${item?.id}?access=${encodeURIComponent(item?.accessKey || "")}`;
   const meta = getStatusMeta(item?.status);
   const total =
     Number(item?.pricing?.specialAmount) ||
@@ -224,7 +228,7 @@ function QuoteHistoryCard({ item }) {
       </div>
 
       <Link
-        href={`/teklifler/${item?.id}`}
+        href={href}
         className="inline-flex w-full items-center justify-center rounded-xl border border-[#cbd5e1] px-4 py-3 text-[12px] font-extrabold uppercase tracking-[0.14em] text-[#1d3246] transition hover:bg-slate-50"
       >
         Detayları Görüntüle
@@ -344,15 +348,12 @@ export default function QuoteRequestClient() {
   }, [productId, qtyParam]);
 
   useEffect(() => {
-    if (!user?.uid) {
-      setHistoryItems([]);
-      return;
-    }
-
     const run = async () => {
       try {
         setHistoryLoading(true);
-        const rows = await getUserQuoteRequests(user.uid);
+        const rows = user?.uid
+          ? await getUserQuoteRequests(user.uid)
+          : await getGuestQuoteRequests();
         setHistoryItems(Array.isArray(rows) ? rows.slice(0, 6) : []);
       } catch (err) {
         console.error(err);
@@ -462,7 +463,10 @@ export default function QuoteRequestClient() {
       });
 
       clearQuoteDraft();
-      router.push(`/teklifler/${quoteResult.id}`);
+      const detailHref = user?.uid
+        ? `/teklifler/${quoteResult.id}`
+        : `/teklifler/${quoteResult.id}?access=${encodeURIComponent(quoteResult.accessKey || "")}`;
+      router.push(detailHref);
     } catch (err) {
       console.error(err);
       setError("Teklif talebi oluşturulamadı.");
@@ -937,23 +941,7 @@ export default function QuoteRequestClient() {
             </h2>
           </div>
 
-          {!user?.uid ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
-              <UserRound className="mx-auto h-10 w-10 text-slate-400" />
-              <h3 className="mt-4 text-lg font-bold text-[#1d3246]">
-                Geçmiş teklifleri görmek için giriş yap
-              </h3>
-              <p className="mt-2 text-sm text-slate-500">
-                Kullanıcı hesabına bağlı teklif kayıtları burada listelenecek.
-              </p>
-              <Link
-                href="/login"
-                className="mt-5 inline-flex items-center justify-center rounded-xl bg-[#1d3246] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243f58]"
-              >
-                Giriş Yap
-              </Link>
-            </div>
-          ) : historyLoading ? (
+          {historyLoading ? (
             <div className="flex min-h-[180px] items-center justify-center rounded-2xl bg-white">
               <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
             </div>
@@ -970,7 +958,7 @@ export default function QuoteRequestClient() {
                 Henüz teklif talebi yok
               </h3>
               <p className="mt-2 text-sm text-slate-500">
-                Bu bölümde gönderdiğin teklif talepleri görünecek.
+                Bu cihazdan gönderdiğin veya hesabına bağlı teklif talepleri burada görünecek.
               </p>
             </div>
           )}
