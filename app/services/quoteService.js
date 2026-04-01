@@ -6,7 +6,6 @@ import {
   getDoc,
   getDocs,
   limit,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -15,7 +14,10 @@ import {
 import { db } from "../../firebase";
 
 const COLLECTION_NAME = "quote_requests";
+
 const GUEST_QUOTES_STORAGE_KEY = "horecalink_guest_quotes";
+const VISITOR_ID_STORAGE_KEY = "horecalink_visitor_id";
+const VISITOR_ID_COOKIE_KEY = "horecalink_visitor_id";
 
 export const QUOTE_STATUSES = {
   draft: { key: "draft", label: "Taslak" },
@@ -68,7 +70,7 @@ function normalizeItems(items = []) {
         listPrice,
         price: listPrice,
         requestedPrice: normalizePrice(item.requestedPrice),
-        specialPrice: normalizePrice(item.specialPrice),
+        specialPrice,
         lineListTotal: listPrice !== null ? listPrice * quantity : null,
         lineSpecialTotal: specialPrice !== null ? specialPrice * quantity : null,
         groupKey: normalizeText(item.groupKey),
@@ -88,7 +90,75 @@ function buildQuoteNo() {
 }
 
 function buildAccessKey() {
-  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  return (
+    Math.random().toString(36).slice(2) +
+    Math.random().toString(36).slice(2)
+  );
+}
+
+function buildVisitorId() {
+  if (
+    typeof globalThis !== "undefined" &&
+    globalThis.crypto &&
+    typeof globalThis.crypto.randomUUID === "function"
+  ) {
+    return `v_${globalThis.crypto.randomUUID().replace(/-/g, "")}`;
+  }
+
+  return `v_${Date.now().toString(36)}${Math.random()
+    .toString(36)
+    .slice(2, 12)}`;
+}
+
+function readCookie(name) {
+  if (!isBrowser()) return "";
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${name.replace(/[$()*+.?[\\\]^{|}]/g, "\\$&")}=([^;]*)`)
+  );
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function writeCookie(name, value, days = 3650) {
+  if (!isBrowser()) return;
+  const expires = new Date(
+    Date.now() + days * 24 * 60 * 60 * 1000
+  ).toUTCString();
+
+  document.cookie = `${name}=${encodeURIComponent(
+    value
+  )}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+export function getVisitorIdentity() {
+  if (!isBrowser()) return null;
+
+  const localVisitorId = localStorage.getItem(VISITOR_ID_STORAGE_KEY) || "";
+  const cookieVisitorId = readCookie(VISITOR_ID_COOKIE_KEY) || "";
+  const visitorId = localVisitorId || cookieVisitorId || "";
+
+  if (!visitorId) return null;
+
+  if (!localVisitorId) {
+    localStorage.setItem(VISITOR_ID_STORAGE_KEY, visitorId);
+  }
+
+  if (!cookieVisitorId) {
+    writeCookie(VISITOR_ID_COOKIE_KEY, visitorId);
+  }
+
+  return { visitorId };
+}
+
+export function getOrCreateVisitorIdentity() {
+  const existing = getVisitorIdentity();
+  if (existing?.visitorId) return existing;
+  if (!isBrowser()) return null;
+
+  const visitorId = buildVisitorId();
+  localStorage.setItem(VISITOR_ID_STORAGE_KEY, visitorId);
+  writeCookie(VISITOR_ID_COOKIE_KEY, visitorId);
+
+  return { visitorId };
 }
 
 function getGuestQuoteEntries() {
@@ -111,13 +181,43 @@ function setGuestQuoteEntries(entries) {
 export function saveGuestQuoteAccess(id, accessKey) {
   if (!isBrowser() || !id || !accessKey) return;
 
+  const visitorIdentity = getOrCreateVisitorIdentity();
+
   const current = getGuestQuoteEntries().filter((item) => item?.id !== id);
-  current.unshift({ id, accessKey, savedAt: new Date().toISOString() });
-  setGuestQuoteEntries(current.slice(0, 50));
+  current.unshift({
+    id,
+    accessKey,
+    visitorId: visitorIdentity?.visitorId || "",
+    savedAt: new Date().toISOString(),
+  });
+
+  setGuestQuoteEntries(current.slice(0, 100));
 }
 
 export function getGuestQuoteAccess(id) {
   return getGuestQuoteEntries().find((item) => item?.id === id) || null;
+}
+
+function timestampToMs(value) {
+  if (!value) return 0;
+
+  if (typeof value?.toDate === "function") {
+    const date = value.toDate();
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+  }
+
+  if (typeof value?.seconds === "number") {
+    return value.seconds * 1000;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function sortQuotesDesc(items = []) {
+  return [...items].sort(
+    (a, b) => timestampToMs(b?.createdAt) - timestampToMs(a?.createdAt)
+  );
 }
 
 export async function createQuoteRequest({ user, form, items }) {
@@ -127,7 +227,9 @@ export async function createQuoteRequest({ user, form, items }) {
     throw new Error("ITEMS_REQUIRED");
   }
 
+  const visitorIdentity = getOrCreateVisitorIdentity();
   const accessKey = buildAccessKey();
+
   const listAmount = normalizedItems.reduce(
     (sum, item) => sum + (item.lineListTotal || 0),
     0
@@ -137,6 +239,7 @@ export async function createQuoteRequest({ user, form, items }) {
     quoteNo: buildQuoteNo(),
     status: "new",
     userId: user?.uid || null,
+    visitorId: visitorIdentity?.visitorId || null,
     accessKey,
     customer: {
       fullName: normalizeText(form?.fullName || user?.fullName),
@@ -149,7 +252,9 @@ export async function createQuoteRequest({ user, form, items }) {
     customerType: user?.uid ? "registered" : "guest",
     note: normalizeText(form?.note),
     requestedTermDays: Number(form?.requestedTermDays) || null,
-    requestedDeliveryCity: normalizeText(form?.requestedDeliveryCity || form?.city),
+    requestedDeliveryCity: normalizeText(
+      form?.requestedDeliveryCity || form?.city
+    ),
     requestMeta: {
       needsSpecialPricing: true,
       source: "web_quote_form",
@@ -161,7 +266,8 @@ export async function createQuoteRequest({ user, form, items }) {
       specialAmount: null,
       specialPreparedAt: null,
       specialPreparedBy: null,
-      priceNote: "Liste fiyatı referans olarak kaydedildi. Özel fiyat daha sonra girilebilir.",
+      priceNote:
+        "Liste fiyatı referans olarak kaydedildi. Özel fiyat daha sonra girilebilir.",
     },
     currency: "KZT",
     items: normalizedItems,
@@ -177,7 +283,11 @@ export async function createQuoteRequest({ user, form, items }) {
     saveGuestQuoteAccess(ref.id, accessKey);
   }
 
-  return { id: ref.id, accessKey };
+  return {
+    id: ref.id,
+    accessKey,
+    visitorId: visitorIdentity?.visitorId || "",
+  };
 }
 
 export async function getQuoteRequestById(id) {
@@ -186,10 +296,14 @@ export async function getQuoteRequestById(id) {
   return { id: snap.id, ...snap.data() };
 }
 
-export function canViewQuote(item, { userId, accessKey } = {}) {
+export function canViewQuote(
+  item,
+  { userId, accessKey, visitorId } = {}
+) {
   if (!item) return false;
   if (userId && item.userId === userId) return true;
   if (accessKey && item.accessKey === accessKey) return true;
+  if (visitorId && item.visitorId === visitorId) return true;
   return false;
 }
 
@@ -197,15 +311,15 @@ export async function getUserQuoteRequests(userId) {
   const q = query(
     collection(db, COLLECTION_NAME),
     where("userId", "==", userId),
-    orderBy("createdAt", "desc"),
     limit(50)
   );
 
   const snap = await getDocs(q);
-  return snap.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() }));
+  const rows = snap.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() }));
+  return sortQuotesDesc(rows);
 }
 
-export async function getGuestQuoteRequests() {
+async function getLegacyGuestQuoteRequests() {
   const entries = getGuestQuoteEntries();
   if (!entries.length) return [];
 
@@ -218,13 +332,39 @@ export async function getGuestQuoteRequests() {
     })
   );
 
-  return docs
-    .filter(Boolean)
-    .sort((a, b) => {
-      const aTime = a?.createdAt?.seconds || 0;
-      const bTime = b?.createdAt?.seconds || 0;
-      return bTime - aTime;
-    });
+  return docs.filter(Boolean);
+}
+
+export async function getGuestQuoteRequests() {
+  const visitorIdentity = getOrCreateVisitorIdentity();
+  const visitorId = visitorIdentity?.visitorId || "";
+
+  let visitorRows = [];
+
+  if (visitorId) {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where("visitorId", "==", visitorId),
+      limit(50)
+    );
+
+    const snap = await getDocs(q);
+    visitorRows = snap.docs.map((docItem) => ({
+      id: docItem.id,
+      ...docItem.data(),
+    }));
+  }
+
+  const legacyRows = await getLegacyGuestQuoteRequests();
+
+  const mergedMap = new Map();
+
+  [...visitorRows, ...legacyRows].forEach((item) => {
+    if (!item?.id) return;
+    mergedMap.set(item.id, item);
+  });
+
+  return sortQuotesDesc(Array.from(mergedMap.values()));
 }
 
 export async function updateQuoteRequestStatus(id, status) {

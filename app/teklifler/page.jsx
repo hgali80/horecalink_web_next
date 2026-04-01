@@ -13,7 +13,13 @@ import {
 function formatDate(value) {
   if (!value) return "-";
 
-  const date = value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
+  const date =
+    typeof value?.toDate === "function"
+      ? value.toDate()
+      : value?.seconds
+        ? new Date(value.seconds * 1000)
+        : new Date(value);
+
   if (Number.isNaN(date.getTime())) return "-";
 
   return new Intl.DateTimeFormat("ru-RU", {
@@ -52,7 +58,7 @@ export default function QuoteHistoryPage() {
           ? await getUserQuoteRequests(user.uid)
           : await getGuestQuoteRequests();
 
-        setItems(data);
+        setItems(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
         setError("Teklif geçmişi yüklenemedi.");
@@ -86,7 +92,9 @@ export default function QuoteHistoryPage() {
               Gönderilen talepler
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Giriş yapılmışsa hesaba bağlı talepler, giriş yapılmamışsa bu cihazdan gönderilen misafir talepleri listelenir.
+              Giriş yapan kullanıcılar hesaba bağlı tekliflerini görür. Giriş
+              yapmayan ziyaretçiler ise aynı cihazdan gönderilmiş tekliflerini
+              otomatik görür.
             </p>
           </div>
 
@@ -98,8 +106,18 @@ export default function QuoteHistoryPage() {
           </Link>
         </div>
 
+        {!user ? (
+          <div className="mb-6 rounded-xl border border-[#dbe4ee] bg-white px-5 py-4 text-sm leading-6 text-slate-600 shadow-sm">
+            Bu alan, aynı tarayıcı ve aynı cihaz üzerinden gönderdiğin misafir
+            tekliflerini gösterir. Tarayıcı verisi silinirse eski kayıtlar
+            görünmeyebilir.
+          </div>
+        ) : null}
+
         {error ? (
-          <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
         ) : null}
 
         {!items.length ? (
@@ -117,9 +135,14 @@ export default function QuoteHistoryPage() {
             {items.map((item) => {
               const statusKey = item.status || "new";
               const statusLabel = QUOTE_STATUSES[statusKey]?.label || statusKey;
+
               const href = item.userId
                 ? `/teklifler/${item.id}`
-                : `/teklifler/${item.id}?access=${encodeURIComponent(item.accessKey || "")}`;
+                : item.accessKey
+                  ? `/teklifler/${item.id}?access=${encodeURIComponent(
+                      item.accessKey
+                    )}`
+                  : `/teklifler/${item.id}`;
 
               return (
                 <Link
@@ -132,9 +155,15 @@ export default function QuoteHistoryPage() {
                       <span className="text-base font-extrabold text-[#1d3246]">
                         {item.quoteNo || item.id}
                       </span>
-                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusTone[statusKey] || statusTone.new}`}>
+
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-bold ${
+                          statusTone[statusKey] || statusTone.new
+                        }`}
+                      >
                         {statusLabel}
                       </span>
+
                       {!item.userId ? (
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
                           Misafir

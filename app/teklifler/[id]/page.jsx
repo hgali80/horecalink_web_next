@@ -19,13 +19,22 @@ import { useAuth } from "../../context/AuthContext";
 import {
   canViewQuote,
   getGuestQuoteAccess,
+  getOrCreateVisitorIdentity,
   getQuoteRequestById,
   QUOTE_STATUSES,
+  saveGuestQuoteAccess,
 } from "../../services/quoteService";
 
 function formatDate(value) {
   if (!value) return "-";
-  const date = value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
+
+  const date =
+    typeof value?.toDate === "function"
+      ? value.toDate()
+      : value?.seconds
+        ? new Date(value.seconds * 1000)
+        : new Date(value);
+
   if (Number.isNaN(date.getTime())) return "-";
 
   return new Intl.DateTimeFormat("ru-RU", {
@@ -52,7 +61,6 @@ const statusTone = {
   completed: "bg-slate-100 text-slate-700",
   cancelled: "bg-red-50 text-red-700",
 
-  // eski kayıtlarla uyum için
   new: "bg-blue-50 text-blue-700",
   priced: "bg-violet-50 text-violet-700",
   answered: "bg-emerald-50 text-emerald-700",
@@ -85,9 +93,7 @@ function normalizeStatus(status) {
 
 function getStepIndex(status) {
   const normalized = normalizeStatus(status);
-  const index = progressSteps.findIndex(
-    (step) => step.key === normalized
-  );
+  const index = progressSteps.findIndex((step) => step.key === normalized);
   if (index >= 0) return index;
   return 0;
 }
@@ -102,6 +108,27 @@ export default function QuoteDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const visitorId = useMemo(() => {
+    return getOrCreateVisitorIdentity()?.visitorId || "";
+  }, []);
+
+  const accessKey = useMemo(() => {
+    const fromUrl = searchParams.get("access");
+    if (fromUrl) return fromUrl;
+
+    const localAccess = getGuestQuoteAccess(id);
+    return localAccess?.accessKey || "";
+  }, [id, searchParams]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const fromUrl = searchParams.get("access");
+    if (fromUrl) {
+      saveGuestQuoteAccess(id, fromUrl);
+    }
+  }, [id, searchParams]);
+
   useEffect(() => {
     if (!id) return;
 
@@ -109,12 +136,15 @@ export default function QuoteDetailPage() {
       try {
         setLoading(true);
         setError("");
+
         const data = await getQuoteRequestById(id);
+
         if (!data) {
           setError("Teklif bulunamadı.");
           setItem(null);
           return;
         }
+
         setItem(data);
       } catch (err) {
         console.error(err);
@@ -127,18 +157,16 @@ export default function QuoteDetailPage() {
     run();
   }, [id]);
 
-  const accessKey = useMemo(() => {
-    const fromUrl = searchParams.get("access");
-    if (fromUrl) return fromUrl;
-    const localAccess = getGuestQuoteAccess(id);
-    return localAccess?.accessKey || "";
-  }, [id, searchParams]);
-
   const isAllowed = useMemo(() => {
     if (!item) return false;
     if (user?.role === "admin") return true;
-    return canViewQuote(item, { userId: user?.uid, accessKey });
-  }, [accessKey, item, user?.role, user?.uid]);
+
+    return canViewQuote(item, {
+      userId: user?.uid,
+      accessKey,
+      visitorId,
+    });
+  }, [accessKey, item, user?.role, user?.uid, visitorId]);
 
   if (authLoading || loading) {
     return (
@@ -165,6 +193,10 @@ export default function QuoteDetailPage() {
           <p className="text-lg font-bold text-[#1d3246]">
             Bu teklif kaydını görüntüleme yetkin yok.
           </p>
+          <p className="mt-3 text-sm text-slate-600">
+            Misafir teklifleri yalnızca aynı cihazdan veya geçerli erişim
+            bağlantısıyla görüntülenebilir.
+          </p>
         </div>
       </main>
     );
@@ -181,33 +213,32 @@ export default function QuoteDetailPage() {
     <main className="min-h-screen bg-[#f8f9fb] px-4 py-8 md:px-6 lg:px-8 print:bg-white print:px-0 print:py-0">
       <div className="mx-auto max-w-7xl print:max-w-none">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-3 print:hidden">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/teklifler"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-[#1d3246]"
+            >
+              <ArrowLeft size={18} />
+              Tekliflerime Dön
+            </Link>
 
-  <div className="flex items-center gap-4">
-    <Link
-      href="/teklifler"
-      className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-[#1d3246]"
-    >
-      <ArrowLeft size={18} />
-      Tekliflerime Dön
-    </Link>
+            <Link
+              href="/"
+              className="text-sm font-semibold text-slate-500 transition hover:text-[#1d3246]"
+            >
+              Ana Sayfa
+            </Link>
+          </div>
 
-    <Link
-      href="/"
-      className="text-sm font-semibold text-slate-500 transition hover:text-[#1d3246]"
-    >
-      Ana Sayfa
-    </Link>
-  </div>
-
-  <button
-    type="button"
-    onClick={() => window.print()}
-    className="inline-flex items-center gap-2 rounded-lg bg-[#f2f4f6] px-4 py-2.5 text-sm font-bold text-[#1d3246] transition hover:bg-[#e6e8ea]"
-  >
-    <Printer size={18} />
-    Yazdır
-  </button>
-</div>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#f2f4f6] px-4 py-2.5 text-sm font-bold text-[#1d3246] transition hover:bg-[#e6e8ea]"
+          >
+            <Printer size={18} />
+            Yazdır
+          </button>
+        </div>
 
         <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
@@ -219,9 +250,15 @@ export default function QuoteDetailPage() {
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-500">
               <span>{formatDate(item.createdAt)}</span>
-              <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusTone[statusKey] || statusTone.received}`}>
+
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-bold ${
+                  statusTone[statusKey] || statusTone.received
+                }`}
+              >
                 {statusLabel}
               </span>
+
               {!item.userId ? (
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
                   Misafir talebi
@@ -233,7 +270,10 @@ export default function QuoteDetailPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <MetricCard label="Kalem" value={item.itemCount || item.items?.length || 0} />
             <MetricCard label="Toplam miktar" value={item.totalQuantity || 0} />
-            <MetricCard label="Liste toplamı" value={listAmount ? formatPrice(listAmount) : "-"} />
+            <MetricCard
+              label="Liste toplamı"
+              value={listAmount ? formatPrice(listAmount) : "-"}
+            />
           </div>
         </div>
 
@@ -242,22 +282,39 @@ export default function QuoteDetailPage() {
             <div className="absolute left-0 right-0 top-5 hidden h-1 rounded-full bg-[#e0e3e5] md:block" />
             <div
               className="absolute left-0 top-5 hidden h-1 rounded-full bg-[#1d3246] md:block"
-              style={{ width: `${(activeStepIndex / (progressSteps.length - 1)) * 100}%` }}
+              style={{
+                width: `${(activeStepIndex / (progressSteps.length - 1)) * 100}%`,
+              }}
             />
+
             {progressSteps.map((step, index) => {
               const completed = index <= activeStepIndex;
               const active = index === activeStepIndex;
 
               return (
-                <div key={step.key} className="relative z-10 flex min-w-[110px] flex-1 flex-col items-center gap-3 text-center">
+                <div
+                  key={step.key}
+                  className="relative z-10 flex min-w-[110px] flex-1 flex-col items-center gap-3 text-center"
+                >
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-extrabold ${
-                      completed ? "bg-[#1d3246] text-white" : "bg-[#e6e8ea] text-slate-500"
-                    } ${active ? "ring-4 ring-[#b3c9e2] ring-offset-4 ring-offset-[#f2f4f6]" : ""}`}
+                      completed
+                        ? "bg-[#1d3246] text-white"
+                        : "bg-[#e6e8ea] text-slate-500"
+                    } ${
+                      active
+                        ? "ring-4 ring-[#b3c9e2] ring-offset-4 ring-offset-[#f2f4f6]"
+                        : ""
+                    }`}
                   >
                     {index + 1}
                   </div>
-                  <span className={`text-[10px] font-extrabold uppercase tracking-[0.18em] ${completed ? "text-[#1d3246]" : "text-slate-400"}`}>
+
+                  <span
+                    className={`text-[10px] font-extrabold uppercase tracking-[0.18em] ${
+                      completed ? "text-[#1d3246]" : "text-slate-400"
+                    }`}
+                  >
                     {step.label}
                   </span>
                 </div>
@@ -277,7 +334,11 @@ export default function QuoteDetailPage() {
 
             <div>
               {(item.items || []).map((product, index) => {
-                const lineListTotal = product.lineListTotal || ((product.listPrice || product.price || 0) * (product.quantity || 1));
+                const lineListTotal =
+                  product.lineListTotal ||
+                  (product.listPrice || product.price || 0) *
+                    (product.quantity || 1);
+
                 return (
                   <div
                     key={`${product.productId}-${index}`}
@@ -289,22 +350,30 @@ export default function QuoteDetailPage() {
                       <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
                         {product.brand || product.sku || "Ürün"}
                       </div>
+
                       <div className="mt-1 text-base font-bold text-[#1d3246]">
                         {product.name || "Ürün"}
                       </div>
+
                       <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
                         {product.sku ? <span>SKU: {product.sku}</span> : null}
                         <span>Birim: {product.unit || "adet"}</span>
-                        {product.specialPrice ? <span>Özel fiyat tanımlandı</span> : null}
+                        {product.specialPrice ? (
+                          <span>Özel fiyat tanımlandı</span>
+                        ) : null}
                       </div>
                     </div>
 
                     <div className="text-sm font-bold text-slate-700 md:text-center">
                       {product.quantity || 0}
                     </div>
+
                     <div className="text-sm font-bold text-[#1d3246] md:text-right">
-                      {product.listPrice || product.price ? formatPrice(product.listPrice || product.price) : "-"}
+                      {product.listPrice || product.price
+                        ? formatPrice(product.listPrice || product.price)
+                        : "-"}
                     </div>
+
                     <div className="text-sm font-bold text-[#1d3246] md:text-right">
                       {lineListTotal ? formatPrice(lineListTotal) : "-"}
                     </div>
@@ -319,79 +388,102 @@ export default function QuoteDetailPage() {
               <h2 className="text-xl font-extrabold tracking-[-0.02em] text-[#1d3246]">
                 Müşteri bilgileri
               </h2>
-              <div className="mt-5 space-y-3 text-sm text-slate-700">
-                <InfoRow icon={<User size={16} />} label="Ad soyad" value={item.customer?.fullName} />
-                <InfoRow icon={<Building2 size={16} />} label="Firma" value={item.customer?.companyName} />
-                <InfoRow icon={<Phone size={16} />} label="Telefon" value={item.customer?.phone} />
-                <InfoRow icon={<Mail size={16} />} label="E-posta" value={item.customer?.email} />
-                <InfoRow icon={<MapPin size={16} />} label="Şehir" value={item.customer?.city} />
-                <InfoRow icon={<User size={16} />} label="Pozisyon" value={item.customer?.position} />
-                <InfoRow icon={<MapPin size={16} />} label="Teslim şehri" value={item.requestedDeliveryCity} />
+
+              <div className="mt-5 space-y-4 text-sm text-slate-600">
+                <InfoRow
+                  icon={<User size={16} />}
+                  label="Yetkili"
+                  value={item.customer?.fullName || "-"}
+                />
+
+                <InfoRow
+                  icon={<Building2 size={16} />}
+                  label="Firma"
+                  value={item.customer?.companyName || "-"}
+                />
+
+                <InfoRow
+                  icon={<Phone size={16} />}
+                  label="Telefon"
+                  value={item.customer?.phone || "-"}
+                />
+
+                <InfoRow
+                  icon={<Mail size={16} />}
+                  label="E-posta"
+                  value={item.customer?.email || "-"}
+                />
+
+                <InfoRow
+                  icon={<MapPin size={16} />}
+                  label="Şehir"
+                  value={item.customer?.city || item.requestedDeliveryCity || "-"}
+                />
               </div>
             </section>
 
             <section className="rounded-xl bg-white p-6 shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
               <h2 className="text-xl font-extrabold tracking-[-0.02em] text-[#1d3246]">
-                Talep özeti
+                Fiyat özeti
               </h2>
-              <div className="mt-4 rounded-xl bg-[#f2f4f6] p-4 text-sm leading-6 text-slate-700">
-                {item.note || "Not girilmemiş."}
+
+              <div className="mt-5 space-y-3 text-sm">
+                <SummaryRow
+                  label="Liste toplamı"
+                  value={listAmount ? formatPrice(listAmount) : "-"}
+                />
+                <SummaryRow
+                  label="Özel teklif toplamı"
+                  value={specialAmount ? formatPrice(specialAmount) : "-"}
+                />
+                <SummaryRow
+                  label="Para birimi"
+                  value={item.currency || item.pricing?.currency || "KZT"}
+                />
               </div>
 
-              <div className="mt-5 grid gap-3 text-sm text-slate-700">
-                <SummaryLine label="Kalem sayısı" value={item.itemCount || item.items?.length || 0} />
-                <SummaryLine label="Toplam miktar" value={item.totalQuantity || 0} />
-                <SummaryLine label="Termin talebi" value={item.requestedTermDays ? `${item.requestedTermDays} gün` : "-"} />
-                <SummaryLine label="Liste toplamı" value={listAmount ? formatPrice(listAmount) : "-"} />
-                <SummaryLine label="Özel teklif toplamı" value={specialAmount ? formatPrice(specialAmount) : "Henüz girilmedi"} />
-              </div>
-            </section>
-
-            <section className="rounded-xl bg-white p-6 shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
-              <div className="flex items-center gap-2 text-[#1d3246]">
-                <FileText size={18} />
-                <h2 className="text-xl font-extrabold tracking-[-0.02em]">Fiyatlandırma notu</h2>
-              </div>
-              <p className="mt-4 text-sm leading-6 text-slate-600">
-                {item.pricing?.priceNote || "Liste fiyatları referans olarak kaydedildi. Bu talep üzerine özel fiyat çalışılabilir."}
-              </p>
-            </section>
-          </aside>
+              {item.pricing?.priceNote ? (
+                <div className="mt-4 rounded-lg bg-[#f8f9fb] px-4 py-3 text-xs leading-5 text-slate-500">
+                  {item.pricing.priceNote}
                 </div>
+              ) : null}
+            </section>
+
+            {item.note ? (
+              <section className="rounded-xl bg-white p-6 shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
+                <h2 className="text-xl font-extrabold tracking-[-0.02em] text-[#1d3246]">
+                  Not
+                </h2>
+                <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-600">
+                  {item.note}
+                </p>
+              </section>
+            ) : null}
+
+            {!item.userId ? (
+              <section className="rounded-xl border border-[#dbe4ee] bg-white p-6 shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
+                <h2 className="text-lg font-extrabold text-[#1d3246]">
+                  Misafir erişimi aktif
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  Bu teklif, aynı cihazdan otomatik görüntülenebilir. Bağlantıda
+                  erişim anahtarı varsa bu cihazda da kayıt altına alınır.
+                </p>
+              </section>
+            ) : null}
+          </aside>
+        </div>
       </div>
-
-      {/* 🔥 ALT NAVIGATION (EKLENDİ) */}
-      <div className="mt-12 flex flex-col gap-3 md:flex-row md:justify-center print:hidden">
-        <Link
-          href="/teklifler"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1d3246] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#243f58]"
-        >
-          Teklif Taleplerime Dön
-        </Link>
-
-        <Link
-          href="/catalog"
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#cbd5e1] px-6 py-3 text-sm font-bold text-[#1d3246] transition hover:bg-slate-50"
-        >
-          Kataloğa Git
-        </Link>
-
-        <Link
-          href="/"
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#cbd5e1] px-6 py-3 text-sm font-bold text-[#1d3246] transition hover:bg-slate-50"
-        >
-          Ana Sayfaya Git
-        </Link>
-      </div>
-
-</main>
+    </main>
   );
 }
 
 function MetricCard({ label, value }) {
   return (
     <div className="rounded-lg bg-white px-4 py-4 shadow-[0_14px_28px_rgba(29,50,70,0.05)]">
-      <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-500">{label}</div>
+      <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </div>
       <div className="mt-2 text-lg font-extrabold text-[#1d3246]">{value}</div>
     </div>
   );
@@ -399,21 +491,23 @@ function MetricCard({ label, value }) {
 
 function InfoRow({ icon, label, value }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-lg bg-[#f2f4f6] px-4 py-3">
-      <div className="flex items-center gap-2 text-slate-500">
-        {icon}
-        <span>{label}</span>
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 text-slate-400">{icon}</div>
+      <div>
+        <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
+          {label}
+        </div>
+        <div className="mt-1 text-sm font-semibold text-slate-700">{value}</div>
       </div>
-      <div className="text-right font-semibold text-slate-900">{value || "-"}</div>
     </div>
   );
 }
 
-function SummaryLine({ label, value }) {
+function SummaryRow({ label, value }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span>{label}</span>
-      <strong className="text-[#1d3246]">{value}</strong>
+    <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
+      <span className="text-slate-500">{label}</span>
+      <span className="font-bold text-[#1d3246]">{value}</span>
     </div>
   );
 }
