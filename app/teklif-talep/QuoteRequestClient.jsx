@@ -1,16 +1,9 @@
-//app/teklif-talep/QuoteRequestClient.jsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  collection,
-  documentId,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { collection, documentId, getDocs, query, where } from "firebase/firestore";
 import {
   ArrowLeft,
   ChevronRight,
@@ -25,11 +18,11 @@ import {
   Send,
   Trash2,
   Truck,
-  UserRound,
   Wrench,
 } from "lucide-react";
 import { db } from "../../firebase";
 import { useAuth } from "../context/AuthContext";
+import { useLang } from "../context/LanguageContext";
 import {
   clearQuoteDraft,
   getQuoteDraft,
@@ -42,17 +35,18 @@ import {
   getUserQuoteRequests,
 } from "../services/quoteService";
 
+const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
+
 function formatPrice(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return null;
-
   return new Intl.NumberFormat("ru-RU", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(numeric);
 }
 
-function formatDate(value) {
+function formatDate(value, lang) {
   try {
     const date =
       typeof value?.toDate === "function"
@@ -63,7 +57,8 @@ function formatDate(value) {
 
     if (!date || Number.isNaN(date.getTime())) return "-";
 
-    return new Intl.DateTimeFormat("tr-TR", {
+    const localeMap = { tr: "tr-TR", ru: "ru-RU", kz: "kk-KZ", en: "en-US" };
+    return new Intl.DateTimeFormat(localeMap[lang] || "tr-TR", {
       day: "numeric",
       month: "long",
       year: "numeric",
@@ -73,29 +68,20 @@ function formatDate(value) {
   }
 }
 
-const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
-
 function buildImage(product) {
-  const imageName = Array.isArray(product?.image_names)
-    ? product.image_names[0]
-    : null;
-
+  const imageName = Array.isArray(product?.image_names) ? product.image_names[0] : null;
   if (!imageName || typeof imageName !== "string") return "";
-
   return `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/product_images%2F${encodeURIComponent(imageName)}?alt=media`;
 }
 
-function normalizeProduct(product) {
+function normalizeProduct(product, t) {
   return {
     id: product.id,
     sku: product.sku || product.barcode || product.manufacturerCode || "",
-    name: product.name_ru || product.name || product.name_tr || "Ürün",
+    name: product.name_ru || product.name || product.name_tr || t("product"),
     brand: product.brand || "",
-    unit: product.unit || "adet",
-    price:
-      typeof product.price === "number"
-        ? product.price
-        : Number(product.price) || null,
+    unit: product.unit || t("unit"),
+    price: typeof product.price === "number" ? product.price : Number(product.price) || null,
     slug: product.slug || product.seo?.canonicalSlug || product.id,
     groupKey: product.groupKey || "",
     categoryKey: product.categoryKey || "",
@@ -104,134 +90,71 @@ function normalizeProduct(product) {
   };
 }
 
-function getStatusMeta(status) {
+function getStatusMeta(status, t) {
   switch (status) {
     case "reviewing":
     case "new":
-      return {
-        label: "İncelemede",
-        progress: 20,
-        badgeClass: "bg-[#1d3246] text-white",
-      };
+      return { label: t("quoteStatus.reviewing"), progress: 20, badgeClass: "bg-[#1d3246] text-white" };
     case "priced":
     case "answered":
-      return {
-        label: "Kabul Edildi",
-        progress: 40,
-        badgeClass: "bg-[#dbeafe] text-[#1d4ed8]",
-      };
+      return { label: t("quoteStatus.answered"), progress: 40, badgeClass: "bg-[#dbeafe] text-[#1d4ed8]" };
     case "preparing":
-      return {
-        label: "Hazırlanıyor",
-        progress: 60,
-        badgeClass: "bg-[#fde7c2] text-[#8a5a00]",
-      };
+      return { label: t("quoteStatus.preparing"), progress: 60, badgeClass: "bg-[#fde7c2] text-[#8a5a00]" };
     case "shipping":
-      return {
-        label: "Yolda",
-        progress: 80,
-        badgeClass: "bg-[#dcfce7] text-[#166534]",
-      };
+      return { label: t("quoteStatus.shipping"), progress: 80, badgeClass: "bg-[#dcfce7] text-[#166534]" };
     case "delivered":
-      return {
-        label: "Teslim Edildi",
-        progress: 100,
-        badgeClass: "bg-[#dcfce7] text-[#166534]",
-      };
+      return { label: t("quoteStatus.delivered"), progress: 100, badgeClass: "bg-[#dcfce7] text-[#166534]" };
     case "cancelled":
-      return {
-        label: "İptal",
-        progress: 0,
-        badgeClass: "bg-red-100 text-red-700",
-      };
+      return { label: t("quoteStatus.cancelled"), progress: 0, badgeClass: "bg-red-100 text-red-700" };
     default:
-      return {
-        label: "İncelemede",
-        progress: 20,
-        badgeClass: "bg-[#1d3246] text-white",
-      };
+      return { label: t("quoteStatus.reviewing"), progress: 20, badgeClass: "bg-[#1d3246] text-white" };
   }
 }
 
-function QuoteHistoryCard({ item }) {
+function QuoteHistoryCard({ item, t, lang }) {
   const href = item?.userId
     ? `/teklifler/${item?.id}`
     : `/teklifler/${item?.id}?access=${encodeURIComponent(item?.accessKey || "")}`;
-  const meta = getStatusMeta(item?.status);
-  const total =
-    Number(item?.pricing?.specialAmount) ||
-    Number(item?.pricing?.listAmount) ||
-    Number(item?.totalAmount) ||
-    0;
+  const meta = getStatusMeta(item?.status, t);
+  const total = Number(item?.pricing?.specialAmount) || Number(item?.pricing?.listAmount) || Number(item?.totalAmount) || 0;
 
   return (
     <div className="rounded-2xl border border-[#e5e7eb] bg-white p-6 shadow-sm transition hover:shadow-md">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Talep No
-          </div>
-          <h3 className="mt-1 text-[28px] font-extrabold tracking-[-0.04em] text-[#1d3246]">
-            #{item?.quoteNo || item?.id}
-          </h3>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{t("quoteRequest.requestNo")}</div>
+          <h3 className="mt-1 text-[28px] font-extrabold tracking-[-0.04em] text-[#1d3246]">#{item?.quoteNo || item?.id}</h3>
         </div>
 
         <div className="text-right">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Tarih
-          </div>
-          <p className="mt-1 text-sm font-medium text-slate-700">
-            {formatDate(item?.createdAt)}
-          </p>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{t("quoteHistory.date")}</div>
+          <p className="mt-1 text-sm font-medium text-slate-700">{formatDate(item?.createdAt, lang)}</p>
         </div>
       </div>
 
       <div className="mb-7">
         <div className="mb-2 flex items-end justify-between gap-4">
-          <span className="text-sm font-bold text-[#1d3246]">
-            Toplam Tutar: ₸{formatPrice(total || 0)}
-          </span>
-
-          <span
-            className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-bold ${meta.badgeClass}`}
-          >
-            {meta.label}
-          </span>
+          <span className="text-sm font-bold text-[#1d3246]">{t("quoteRequest.totalAmount")}: T{formatPrice(total || 0)}</span>
+          <span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-bold ${meta.badgeClass}`}>{meta.label}</span>
         </div>
 
         <div className="mt-4">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#e5e7eb]">
-            <div
-              className="h-full rounded-full bg-[#1d3246] transition-all duration-500"
-              style={{ width: `${meta.progress}%` }}
-            />
+            <div className="h-full rounded-full bg-[#1d3246] transition-all duration-500" style={{ width: `${meta.progress}%` }} />
           </div>
 
           <div className="mt-3 grid grid-cols-5 text-[9px] font-bold uppercase tracking-[0.08em] text-slate-400">
-            <span className={meta.progress >= 20 ? "text-[#1d3246]" : ""}>
-              İncelemede
-            </span>
-            <span className={meta.progress >= 40 ? "text-[#1d3246]" : ""}>
-              Kabul Edildi
-            </span>
-            <span className={meta.progress >= 60 ? "text-[#1d3246]" : ""}>
-              Hazırlanıyor
-            </span>
-            <span className={meta.progress >= 80 ? "text-[#1d3246]" : ""}>
-              Yolda
-            </span>
-            <span className={meta.progress >= 100 ? "text-[#1d3246]" : ""}>
-              Teslim
-            </span>
+            <span className={meta.progress >= 20 ? "text-[#1d3246]" : ""}>{t("quoteStatus.reviewing")}</span>
+            <span className={meta.progress >= 40 ? "text-[#1d3246]" : ""}>{t("quoteStatus.answered")}</span>
+            <span className={meta.progress >= 60 ? "text-[#1d3246]" : ""}>{t("quoteStatus.preparing")}</span>
+            <span className={meta.progress >= 80 ? "text-[#1d3246]" : ""}>{t("quoteStatus.shipping")}</span>
+            <span className={meta.progress >= 100 ? "text-[#1d3246]" : ""}>{t("quoteStatus.deliveredShort")}</span>
           </div>
         </div>
       </div>
 
-      <Link
-        href={href}
-        className="inline-flex w-full items-center justify-center rounded-xl border border-[#cbd5e1] px-4 py-3 text-[12px] font-extrabold uppercase tracking-[0.14em] text-[#1d3246] transition hover:bg-slate-50"
-      >
-        Detayları Görüntüle
+      <Link href={href} className="inline-flex w-full items-center justify-center rounded-xl border border-[#cbd5e1] px-4 py-3 text-[12px] font-extrabold uppercase tracking-[0.14em] text-[#1d3246] transition hover:bg-slate-50">
+        {t("quoteHistory.openDetail")}
       </Link>
     </div>
   );
@@ -241,6 +164,7 @@ export default function QuoteRequestClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+  const { lang, t } = useLang();
 
   const productId = searchParams.get("product") || searchParams.get("productId");
   const qtyParam = searchParams.get("qty");
@@ -251,7 +175,6 @@ export default function QuoteRequestClient() {
   const [error, setError] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyItems, setHistoryItems] = useState([]);
-
   const [form, setForm] = useState({
     companyName: "",
     fullName: "",
@@ -264,7 +187,6 @@ export default function QuoteRequestClient() {
 
   useEffect(() => {
     if (!user) return;
-
     setForm((prev) => ({
       ...prev,
       fullName: prev.fullName || user.fullName || "",
@@ -282,18 +204,12 @@ export default function QuoteRequestClient() {
     if (productId) {
       const existing = currentDraft.find((item) => item.productId === productId);
       const nextDraft = existing
-        ? currentDraft.map((item) =>
-            item.productId === productId
-              ? { ...item, quantity: Math.max(1, qty) }
-              : item
-          )
+        ? currentDraft.map((item) => (item.productId === productId ? { ...item, quantity: Math.max(1, qty) } : item))
         : [...currentDraft, { productId, quantity: Math.max(1, qty) }];
-
       saveQuoteDraft(nextDraft);
     }
 
     const draft = getQuoteDraft();
-
     if (!draft.length) {
       setItems([]);
       setLoading(false);
@@ -304,56 +220,41 @@ export default function QuoteRequestClient() {
       try {
         setLoading(true);
         setError("");
-
         const ids = draft.map((item) => item.productId);
         const chunks = [];
-        for (let i = 0; i < ids.length; i += 10) {
-          chunks.push(ids.slice(i, i + 10));
-        }
+        for (let i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10));
 
         const docs = [];
         for (const chunk of chunks) {
-          const snap = await getDocs(
-            query(collection(db, "products"), where(documentId(), "in", chunk))
-          );
-          snap.docs.forEach((docItem) =>
-            docs.push({ id: docItem.id, ...docItem.data() })
-          );
+          const snap = await getDocs(query(collection(db, "products"), where(documentId(), "in", chunk)));
+          snap.docs.forEach((docItem) => docs.push({ id: docItem.id, ...docItem.data() }));
         }
 
         const mapped = draft
           .map((draftItem) => {
-            const product = docs.find(
-              (docItem) => docItem.id === draftItem.productId
-            );
+            const product = docs.find((docItem) => docItem.id === draftItem.productId);
             if (!product) return null;
-
-            return {
-              ...normalizeProduct(product),
-              quantity: Number(draftItem.quantity) || 1,
-            };
+            return { ...normalizeProduct(product, t), quantity: Number(draftItem.quantity) || 1 };
           })
           .filter(Boolean);
 
         setItems(mapped);
       } catch (err) {
         console.error(err);
-        setError("Ürünler yüklenemedi.");
+        setError(t("quoteRequest.loadItemsError"));
       } finally {
         setLoading(false);
       }
     };
 
     fetchProducts();
-  }, [productId, qtyParam]);
+  }, [productId, qtyParam, t]);
 
   useEffect(() => {
     const run = async () => {
       try {
         setHistoryLoading(true);
-        const rows = user?.uid
-          ? await getUserQuoteRequests(user.uid)
-          : await getGuestQuoteRequests();
+        const rows = user?.uid ? await getUserQuoteRequests(user.uid) : await getGuestQuoteRequests();
         setHistoryItems(Array.isArray(rows) ? rows.slice(0, 6) : []);
       } catch (err) {
         console.error(err);
@@ -361,46 +262,30 @@ export default function QuoteRequestClient() {
         setHistoryLoading(false);
       }
     };
-
     run();
   }, [user?.uid]);
 
-  const summary = useMemo(() => {
-    const totalAmount = items.reduce((sum, item) => {
-      if (typeof item.price !== "number") return sum;
-      return sum + item.price * item.quantity;
-    }, 0);
-
-    return {
-      lineCount: items.length,
-      totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
-      totalAmount,
-    };
-  }, [items]);
+  const summary = useMemo(() => ({
+    lineCount: items.length,
+    totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+    totalAmount: items.reduce((sum, item) => (typeof item.price !== "number" ? sum : sum + item.price * item.quantity), 0),
+  }), [items]);
 
   const updateQuantity = (productId, quantity) => {
     const parsed = Math.max(1, Number(quantity) || 1);
-
-    const next = items.map((item) =>
-      item.id === productId ? { ...item, quantity: parsed } : item
-    );
-
+    const next = items.map((item) => (item.id === productId ? { ...item, quantity: parsed } : item));
     setItems(next);
-    saveQuoteDraft(
-      next.map((item) => ({ productId: item.id, quantity: item.quantity }))
-    );
+    saveQuoteDraft(next.map((item) => ({ productId: item.id, quantity: item.quantity })));
   };
 
   const incrementQty = (productId) => {
     const found = items.find((item) => item.id === productId);
-    if (!found) return;
-    updateQuantity(productId, found.quantity + 1);
+    if (found) updateQuantity(productId, found.quantity + 1);
   };
 
   const decrementQty = (productId) => {
     const found = items.find((item) => item.id === productId);
-    if (!found) return;
-    updateQuantity(productId, Math.max(1, found.quantity - 1));
+    if (found) updateQuantity(productId, Math.max(1, found.quantity - 1));
   };
 
   const deleteItem = (productId) => {
@@ -415,38 +300,17 @@ export default function QuoteRequestClient() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-
-    if (!items.length) {
-      setError("Teklif için en az bir ürün olmalı.");
-      return;
-    }
-
-    if (!form.fullName.trim()) {
-      setError("Yetkili kişi zorunlu.");
-      return;
-    }
-
-    if (!form.phone.trim()) {
-      setError("Telefon zorunlu.");
-      return;
-    }
-
-    if (!form.address.trim()) {
-      setError("Adres zorunlu.");
-      return;
-    }
+    if (!items.length) return setError(t("quoteRequest.validation.noItems"));
+    if (!form.fullName.trim()) return setError(t("quoteRequest.validation.fullName"));
+    if (!form.phone.trim()) return setError(t("quoteRequest.validation.phone"));
+    if (!form.address.trim()) return setError(t("quoteRequest.validation.address"));
 
     try {
       setSubmitting(true);
       setError("");
-
       const noteParts = [];
-      if (form.address.trim()) {
-        noteParts.push(`Adres: ${form.address.trim()}`);
-      }
-      if (form.note.trim()) {
-        noteParts.push(`Not: ${form.note.trim()}`);
-      }
+      if (form.address.trim()) noteParts.push(`${t("quoteRequest.addressLabel")}: ${form.address.trim()}`);
+      if (form.note.trim()) noteParts.push(`${t("quoteRequest.noteLabel")}: ${form.note.trim()}`);
 
       const quoteResult = await createQuoteRequest({
         user,
@@ -469,18 +333,14 @@ export default function QuoteRequestClient() {
       router.push(detailHref);
     } catch (err) {
       console.error(err);
-      setError("Teklif talebi oluşturulamadı.");
+      setError(t("quoteRequest.submitError"));
     } finally {
       setSubmitting(false);
     }
   };
 
   if (authLoading) {
-    return (
-      <div className="flex min-h-[70vh] items-center justify-center bg-[#f8f9fb]">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
-      </div>
-    );
+    return <div className="flex min-h-[70vh] items-center justify-center bg-[#f8f9fb]"><Loader2 className="h-6 w-6 animate-spin text-slate-500" /></div>;
   }
 
   return (
@@ -488,50 +348,31 @@ export default function QuoteRequestClient() {
       <div className="mx-auto max-w-[1440px]">
         <header className="mb-10">
           <nav className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            <Link href="/" className="transition hover:text-[#1d3246]">
-              Ana Sayfa
-            </Link>
+            <Link href="/" className="transition hover:text-[#1d3246]">{t("breadcrumb.home")}</Link>
             <ChevronRight className="h-4 w-4" />
-            <span className="text-[#1d3246]">Teklif Sepeti</span>
+            <span className="text-[#1d3246]">{t("quoteRequest.breadcrumb")}</span>
           </nav>
 
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-[38px] font-extrabold tracking-[-0.05em] text-[#1d3246] md:text-[48px]">
-                Teklif Talebi Oluştur
-              </h1>
-
-              <p className="mt-3 max-w-3xl text-[15px] leading-7 text-slate-500">
-                Endüstriyel mutfak projeniz için seçtiğiniz ürünleri inceleyin ve
-                firmanız için özel fiyatlandırma talep edin.
-              </p>
+              <h1 className="text-[38px] font-extrabold tracking-[-0.05em] text-[#1d3246] md:text-[48px]">{t("quoteRequest.title")}</h1>
+              <p className="mt-3 max-w-3xl text-[15px] leading-7 text-slate-500">{t("quoteRequest.subtitle")}</p>
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Link
-                href="/catalog"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#cbd5e1] bg-white px-5 py-3 text-sm font-bold text-[#1d3246] shadow-sm transition hover:bg-slate-50"
-              >
+              <Link href="/catalog" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#cbd5e1] bg-white px-5 py-3 text-sm font-bold text-[#1d3246] shadow-sm transition hover:bg-slate-50">
                 <ArrowLeft className="h-4 w-4" />
-                Kataloğa Dön
+                {t("quoteRequest.backToCatalog")}
               </Link>
-
-              <Link
-                href="/catalog"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1d3246] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#243f58]"
-              >
+              <Link href="/catalog" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1d3246] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#243f58]">
                 <FilePlus2 className="h-4 w-4" />
-                Ürün Ekle
+                {t("quoteRequest.addProduct")}
               </Link>
             </div>
           </div>
         </header>
 
-        {error ? (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">
-            {error}
-          </div>
-        ) : null}
+        {error ? <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">{error}</div> : null}
 
         <div className="flex flex-col gap-8 lg:flex-row">
           <section className="lg:w-[68%]">
@@ -540,58 +381,29 @@ export default function QuoteRequestClient() {
                 <table className="w-full min-w-[860px] border-collapse">
                   <thead>
                     <tr className="bg-[#f2f4f6] text-left">
-                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                        Ürün Detayı
-                      </th>
-                      <th className="px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                        Birim
-                      </th>
-                      <th className="px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                        Birim Fiyat
-                      </th>
-                      <th className="px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                        Miktar
-                      </th>
-                      <th className="px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                        Toplam
-                      </th>
-                      <th className="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                        İşlem
-                      </th>
+                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{t("quoteRequest.table.product")}</th>
+                      <th className="px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{t("quoteRequest.table.unit")}</th>
+                      <th className="px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{t("quoteRequest.table.unitPrice")}</th>
+                      <th className="px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{t("quoteRequest.table.quantity")}</th>
+                      <th className="px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{t("quoteRequest.table.total")}</th>
+                      <th className="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{t("quoteRequest.table.action")}</th>
                     </tr>
                   </thead>
 
                   <tbody className="divide-y divide-[#eef1f4]">
                     {loading ? (
-                      <tr>
-                        <td colSpan={6} className="px-6 py-16 text-center">
-                          <div className="flex items-center justify-center">
-                            <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
-                          </div>
-                        </td>
-                      </tr>
+                      <tr><td colSpan={6} className="px-6 py-16 text-center"><div className="flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-slate-500" /></div></td></tr>
                     ) : !items.length ? (
                       <tr>
                         <td colSpan={6} className="px-6 py-16 text-center">
                           <div className="mx-auto max-w-md">
-                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                              <Package2 className="h-8 w-8 text-slate-400" />
-                            </div>
-                            <h3 className="text-lg font-bold text-[#1d3246]">
-                              Teklif listesi boş
-                            </h3>
-                            <p className="mt-2 text-sm text-slate-500">
-                              Ürün kartlarından teklif listesine ürün ekleyip bu
-                              sayfaya geri dön.
-                            </p>
-
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100"><Package2 className="h-8 w-8 text-slate-400" /></div>
+                            <h3 className="text-lg font-bold text-[#1d3246]">{t("quoteRequest.emptyTitle")}</h3>
+                            <p className="mt-2 text-sm text-slate-500">{t("quoteRequest.emptyText")}</p>
                             <div className="mt-6">
-                              <Link
-                                href="/catalog"
-                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1d3246] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#243f58]"
-                              >
+                              <Link href="/catalog" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1d3246] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#243f58]">
                                 <FilePlus2 className="h-4 w-4" />
-                                Katalogdan Ürün Ekle
+                                {t("quoteRequest.addFromCatalog")}
                               </Link>
                             </div>
                           </div>
@@ -600,128 +412,42 @@ export default function QuoteRequestClient() {
                     ) : (
                       <>
                         {items.map((item) => {
-                          const lineTotal =
-                            typeof item.price === "number"
-                              ? item.price * item.quantity
-                              : 0;
-
+                          const lineTotal = typeof item.price === "number" ? item.price * item.quantity : 0;
                           return (
-                            <tr
-                              key={item.id}
-                              className="transition hover:bg-[#fafbfc]"
-                            >
+                            <tr key={item.id} className="transition hover:bg-[#fafbfc]">
                               <td className="px-6 py-6">
                                 <div className="flex items-center gap-4">
-                                  <Link
-                                    href={`/products/${item.slug || item.id}`}
-                                    className="block h-20 w-20 overflow-hidden rounded-xl bg-[#f2f4f6] transition hover:opacity-90"
-                                  >
+                                  <Link href={`/products/${item.slug || item.id}`} className="block h-20 w-20 overflow-hidden rounded-xl bg-[#f2f4f6] transition hover:opacity-90">
                                     {item.image ? (
-                                      <img
-                                        src={item.image}
-                                        alt={item.name}
-                                        className="h-full w-full object-cover"
-                                        onError={(event) => {
-                                          event.currentTarget.style.display =
-                                            "none";
-                                        }}
-                                      />
+                                      <img src={item.image} alt={item.name} className="h-full w-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />
                                     ) : (
-                                      <div className="flex h-full w-full items-center justify-center text-gray-400 text-xs">
-                                        no image
-                                      </div>
+                                      <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">{t("productDetail.noImage")}</div>
                                     )}
                                   </Link>
-
                                   <div className="min-w-0">
-                                    <Link
-                                      href={`/products/${item.slug || item.id}`}
-                                      className="block max-w-[320px] text-[16px] font-bold leading-6 text-[#1d3246] transition hover:text-[#34577a]"
-                                    >
-                                      {item.name}
-                                    </Link>
-
-                                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                                      Kod: {item.sku || item.id}
-                                    </p>
-
+                                    <Link href={`/products/${item.slug || item.id}`} className="block max-w-[320px] text-[16px] font-bold leading-6 text-[#1d3246] transition hover:text-[#34577a]">{item.name}</Link>
+                                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{t("productDetail.stockCode")}: {item.sku || item.id}</p>
                                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                                      {item.brand ? (
-                                        <span className="inline-flex rounded-md bg-[#f4e5c8] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#8a5a00]">
-                                          {item.brand}
-                                        </span>
-                                      ) : null}
-
-                                      <Link
-                                        href={`/products/${item.slug || item.id}`}
-                                        className="inline-flex items-center text-[11px] font-bold uppercase tracking-[0.1em] text-[#1d3246] transition hover:text-[#34577a]"
-                                      >
-                                        Ürünü İncele
-                                      </Link>
+                                      {item.brand ? <span className="inline-flex rounded-md bg-[#f4e5c8] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#8a5a00]">{item.brand}</span> : null}
+                                      <Link href={`/products/${item.slug || item.id}`} className="inline-flex items-center text-[11px] font-bold uppercase tracking-[0.1em] text-[#1d3246] transition hover:text-[#34577a]">{t("quoteRequest.reviewProduct")}</Link>
                                     </div>
                                   </div>
                                 </div>
                               </td>
-
-                              <td className="px-4 py-6 text-center text-sm font-medium text-slate-700">
-                                {item.unit || "Adet"}
-                              </td>
-
-                              <td className="px-4 py-6 text-center text-sm font-bold text-[#1d3246]">
-                                {typeof item.price === "number"
-                                  ? `₸${formatPrice(item.price)}`
-                                  : "-"}
-                              </td>
-
+                              <td className="px-4 py-6 text-center text-sm font-medium text-slate-700">{item.unit || t("unit")}</td>
+                              <td className="px-4 py-6 text-center text-sm font-bold text-[#1d3246]">{typeof item.price === "number" ? `T${formatPrice(item.price)}` : "-"}</td>
                               <td className="px-4 py-6">
                                 <div className="flex items-center justify-center">
                                   <div className="flex items-center rounded-xl bg-[#eef1f4] p-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => decrementQty(item.id)}
-                                      className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-700 transition hover:bg-white"
-                                    >
-                                      <Minus className="h-4 w-4" />
-                                    </button>
-
-                                    <input
-                                      type="number"
-                                      min="1"
-                                      value={item.quantity}
-                                      onChange={(event) =>
-                                        updateQuantity(
-                                          item.id,
-                                          event.target.value
-                                        )
-                                      }
-                                      className="h-9 w-12 border-0 bg-transparent p-0 text-center text-sm font-bold text-slate-900 outline-none ring-0"
-                                    />
-
-                                    <button
-                                      type="button"
-                                      onClick={() => incrementQty(item.id)}
-                                      className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-700 transition hover:bg-white"
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </button>
+                                    <button type="button" onClick={() => decrementQty(item.id)} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-700 transition hover:bg-white"><Minus className="h-4 w-4" /></button>
+                                    <input type="number" min="1" value={item.quantity} onChange={(event) => updateQuantity(item.id, event.target.value)} className="h-9 w-12 border-0 bg-transparent p-0 text-center text-sm font-bold text-slate-900 outline-none ring-0" />
+                                    <button type="button" onClick={() => incrementQty(item.id)} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-700 transition hover:bg-white"><Plus className="h-4 w-4" /></button>
                                   </div>
                                 </div>
                               </td>
-
-                              <td className="px-4 py-6 text-center text-sm font-bold text-[#1d3246]">
-                                {typeof item.price === "number"
-                                  ? `₸${formatPrice(lineTotal)}`
-                                  : "-"}
-                              </td>
-
+                              <td className="px-4 py-6 text-center text-sm font-bold text-[#1d3246]">{typeof item.price === "number" ? `T${formatPrice(lineTotal)}` : "-"}</td>
                               <td className="px-6 py-6 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() => deleteItem(item.id)}
-                                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-50 hover:text-red-600"
-                                >
-                                  <Trash2 className="h-5 w-5" />
-                                </button>
+                                <button type="button" onClick={() => deleteItem(item.id)} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-50 hover:text-red-600"><Trash2 className="h-5 w-5" /></button>
                               </td>
                             </tr>
                           );
@@ -729,29 +455,15 @@ export default function QuoteRequestClient() {
 
                         <tr className="bg-[#fbfcfd]">
                           <td colSpan={6} className="px-6 py-6">
-                            <Link
-                              href="/catalog"
-                              className="group flex min-h-[112px] items-center justify-between rounded-2xl border border-dashed border-[#cbd5e1] bg-white px-6 py-5 transition hover:border-[#1d3246] hover:bg-slate-50"
-                            >
+                            <Link href="/catalog" className="group flex min-h-[112px] items-center justify-between rounded-2xl border border-dashed border-[#cbd5e1] bg-white px-6 py-5 transition hover:border-[#1d3246] hover:bg-slate-50">
                               <div className="flex items-center gap-4">
-                                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#eef1f4] text-[#1d3246] transition group-hover:bg-[#1d3246] group-hover:text-white">
-                                  <FilePlus2 className="h-8 w-8" />
-                                </div>
-
+                                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#eef1f4] text-[#1d3246] transition group-hover:bg-[#1d3246] group-hover:text-white"><FilePlus2 className="h-8 w-8" /></div>
                                 <div>
-                                  <div className="text-base font-extrabold tracking-[-0.02em] text-[#1d3246]">
-                                    Ürün Ekle
-                                  </div>
-                                  <p className="mt-1 text-sm text-slate-500">
-                                    Kataloğa dönerek teklifinize yeni ürünler
-                                    ekleyin.
-                                  </p>
+                                  <div className="text-base font-extrabold tracking-[-0.02em] text-[#1d3246]">{t("quoteRequest.addProduct")}</div>
+                                  <p className="mt-1 text-sm text-slate-500">{t("quoteRequest.addProductText")}</p>
                                 </div>
                               </div>
-
-                              <div className="text-sm font-bold text-[#1d3246]">
-                                Kataloğa Git
-                              </div>
+                              <div className="text-sm font-bold text-[#1d3246]">{t("quoteRequest.goCatalog")}</div>
                             </Link>
                           </td>
                         </tr>
@@ -766,32 +478,17 @@ export default function QuoteRequestClient() {
               <div className="relative overflow-hidden rounded-2xl bg-[#34495e] p-6 text-white">
                 <div className="relative z-10">
                   <Wrench className="mb-4 h-7 w-7 opacity-70" />
-                  <h3 className="text-xl font-bold">Özel Projelendirme</h3>
-                  <p className="mt-3 max-w-md text-sm leading-7 text-white/80">
-                    Sepetinizdeki ürünler için ücretsiz 3D projelendirme
-                    hizmetimizden yararlanabilirsiniz. Satış temsilciniz sizinle
-                    iletişime geçecektir.
-                  </p>
+                  <h3 className="text-xl font-bold">{t("quoteRequest.projectTitle")}</h3>
+                  <p className="mt-3 max-w-md text-sm leading-7 text-white/80">{t("quoteRequest.projectText")}</p>
                 </div>
-
-                <div className="pointer-events-none absolute -bottom-6 -right-4 text-white/10">
-                  <Wrench className="h-28 w-28" />
-                </div>
+                <div className="pointer-events-none absolute -bottom-6 -right-4 text-white/10"><Wrench className="h-28 w-28" /></div>
               </div>
 
               <div className="flex items-center gap-4 rounded-2xl border border-[#e5e7eb] bg-[#eef1f4] p-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
-                  <Truck className="h-5 w-5 text-[#1d3246]" />
-                </div>
-
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm"><Truck className="h-5 w-5 text-[#1d3246]" /></div>
                 <div>
-                  <h3 className="text-lg font-bold text-[#1d3246]">
-                    Hızlı Teslimat
-                  </h3>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">
-                    Stoklu ürünler için 48 saat içinde kargolama garantisi
-                    sunuyoruz.
-                  </p>
+                  <h3 className="text-lg font-bold text-[#1d3246]">{t("quoteRequest.deliveryTitle")}</h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">{t("quoteRequest.deliveryText")}</p>
                 </div>
               </div>
             </div>
@@ -801,131 +498,50 @@ export default function QuoteRequestClient() {
             <div className="rounded-2xl border border-[#e5e7eb] bg-white p-6 shadow-sm">
               <div className="mb-6 flex items-center gap-2">
                 <ContactRound className="h-5 w-5 text-[#1d3246]" />
-                <h2 className="text-[28px] font-bold tracking-[-0.04em] text-[#1d3246]">
-                  İletişim Bilgileri
-                </h2>
+                <h2 className="text-[28px] font-bold tracking-[-0.04em] text-[#1d3246]">{t("quoteRequest.contactInfo")}</h2>
               </div>
 
               <form className="space-y-4" onSubmit={handleSubmit}>
-                <FormField
-                  label="Firma Adı (İsteğe bağlı)"
-                  name="companyName"
-                  value={form.companyName}
-                  onChange={handleChange}
-                  placeholder="Firma adını giriniz..."
-                />
-
-                <FormField
-                  label="Yetkili Kişi (Zorunlu)"
-                  name="fullName"
-                  value={form.fullName}
-                  onChange={handleChange}
-                  placeholder="Ad soyad"
-                  required
-                />
-
-                <FormField
-                  label="E-posta (İsteğe bağlı)"
-                  name="email"
-                  type="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  placeholder="ornek@firma.com"
-                />
-
-                <FormField
-                  label="Telefon (Zorunlu)"
-                  name="phone"
-                  value={form.phone}
-                  onChange={handleChange}
-                  placeholder="+7 ..."
-                  required
-                />
-
-                <FormField
-                  label="Şehir (İsteğe bağlı)"
-                  name="city"
-                  value={form.city}
-                  onChange={handleChange}
-                  placeholder="Almatı"
-                />
-
-                <FormTextarea
-                  label="Adres (Zorunlu)"
-                  name="address"
-                  value={form.address}
-                  onChange={handleChange}
-                  placeholder="Teslimat adresi giriniz..."
-                  rows={4}
-                  required
-                />
-
-                <FormTextarea
-                  label="Ek Notlar (İsteğe bağlı)"
-                  name="note"
-                  value={form.note}
-                  onChange={handleChange}
-                  placeholder="Marka tercihi, proje detayı, ödeme planı, teslim beklentisi..."
-                  rows={4}
-                />
+                <FormField label={t("quoteRequest.form.companyName")} name="companyName" value={form.companyName} onChange={handleChange} placeholder={t("quoteRequest.form.companyPlaceholder")} />
+                <FormField label={t("quoteRequest.form.fullName")} name="fullName" value={form.fullName} onChange={handleChange} placeholder={t("quoteRequest.form.fullNamePlaceholder")} required />
+                <FormField label={t("quoteRequest.form.email")} name="email" type="email" value={form.email} onChange={handleChange} placeholder="ornek@firma.com" />
+                <FormField label={t("quoteRequest.form.phone")} name="phone" value={form.phone} onChange={handleChange} placeholder="+7 ..." required />
+                <FormField label={t("quoteRequest.form.city")} name="city" value={form.city} onChange={handleChange} placeholder="Almaty" />
+                <FormTextarea label={t("quoteRequest.form.address")} name="address" value={form.address} onChange={handleChange} placeholder={t("quoteRequest.form.addressPlaceholder")} rows={4} required />
+                <FormTextarea label={t("quoteRequest.form.note")} name="note" value={form.note} onChange={handleChange} placeholder={t("quoteRequest.form.notePlaceholder")} rows={4} />
 
                 <div className="rounded-2xl bg-[#eef1f4] p-6 shadow-sm">
-                  <h3 className="mb-6 text-[13px] font-extrabold uppercase tracking-[0.18em] text-[#1d3246]">
-                    Talep Özeti
-                  </h3>
+                  <h3 className="mb-6 text-[13px] font-extrabold uppercase tracking-[0.18em] text-[#1d3246]">{t("quoteRequest.summaryTitle")}</h3>
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">Toplam Ürün Adedi</span>
-                      <span className="font-bold text-[#1d3246]">
-                        {summary.totalQuantity} Ürün
-                      </span>
+                      <span className="text-slate-500">{t("quoteRequest.summaryItems")}</span>
+                      <span className="font-bold text-[#1d3246]">{summary.totalQuantity} {t("common.product")}</span>
                     </div>
 
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">
-                        Tahmini Toplam (KDV Dahil)
-                      </span>
-                      <span className="font-bold text-[#1d3246]">
-                        ₸{formatPrice(summary.totalAmount || 0)}
-                      </span>
+                      <span className="text-slate-500">{t("quoteRequest.summaryEstimated")}</span>
+                      <span className="font-bold text-[#1d3246]">T{formatPrice(summary.totalAmount || 0)}</span>
                     </div>
 
                     <div className="h-px bg-slate-300/70" />
 
                     <div className="flex items-baseline justify-between gap-4">
-                      <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#1d3246]">
-                        Teklif Tutarı
-                      </span>
-                      <span className="text-[12px] italic text-slate-500">
-                        Müşteri temsilcisi belirleyecektir
-                      </span>
+                      <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#1d3246]">{t("quoteRequest.quoteAmount")}</span>
+                      <span className="text-[12px] italic text-slate-500">{t("quoteRequest.quoteAmountNote")}</span>
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={submitting || !items.length}
-                    className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#1d3246] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#243f58] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <span>
-                      {submitting
-                        ? "Teklif Gönderiliyor..."
-                        : "Teklif Talebi Gönder"}
-                    </span>
+                  <button type="submit" disabled={submitting || !items.length} className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#1d3246] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#243f58] disabled:cursor-not-allowed disabled:opacity-50">
+                    <span>{submitting ? t("quoteRequest.submitting") : t("quoteRequest.submit")}</span>
                     <Send className="h-4 w-4" />
                   </button>
 
                   <p className="mt-4 px-4 text-center text-[10px] leading-5 text-slate-500">
-                    Talep göndererek{" "}
-                    <Link href="/privacy" className="underline">
-                      Kullanım Koşulları
-                    </Link>{" "}
-                    ve{" "}
-                    <Link href="/privacy" className="underline">
-                      Gizlilik Politikamızı
-                    </Link>{" "}
-                    kabul etmiş olursunuz.
+                    {t("quoteRequest.acceptText")}{" "}
+                    <Link href="/privacy" className="underline">{t("quoteRequest.terms")}</Link>{" "}
+                    {t("quoteRequest.and")}{" "}
+                    <Link href="/privacy" className="underline">{t("quoteRequest.privacy")}</Link>.
                   </p>
                 </div>
               </form>
@@ -936,30 +552,20 @@ export default function QuoteRequestClient() {
         <section className="mt-20">
           <div className="mb-8 flex items-center gap-3">
             <History className="h-7 w-7 text-[#1d3246]" />
-            <h2 className="text-[34px] font-extrabold tracking-[-0.04em] text-[#1d3246]">
-              Geçmiş Teklif Talepleri
-            </h2>
+            <h2 className="text-[34px] font-extrabold tracking-[-0.04em] text-[#1d3246]">{t("quoteRequest.historyTitle")}</h2>
           </div>
 
           {historyLoading ? (
-            <div className="flex min-h-[180px] items-center justify-center rounded-2xl bg-white">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
-            </div>
+            <div className="flex min-h-[180px] items-center justify-center rounded-2xl bg-white"><Loader2 className="h-6 w-6 animate-spin text-slate-500" /></div>
           ) : historyItems.length ? (
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              {historyItems.map((item) => (
-                <QuoteHistoryCard key={item.id} item={item} />
-              ))}
+              {historyItems.map((item) => <QuoteHistoryCard key={item.id} item={item} t={t} lang={lang} />)}
             </div>
           ) : (
             <div className="rounded-2xl border border-[#e5e7eb] bg-white p-8 text-center">
               <FileText className="mx-auto h-10 w-10 text-slate-400" />
-              <h3 className="mt-4 text-lg font-bold text-[#1d3246]">
-                Henüz teklif talebi yok
-              </h3>
-              <p className="mt-2 text-sm text-slate-500">
-                Bu cihazdan gönderdiğin veya hesabına bağlı teklif talepleri burada görünecek.
-              </p>
+              <h3 className="mt-4 text-lg font-bold text-[#1d3246]">{t("quoteRequest.noHistoryTitle")}</h3>
+              <p className="mt-2 text-sm text-slate-500">{t("quoteRequest.noHistoryText")}</p>
             </div>
           )}
         </section>
@@ -971,14 +577,8 @@ export default function QuoteRequestClient() {
 function FormField({ label, required, className = "", ...props }) {
   return (
     <label className="block">
-      <span className="mb-2 ml-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-        {label}
-      </span>
-      <input
-        {...props}
-        required={required}
-        className={`w-full rounded-xl border-0 bg-[#f2f4f6] px-4 py-3 text-sm text-slate-900 outline-none ring-1 ring-transparent transition placeholder:text-slate-400 focus:bg-white focus:ring-[#cbd5e1] ${className}`}
-      />
+      <span className="mb-2 ml-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</span>
+      <input {...props} required={required} className={`w-full rounded-xl border-0 bg-[#f2f4f6] px-4 py-3 text-sm text-slate-900 outline-none ring-1 ring-transparent transition placeholder:text-slate-400 focus:bg-white focus:ring-[#cbd5e1] ${className}`} />
     </label>
   );
 }
@@ -986,14 +586,8 @@ function FormField({ label, required, className = "", ...props }) {
 function FormTextarea({ label, required, className = "", ...props }) {
   return (
     <label className="block">
-      <span className="mb-2 ml-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-        {label}
-      </span>
-      <textarea
-        {...props}
-        required={required}
-        className={`w-full resize-none rounded-xl border-0 bg-[#f2f4f6] px-4 py-3 text-sm text-slate-900 outline-none ring-1 ring-transparent transition placeholder:text-slate-400 focus:bg-white focus:ring-[#cbd5e1] ${className}`}
-      />
+      <span className="mb-2 ml-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</span>
+      <textarea {...props} required={required} className={`w-full resize-none rounded-xl border-0 bg-[#f2f4f6] px-4 py-3 text-sm text-slate-900 outline-none ring-1 ring-transparent transition placeholder:text-slate-400 focus:bg-white focus:ring-[#cbd5e1] ${className}`} />
     </label>
   );
 }

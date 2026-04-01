@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { Package2, PlayCircle } from "lucide-react";
+import { useLang } from "../context/LanguageContext";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
 
@@ -16,12 +17,11 @@ function getImageUrl(imageName) {
 }
 
 export default function ProductGallery({ product }) {
-  const images = useMemo(() => {
-    return Array.isArray(product?.image_names)
-      ? product.image_names.filter(Boolean)
-      : [];
-  }, [product]);
-
+  const { t } = useLang();
+  const images = useMemo(
+    () => (Array.isArray(product?.image_names) ? product.image_names.filter(Boolean) : []),
+    [product]
+  );
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const selectedImage = images[selectedIndex] || "";
@@ -43,7 +43,7 @@ export default function ProductGallery({ product }) {
             <div className="flex h-full items-center justify-center bg-[#f2f4f6]">
               <div className="flex flex-col items-center gap-3 text-slate-400">
                 <Package2 className="h-12 w-12" strokeWidth={1.75} />
-                <span className="text-sm font-medium">Фото отсутствует</span>
+                <span className="text-sm font-medium">{t("productDetail.noImage")}</span>
               </div>
             </div>
           )}
@@ -61,10 +61,9 @@ export default function ProductGallery({ product }) {
               type="button"
               onClick={() => setSelectedIndex(index)}
               className={`aspect-square overflow-hidden rounded-lg transition ${
-                active
-                  ? "border-2 border-[#34495E] bg-white"
-                  : "bg-white hover:opacity-80"
+                active ? "border-2 border-[#34495E] bg-white" : "bg-white hover:opacity-80"
               }`}
+              aria-label={t("productDetail.openImage", { index: index + 1 })}
             >
               <div className="relative h-full w-full">
                 {imageUrl ? (

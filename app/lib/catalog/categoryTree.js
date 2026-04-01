@@ -6,7 +6,14 @@ function sortByLabel(a, b) {
   return String(a.label || "").localeCompare(String(b.label || ""), "tr");
 }
 
-export function buildCatalogTree() {
+function translateLabel(t, key, fallback) {
+  if (!t || !key) return fallback;
+
+  const translated = t(key);
+  return translated === key ? fallback : translated;
+}
+
+export function buildCatalogTree(t) {
   const groups = {};
 
   Object.entries(categoryMap).forEach(([subcategoryKey, item]) => {
@@ -16,7 +23,7 @@ export function buildCatalogTree() {
     if (!groups[groupKey]) {
       groups[groupKey] = {
         key: groupKey,
-        label: item.groupLabel,
+        label: translateLabel(t, `category.group.${groupKey}`, item.groupLabel),
         categories: {},
       };
     }
@@ -24,14 +31,14 @@ export function buildCatalogTree() {
     if (!groups[groupKey].categories[categoryKey]) {
       groups[groupKey].categories[categoryKey] = {
         key: categoryKey,
-        label: item.categoryLabel,
+        label: translateLabel(t, `category.main.${categoryKey}`, item.categoryLabel),
         subcategories: [],
       };
     }
 
     groups[groupKey].categories[categoryKey].subcategories.push({
       key: subcategoryKey,
-      label: item.subLabel,
+      label: translateLabel(t, `categories.sub.${subcategoryKey}`, item.subLabel),
     });
   });
 

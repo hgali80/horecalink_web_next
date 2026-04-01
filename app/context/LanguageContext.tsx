@@ -2,71 +2,101 @@
 
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
-import tr from "../locales/tr.json";
-import ru from "../locales/ru.json";
-import kz from "../locales/kz.json";
-import en from "../locales/en.json";
+import {
+  defaultLanguage,
+  isSupportedLanguage,
+  languageStorageKey,
+  translate,
+} from "../lib/language";
 
 type Language = "tr" | "ru" | "kz" | "en";
-
-type Dict = Record<string, any>;
-
-const translations: Record<Language, Dict> = {
-  tr,
-  ru,
-  kz,
-  en,
-};
 
 type LanguageContextType = {
   lang: Language;
   setLang: (lang: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 };
 
 const LanguageContext = createContext<LanguageContextType | null>(null);
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Language>("tr");
+function readStoredLanguage(): Language {
+  if (typeof window === "undefined") {
+    return defaultLanguage;
+  }
 
-  // 🔹 İlk yüklemede localStorage
+  try {
+    const saved = window.localStorage.getItem(languageStorageKey);
+    if (saved && isSupportedLanguage(saved)) {
+      return saved as Language;
+    }
+  } catch {}
+
+  return defaultLanguage;
+}
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Language>(() => readStoredLanguage());
+
   useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = lang;
+    }
+
     try {
-      const saved = localStorage.getItem("hl_lang") as Language | null;
-      if (saved && translations[saved]) {
-        setLangState(saved);
-      }
+      window.localStorage.setItem(languageStorageKey, lang);
     } catch {}
+  }, [lang]);
+
+  useEffect(() => {
+    function handleStorage(event: StorageEvent) {
+      if (event.key !== languageStorageKey) return;
+
+      if (event.newValue && isSupportedLanguage(event.newValue)) {
+        setLangState(event.newValue as Language);
+        return;
+      }
+
+      setLangState(defaultLanguage);
+    }
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  const setLang = (l: Language) => {
-    setLangState(l);
-    try {
-      localStorage.setItem("hl_lang", l);
-    } catch {}
-  };
+  const setLang = useCallback((nextLang: Language) => {
+    if (!isSupportedLanguage(nextLang)) {
+      return;
+    }
 
-  const dict = translations[lang];
+    setLangState(nextLang);
+  }, []);
 
-  const t = (key: string): string => {
-    // flat
-    if (dict[key]) return dict[key];
-
-    // nested
-    const nested = key
-      .split(".")
-      .reduce((acc: any, k) => (acc ? acc[k] : null), dict);
-
-    return nested ?? key;
-  };
-
-  return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
-      {children}
-    </LanguageContext.Provider>
+  const t = useCallback(
+    (key: string, params?: Record<string, string | number>) =>
+      translate(lang, key, params),
+    [lang]
   );
+
+  const value = useMemo(
+    () => ({
+      lang,
+      setLang,
+      t,
+    }),
+    [lang, setLang, t]
+  );
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 
 export function useLang() {

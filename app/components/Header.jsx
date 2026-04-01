@@ -3,33 +3,32 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Flag, Info, Mail, Menu, Phone, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import UserMenu from "./UserMenu";
 import { useLang } from "../context/LanguageContext";
-
-const LANGS = [
-  { code: "tr", label: "🇹🇷 Türkçe" },
-  { code: "ru", label: "🇷🇺 Русский" },
-  { code: "kz", label: "🇰🇿 Қазақша" },
-  { code: "en", label: "🇬🇧 English" },
-];
-
-const NAV_ITEMS = [
-  { href: "/catalog", label: "Ürünler" },
-  { href: "/teklifler", label: "Teklifler" },
-  { href: "/contact", label: "İletişim" },
-  { href: "/about", label: "Hakkımızda", icon: Info },
-];
+import { languageOptions } from "../lib/language";
 
 export default function Header() {
   const { t, lang, setLang } = useLang();
   const [langOpen, setLangOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const navItems = useMemo(
+    () => [
+      { href: "/catalog", label: t("header.menu.products") },
+      { href: "/teklifler", label: t("header.menu.quotes") },
+      { href: "/contact", label: t("header.menu.contact") },
+      { href: "/about", label: t("header.menu.about"), icon: Info },
+    ],
+    [t]
+  );
+
   useEffect(() => {
     if (!mobileOpen) return;
+
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
     return () => {
       document.body.style.overflow = previous;
     };
@@ -59,7 +58,7 @@ export default function Header() {
         <Link href="/" className="flex min-w-0 items-center py-2">
           <Image
             src="/horecalink_logoapp.png"
-            alt={t("header.alt.logo") || "Horecalink"}
+            alt={t("header.alt.logo")}
             width={320}
             height={80}
             className="h-10 w-auto object-contain sm:h-11"
@@ -68,8 +67,8 @@ export default function Header() {
         </Link>
 
         <div className="hidden min-w-0 flex-1 items-center justify-end gap-3 md:flex lg:gap-5">
-          <nav className="flex items-center gap-1 lg:gap-2 text-sm font-semibold text-gray-700">
-            {NAV_ITEMS.map((item) => {
+          <nav className="flex items-center gap-1 text-sm font-semibold text-gray-700 lg:gap-2">
+            {navItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
@@ -89,7 +88,7 @@ export default function Header() {
               type="button"
               onClick={() => setLangOpen((prev) => !prev)}
               className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold uppercase text-gray-700 transition hover:bg-gray-200"
-              aria-label={t("header.languageSelect") || "Dil"}
+              aria-label={t("header.languageSelect")}
             >
               <Flag size={16} />
               <span>{lang?.toUpperCase?.() || "TR"}</span>
@@ -97,7 +96,7 @@ export default function Header() {
 
             {langOpen && (
               <div className="absolute right-0 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-                {LANGS.map((item) => (
+                {languageOptions.map((item) => (
                   <button
                     key={item.code}
                     type="button"
@@ -123,7 +122,7 @@ export default function Header() {
           type="button"
           className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-slate-100 md:hidden"
           onClick={() => setMobileOpen(true)}
-          aria-label="Menu"
+          aria-label={t("header.menu.openMenu")}
         >
           <Menu size={22} />
         </button>
@@ -135,7 +134,7 @@ export default function Header() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <Image
                 src="/horecalink_logoapp.png"
-                alt="Horecalink"
+                alt={t("header.alt.logo")}
                 width={220}
                 height={56}
                 className="h-9 w-auto object-contain"
@@ -144,6 +143,7 @@ export default function Header() {
                 type="button"
                 onClick={closeMobileMenu}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-700"
+                aria-label={t("header.menu.closeMenu")}
               >
                 <X size={20} />
               </button>
@@ -161,7 +161,7 @@ export default function Header() {
             </div>
 
             <nav className="mt-6 flex flex-col gap-2 border-t border-slate-100 pt-5 text-base font-semibold text-slate-700">
-              {NAV_ITEMS.map((item) => {
+              {navItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <Link
@@ -179,11 +179,11 @@ export default function Header() {
 
             <div className="mt-6 border-t border-slate-100 pt-5">
               <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                {t("header.languageSelect") || "Dil"}
+                {t("header.languageSelect")}
               </p>
 
               <div className="grid grid-cols-2 gap-2">
-                {LANGS.map((item) => (
+                {languageOptions.map((item) => (
                   <button
                     key={item.code}
                     type="button"

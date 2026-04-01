@@ -2,16 +2,15 @@
 "use client";
 
 import { Phone, Mail, MapPin } from "lucide-react";
-import { useEffect, useState } from "react";
-import { getT } from "../lib/i18n";
+import { useState } from "react";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { app } from "../../firebase";
+import { useLang } from "../context/LanguageContext";
 
-const SUPPORTED = ["tr", "ru", "kz", "en"];
 const MAX_MESSAGE_LENGTH = 500;
 
 export default function ContactPage() {
-  const [lang, setLang] = useState("tr");
+  const { lang, t } = useLang();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -22,14 +21,6 @@ export default function ContactPage() {
     message: "",
   });
 
-  useEffect(() => {
-    const saved = localStorage.getItem("hl_lang");
-    if (saved && SUPPORTED.includes(saved)) {
-      setLang(saved);
-    }
-  }, []);
-
-  const t = getT(lang);
   const db = getFirestore(app);
 
   const handleChange = (e) => {
@@ -37,7 +28,7 @@ export default function ContactPage() {
 
     if (name === "message" && value.length > MAX_MESSAGE_LENGTH) return;
 
-    setForm({ ...form, [name]: value });
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -57,7 +48,7 @@ export default function ContactPage() {
       setForm({ name: "", email: "", phone: "", message: "" });
     } catch (err) {
       console.error("Contact form error:", err);
-      alert("Mesaj gönderilirken hata oluştu.");
+      alert(t("contact.form.error"));
     } finally {
       setLoading(false);
     }
@@ -65,28 +56,24 @@ export default function ContactPage() {
 
   return (
     <main className="min-h-screen bg-[#F8F9FA] text-gray-900">
-      {/* HEADER */}
-      <section className="bg-white border-b">
-        <div className="max-w-6xl mx-auto px-6 py-12">
-          <h1 className="text-3xl font-bold mb-2">
-            {t("contact.title")}
-          </h1>
-          <p className="text-gray-600">
-            {t("contact.subtitle")}
-          </p>
+      <section className="border-b bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-12">
+          <h1 className="mb-2 text-3xl font-bold">{t("contact.title")}</h1>
+          <p className="text-gray-600">{t("contact.subtitle")}</p>
         </div>
       </section>
 
-      {/* CONTENT */}
-      <section className="max-w-6xl mx-auto px-6 py-16 grid md:grid-cols-2 gap-12">
-        {/* SOL */}
+      <section className="mx-auto grid max-w-6xl gap-12 px-6 py-16 md:grid-cols-2">
         <div className="space-y-6">
           <div className="flex items-start space-x-3">
-            <MapPin className="text-blue-600 mt-1" />
-            <p className="text-gray-700 leading-relaxed">
-              <strong>ТОО «Viroo Trade»</strong><br />
-              г. Алматы, индекс 050050<br />
-              Жетысуский район,<br />
+            <MapPin className="mt-1 text-blue-600" />
+            <p className="leading-relaxed text-gray-700">
+              <strong>ТОО «Viroo Trade»</strong>
+              <br />
+              г. Алматы, индекс 050050
+              <br />
+              Жетысуский район,
+              <br />
               ул. Черноморская дом 12
             </p>
           </div>
@@ -102,11 +89,8 @@ export default function ContactPage() {
           </div>
         </div>
 
-        {/* SAĞ – FORM */}
-        <div className="bg-white rounded-xl shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">
-            {t("contact.form.title")}
-          </h2>
+        <div className="rounded-xl bg-white p-6 shadow">
+          <h2 className="mb-4 text-xl font-semibold">{t("contact.form.title")}</h2>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <input
@@ -115,7 +99,7 @@ export default function ContactPage() {
               onChange={handleChange}
               required
               placeholder={t("contact.form.name")}
-              className="w-full border rounded-lg px-4 py-2"
+              className="w-full rounded-lg border px-4 py-2"
             />
 
             <input
@@ -125,7 +109,7 @@ export default function ContactPage() {
               onChange={handleChange}
               required
               placeholder={t("contact.form.email")}
-              className="w-full border rounded-lg px-4 py-2"
+              className="w-full rounded-lg border px-4 py-2"
             />
 
             <input
@@ -135,7 +119,7 @@ export default function ContactPage() {
               onChange={handleChange}
               required
               placeholder={t("contact.form.phone")}
-              className="w-full border rounded-lg px-4 py-2"
+              className="w-full rounded-lg border px-4 py-2"
             />
 
             <textarea
@@ -145,21 +129,19 @@ export default function ContactPage() {
               required
               rows={5}
               placeholder={`${t("contact.form.message")} (${form.message.length}/${MAX_MESSAGE_LENGTH})`}
-              className="w-full border rounded-lg px-4 py-2"
+              className="w-full rounded-lg border px-4 py-2"
             />
 
             <button
               disabled={loading}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+              className="rounded-lg bg-blue-600 px-6 py-2 text-white transition hover:bg-blue-700"
             >
               {loading ? t("contact.form.sending") : t("contact.form.submit")}
             </button>
 
-            {success && (
-              <p className="text-green-600 text-sm">
-                {t("contact.form.success")}
-              </p>
-            )}
+            {success ? (
+              <p className="text-sm text-green-600">{t("contact.form.success")}</p>
+            ) : null}
           </form>
         </div>
       </section>

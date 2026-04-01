@@ -4,14 +4,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, FileText, Package2 } from "lucide-react";
+import { useLang } from "../context/LanguageContext";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
 
 function cleanText(value) {
   if (value === null || value === undefined) return "";
   const text = String(value).trim();
-  if (!text) return "";
-  if (text.toLowerCase() === "null") return "";
+  if (!text || text.toLowerCase() === "null") return "";
   return text;
 }
 
@@ -36,7 +36,7 @@ function getProductName(product) {
     cleanText(product?.name) ||
     cleanText(product?.name_ru) ||
     cleanText(product?.name_tr) ||
-    "Товар"
+    "Product"
   );
 }
 
@@ -62,9 +62,7 @@ function getBrand(product) {
 }
 
 function getImageUrl(product) {
-  const imageName = Array.isArray(product?.image_names)
-    ? product.image_names[0]
-    : "";
+  const imageName = Array.isArray(product?.image_names) ? product.image_names[0] : "";
   if (!imageName) return null;
 
   return `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/product_images%2F${encodeURIComponent(
@@ -73,6 +71,8 @@ function getImageUrl(product) {
 }
 
 export default function ProductCard({ product }) {
+  const { t } = useLang();
+
   const href = getProductHref(product);
   const title = getProductName(product);
   const description = getProductDescription(product);
@@ -80,7 +80,7 @@ export default function ProductCard({ product }) {
   const brand = getBrand(product);
   const imageUrl = getImageUrl(product);
   const formattedPrice = formatPrice(product?.price);
-  const unit = cleanText(product?.unit) || "шт";
+  const unit = cleanText(product?.unit) || t("productDetail.unit");
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_14px_30px_rgba(29,50,70,0.05)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(29,50,70,0.08)]">
@@ -104,7 +104,7 @@ export default function ProductCard({ product }) {
             <div className="flex h-full items-center justify-center">
               <div className="flex flex-col items-center gap-2 text-slate-400">
                 <Package2 className="h-10 w-10" strokeWidth={1.75} />
-                <span className="text-sm font-medium">Фото отсутствует</span>
+                <span className="text-sm font-medium">{t("productDetail.noImage")}</span>
               </div>
             </div>
           )}
@@ -113,7 +113,7 @@ export default function ProductCard({ product }) {
 
       <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
         <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-          Код: {code || "-"}
+          {t("productDetail.stockCode")}: {code || "-"}
         </div>
 
         <h3 className="line-clamp-2 min-h-[58px] text-[16px] font-semibold leading-[1.08] tracking-[-0.035em] text-[#12263a]">
@@ -131,17 +131,13 @@ export default function ProductCard({ product }) {
         <div className="mt-6">
           {formattedPrice ? (
             <div className="flex items-end gap-1 text-[#12263a]">
-              <span className="text-[18px] font-extrabold tracking-[-0.03em]">
-                {formattedPrice}
-              </span>
-              <span className="pb-[2px] text-[13px] font-bold">₸</span>
-              <span className="pb-[2px] text-[12px] text-slate-500">
-                / {unit}
-              </span>
+              <span className="text-[18px] font-extrabold tracking-[-0.03em]">{formattedPrice}</span>
+              <span className="pb-[2px] text-[13px] font-bold">T</span>
+              <span className="pb-[2px] text-[12px] text-slate-500">/ {unit}</span>
             </div>
           ) : (
             <div className="text-[14px] font-semibold text-slate-500">
-              Цена по запросу
+              Price on request
             </div>
           )}
         </div>
@@ -151,7 +147,7 @@ export default function ProductCard({ product }) {
             href={href}
             className="inline-flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.14em] text-[#1d3246] transition hover:text-[#34495e]"
           >
-            Подробнее
+            {t("productDetail.tabs.description")}
             <ArrowUpRight className="h-4 w-4" />
           </Link>
 
@@ -160,7 +156,7 @@ export default function ProductCard({ product }) {
             className="inline-flex items-center gap-2 rounded-full bg-[#1d3246] px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-white transition hover:bg-[#243f58]"
           >
             <FileText className="h-4 w-4" />
-            Запросить КП
+            {t("header.menu.createQuote")}
           </Link>
         </div>
       </div>

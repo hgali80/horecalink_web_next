@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, FileText, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useLang } from "../context/LanguageContext";
 import {
   getGuestQuoteRequests,
   getUserQuoteRequests,
   QUOTE_STATUSES,
 } from "../services/quoteService";
 
-function formatDate(value) {
+function formatDate(value, lang) {
   if (!value) return "-";
 
   const date =
@@ -22,7 +23,14 @@ function formatDate(value) {
 
   if (Number.isNaN(date.getTime())) return "-";
 
-  return new Intl.DateTimeFormat("ru-RU", {
+  const localeMap = {
+    tr: "tr-TR",
+    ru: "ru-RU",
+    kz: "kk-KZ",
+    en: "en-US",
+  };
+
+  return new Intl.DateTimeFormat(localeMap[lang] || "tr-TR", {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -44,6 +52,7 @@ const statusTone = {
 
 export default function QuoteHistoryPage() {
   const { user, loading: authLoading } = useAuth();
+  const { lang, t } = useLang();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -61,7 +70,7 @@ export default function QuoteHistoryPage() {
         setItems(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
-        setError("Teklif geçmişi yüklenemedi.");
+        setError(t("quoteHistory.error"));
       } finally {
         setLoading(false);
       }
@@ -70,7 +79,7 @@ export default function QuoteHistoryPage() {
     if (!authLoading) {
       run();
     }
-  }, [authLoading, user?.uid]);
+  }, [authLoading, t, user?.uid]);
 
   if (authLoading || loading) {
     return (
@@ -86,15 +95,13 @@ export default function QuoteHistoryPage() {
         <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
-              Teklif geçmişi
+              {t("quoteHistory.eyebrow")}
             </p>
             <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.03em] text-[#1d3246] md:text-4xl">
-              Gönderilen talepler
+              {t("quoteHistory.title")}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Giriş yapan kullanıcılar hesaba bağlı tekliflerini görür. Giriş
-              yapmayan ziyaretçiler ise aynı cihazdan gönderilmiş tekliflerini
-              otomatik görür.
+              {t("quoteHistory.description")}
             </p>
           </div>
 
@@ -102,15 +109,13 @@ export default function QuoteHistoryPage() {
             href="/teklif-talep"
             className="inline-flex rounded-lg bg-gradient-to-r from-[#1d3246] to-[#34495e] px-5 py-3 text-sm font-extrabold uppercase tracking-[0.12em] text-white"
           >
-            Yeni teklif oluştur
+            {t("quoteHistory.createNew")}
           </Link>
         </div>
 
         {!user ? (
           <div className="mb-6 rounded-xl border border-[#dbe4ee] bg-white px-5 py-4 text-sm leading-6 text-slate-600 shadow-sm">
-            Bu alan, aynı tarayıcı ve aynı cihaz üzerinden gönderdiğin misafir
-            tekliflerini gösterir. Tarayıcı verisi silinirse eski kayıtlar
-            görünmeyebilir.
+            {t("quoteHistory.guestInfo")}
           </div>
         ) : null}
 
@@ -124,11 +129,9 @@ export default function QuoteHistoryPage() {
           <div className="rounded-xl bg-white p-10 text-center shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
             <FileText className="mx-auto text-slate-300" size={40} />
             <h2 className="mt-4 text-2xl font-extrabold tracking-[-0.02em] text-[#1d3246]">
-              Henüz teklif talebi yok
+              {t("quoteHistory.emptyTitle")}
             </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Ürün detayından veya teklif sayfasından yeni talep oluştur.
-            </p>
+            <p className="mt-2 text-sm text-slate-600">{t("quoteHistory.emptyText")}</p>
           </div>
         ) : (
           <div className="grid gap-4">
@@ -139,9 +142,7 @@ export default function QuoteHistoryPage() {
               const href = item.userId
                 ? `/teklifler/${item.id}`
                 : item.accessKey
-                  ? `/teklifler/${item.id}?access=${encodeURIComponent(
-                      item.accessKey
-                    )}`
+                  ? `/teklifler/${item.id}?access=${encodeURIComponent(item.accessKey)}`
                   : `/teklifler/${item.id}`;
 
               return (
@@ -156,31 +157,27 @@ export default function QuoteHistoryPage() {
                         {item.quoteNo || item.id}
                       </span>
 
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          statusTone[statusKey] || statusTone.new
-                        }`}
-                      >
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusTone[statusKey] || statusTone.new}`}>
                         {statusLabel}
                       </span>
 
                       {!item.userId ? (
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                          Misafir
+                          {t("quoteHistory.guestBadge")}
                         </span>
                       ) : null}
                     </div>
 
                     <div className="mt-4 grid gap-2 text-sm text-slate-600 md:grid-cols-4">
-                      <span>Firma: {item.customer?.companyName || "-"}</span>
-                      <span>Kalem: {item.itemCount || item.items?.length || 0}</span>
-                      <span>Miktar: {item.totalQuantity || 0}</span>
-                      <span>Tarih: {formatDate(item.createdAt)}</span>
+                      <span>{t("quoteHistory.company")}: {item.customer?.companyName || "-"}</span>
+                      <span>{t("quoteHistory.items")}: {item.itemCount || item.items?.length || 0}</span>
+                      <span>{t("quoteHistory.quantity")}: {item.totalQuantity || 0}</span>
+                      <span>{t("quoteHistory.date")}: {formatDate(item.createdAt, lang)}</span>
                     </div>
                   </div>
 
                   <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1d3246]">
-                    Detayı aç
+                    {t("quoteHistory.openDetail")}
                     <ArrowRight size={18} />
                   </span>
                 </Link>

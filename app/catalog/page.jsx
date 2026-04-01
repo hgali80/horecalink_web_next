@@ -1,48 +1,50 @@
+"use client";
+
 import Link from "next/link";
-import { ChevronRight, Building2, BriefcaseBusiness, ChefHat } from "lucide-react";
+import { BriefcaseBusiness, Building2, ChefHat, ChevronRight } from "lucide-react";
+import { useLang } from "../context/LanguageContext";
 
 const groups = [
   {
     key: "institutional",
-    title: "Kurumsal",
-    description: "Hijyen, sarf ve işletme ihtiyaçları için kurumsal ürün grubu.",
+    description: "catalog.groupCards.institutional",
     href: "/catalog/institutional",
     icon: Building2,
   },
   {
     key: "equipment",
-    title: "Yatırım",
-    description: "Profesyonel mutfak ekipmanları ve proje odaklı yatırım ürünleri.",
+    description: "catalog.groupCards.equipment",
     href: "/catalog/equipment",
     icon: BriefcaseBusiness,
   },
   {
     key: "stainless",
-    title: "Paslanmaz",
-    description: "Paslanmaz üretim, servis hatları ve endüstriyel mutfak çözümleri.",
+    description: "catalog.groupCards.stainless",
     href: "/catalog/stainless",
     icon: ChefHat,
   },
 ];
 
 export default function CatalogLandingPage() {
+  const { t } = useLang();
+
   return (
     <main className="min-h-screen bg-[#f8f9fb] px-4 pb-16 pt-10 md:px-6 lg:px-8">
       <div className="mx-auto max-w-[1440px]">
         <nav className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
           <Link href="/" className="transition hover:text-[#1d3246]">
-            Ana Sayfa
+            {t("breadcrumb.home")}
           </Link>
           <ChevronRight className="h-4 w-4" />
-          <span className="text-[#1d3246]">Katalog</span>
+          <span className="text-[#1d3246]">{t("breadcrumb.categories")}</span>
         </nav>
 
         <header className="mb-10">
           <h1 className="text-[38px] font-extrabold tracking-[-0.05em] text-[#1d3246] md:text-[48px]">
-            Katalog
+            {t("breadcrumb.categories")}
           </h1>
           <p className="mt-3 max-w-3xl text-[15px] leading-7 text-slate-500">
-            Ürün grubunu seçerek yeni katalog yapısında kategori ve ürünlere geçiş yapın.
+            {t("catalog.groupIntro") || "Urun grubunu secerek kategori ve urunlere gecis yapin."}
           </p>
         </header>
 
@@ -59,13 +61,11 @@ export default function CatalogLandingPage() {
                   <Icon className="h-7 w-7" />
                 </div>
                 <h2 className="text-2xl font-extrabold tracking-[-0.03em] text-[#1d3246]">
-                  {group.title}
+                  {t(`category.group.${group.key}`)}
                 </h2>
-                <p className="mt-3 text-sm leading-6 text-slate-500">
-                  {group.description}
-                </p>
+                <p className="mt-3 text-sm leading-6 text-slate-500">{t(group.description)}</p>
                 <div className="mt-6 text-sm font-bold uppercase tracking-[0.14em] text-[#1d3246]">
-                  Kataloğu Aç
+                  {t("catalog.openCatalog") || "Open catalog"}
                 </div>
               </Link>
             );

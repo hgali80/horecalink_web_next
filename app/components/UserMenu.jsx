@@ -1,13 +1,21 @@
 "use client";
+"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LayoutDashboard, LogIn, LogOut, PackageSearch, ReceiptText } from "lucide-react";
+import {
+  LayoutDashboard,
+  LogOut,
+  PackageSearch,
+  ReceiptText,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useLang } from "../context/LanguageContext";
 
 export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { t } = useLang();
 
   const baseLinkClass = mobile
     ? "inline-flex w-full items-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
@@ -33,45 +41,29 @@ export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
 
   return (
     <div className={wrapperClass}>
-      <Link
-        href="/teklifler"
-        onClick={onNavigate}
-        className={baseLinkClass}
-      >
+      <Link href="/teklifler" onClick={onNavigate} className={baseLinkClass}>
         <ReceiptText size={18} />
-        Tekliflerim
+        {t("header.menu.quotes")}
       </Link>
 
-      <Link
-        href="/teklif-talep"
-        onClick={onNavigate}
-        className={primaryLinkClass}
-      >
+      <Link href="/teklif-talep" onClick={onNavigate} className={primaryLinkClass}>
         <PackageSearch size={18} />
-        Teklif Oluştur
+        {t("header.menu.createQuote")}
       </Link>
 
       {user?.role === "admin" ? (
-        <Link
-          href="/satissitok/admin"
-          onClick={onNavigate}
-          className={baseLinkClass}
-        >
+        <Link href="/satissitok/admin" onClick={onNavigate} className={baseLinkClass}>
           <LayoutDashboard size={18} />
-          Yönetim Paneli
+          {t("header.menu.adminPanel")}
         </Link>
       ) : null}
 
-      {user && (
-  <button
-    type="button"
-    onClick={handleLogout}
-    className={dangerButtonClass}
-  >
-    <LogOut size={18} />
-    Çıkış Yap
-  </button>
-)}
+      {user ? (
+        <button type="button" onClick={handleLogout} className={dangerButtonClass}>
+          <LogOut size={18} />
+          {t("header.menu.logout")}
+        </button>
+      ) : null}
     </div>
   );
 }

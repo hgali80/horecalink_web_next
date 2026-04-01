@@ -1,81 +1,70 @@
 // app/products/page.jsx
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import React, { useEffect, useState, Suspense } from "react";
-import ProductList from "../components/ProductList";
-
-import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
+import React, { Suspense, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+
+import ProductList from "../components/ProductList";
+import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LanguageContext";
 
 function ProductsContent() {
   const searchParams = useSearchParams();
   const { t } = useLang();
+  const { user } = useAuth();
 
   const subCategory = searchParams.get("sub");
   const group = searchParams.get("group");
   const main = searchParams.get("main");
   const q = searchParams.get("q") || "";
 
-  const { user } = useAuth();
-  const [pageTitle, setPageTitle] = useState("");
-
-  useEffect(() => {
+  const pageTitle = useMemo(() => {
     if (subCategory) {
-      setPageTitle(t(`categories.sub.${subCategory}`));
-      return;
+      return t(`categories.sub.${subCategory}`);
     }
 
     if (main) {
-      const prefix = t("products.allPrefix") || "Tüm";
-      setPageTitle(`${prefix} ${t(`category.main.${main}`)}`);
-      return;
+      return `${t("products.allPrefix")} ${t(`category.main.${main}`)}`;
     }
 
-    setPageTitle(t("products.allProducts"));
-  }, [subCategory, group, main, t]);
+    return t("products.allProducts");
+  }, [main, subCategory, t]);
 
   return (
-    <main className="min-h-screen bg-gray-50 px-6 sm:px-10 md:px-24 lg:px-48 xl:px-64 2xl:px-[20rem] py-10">
-      <nav className="text-sm text-gray-500 mb-6">
-        <Link href="/" className="hover:underline hover:text-indigo-600">
+    <main className="min-h-screen bg-gray-50 px-6 py-10 sm:px-10 md:px-24 lg:px-48 xl:px-64 2xl:px-[20rem]">
+      <nav className="mb-6 text-sm text-gray-500">
+        <Link href="/" className="hover:text-indigo-600 hover:underline">
           {t("breadcrumb.home")}
         </Link>
         {" / "}
 
         {subCategory ? (
           <>
-            <Link href="/catalog" className="hover:underline hover:text-indigo-600">
+            <Link href="/catalog" className="hover:text-indigo-600 hover:underline">
               {t("breadcrumb.categories")}
             </Link>
             {" / "}
-            <span className="text-gray-700 font-medium">
-              {t(`categories.sub.${subCategory}`)}
-            </span>
+            <span className="font-medium text-gray-700">{t(`categories.sub.${subCategory}`)}</span>
           </>
         ) : main ? (
-          <span className="text-gray-700 font-medium">
-            {t(`category.main.${main}`)}
-          </span>
+          <span className="font-medium text-gray-700">{t(`category.main.${main}`)}</span>
         ) : (
-          <span className="text-gray-700 font-medium">
-            {t("products.allProducts")}
-          </span>
+          <span className="font-medium text-gray-700">{t("products.allProducts")}</span>
         )}
       </nav>
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">{pageTitle}</h1>
 
         <div className="flex items-center gap-3 text-sm text-gray-600">
           <span>{t("products.sort.label")}:</span>
           <select
-            className="border rounded-md px-2 py-1 focus:ring-indigo-400 focus:outline-none"
+            className="rounded-md border px-2 py-1 focus:outline-none focus:ring-indigo-400"
             defaultValue="default"
-            onChange={(e) => {
+            onChange={(event) => {
               const sortEvent = new CustomEvent("sortProducts", {
-                detail: e.target.value,
+                detail: event.target.value,
               });
               window.dispatchEvent(sortEvent);
             }}
@@ -103,10 +92,10 @@ export default function ProductsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex min-h-screen items-center justify-center bg-gray-50">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Yükleniyor...</p>
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600" />
+            <p className="text-gray-600">Yukleniyor...</p>
           </div>
         </div>
       }

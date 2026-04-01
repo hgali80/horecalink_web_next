@@ -8,14 +8,21 @@ function prettifyKey(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function getCatalogLabels({ group, category, subcategory }) {
+function translateLabel(t, key, fallback) {
+  if (!t || !key) return fallback;
+
+  const translated = t(key);
+  return translated === key ? fallback : translated;
+}
+
+export function getCatalogLabels({ group, category, subcategory, t }) {
   if (subcategory && categoryMap[subcategory]) {
     const item = categoryMap[subcategory];
 
     return {
-      groupLabel: item.groupLabel,
-      categoryLabel: item.categoryLabel,
-      subcategoryLabel: item.subLabel,
+      groupLabel: translateLabel(t, `category.group.${item.groupKey}`, item.groupLabel),
+      categoryLabel: translateLabel(t, `category.main.${item.categoryKey}`, item.categoryLabel),
+      subcategoryLabel: translateLabel(t, `categories.sub.${subcategory}`, item.subLabel),
     };
   }
 
@@ -25,18 +32,20 @@ export function getCatalogLabels({ group, category, subcategory }) {
     );
 
     return {
-      groupLabel: firstMatch?.groupLabel || prettifyKey(group),
-      categoryLabel: firstMatch?.categoryLabel || prettifyKey(category),
+      groupLabel: translateLabel(t, `category.group.${group}`, firstMatch?.groupLabel || prettifyKey(group)),
+      categoryLabel: translateLabel(
+        t,
+        `category.main.${category}`,
+        firstMatch?.categoryLabel || prettifyKey(category)
+      ),
       subcategoryLabel: "",
     };
   }
 
-  const groupMatch = Object.values(categoryMap).find(
-    (item) => item.groupKey === group
-  );
+  const groupMatch = Object.values(categoryMap).find((item) => item.groupKey === group);
 
   return {
-    groupLabel: groupMatch?.groupLabel || prettifyKey(group),
+    groupLabel: translateLabel(t, `category.group.${group}`, groupMatch?.groupLabel || prettifyKey(group)),
     categoryLabel: "",
     subcategoryLabel: "",
   };
