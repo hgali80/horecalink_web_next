@@ -62,25 +62,16 @@ export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
         </Link>
       ) : null}
 
-      {user ? (
-        <button
-          type="button"
-          onClick={handleLogout}
-          className={dangerButtonClass}
-        >
-          <LogOut size={18} />
-          Çıkış Yap
-        </button>
-      ) : (
-        <Link
-          href="/login"
-          onClick={onNavigate}
-          className={baseLinkClass}
-        >
-          <LogIn size={18} />
-          Giriş Yap
-        </Link>
-      )}
+      {user && (
+  <button
+    type="button"
+    onClick={handleLogout}
+    className={dangerButtonClass}
+  >
+    <LogOut size={18} />
+    Çıkış Yap
+  </button>
+)}
     </div>
   );
 }
