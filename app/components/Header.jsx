@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Info, User, Flag } from "lucide-react";
+import { Info, Flag } from "lucide-react";
 import { useState } from "react";
 import UserMenu from "./UserMenu";
 import { useLang } from "../context/LanguageContext";
@@ -17,125 +17,115 @@ const LANGS = [
 
 export default function Header() {
   const { t, lang, setLang } = useLang();
-
   const [langOpen, setLangOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* LOGO */}
-          <Link href="/" className="flex items-center h-16">
-  <Image
-    src="/horecalink_logoapp.png"
-    alt={t("header.alt.logo")}
-    width={320}
-    height={80}
-    className="h-10 w-auto object-contain"
-    priority
-  />
-</Link>
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link href="/" className="flex items-center h-16">
+          <Image
+            src="/horecalink_logoapp.png"
+            alt={t("header.alt.logo") || "Horecalink"}
+            width={320}
+            height={80}
+            className="h-10 w-auto object-contain"
+            priority
+          />
+        </Link>
 
-          {/* DESKTOP */}
-          <div className="hidden md:flex items-center gap-6">
-            <nav className="flex items-center gap-6 text-sm font-semibold text-gray-700">
-              <Link
-                href="/about"
-                className="hover:text-[#003366] transition-colors flex items-center gap-1"
-              >
-                <Info size={18} />
-                {t("header.menu.about")}
-              </Link>
-              <Link
-                href="/profile"
-                className="hover:text-[#003366] transition-colors flex items-center gap-1"
-              >
-                <User size={18} />
-                {t("header.menu.account") || t("header.menu.profile") || "Hesabım"}
-              </Link>
-            </nav>
+        <div className="hidden md:flex items-center gap-6">
+          <nav className="flex items-center gap-6 text-sm font-semibold text-gray-700">
+            <Link
+              href="/about"
+              className="hover:text-[#003366] transition-colors flex items-center gap-1"
+            >
+              <Info size={18} />
+              {t("header.menu.about") || "Hakkımızda"}
+            </Link>
+          </nav>
 
-            {/* LANGUAGE */}
-            <div className="relative">
-              <button
-                onClick={() => setLangOpen(!langOpen)}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg text-xs font-bold uppercase text-gray-700 hover:bg-gray-200 transition"
-                aria-label={t("header.languageSelect") || "Dil"}
-              >
-                <Flag size={16} />
-                <span>{`DİL: ${lang?.toUpperCase?.() || "TR"}`}</span>
-              </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setLangOpen((prev) => !prev)}
+              className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-xs font-bold uppercase text-gray-700 transition hover:bg-gray-200"
+              aria-label={t("header.languageSelect") || "Dil"}
+            >
+              <Flag size={16} />
+              <span>{`DİL: ${lang?.toUpperCase?.() || "TR"}`}</span>
+            </button>
 
-              {langOpen && (
-                <div className="absolute right-0 mt-2 bg-white shadow-lg rounded-md border w-40 overflow-hidden">
-                  {LANGS.map((l) => (
-                    <button
-                      key={l.code}
-                      onClick={() => {
-                        setLang(l.code);
-                        setLangOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 hover:bg-gray-100 text-sm ${
-                        lang === l.code ? "font-semibold" : ""
-                      }`}
-                    >
-                      {l.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <UserMenu />
+            {langOpen && (
+              <div className="absolute right-0 mt-2 w-40 overflow-hidden rounded-md border bg-white shadow-lg">
+                {LANGS.map((item) => (
+                  <button
+                    key={item.code}
+                    type="button"
+                    onClick={() => {
+                      setLang(item.code);
+                      setLangOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 ${
+                      lang === item.code ? "font-semibold" : ""
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* MOBILE BUTTON */}
-          <button
-            className="md:hidden text-2xl"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Menu"
-          >
-            ☰
-          </button>
+          <UserMenu />
         </div>
+
+        <button
+          type="button"
+          className="text-2xl md:hidden"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Menu"
+        >
+          ☰
+        </button>
       </div>
 
-      {/* MOBILE MENU */}
       {mobileOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 md:hidden">
-          <div className="w-72 bg-white h-full shadow-xl p-6 relative">
+        <div className="fixed inset-0 z-50 bg-black/40 md:hidden">
+          <div className="relative h-full w-72 bg-white p-6 shadow-xl">
             <button
+              type="button"
               onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-4 text-xl"
+              className="absolute right-4 top-4 text-xl"
             >
               ✕
             </button>
 
-            <nav className="flex flex-col gap-4 mt-10 text-base font-medium">
+            <nav className="mt-10 flex flex-col gap-4 text-base font-medium">
               <Link href="/about" onClick={() => setMobileOpen(false)}>
-                {t("header.menu.about")}
-              </Link>
-              <Link href="/profile" onClick={() => setMobileOpen(false)}>
-                {t("header.menu.account") || t("header.menu.profile") || "Hesabım"}
+                {t("header.menu.about") || "Hakkımızda"}
               </Link>
             </nav>
 
             <div className="mt-6 border-t pt-4">
-              <p className="font-semibold mb-2">{t("header.languageSelect")}</p>
+              <p className="mb-2 font-semibold">
+                {t("header.languageSelect") || "Dil"}
+              </p>
+
               <div className="flex flex-col gap-2">
-                {LANGS.map((l) => (
+                {LANGS.map((item) => (
                   <button
-                    key={l.code}
+                    key={item.code}
+                    type="button"
                     onClick={() => {
-                      setLang(l.code);
+                      setLang(item.code);
                       setMobileOpen(false);
                     }}
-                    className={`text-left px-3 py-2 hover:bg-gray-100 text-sm ${
-                      lang === l.code ? "font-semibold" : ""
+                    className={`px-3 py-2 text-left text-sm hover:bg-gray-100 ${
+                      lang === item.code ? "font-semibold" : ""
                     }`}
                   >
-                    {l.label}
+                    {item.label}
                   </button>
                 ))}
               </div>

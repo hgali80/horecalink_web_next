@@ -1,249 +1,144 @@
 //app/login/page.jsx
-
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebase/index";
+import { useAuth } from "../context/AuthContext";
 
 export default function LoginPage() {
-  const [method, setMethod] = useState("email");
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace("/satissitok/admin");
+    }
+  }, [authLoading, user, router]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMsg("");
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const email = String(formData.get("email") || "").trim();
+    const password = String(formData.get("password") || "").trim();
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.replace("/satissitok/admin");
+    } catch (err) {
+      console.error("Login error:", err);
+
+      let errorText = "Giriş başarısız. Bilgileri kontrol edin.";
+
+      if (
+        err.code === "auth/user-not-found" ||
+        err.code === "auth/wrong-password" ||
+        err.code === "auth/invalid-credential" ||
+        err.code === "auth/invalid-login-credentials"
+      ) {
+        errorText = "E-posta veya şifre hatalı.";
+      } else if (err.code === "auth/invalid-email") {
+        errorText = "Geçerli bir e-posta adresi girin.";
+      } else if (err.code === "auth/too-many-requests") {
+        errorText =
+          "Çok fazla başarısız deneme yapıldı. Lütfen daha sonra tekrar deneyin.";
+      }
+
+      setMsg(errorText);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <div className="text-sm text-slate-500">Yükleniyor...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-6 space-y-6">
-        <div className="text-center space-y-1">
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Horecalink’e Giriş Yap
+    <div className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-slate-100 px-4 py-10">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-md sm:p-8">
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-bold text-slate-900">
+            Horecalink Yönetici Girişi
           </h1>
-          <p className="text-sm text-slate-500">
-            Kayıt olurken hangi yöntemi kullandıysan onunla giriş yap.
+          <p className="mt-2 text-sm text-slate-500">
+            Bu ekran sadece yönetici ve yetkili personel içindir.
           </p>
         </div>
 
-        {/* Yöntem seçimi */}
-        <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl text-sm">
-          <button
-            type="button"
-            onClick={() => setMethod("email")}
-            className={`py-2 rounded-lg font-medium transition ${
-              method === "email"
-                ? "bg-white shadow text-slate-900"
-                : "text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            E-posta ile giriş
-          </button>
-          <button
-            type="button"
-            onClick={() => setMethod("phone")}
-            className={`py-2 rounded-lg font-medium transition ${
-              method === "phone"
-                ? "bg-white shadow text-slate-900"
-                : "text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            Telefon ile giriş
-          </button>
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {msg ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {msg}
+            </div>
+          ) : null}
 
-        {method === "email" ? <EmailLoginForm /> : <PhoneLoginForm />}
+          <div>
+            <label
+              htmlFor="email"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              E-posta
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder="ornek@firma.com"
+              className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm outline-none transition focus:border-sky-600"
+            />
+          </div>
 
-        <div className="flex items-center justify-between text-sm">
+          <div>
+            <label
+              htmlFor="password"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Şifre
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              placeholder="Şifrenizi girin"
+              className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm outline-none transition focus:border-sky-600"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg bg-sky-600 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+          </button>
+        </form>
+
+        <div className="mt-4 flex items-center justify-start">
           <Link
             href="/forgot-password"
-            className="text-slate-500 hover:text-slate-900"
+            className="text-sm text-slate-500 transition hover:text-slate-900"
           >
             Şifremi unuttum
-          </Link>
-          <Link
-            href="/register"
-            className="font-semibold text-sky-600 hover:text-sky-700"
-          >
-            Hesabın yok mu? Kayıt ol
           </Link>
         </div>
       </div>
     </div>
-  );
-}
-
-function EmailLoginForm() {
-  const router = useRouter();
-  const [msg, setMsg] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMsg(null);
-    setLoading(true);
-
-    const email = e.target.email.value.trim();
-    const password = e.target.password.value.trim();
-
-    try {
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-
-      if (!cred.user.emailVerified) {
-        await auth.signOut();
-        setMsg(
-          "E-posta adresiniz henüz doğrulanmamış. Lütfen posta kutunuzu kontrol edin."
-        );
-        setLoading(false);
-        return;
-      }
-
-      setMsg("Giriş başarılı! Yönlendiriliyorsunuz...");
-      setTimeout(() => {
-        router.push("/");
-      }, 800);
-    } catch (err) {
-      console.error("Email login error:", err);
-      let text = "Giriş başarısız. Bilgilerinizi kontrol edin.";
-
-      if (
-        err.code === "auth/user-not-found" ||
-        err.code === "auth/wrong-password"
-      ) {
-        text = "E-posta veya şifre hatalı.";
-      } else if (err.code === "auth/too-many-requests") {
-        text =
-          "Çok fazla deneme yaptınız. Hesabınız geçici olarak kilitlendi, lütfen daha sonra tekrar deneyin.";
-      }
-
-      setMsg(text);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {msg && <p className="text-center text-red-500 text-sm">{msg}</p>}
-
-      <div className="space-y-1">
-        <label className="text-sm font-medium">E-posta</label>
-        <input
-          name="email"
-          type="email"
-          required
-          className="w-full rounded-lg border px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div className="space-y-1">
-        <label className="text-sm font-medium">Şifre</label>
-        <input
-          name="password"
-          type="password"
-          required
-          className="w-full rounded-lg border px-3 py-2 text-sm"
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-sky-600 text-white py-2.5 rounded-lg"
-      >
-        {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
-      </button>
-    </form>
-  );
-}
-
-function PhoneLoginForm() {
-  const router = useRouter();
-  const [msg, setMsg] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMsg(null);
-    setLoading(true);
-
-    const rawPhone = e.target.phone.value.trim();
-    const password = e.target.password.value.trim();
-
-    // 1) Kullanıcının girdiği: 10 haneli numara (ör: 7004446911)
-    let digits = rawPhone.replace(/\D/g, "");
-
-    if (digits.length !== 10) {
-      setMsg("Telefon numarası 10 haneli olmalıdır.");
-      setLoading(false);
-      return;
-    }
-
-    // 2) Login için +7 formatı → 77004446911
-    digits = "7" + digits;
-
-    // 3) Fake email login formatı
-    const fakeEmail = `+${digits}@temporary.com`;
-
-    try {
-      await signInWithEmailAndPassword(auth, fakeEmail, password);
-
-      setMsg("Giriş başarılı! Yönlendiriliyorsunuz...");
-      setTimeout(() => {
-        router.push("/");
-      }, 800);
-    } catch (err) {
-      console.error("Phone login error:", err);
-      let text = "Giriş başarısız. Bilgilerinizi kontrol edin.";
-
-      if (
-        err.code === "auth/user-not-found" ||
-        err.code === "auth/wrong-password"
-      ) {
-        text = "Telefon numarası veya şifre hatalı.";
-      } else if (err.code === "auth/too-many-requests") {
-        text =
-          "Çok fazla deneme yaptınız. Hesabınız geçici olarak kilitlendi, lütfen daha sonra tekrar deneyin.";
-      }
-
-      setMsg(text);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {msg && <p className="text-center text-red-500 text-sm">{msg}</p>}
-
-      <div className="space-y-1">
-        <label className="text-sm font-medium">Telefon</label>
-        <div className="flex gap-2">
-          <span className="bg-slate-50 border px-2 rounded-lg">+7</span>
-          <input
-            name="phone"
-            type="tel"
-            required
-            className="flex-1 rounded-lg border px-3 py-2 text-sm"
-            placeholder="702 000 00 00"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <label className="text-sm font-medium">Şifre</label>
-        <input
-          name="password"
-          type="password"
-          required
-          className="w-full rounded-lg border px-3 py-2 text-sm"
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-sky-600 text-white py-2.5 rounded-lg"
-      >
-        {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
-      </button>
-    </form>
   );
 }

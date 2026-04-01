@@ -156,7 +156,7 @@ export default function ProductCard({ product }) {
           </Link>
 
           <Link
-            href={`/teklif-talep?productId=${encodeURIComponent(product?.id || "")}`}
+            href={`/teklif-talep?product=${encodeURIComponent(product?.id || "")}`}
             className="inline-flex items-center gap-2 rounded-full bg-[#1d3246] px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-white transition hover:bg-[#243f58]"
           >
             <FileText className="h-4 w-4" />

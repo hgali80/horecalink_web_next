@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, FileText, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { getUserQuoteRequests, QUOTE_STATUSES } from "../services/quoteService";
+import {
+  getGuestQuoteRequests,
+  getUserQuoteRequests,
+  QUOTE_STATUSES,
+} from "../services/quoteService";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -14,7 +18,7 @@ function formatDate(value) {
 
   return new Intl.DateTimeFormat("ru-RU", {
     day: "2-digit",
-    month: "2-digit",
+    month: "long",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
@@ -26,6 +30,7 @@ const statusTone = {
   reviewing: "bg-amber-50 text-amber-700",
   priced: "bg-violet-50 text-violet-700",
   answered: "bg-emerald-50 text-emerald-700",
+  approved: "bg-emerald-50 text-emerald-700",
   closed: "bg-slate-100 text-slate-700",
   cancelled: "bg-red-50 text-red-700",
   draft: "bg-slate-100 text-slate-700",
@@ -38,17 +43,15 @@ export default function QuoteHistoryPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!user?.uid) {
-      setItems([]);
-      setLoading(false);
-      return;
-    }
-
     const run = async () => {
       try {
         setLoading(true);
         setError("");
-        const data = await getUserQuoteRequests(user.uid);
+
+        const data = user?.uid
+          ? await getUserQuoteRequests(user.uid)
+          : await getGuestQuoteRequests();
+
         setItems(data);
       } catch (err) {
         console.error(err);
@@ -58,82 +61,97 @@ export default function QuoteHistoryPage() {
       }
     };
 
-    run();
-  }, [user?.uid]);
+    if (!authLoading) {
+      run();
+    }
+  }, [authLoading, user?.uid]);
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-[70vh] items-center justify-center bg-slate-50">
+      <div className="flex min-h-[70vh] items-center justify-center bg-[#f8f9fb]">
         <Loader2 className="animate-spin text-slate-500" />
       </div>
     );
   }
 
-  if (!user?.uid) {
-    return (
-      <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-3xl rounded-[28px] bg-white p-8 text-center shadow-[0_24px_60px_rgba(15,35,35,0.08)]">
-          <FileText className="mx-auto text-slate-400" size={36} />
-          <h1 className="mt-4 text-2xl font-semibold text-slate-900">Teklif geçmişi için giriş gerekli</h1>
-          <p className="mt-2 text-sm text-slate-600">Sana ait teklifleri göstermek için oturum açılmış kullanıcı lazım.</p>
-          <Link href="/login" className="mt-6 inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white">
-            Giriş yap
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 md:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#f8f9fb] px-4 py-8 md:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Teklif geçmişi</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Gönderilen talepler</h1>
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
+              Teklif geçmişi
+            </p>
+            <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.03em] text-[#1d3246] md:text-4xl">
+              Gönderilen talepler
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+              Giriş yapılmışsa hesaba bağlı talepler, giriş yapılmamışsa bu cihazdan gönderilen misafir talepleri listelenir.
+            </p>
           </div>
 
-          <Link href="/teklif-talep" className="inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white">
+          <Link
+            href="/teklif-talep"
+            className="inline-flex rounded-lg bg-gradient-to-r from-[#1d3246] to-[#34495e] px-5 py-3 text-sm font-extrabold uppercase tracking-[0.12em] text-white"
+          >
             Yeni teklif oluştur
           </Link>
         </div>
 
-        {error ? <div className="mb-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        {error ? (
+          <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        ) : null}
 
         {!items.length ? (
-          <div className="rounded-[28px] bg-white p-8 text-center shadow-[0_24px_60px_rgba(15,35,35,0.08)]">
-            <p className="text-lg font-semibold text-slate-900">Henüz teklif talebi yok.</p>
-            <p className="mt-2 text-sm text-slate-600">Ürün detayından teklif talebi başlat.</p>
+          <div className="rounded-xl bg-white p-10 text-center shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
+            <FileText className="mx-auto text-slate-300" size={40} />
+            <h2 className="mt-4 text-2xl font-extrabold tracking-[-0.02em] text-[#1d3246]">
+              Henüz teklif talebi yok
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Ürün detayından veya teklif sayfasından yeni talep oluştur.
+            </p>
           </div>
         ) : (
           <div className="grid gap-4">
             {items.map((item) => {
               const statusKey = item.status || "new";
               const statusLabel = QUOTE_STATUSES[statusKey]?.label || statusKey;
+              const href = item.userId
+                ? `/teklifler/${item.id}`
+                : `/teklifler/${item.id}?access=${encodeURIComponent(item.accessKey || "")}`;
 
               return (
                 <Link
                   key={item.id}
-                  href={`/teklifler/${item.id}`}
-                  className="grid gap-5 rounded-[28px] bg-white p-5 shadow-[0_24px_60px_rgba(15,35,35,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_32px_70px_rgba(15,35,35,0.12)] md:grid-cols-[1fr_auto] md:items-center"
+                  href={href}
+                  className="grid gap-5 rounded-xl bg-white p-5 shadow-[0_20px_40px_rgba(29,50,70,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_50px_rgba(29,50,70,0.1)] md:grid-cols-[1fr_auto] md:items-center"
                 >
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-base font-semibold text-slate-900">{item.quoteNo || item.id}</span>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone[statusKey] || statusTone.new}`}>
+                      <span className="text-base font-extrabold text-[#1d3246]">
+                        {item.quoteNo || item.id}
+                      </span>
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusTone[statusKey] || statusTone.new}`}>
                         {statusLabel}
                       </span>
+                      {!item.userId ? (
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                          Misafir
+                        </span>
+                      ) : null}
                     </div>
 
-                    <div className="mt-3 grid gap-2 text-sm text-slate-600 md:grid-cols-3">
+                    <div className="mt-4 grid gap-2 text-sm text-slate-600 md:grid-cols-4">
                       <span>Firma: {item.customer?.companyName || "-"}</span>
                       <span>Kalem: {item.itemCount || item.items?.length || 0}</span>
+                      <span>Miktar: {item.totalQuantity || 0}</span>
                       <span>Tarih: {formatDate(item.createdAt)}</span>
                     </div>
                   </div>
 
-                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    Detaya git
+                  <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1d3246]">
+                    Detayı aç
                     <ArrowRight size={18} />
                   </span>
                 </Link>

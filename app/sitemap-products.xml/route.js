@@ -15,7 +15,7 @@ const snap = await getDocs(q);
   const urls = snap.docs.map((doc) => {
     return `
   <url>
-    <loc>${baseUrl}/products/${doc.id}</loc>
+    <loc>${baseUrl}/products/${doc.data().slug || doc.id}</loc>
     <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

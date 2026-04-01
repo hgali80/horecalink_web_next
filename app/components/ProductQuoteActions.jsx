@@ -24,11 +24,11 @@ export default function ProductQuoteActions({ product }) {
 
   const handleRequestNow = () => {
     if (!productId) return;
-    router.push(`/teklif-talep?product=${productId}&qty=${quantity}`);
+    router.push(`/teklif-talep?product=${encodeURIComponent(productId)}&qty=${quantity}`);
   };
 
   return (
-    <div className="rounded-3xl bg-white p-4 shadow-[0_20px_50px_rgba(15,35,35,0.08)]">
+    <div className="rounded-[24px] bg-white p-4 shadow-[0_20px_50px_rgba(15,35,35,0.08)]">
       <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-2">
         <button
           type="button"

@@ -141,7 +141,7 @@ export default async function ProductDetailPage({ params }) {
   const categoryHref =
     groupKey && categoryKey && subcategoryKey
       ? `/catalog/${groupKey}/${categoryKey}/${subcategoryKey}`
-      : "/";
+      : "/catalog";
 
   const code =
     cleanText(product?.manufacturerCode) ||
@@ -232,7 +232,7 @@ export default async function ProductDetailPage({ params }) {
                 </div>
 
                 <Link
-                  href={`/teklif-talep?productId=${encodeURIComponent(product.id || "")}`}
+                  href={`/teklif-talep?product=${encodeURIComponent(product.id || "")}`}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#1d3246] to-[#34495e] py-5 text-lg font-bold tracking-wide text-white transition-all hover:opacity-90"
                 >
                   <FileText className="h-5 w-5" />

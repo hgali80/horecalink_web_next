@@ -142,7 +142,7 @@ export default function AboutPage() {
 
             <div className="flex flex-wrap gap-4 pt-4">
               <Link
-                href="/categories"
+                href="/catalog"
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-3.5 text-sm font-semibold text-slate-900 shadow-lg hover:shadow-amber-500/25 hover:scale-[1.02] transition-all duration-300"
               >
                 <span>{t("hero.buttons.products")}</span>
@@ -471,7 +471,7 @@ export default function AboutPage() {
 
               {/* Portfolio yerine: Kategoriler (404 riskini sıfırlıyoruz) */}
               <Link
-                href="/categories"
+                href="/catalog"
                 className="inline-flex items-center justify-center gap-3 rounded-xl border border-slate-600 bg-slate-800/30 backdrop-blur-sm px-8 py-4 text-base font-semibold text-white hover:bg-slate-700/50 transition-all duration-300"
               >
                 {t("cta.secondaryButton")}

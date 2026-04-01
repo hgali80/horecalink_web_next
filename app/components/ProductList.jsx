@@ -186,7 +186,7 @@ export default function ProductList({
 
             <span className="text-gray-300">/</span>
 
-            <Link href="/categories" className="text-gray-500 hover:text-gray-900">
+            <Link href="/catalog" className="text-gray-500 hover:text-gray-900">
               {t("breadcrumb.categories") || t("menu.products") || "Kategoriler"}
             </Link>
 

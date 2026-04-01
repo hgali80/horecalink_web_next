@@ -46,7 +46,7 @@ function ProductsContent() {
 
         {subCategory ? (
           <>
-            <Link href="/categories" className="hover:underline hover:text-indigo-600">
+            <Link href="/catalog" className="hover:underline hover:text-indigo-600">
               {t("breadcrumb.categories")}
             </Link>
             {" / "}
