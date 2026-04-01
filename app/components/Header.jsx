@@ -59,9 +59,9 @@ export default function Header() {
           <Image
             src="/horecalink_logoapp.png"
             alt={t("header.alt.logo")}
-            width={320}
-            height={80}
-            className="h-10 w-auto object-contain sm:h-11"
+            width={420}
+            height={105}
+            className="h-12 w-auto object-contain sm:h-14 lg:h-16"
             priority
           />
         </Link>
@@ -135,9 +135,9 @@ export default function Header() {
               <Image
                 src="/horecalink_logoapp.png"
                 alt={t("header.alt.logo")}
-                width={220}
-                height={56}
-                className="h-9 w-auto object-contain"
+                width={280}
+                height={70}
+                className="h-11 w-auto object-contain"
               />
               <button
                 type="button"
