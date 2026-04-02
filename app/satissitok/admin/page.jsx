@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import {
@@ -15,6 +15,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import VisitorStatsPanel from "../../components/VisitorStatsPanel";
 
 export default function SalesStockDashboard() {
   const { user, loading } = useAuth();
@@ -31,7 +32,7 @@ export default function SalesStockDashboard() {
   const canUseImport = user?.role === "super_admin" || user?.role === "admin";
 
   return (
-    <div className="mx-auto max-w-7xl p-6 space-y-8">
+    <div className="mx-auto max-w-7xl space-y-8 p-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold text-gray-900">Satis & Stok Yonetimi</h1>
 
@@ -41,6 +42,8 @@ export default function SalesStockDashboard() {
           </div>
         ) : null}
       </div>
+
+      <VisitorStatsPanel />
 
       <section>
         <h2 className="mb-3 text-lg font-semibold text-gray-800">Hizli Islemler</h2>

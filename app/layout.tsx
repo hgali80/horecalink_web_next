@@ -3,6 +3,7 @@ import "./globals.css";
 import type { ReactNode } from "react";
 
 import Header from "./components/Header";
+import VisitorTracker from "./components/VisitorTracker";
 
 import { AuthProvider } from "./context/AuthContext";
 import { LanguageProvider } from "./context/LanguageContext";
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <AuthProvider>
           <LanguageProvider>
+            <VisitorTracker />
             <Header />
             {children}
           </LanguageProvider>
