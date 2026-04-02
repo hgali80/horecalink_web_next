@@ -7,6 +7,17 @@ import { ArrowUpRight, FileText, Package2 } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
+const LEGACY_BADGE_ALIASES = {
+  Yeni: "new",
+  "Cok Satan": "best_seller",
+  Kampanya: "campaign",
+  Firsat: "opportunity",
+  Onerilen: "recommended",
+  Stokta: "in_stock",
+  "Sinirli Stok": "limited_stock",
+  "Proje Urunu": "project_product",
+  "Profesyonel Seri": "professional_series",
+};
 
 function cleanText(value) {
   if (value === null || value === undefined) return "";
@@ -61,6 +72,19 @@ function getBrand(product) {
   return cleanText(product?.brand) || "HorecaLink";
 }
 
+function getBadge(product) {
+  return cleanText(product?.badge);
+}
+
+function resolveBadgeLabel(t, badge) {
+  const value = cleanText(badge);
+  if (!value) return "";
+
+  const badgeKey = LEGACY_BADGE_ALIASES[value] || value;
+  const translated = t(`product.badges.${badgeKey}`);
+  return translated === `product.badges.${badgeKey}` ? value : translated;
+}
+
 function getImageUrl(product) {
   const imageName = Array.isArray(product?.image_names) ? product.image_names[0] : "";
   if (!imageName) return null;
@@ -78,6 +102,7 @@ export default function ProductCard({ product }) {
   const description = getProductDescription(product);
   const code = getProductCode(product);
   const brand = getBrand(product);
+  const badge = resolveBadgeLabel(t, getBadge(product));
   const imageUrl = getImageUrl(product);
   const formattedPrice = formatPrice(product?.price);
   const unit = cleanText(product?.unit) || t("productDetail.unit");
@@ -85,10 +110,15 @@ export default function ProductCard({ product }) {
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_14px_30px_rgba(29,50,70,0.05)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(29,50,70,0.08)]">
       <Link href={href} className="relative block bg-[#f5f7f9]">
-        <div className="absolute left-4 top-4 z-10">
+        <div className="absolute left-4 right-4 top-4 z-10 flex items-start justify-between gap-2">
           <span className="inline-flex rounded-full bg-white px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1d3246] shadow-sm">
             {brand}
           </span>
+          {badge ? (
+            <span className="inline-flex rounded-full bg-[#1d3246] px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-white shadow-sm">
+              {badge}
+            </span>
+          ) : null}
         </div>
 
         <div className="relative aspect-[4/3.3] w-full overflow-hidden">

@@ -12,11 +12,47 @@ import {
 import { ref, getDownloadURL } from "firebase/storage";
 
 import { storage } from "@/firebase";
+import { useLang } from "@/app/context/LanguageContext";
 import {
   getProduct,
   updateProduct,
   uploadProductImages,
 } from "@/app/satissitok/services/productService";
+
+const BADGE_OPTIONS = [
+  { value: "new", labelKey: "product.badges.new", fallback: "Yeni" },
+  { value: "best_seller", labelKey: "product.badges.best_seller", fallback: "Cok Satan" },
+  { value: "campaign", labelKey: "product.badges.campaign", fallback: "Kampanya" },
+  { value: "opportunity", labelKey: "product.badges.opportunity", fallback: "Firsat" },
+  { value: "recommended", labelKey: "product.badges.recommended", fallback: "Onerilen" },
+  { value: "in_stock", labelKey: "product.badges.in_stock", fallback: "Stokta" },
+  { value: "limited_stock", labelKey: "product.badges.limited_stock", fallback: "Sinirli Stok" },
+  { value: "project_product", labelKey: "product.badges.project_product", fallback: "Proje Urunu" },
+  { value: "professional_series", labelKey: "product.badges.professional_series", fallback: "Profesyonel Seri" },
+];
+
+const LEGACY_BADGE_ALIASES = {
+  Yeni: "new",
+  "Cok Satan": "best_seller",
+  Kampanya: "campaign",
+  Firsat: "opportunity",
+  Onerilen: "recommended",
+  Stokta: "in_stock",
+  "Sinirli Stok": "limited_stock",
+  "Proje Urunu": "project_product",
+  "Profesyonel Seri": "professional_series",
+};
+
+function normalizeBadgeValue(value) {
+  const clean = (value || "").toString().trim();
+  return LEGACY_BADGE_ALIASES[clean] || clean;
+}
+
+const DEFAULT_HIGHLIGHT_LINES = [
+  "Bu urun HoReCa operasyonlarinda yogun kullanim icin uygundur.",
+  "Kart bilgileri Firestore katalog verisinden otomatik olusturulur.",
+  "Ticari teklif talebinizi tek tikla iletebilirsiniz.",
+].join("\n");
 
 function Field({ label, children, hint }) {
   return (
@@ -57,12 +93,13 @@ function buildInitialForm(product) {
     sku: product.sku ?? product.stock_code ?? product.id ?? "",
     manufacturerCode: product.manufacturerCode ?? product.sku ?? product.id ?? "",
     barcode: product.barcode ?? "",
-    badge: product.badge ?? "",
+    badge: normalizeBadgeValue(product.badge),
     name: product.name ?? "",
     name_tr: product.name_tr ?? "",
     shortDescription: product.shortDescription ?? "",
     description: product.description ?? "",
     specs: product.specs ?? "",
+    highlightLines: product.highlightLines ?? DEFAULT_HIGHLIGHT_LINES,
     group: product.group ?? "",
     groupKey: product.groupKey ?? "",
     category: product.category ?? product.main_category ?? "",
@@ -114,6 +151,7 @@ export default function ProductDetailEditPage() {
   const { productId } = useParams();
   const router = useRouter();
   const fileRef = useRef(null);
+  const { t } = useLang();
 
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
@@ -460,11 +498,18 @@ export default function ProductDetailEditPage() {
               </Field>
 
               <Field label="Rozet">
-                <input
+                <select
                   value={form.badge}
                   onChange={(e) => set("badge", e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 text-sm"
-                />
+                >
+                  <option value="">{t("product.badges.none")}</option>
+                  {BADGE_OPTIONS.map((badge) => (
+                    <option key={badge.value} value={badge.value}>
+                      {t(badge.labelKey) === badge.labelKey ? badge.fallback : t(badge.labelKey)}
+                    </option>
+                  ))}
+                </select>
               </Field>
 
               <Field label="Ürün Tipi">
@@ -585,6 +630,18 @@ export default function ProductDetailEditPage() {
                 value={form.specs}
                 onChange={(e) => set("specs", e.target.value)}
                 className="min-h-[130px] w-full rounded-lg border px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field
+              label="Detay Sayfasi 3 Satir"
+              hint="Her satir urun detay sayfasinda ayri satir olarak gosterilir."
+            >
+              <textarea
+                value={form.highlightLines}
+                onChange={(e) => set("highlightLines", e.target.value)}
+                className="min-h-[130px] w-full rounded-lg border px-3 py-2 text-sm"
+                placeholder={DEFAULT_HIGHLIGHT_LINES}
               />
             </Field>
 

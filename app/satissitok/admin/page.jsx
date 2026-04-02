@@ -1,5 +1,4 @@
-// app/satissitok/admin/page.jsx
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import {
@@ -13,6 +12,7 @@ import {
   BarChart3,
   ShieldCheck,
   FileText,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -22,51 +22,41 @@ export default function SalesStockDashboard() {
   if (loading) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center px-4">
-        <div className="text-sm text-slate-500">Yükleniyor...</div>
+        <div className="text-sm text-slate-500">Yukleniyor...</div>
       </div>
     );
   }
 
   const isSuperAdmin = user?.role === "super_admin";
+  const canUseImport = user?.role === "super_admin" || user?.role === "admin";
 
   return (
     <div className="mx-auto max-w-7xl p-6 space-y-8">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Satış & Stok Yönetimi
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900">Satis & Stok Yonetimi</h1>
 
         {user ? (
           <div className="text-sm text-slate-600">
-            Aktif kullanıcı:{" "}
-            <span className="font-semibold">
-              {user.fullName || user.email || "Yetkili Kullanıcı"}
-            </span>{" "}
-            · Rol:{" "}
-            <span className="font-semibold">
-              {user.role || "tanımsız"}
-            </span>
+            Aktif kullanici: <span className="font-semibold">{user.fullName || user.email || "Yetkili Kullanici"}</span> · Rol: <span className="font-semibold">{user.role || "tanimsiz"}</span>
           </div>
         ) : null}
       </div>
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold text-gray-800">
-          Hızlı İşlemler
-        </h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-800">Hizli Islemler</h2>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <DashboardCard
-            title="Yeni Satış"
-            desc="Yeni satış faturası oluştur"
+            title="Yeni Satis"
+            desc="Yeni satis faturasi olustur"
             href="/satissitok/admin/sales/new"
             color="green"
             icon={<PlusCircle />}
           />
 
           <DashboardCard
-            title="Yeni Satınalma"
-            desc="Yeni satınalma faturası gir"
+            title="Yeni Satinalma"
+            desc="Yeni satinalma faturasi gir"
             href="/satissitok/admin/purchases/new"
             color="blue"
             icon={<PlusCircle />}
@@ -75,20 +65,20 @@ export default function SalesStockDashboard() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold text-gray-800">Yönetim</h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-800">Yonetim</h2>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-6">
           <DashboardCard
-            title="Satışlar"
-            desc="Satış faturalarını listele"
+            title="Satislar"
+            desc="Satis faturalarini listele"
             href="/satissitok/admin/sales"
             color="green"
             icon={<ShoppingCart />}
           />
 
           <DashboardCard
-            title="Satınalmalar"
-            desc="Satınalma kayıtlarını görüntüle"
+            title="Satinalmalar"
+            desc="Satinalma kayitlarini goruntule"
             href="/satissitok/admin/purchases"
             color="blue"
             icon={<ClipboardList />}
@@ -96,7 +86,7 @@ export default function SalesStockDashboard() {
 
           <DashboardCard
             title="Teklifler"
-            desc="Gelen teklif taleplerini görüntüle ve yönet"
+            desc="Gelen teklif taleplerini goruntule ve yonet"
             href="/satissitok/admin/quotes"
             color="orange"
             icon={<FileText />}
@@ -104,7 +94,7 @@ export default function SalesStockDashboard() {
 
           <DashboardCard
             title="Cariler"
-            desc="Müşteri ve tedarikçi kartları"
+            desc="Musteri ve tedarikci kartlari"
             href="/satissitok/admin/cari"
             color="orange"
             icon={<Users />}
@@ -119,16 +109,26 @@ export default function SalesStockDashboard() {
           />
 
           <DashboardCard
-            title="Ürünler"
-            desc="Ürün listesi, yeni ürün oluştur, düzenle"
+            title="Urunler"
+            desc="Urun listesi, yeni urun olustur, duzenle"
             href="/satissitok/admin/products"
             color="purple"
             icon={<Package />}
           />
 
+          {canUseImport ? (
+            <DashboardCard
+              title="Excel Import"
+              desc="Excel dosyasindan products koleksiyonunu toplu senkronize et"
+              href="/satissitok/admin/import"
+              color="blue"
+              icon={<FileSpreadsheet />}
+            />
+          ) : null}
+
           <DashboardCard
             title="Ayarlar"
-            desc="Birim, vergi ve sistem ayarları"
+            desc="Birim, vergi ve sistem ayarlari"
             href="/satissitok/admin/settings"
             color="gray"
             icon={<Settings />}
@@ -136,7 +136,7 @@ export default function SalesStockDashboard() {
 
           <DashboardCard
             title="Finans"
-            desc="Tahsilat, ödeme, kasa/banka"
+            desc="Tahsilat, odeme, kasa/banka"
             href="/satissitok/admin/finance"
             color="purple"
             icon={<Wallet />}
@@ -144,7 +144,7 @@ export default function SalesStockDashboard() {
 
           <DashboardCard
             title="Raporlar"
-            desc="Net kâr, KDV, dönem raporları"
+            desc="Net kar, KDV, donem raporlari"
             href="/satissitok/admin/reports"
             color="gray"
             icon={<BarChart3 />}
@@ -152,8 +152,8 @@ export default function SalesStockDashboard() {
 
           {isSuperAdmin ? (
             <DashboardCard
-              title="Yetkili Yönetimi"
-              desc="Yeni yetkili ekle ve iç kullanıcıları yönet"
+              title="Yetkili Yonetimi"
+              desc="Yeni yetkili ekle ve ic kullanicilari yonet"
               href="/satissitok/admin/users"
               color="red"
               icon={<ShieldCheck />}
@@ -180,12 +180,8 @@ function DashboardCard({ title, desc, href, icon, color }) {
       href={href}
       className={`flex transform flex-col gap-2 rounded-xl border bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${colors[color]}`}
     >
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50">
-        {icon}
-      </div>
-
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50">{icon}</div>
       <div className="text-lg font-semibold">{title}</div>
-
       <div className="text-sm text-gray-600">{desc}</div>
     </Link>
   );

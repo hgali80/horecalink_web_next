@@ -5,7 +5,6 @@ import {
   BadgeCheck,
   ChevronRight,
   FileText,
-  PackageCheck,
   ShieldCheck,
   Sparkles,
   Truck,
@@ -15,6 +14,18 @@ import {
 import ProductGallery from "../../components/ProductGallery";
 import RelatedProducts from "../../components/RelatedProducts";
 import { useLang } from "../../context/LanguageContext";
+
+const LEGACY_BADGE_ALIASES = {
+  Yeni: "new",
+  "Cok Satan": "best_seller",
+  Kampanya: "campaign",
+  Firsat: "opportunity",
+  Onerilen: "recommended",
+  Stokta: "in_stock",
+  "Sinirli Stok": "limited_stock",
+  "Proje Urunu": "project_product",
+  "Profesyonel Seri": "professional_series",
+};
 
 function cleanText(value) {
   if (value === null || value === undefined) return "";
@@ -46,6 +57,23 @@ function getProductCode(product) {
   );
 }
 
+function getBadge(product) {
+  return cleanText(product?.badge);
+}
+
+function resolveBadgeLabel(t, badge) {
+  const value = cleanText(badge);
+  if (!value) return "";
+
+  const badgeKey = LEGACY_BADGE_ALIASES[value] || value;
+  const translated = t(`product.badges.${badgeKey}`);
+  return translated === `product.badges.${badgeKey}` ? value : translated;
+}
+
+function getTechnicalSpecsText(product) {
+  return cleanText(product?.specs);
+}
+
 function buildSpecs(product, t) {
   const labels = [
     ["productDetail.specs.code", "Kod", getProductCode(product)],
@@ -65,76 +93,40 @@ function buildSpecs(product, t) {
     .map(([key, fallback, value]) => [resolveText(t, key, fallback), value]);
 }
 
+function getDefaultHighlightLines(t) {
+  return [
+    resolveText(
+      t,
+      "productDetail.highlight.professionalText",
+      "Bu urun HoReCa operasyonlarinda yogun kullanim icin uygundur."
+    ),
+    resolveText(
+      t,
+      "productDetail.highlight.updatedText",
+      "Kart bilgileri Firestore katalog verisinden otomatik olusturulur."
+    ),
+    resolveText(
+      t,
+      "productDetail.highlight.fastQuoteText",
+      "Ticari teklif talebinizi tek tikla iletebilirsiniz."
+    ),
+  ];
+}
+
 function buildHighlights(product, t) {
-  const items = [];
+  const icons = [ShieldCheck, Sparkles, Truck];
+  const customLines = cleanText(product?.highlightLines)
+    .split("\n")
+    .map((line) => cleanText(line))
+    .filter(Boolean)
+    .slice(0, 3);
 
-  if (cleanText(product?.material)) {
-    items.push({
-      icon: ShieldCheck,
-      title: resolveText(t, "productDetail.specs.material", "Materyal"),
-      text: cleanText(product.material),
-    });
-  }
+  const lines = customLines.length ? customLines : getDefaultHighlightLines(t);
 
-  if (cleanText(product?.dimensions)) {
-    items.push({
-      icon: Wrench,
-      title: resolveText(t, "productDetail.specs.dimensions", "Olculer"),
-      text: cleanText(product.dimensions),
-    });
-  }
-
-  if (cleanText(product?.warranty)) {
-    items.push({
-      icon: BadgeCheck,
-      title: resolveText(t, "productDetail.specs.warranty", "Garanti"),
-      text: cleanText(product.warranty),
-    });
-  }
-
-  if (cleanText(product?.power) || cleanText(product?.voltage)) {
-    items.push({
-      icon: PackageCheck,
-      title: resolveText(t, "productDetail.specs.tech", "Teknik parametreler"),
-      text:
-        [cleanText(product?.power), cleanText(product?.voltage)].filter(Boolean).join(" / ") ||
-        resolveText(t, "common.toBeClarified", "Belirtilecek"),
-    });
-  }
-
-  if (!items.length) {
-    items.push(
-      {
-        icon: ShieldCheck,
-        title: resolveText(t, "productDetail.highlight.professional", "Profesyonel kullanim"),
-        text: resolveText(
-          t,
-          "productDetail.highlight.professionalText",
-          "Bu urun HoReCa operasyonlarinda yogun kullanim icin uygundur."
-        ),
-      },
-      {
-        icon: Sparkles,
-        title: resolveText(t, "productDetail.highlight.updated", "Guncel katalog verisi"),
-        text: resolveText(
-          t,
-          "productDetail.highlight.updatedText",
-          "Kart bilgileri Firestore katalog verisinden otomatik olusturulur."
-        ),
-      },
-      {
-        icon: Truck,
-        title: resolveText(t, "productDetail.highlight.fastQuote", "Hizli teklif"),
-        text: resolveText(
-          t,
-          "productDetail.highlight.fastQuoteText",
-          "Ticari teklif talebinizi tek tikla iletebilirsiniz."
-        ),
-      }
-    );
-  }
-
-  return items.slice(0, 4);
+  return icons.map((icon, index) => ({
+    icon,
+    text: lines[index] || getDefaultHighlightLines(t)[index],
+  }));
 }
 
 export default function ProductDetailClient({ product, relatedProducts }) {
@@ -142,6 +134,8 @@ export default function ProductDetailClient({ product, relatedProducts }) {
 
   const specs = buildSpecs(product, t);
   const highlights = buildHighlights(product, t);
+  const badge = resolveBadgeLabel(t, getBadge(product));
+  const technicalSpecsText = getTechnicalSpecsText(product);
   const formattedPrice = formatPrice(product?.price);
 
   const groupKey = cleanText(product?.groupKey);
@@ -187,6 +181,12 @@ export default function ProductDetailClient({ product, relatedProducts }) {
                 <span className="text-xs font-bold uppercase tracking-[0.12em] text-[#34495e]">
                   {product.brand || "HorecaLink"}
                 </span>
+
+                {badge ? (
+                  <span className="rounded-sm bg-[#1d3246] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
+                    {badge}
+                  </span>
+                ) : null}
 
                 {product.isNew ? (
                   <span className="rounded-sm border border-[#c3c7cd] bg-[#eceef0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1d3246]">
@@ -351,27 +351,40 @@ export default function ProductDetailClient({ product, relatedProducts }) {
             </div>
           </div>
 
-          {specs.length ? (
+          {technicalSpecsText || specs.length ? (
             <div className="mt-4 rounded-2xl bg-white p-8 shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
               <h2 className="mb-6 text-2xl font-extrabold text-[#1d3246]">
                 {t("productDetail.tabs.specs")}
               </h2>
 
-              <div className="overflow-hidden rounded-xl border border-[#e6e8ea]">
-                {specs.map(([label, value], index) => (
-                  <div
-                    key={`${label}-${index}`}
-                    className={`grid grid-cols-1 gap-2 px-5 py-4 md:grid-cols-[220px_minmax(0,1fr)] ${
-                      index % 2 === 1 ? "bg-[#f2f4f6]" : "bg-white"
-                    }`}
-                  >
-                    <div className="text-[12px] font-bold uppercase tracking-[0.08em] text-slate-400">
-                      {label}
-                    </div>
-                    <div className="text-[15px] font-medium text-[#1d3246]">{value}</div>
+              {technicalSpecsText ? (
+                <div className="mb-6 rounded-xl border border-[#e6e8ea] bg-[#f8f9fb] px-5 py-4">
+                  <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                    {t("productDetail.tabs.specs")}
                   </div>
-                ))}
-              </div>
+                  <div className="whitespace-pre-line text-[15px] leading-7 text-[#1d3246]">
+                    {technicalSpecsText}
+                  </div>
+                </div>
+              ) : null}
+
+              {specs.length ? (
+                <div className="overflow-hidden rounded-xl border border-[#e6e8ea]">
+                  {specs.map(([label, value], index) => (
+                    <div
+                      key={`${label}-${index}`}
+                      className={`grid grid-cols-1 gap-2 px-5 py-4 md:grid-cols-[220px_minmax(0,1fr)] ${
+                        index % 2 === 1 ? "bg-[#f2f4f6]" : "bg-white"
+                      }`}
+                    >
+                      <div className="text-[12px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                        {label}
+                      </div>
+                      <div className="text-[15px] font-medium text-[#1d3246]">{value}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>

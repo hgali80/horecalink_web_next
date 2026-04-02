@@ -6,6 +6,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Home, Save, UploadCloud } from "lucide-react";
 import { createProduct, uploadProductImages } from "@/app/satissitok/services/productService";
+import { useLang } from "@/app/context/LanguageContext";
+
+const BADGE_OPTIONS = [
+  { value: "new", labelKey: "product.badges.new", fallback: "Yeni" },
+  { value: "best_seller", labelKey: "product.badges.best_seller", fallback: "Cok Satan" },
+  { value: "campaign", labelKey: "product.badges.campaign", fallback: "Kampanya" },
+  { value: "opportunity", labelKey: "product.badges.opportunity", fallback: "Firsat" },
+  { value: "recommended", labelKey: "product.badges.recommended", fallback: "Onerilen" },
+  { value: "in_stock", labelKey: "product.badges.in_stock", fallback: "Stokta" },
+  { value: "limited_stock", labelKey: "product.badges.limited_stock", fallback: "Sinirli Stok" },
+  { value: "project_product", labelKey: "product.badges.project_product", fallback: "Proje Urunu" },
+  { value: "professional_series", labelKey: "product.badges.professional_series", fallback: "Profesyonel Seri" },
+];
+
+const DEFAULT_HIGHLIGHT_LINES = [
+  "Bu urun HoReCa operasyonlarinda yogun kullanim icin uygundur.",
+  "Kart bilgileri Firestore katalog verisinden otomatik olusturulur.",
+  "Ticari teklif talebinizi tek tikla iletebilirsiniz.",
+].join("\n");
 
 function Field({ label, children }) {
   return (
@@ -19,6 +38,7 @@ function Field({ label, children }) {
 export default function NewProductPage() {
   const router = useRouter();
   const fileRef = useRef(null);
+  const { t } = useLang();
 
   const [working, setWorking] = useState(false);
   const [err, setErr] = useState("");
@@ -29,12 +49,14 @@ export default function NewProductPage() {
     name: "",
     name_tr: "",
     barcode: "",
+    badge: "",
     main_category: "",
     sub_category: "",
     brand: "",
     unit: "шт",
     description: "",
     specs: "",
+    highlightLines: DEFAULT_HIGHLIGHT_LINES,
     price: 0,
     order: 0,
     vatRate: 16,
@@ -288,6 +310,21 @@ export default function NewProductPage() {
             placeholder="12,51"
           />
         </Field>
+
+        <Field label="Rozet (badge)">
+          <select
+            value={form.badge}
+            onChange={(e) => set("badge", e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">{t("product.badges.none")}</option>
+            {BADGE_OPTIONS.map((badge) => (
+              <option key={badge.value} value={badge.value}>
+                {t(badge.labelKey) === badge.labelKey ? badge.fallback : t(badge.labelKey)}
+              </option>
+            ))}
+          </select>
+        </Field>
       </div>
 
       <Field label="Açıklama (description)">
@@ -303,6 +340,15 @@ export default function NewProductPage() {
           value={form.specs}
           onChange={(e) => set("specs", e.target.value)}
           className="w-full border rounded-lg px-3 py-2 text-sm min-h-[90px]"
+        />
+      </Field>
+
+      <Field label="Detay Sayfasi 3 Satir">
+        <textarea
+          value={form.highlightLines}
+          onChange={(e) => set("highlightLines", e.target.value)}
+          className="w-full border rounded-lg px-3 py-2 text-sm min-h-[110px]"
+          placeholder={DEFAULT_HIGHLIGHT_LINES}
         />
       </Field>
 
