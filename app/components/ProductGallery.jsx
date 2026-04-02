@@ -19,7 +19,19 @@ function getImageUrl(imageName) {
 export default function ProductGallery({ product }) {
   const { t } = useLang();
   const images = useMemo(
-    () => (Array.isArray(product?.image_names) ? product.image_names.filter(Boolean) : []),
+    () => {
+      const names = Array.isArray(product?.image_names)
+        ? product.image_names.filter(Boolean)
+        : [];
+
+      if (names.length) return names;
+
+      if (product?.imageBase) {
+        return [/\.[a-z0-9]+$/i.test(product.imageBase) ? product.imageBase : `${product.imageBase}.jpg`];
+      }
+
+      return [];
+    },
     [product]
   );
   const [selectedIndex, setSelectedIndex] = useState(0);

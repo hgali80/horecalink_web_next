@@ -45,8 +45,8 @@ function getProductHref(product) {
 function getProductName(product) {
   return (
     cleanText(product?.name) ||
-    cleanText(product?.name_ru) ||
     cleanText(product?.name_tr) ||
+    cleanText(product?.name_ru) ||
     "Product"
   );
 }
@@ -62,6 +62,7 @@ function getProductDescription(product) {
 
 function getProductCode(product) {
   return (
+    cleanText(product?.stock_code) ||
     cleanText(product?.sku) ||
     cleanText(product?.manufacturerCode) ||
     cleanText(product?.id)
@@ -86,11 +87,16 @@ function resolveBadgeLabel(t, badge) {
 }
 
 function getImageUrl(product) {
-  const imageName = Array.isArray(product?.image_names) ? product.image_names[0] : "";
+  const imageNames = Array.isArray(product?.image_names)
+    ? product.image_names.filter(Boolean)
+    : [];
+  const imageName =
+    imageNames[0] ||
+    cleanText(product?.imageBase ? `${product.imageBase}` : "");
   if (!imageName) return null;
 
   return `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/product_images%2F${encodeURIComponent(
-    imageName
+    /\.[a-z0-9]+$/i.test(imageName) ? imageName : `${imageName}.jpg`
   )}?alt=media`;
 }
 
@@ -162,7 +168,7 @@ export default function ProductCard({ product }) {
           {formattedPrice ? (
             <div className="flex items-end gap-1 text-[#12263a]">
               <span className="text-[18px] font-extrabold tracking-[-0.03em]">{formattedPrice}</span>
-              <span className="pb-[2px] text-[13px] font-bold">T</span>
+              <span className="pb-[2px] text-[13px] font-bold">₸</span>
               <span className="pb-[2px] text-[12px] text-slate-500">/ {unit}</span>
             </div>
           ) : (

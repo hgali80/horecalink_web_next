@@ -51,6 +51,7 @@ function resolveText(t, key, fallback, params) {
 
 function getProductCode(product) {
   return (
+    cleanText(product?.stock_code) ||
     cleanText(product?.sku) ||
     cleanText(product?.manufacturerCode) ||
     cleanText(product?.id)
@@ -116,6 +117,7 @@ function getDefaultHighlightLines(t) {
 function buildHighlights(product, t) {
   const icons = [ShieldCheck, Sparkles, Truck];
   const customLines = cleanText(product?.highlightLines)
+    .replace(/\s{2,}/g, "\n")
     .split("\n")
     .map((line) => cleanText(line))
     .filter(Boolean)
@@ -131,6 +133,14 @@ function buildHighlights(product, t) {
 
 export default function ProductDetailClient({ product, relatedProducts }) {
   const { t } = useLang();
+  const productTitle =
+    cleanText(product?.name) ||
+    cleanText(product?.name_tr) ||
+    resolveText(t, "productDetail.notFound", "Urun");
+  const productShortDescription =
+    cleanText(product?.shortDescription) ||
+    cleanText(product?.description) ||
+    resolveText(t, "productDetail.noDescription", "Aciklama yok.");
 
   const specs = buildSpecs(product, t);
   const highlights = buildHighlights(product, t);
@@ -166,7 +176,7 @@ export default function ProductDetailClient({ product, relatedProducts }) {
           </Link>
           <ChevronRight className="h-4 w-4" />
           <span className="font-bold text-[#1d3246]">
-            {product.name || product.name_tr || resolveText(t, "productDetail.notFound", "Urun")}
+            {productTitle}
           </span>
         </nav>
 
@@ -196,7 +206,7 @@ export default function ProductDetailClient({ product, relatedProducts }) {
               </div>
 
               <h1 className="mb-2 text-2xl font-semibold leading-[1.2] tracking-[-0.02em] text-[#1d3246] md:text-3xl lg:text-4xl">
-                {product.name || product.name_tr || resolveText(t, "productDetail.notFound", "Urun")}
+                {productTitle}
               </h1>
 
               <p className="mb-6 text-sm font-semibold text-slate-500">
@@ -204,7 +214,7 @@ export default function ProductDetailClient({ product, relatedProducts }) {
               </p>
 
               <p className="mb-8 text-lg leading-relaxed text-slate-600">
-                {product.shortDescription || resolveText(t, "productDetail.noDescription", "Aciklama yok.")}
+                {productShortDescription}
               </p>
 
               <div className="mb-10 space-y-4">
@@ -224,7 +234,7 @@ export default function ProductDetailClient({ product, relatedProducts }) {
                   {formattedPrice ? (
                     <>
                       <span className="text-3xl font-extrabold italic tracking-tight text-[#1d3246]">
-                        {formattedPrice} T
+                        {formattedPrice} ₸
                       </span>
                       <span className="text-lg font-semibold text-slate-500">
                         / {product.unit || resolveText(t, "productDetail.unit", "adet")}

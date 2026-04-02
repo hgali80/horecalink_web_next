@@ -4,8 +4,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  limit,
-  query,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -326,8 +324,7 @@ export async function updateProduct(productId, raw) {
 }
 
 export async function listProductsAdmin() {
-  const q = query(collection(db, "products"), limit(500));
-  const snap = await getDocs(q);
+  const snap = await getDocs(collection(db, "products"));
   return snap.docs
     .map((d) => normalizeAdminProductRecord(d.id, d.data()))
     .sort((a, b) => toStr(a.stock_code).localeCompare(toStr(b.stock_code), "tr"));

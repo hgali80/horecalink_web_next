@@ -12,10 +12,13 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LanguageContext";
 
+const STAFF_ROLES = new Set(["super_admin", "admin", "staff", "sales", "viewer"]);
+
 export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { t } = useLang();
+  const canOpenSalesStock = STAFF_ROLES.has(user?.role);
 
   const baseLinkClass = mobile
     ? "inline-flex w-full items-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
@@ -51,10 +54,10 @@ export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
         {t("header.menu.createQuote")}
       </Link>
 
-      {user?.role === "admin" ? (
+      {canOpenSalesStock ? (
         <Link href="/satissitok/admin" onClick={onNavigate} className={baseLinkClass}>
           <LayoutDashboard size={18} />
-          {t("header.menu.adminPanel")}
+          Satış/Stok
         </Link>
       ) : null}
 
