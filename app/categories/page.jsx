@@ -17,42 +17,22 @@ import {
   Package,
 } from "lucide-react";
 import { categoryData } from "../data/categoryData";
-import { categoryMap } from "../data/categoryMap";
 import { useLang } from "../context/LanguageContext";
 import { getFirestore, collection, getDocs, query, where } from "firebase/firestore";
 import { app } from "../../firebase";
 import ProductCard from "../components/ProductCard";
+import {
+  getGroupLabel,
+  getMainCategoryLabel,
+  getSubcategoryLabel,
+  resolveProductCategoryKeys,
+} from "../lib/catalog/catalogLabels";
 
 const ITEMS_PER_PAGE = 18;
-const CATEGORY_ALIASES = {
-  "alunminyum konteyner": "aluminyum konteyner",
-  "paketleme strec filmleri": "paketleme streç filmleri",
-  "çatal bıçak kaşık": "çatal - bıçak - kaşık",
-  "çatal – bıçak – kaşık": "çatal - bıçak - kaşık",
-  "catal bicak kasik": "çatal - bıçak - kaşık",
-};
-
-function normalizeCategoryValue(value) {
-  return String(value || "")
-    .toLocaleLowerCase("tr")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[–—−]/g, "-")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-function normalizeCategory(value) {
-  const normalized = normalizeCategoryValue(value);
-  return CATEGORY_ALIASES[normalized] || normalized;
-}
-
-
 function CategoriesContent() {
   const searchParams = useSearchParams();
   const groupFromUrl = searchParams.get("group");
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   const [selectedGroup, setSelectedGroup] = useState("institutional");
   const [selectedMainCategories, setSelectedMainCategories] = useState([]);
@@ -92,7 +72,10 @@ function CategoriesContent() {
     fetchProducts();
   }, [db]);
 
-  const mainCategories = categoryData[selectedGroup]?.mainCategories || {};
+  const mainCategories = useMemo(
+    () => categoryData[selectedGroup]?.mainCategories || {},
+    [selectedGroup]
+  );
   const mainCategoryKeys = useMemo(() => Object.keys(mainCategories), [mainCategories]);
 
   const toggleMainCategory = (mainKey) => {
@@ -109,14 +92,11 @@ function CategoriesContent() {
   const filteredProducts = useMemo(() => {
     return allProducts
       .filter((p) => {
-        const slug = Object.keys(categoryMap).find((k) => {
-          const item = categoryMap[k];
-          return (
-            normalizeCategory(item?.main) === normalizeCategory(p.main_category) &&
-            normalizeCategory(item?.sub) === normalizeCategory(p.sub_category)
-          );
-        });
+        const { groupKey, categoryKey, subcategoryKey } = resolveProductCategoryKeys(p);
+        const slug = subcategoryKey;
         if (!slug) return false;
+
+        if (groupKey && groupKey !== selectedGroup) return false;
 
         const belongsToGroup = Object.values(categoryData[selectedGroup].mainCategories).some(
           (list) => list.includes(slug)
@@ -124,8 +104,8 @@ function CategoriesContent() {
         if (!belongsToGroup) return false;
 
         if (selectedMainCategories.length > 0) {
-          const inCategory = selectedMainCategories.some((mainKey) =>
-            mainCategories[mainKey]?.includes(slug)
+          const inCategory = selectedMainCategories.some(
+            (mainKey) => mainKey === categoryKey && mainCategories[mainKey]?.includes(slug)
           );
           if (!inCategory) return false;
         }
@@ -153,7 +133,7 @@ function CategoriesContent() {
   const groupIcons = {
     institutional: "🏢",
     equipment: "⚙️",
-    stainless_steel: "🔩",
+    stainless: "🔩",
   };
 
   const FilterSidebar = () => (
@@ -174,7 +154,7 @@ function CategoriesContent() {
               className={`group-btn ${selectedGroup === g ? "group-btn--active" : ""}`}
             >
               <span className="group-icon">{groupIcons[g] || "📦"}</span>
-              <span>{t(`category.group.${g}`)}</span>
+              <span>{getGroupLabel({ t, lang, groupKey: g, fallback: g })}</span>
               {selectedGroup === g && (
                 <span className="active-dot" />
               )}
@@ -213,7 +193,7 @@ function CategoriesContent() {
                       onChange={() => toggleMainCategory(mainKey)}
                       className="category-checkbox"
                     />
-                    <span className="category-name">{t(`category.main.${mainKey}`)}</span>
+                    <span className="category-name">{getMainCategoryLabel({ t, lang, categoryKey: mainKey, fallback: mainKey })}</span>
                     <span className="category-count">{subItems.length}</span>
                   </label>
                   {subItems.length > 0 && (
@@ -229,7 +209,7 @@ function CategoriesContent() {
                   <div className="subcategory-list">
                     {subItems.map((slug) => (
                       <span key={slug} className="subcategory-tag">
-                        {t(`category.sub.${slug}`) || slug}
+                        {getSubcategoryLabel({ t, lang, subcategoryKey: slug, fallback: slug })}
                       </span>
                     ))}
                   </div>
@@ -880,12 +860,12 @@ function CategoriesContent() {
             <nav className="catalog-breadcrumb">
               <Link href="/" className="breadcrumb-link">{t("categories.breadcrumb.home")}</Link>
               <ChevronRight className="breadcrumb-sep" size={14} />
-              <span className="breadcrumb-current">{t(`category.group.${selectedGroup}`)}</span>
+              <span className="breadcrumb-current">{getGroupLabel({ t, lang, groupKey: selectedGroup, fallback: selectedGroup })}</span>
             </nav>
 
             <div className="catalog-hero-row">
               <div className="catalog-title-group">
-                <h1>{t(`category.group.${selectedGroup}`)}</h1>
+                <h1>{getGroupLabel({ t, lang, groupKey: selectedGroup, fallback: selectedGroup })}</h1>
                 <div className="catalog-subtitle">
                   <span className="product-count-badge">
                     {filteredProducts.length} {t("common.product")}
@@ -900,7 +880,7 @@ function CategoriesContent() {
                         className="filter-tag"
                         onClick={() => toggleMainCategory(key)}
                       >
-                        {t(`category.main.${key}`)}
+                        {getMainCategoryLabel({ t, lang, categoryKey: key, fallback: key })}
                         <X size={12} />
                       </button>
                     ))}
@@ -1086,3 +1066,4 @@ export default function CategoriesPage() {
     </Suspense>
   );
 }
+

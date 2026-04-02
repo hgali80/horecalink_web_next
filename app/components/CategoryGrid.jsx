@@ -8,6 +8,7 @@ import { db } from "../firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { categoryMap } from "../data/categoryMap";
 import { useLang } from "../context/LanguageContext";
+import { getGroupLabel, getMainCategoryLabel } from "../lib/catalog/catalogLabels";
 
 const GROUP_LABELS = {
   institutional: "Kurumsal",
@@ -16,10 +17,14 @@ const GROUP_LABELS = {
   accessories: "Aksesuar",
 };
 
+function getProductCode(product) {
+  return String(product?.sku || product?.manufacturerCode || product?.id || "").trim();
+}
+
 export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -59,6 +64,7 @@ export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
         const haystack = [
           product.name,
           product.name_tr,
+          product.sku,
           product.manufacturerCode,
           product.brand,
           product.description,
@@ -84,8 +90,12 @@ export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
     return visibleProducts.reduce((accumulator, product) => {
       const meta = categoryMap[product.subcategoryKey];
       const categoryKey = product.categoryKey || "other";
-      const categoryTitle =
-        t(`category.main.${categoryKey}`) || meta?.categoryLabel || categoryKey;
+      const categoryTitle = getMainCategoryLabel({
+        t,
+        lang,
+        categoryKey,
+        fallback: meta?.categoryLabel || categoryKey,
+      });
 
       if (!accumulator[categoryTitle]) {
         accumulator[categoryTitle] = [];
@@ -94,7 +104,7 @@ export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
       accumulator[categoryTitle].push(product);
       return accumulator;
     }, {});
-  }, [t, visibleProducts]);
+  }, [lang, t, visibleProducts]);
 
   const categoryGroups = Object.entries(groupedByCategory);
 
@@ -129,7 +139,12 @@ export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
         <div className="text-sm text-gray-500">
           {t("categoryGrid.group")}:{" "}
           <span className="font-medium text-slate-700">
-            {t(`category.group.${selectedGroup}`) || GROUP_LABELS[selectedGroup] || selectedGroup}
+            {getGroupLabel({
+              t,
+              lang,
+              groupKey: selectedGroup,
+              fallback: GROUP_LABELS[selectedGroup] || selectedGroup,
+            })}
           </span>
         </div>
       ) : null}
@@ -170,8 +185,8 @@ export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
                   <div className="p-3 text-center">
                     <h3 className="truncate text-sm font-medium text-slate-700">{productName}</h3>
 
-                    {product.manufacturerCode ? (
-                      <p className="mt-1 text-xs text-gray-400">{product.manufacturerCode}</p>
+                    {getProductCode(product) ? (
+                      <p className="mt-1 text-xs text-gray-400">{getProductCode(product)}</p>
                     ) : null}
                   </div>
                 </Link>

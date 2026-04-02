@@ -10,40 +10,12 @@ import ProductCard from "./ProductCard";
 import { categoryMap } from "../data/categoryMap";
 import { categoryData } from "../data/categoryData";
 import { useLang } from "../context/LanguageContext";
-
-const CATEGORY_ALIASES = {
-  "alunminyum konteyner": "aluminyum konteyner",
-  "paketleme strec filmleri": "paketleme streç filmleri",
-  "çatal bıçak kaşık": "çatal - bıçak - kaşık",
-  "çatal – bıçak – kaşık": "çatal - bıçak - kaşık",
-  "catal bicak kasik": "çatal - bıçak - kaşık",
-};
-
-function normalizeCategoryValue(value) {
-  return String(value || "")
-    .toLocaleLowerCase("tr")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[–—−]/g, "-")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-function applyCategoryAlias(value) {
-  return CATEGORY_ALIASES[value] || value;
-}
-
-function normalizeCategory(value) {
-  return applyCategoryAlias(normalizeCategoryValue(value));
-}
-
-function matchesCategoryPair(product, expectedMain, expectedSub) {
-  return (
-    normalizeCategory(product?.main_category) === normalizeCategory(expectedMain) &&
-    normalizeCategory(product?.sub_category) === normalizeCategory(expectedSub)
-  );
-}
+import {
+  getGroupLabel,
+  getMainCategoryLabel,
+  getSubcategoryLabel,
+  resolveProductCategoryKeys,
+} from "../lib/catalog/catalogLabels";
 
 export default function ProductList({
   filterSubCategory,
@@ -55,27 +27,19 @@ export default function ProductList({
   const [loading, setLoading] = useState(true);
 
   const db = getFirestore(app);
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
-  const mapItem = filterSubCategory ? categoryMap[filterSubCategory] : null;
-
-  const targetCategoryPairs = useMemo(() => {
+  const targetSubcategoryKeys = useMemo(() => {
     if (filterSubCategory) {
-      return mapItem ? [{ main: mapItem.main, sub: mapItem.sub }] : [];
+      return categoryMap[filterSubCategory] ? [filterSubCategory] : [];
     }
 
     if (filterGroup && filterMainCategory) {
-      const grp = categoryData?.[filterGroup];
-      const subKeys = grp?.mainCategories?.[filterMainCategory] || [];
-
-      return subKeys
-        .map((subKey) => categoryMap?.[subKey])
-        .filter(Boolean)
-        .map((item) => ({ main: item.main, sub: item.sub }));
+      return categoryData?.[filterGroup]?.mainCategories?.[filterMainCategory] || [];
     }
 
     return [];
-  }, [filterSubCategory, mapItem, filterGroup, filterMainCategory]);
+  }, [filterSubCategory, filterGroup, filterMainCategory]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -94,15 +58,16 @@ export default function ProductList({
         let nextProducts = list;
 
         if (filterSubCategory) {
-          if (!mapItem) {
-            console.warn("[ProductList] categoryMap eşleşmedi:", filterSubCategory);
+          if (!targetSubcategoryKeys.length) {
+            console.warn("[ProductList] categoryMap eslesmedi:", filterSubCategory);
             setProducts([]);
             return;
           }
 
-          nextProducts = list.filter((product) =>
-            matchesCategoryPair(product, mapItem.main, mapItem.sub)
-          );
+          nextProducts = list.filter((product) => {
+            const resolved = resolveProductCategoryKeys(product);
+            return resolved.subcategoryKey === filterSubCategory;
+          });
         } else if (filterMainCategory) {
           if (!filterGroup) {
             console.warn("[ProductList] main filtre var ama group yok.");
@@ -110,9 +75,9 @@ export default function ProductList({
             return;
           }
 
-          if (!targetCategoryPairs.length) {
+          if (!targetSubcategoryKeys.length) {
             console.warn(
-              "[ProductList] main kategori için kategori eşleşmesi bulunamadı:",
+              "[ProductList] main kategori icin kategori eslesmesi bulunamadi:",
               filterGroup,
               filterMainCategory
             );
@@ -120,16 +85,19 @@ export default function ProductList({
             return;
           }
 
-          nextProducts = list.filter((product) =>
-            targetCategoryPairs.some((pair) =>
-              matchesCategoryPair(product, pair.main, pair.sub)
-            )
-          );
+          nextProducts = list.filter((product) => {
+            const resolved = resolveProductCategoryKeys(product);
+            return (
+              resolved.groupKey === filterGroup &&
+              resolved.categoryKey === filterMainCategory &&
+              targetSubcategoryKeys.includes(resolved.subcategoryKey)
+            );
+          });
         }
 
         setProducts(nextProducts.sort((a, b) => (a.order ?? 999999) - (b.order ?? 999999)));
       } catch (err) {
-        console.error("[ProductList] Ürünler yüklenirken hata:", err);
+        console.error("[ProductList] Urunler yuklenirken hata:", err);
         setProducts([]);
       } finally {
         setLoading(false);
@@ -137,7 +105,7 @@ export default function ProductList({
     };
 
     fetchProducts();
-  }, [db, filterSubCategory, filterMainCategory, filterGroup, mapItem, targetCategoryPairs]);
+  }, [db, filterSubCategory, filterMainCategory, filterGroup, targetSubcategoryKeys]);
 
   const filtered = useMemo(() => {
     const q = String(searchQuery || "").trim().toLowerCase();
@@ -170,7 +138,7 @@ export default function ProductList({
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-        Yükleniyor…
+        Yukleniyor...
       </div>
     );
   }
@@ -194,7 +162,7 @@ export default function ProductList({
               <>
                 <span className="text-gray-300">/</span>
                 <span className="text-gray-900 font-medium">
-                  {t(`category.group.${filterGroup}`)}
+                  {getGroupLabel({ t, lang, groupKey: filterGroup, fallback: filterGroup })}
                 </span>
               </>
             )}
@@ -203,7 +171,12 @@ export default function ProductList({
               <>
                 <span className="text-gray-300">/</span>
                 <span className="text-gray-900 font-medium">
-                  {t(`category.main.${filterMainCategory}`)}
+                  {getMainCategoryLabel({
+                    t,
+                    lang,
+                    categoryKey: filterMainCategory,
+                    fallback: filterMainCategory,
+                  })}
                 </span>
               </>
             )}
@@ -212,7 +185,12 @@ export default function ProductList({
               <>
                 <span className="text-gray-300">/</span>
                 <span className="text-gray-900 font-medium">
-                  {t(`categories.sub.${filterSubCategory}`)}
+                  {getSubcategoryLabel({
+                    t,
+                    lang,
+                    subcategoryKey: filterSubCategory,
+                    fallback: filterSubCategory,
+                  })}
                 </span>
               </>
             )}
@@ -223,14 +201,24 @@ export default function ProductList({
       <div className="max-w-7xl mx-auto px-4 py-6">
         <h1 className="text-2xl font-bold mb-6">
           {filterSubCategory
-            ? t(`categories.sub.${filterSubCategory}`)
+            ? getSubcategoryLabel({
+                t,
+                lang,
+                subcategoryKey: filterSubCategory,
+                fallback: filterSubCategory,
+              })
             : filterMainCategory
-            ? `${t("products.allPrefix") || "Tüm"} ${t(`category.main.${filterMainCategory}`)}`
-            : t("products.allProducts")}
+              ? `${t("products.allPrefix") || "Tum"} ${getMainCategoryLabel({
+                  t,
+                  lang,
+                  categoryKey: filterMainCategory,
+                  fallback: filterMainCategory,
+                })}`
+              : t("products.allProducts")}
         </h1>
 
         {filtered.length === 0 ? (
-          <div>Ürün bulunamadı.</div>
+          <div>Urun bulunamadi.</div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {filtered.map((p) => (

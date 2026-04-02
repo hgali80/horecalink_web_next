@@ -4,6 +4,7 @@
 
 import React from "react";
 import { useLang } from "../context/LanguageContext";
+import { getGroupLabel } from "../lib/catalog/catalogLabels";
 
 const GROUPS = [
   { key: "institutional", fallback: "Kurumsal" },
@@ -13,7 +14,7 @@ const GROUPS = [
 ];
 
 export default function CategoryTabs({ selectedGroup, onSelectGroup }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   return (
     <div className="w-full bg-white border-b flex justify-center flex-wrap gap-3 py-4">
@@ -27,7 +28,7 @@ export default function CategoryTabs({ selectedGroup, onSelectGroup }) {
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
-          {t(`category.group.${group.key}`) || group.fallback}
+          {getGroupLabel({ t, lang, groupKey: group.key, fallback: group.fallback })}
         </button>
       ))}
     </div>

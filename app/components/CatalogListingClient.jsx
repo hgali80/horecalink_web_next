@@ -104,16 +104,16 @@ export default function CatalogListingClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
-  const tree = useMemo(() => buildCatalogTree(t), [t]);
+  const tree = useMemo(() => buildCatalogTree({ t, lang }), [lang, t]);
   const labels = useMemo(
-    () => getCatalogLabels({ group, category, subcategory, t }),
-    [category, group, subcategory, t]
+    () => getCatalogLabels({ group, category, subcategory, t, lang }),
+    [category, group, lang, subcategory, t]
   );
 
   const searchValue = searchParams.get("q") || "";

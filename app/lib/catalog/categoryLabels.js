@@ -1,6 +1,11 @@
 // app/lib/catalog/categoryLabels.js
 
 import { categoryMap } from "../../data/categoryMap";
+import {
+  getGroupLabel,
+  getMainCategoryLabel,
+  getSubcategoryLabel,
+} from "./catalogLabels";
 
 function prettifyKey(value) {
   return String(value || "")
@@ -8,21 +13,24 @@ function prettifyKey(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function translateLabel(t, key, fallback) {
-  if (!t || !key) return fallback;
-
-  const translated = t(key);
-  return translated === key ? fallback : translated;
-}
-
-export function getCatalogLabels({ group, category, subcategory, t }) {
+export function getCatalogLabels({ group, category, subcategory, t, lang }) {
   if (subcategory && categoryMap[subcategory]) {
     const item = categoryMap[subcategory];
 
     return {
-      groupLabel: translateLabel(t, `category.group.${item.groupKey}`, item.groupLabel),
-      categoryLabel: translateLabel(t, `category.main.${item.categoryKey}`, item.categoryLabel),
-      subcategoryLabel: translateLabel(t, `categories.sub.${subcategory}`, item.subLabel),
+      groupLabel: getGroupLabel({ t, lang, groupKey: item.groupKey, fallback: item.groupLabel }),
+      categoryLabel: getMainCategoryLabel({
+        t,
+        lang,
+        categoryKey: item.categoryKey,
+        fallback: item.categoryLabel,
+      }),
+      subcategoryLabel: getSubcategoryLabel({
+        t,
+        lang,
+        subcategoryKey: subcategory,
+        fallback: item.subLabel,
+      }),
     };
   }
 
@@ -32,12 +40,18 @@ export function getCatalogLabels({ group, category, subcategory, t }) {
     );
 
     return {
-      groupLabel: translateLabel(t, `category.group.${group}`, firstMatch?.groupLabel || prettifyKey(group)),
-      categoryLabel: translateLabel(
+      groupLabel: getGroupLabel({
         t,
-        `category.main.${category}`,
-        firstMatch?.categoryLabel || prettifyKey(category)
-      ),
+        lang,
+        groupKey: group,
+        fallback: firstMatch?.groupLabel || prettifyKey(group),
+      }),
+      categoryLabel: getMainCategoryLabel({
+        t,
+        lang,
+        categoryKey: category,
+        fallback: firstMatch?.categoryLabel || prettifyKey(category),
+      }),
       subcategoryLabel: "",
     };
   }
@@ -45,7 +59,12 @@ export function getCatalogLabels({ group, category, subcategory, t }) {
   const groupMatch = Object.values(categoryMap).find((item) => item.groupKey === group);
 
   return {
-    groupLabel: translateLabel(t, `category.group.${group}`, groupMatch?.groupLabel || prettifyKey(group)),
+    groupLabel: getGroupLabel({
+      t,
+      lang,
+      groupKey: group,
+      fallback: groupMatch?.groupLabel || prettifyKey(group),
+    }),
     categoryLabel: "",
     subcategoryLabel: "",
   };

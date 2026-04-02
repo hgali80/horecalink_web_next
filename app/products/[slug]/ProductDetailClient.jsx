@@ -38,9 +38,17 @@ function resolveText(t, key, fallback, params) {
   return translated === key ? fallback : translated;
 }
 
+function getProductCode(product) {
+  return (
+    cleanText(product?.sku) ||
+    cleanText(product?.manufacturerCode) ||
+    cleanText(product?.id)
+  );
+}
+
 function buildSpecs(product, t) {
   const labels = [
-    ["productDetail.specs.code", "Kod", cleanText(product?.manufacturerCode) || cleanText(product?.sku) || cleanText(product?.id)],
+    ["productDetail.specs.code", "Kod", getProductCode(product)],
     ["productDetail.specs.brand", "Brand", cleanText(product?.brand)],
     ["productDetail.specs.unit", "Birim", cleanText(product?.unit)],
     ["productDetail.specs.material", "Materyal", cleanText(product?.material)],
@@ -145,10 +153,7 @@ export default function ProductDetailClient({ product, relatedProducts }) {
       ? `/catalog/${groupKey}/${categoryKey}/${subcategoryKey}`
       : "/catalog";
 
-  const code =
-    cleanText(product?.manufacturerCode) ||
-    cleanText(product?.sku) ||
-    cleanText(product?.id);
+  const code = getProductCode(product);
 
   return (
     <section className="bg-[#f8f9fb] pb-20 pt-24 text-[#191c1e]">

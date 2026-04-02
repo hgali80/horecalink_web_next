@@ -8,7 +8,7 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -28,6 +28,7 @@ type LanguageContextType = {
 };
 
 const LanguageContext = createContext<LanguageContextType | null>(null);
+const listeners = new Set<() => void>();
 
 function readStoredLanguage(): Language {
   if (typeof window === "undefined") {
@@ -44,41 +45,54 @@ function readStoredLanguage(): Language {
   return defaultLanguage;
 }
 
+function notifyLanguageChange() {
+  listeners.forEach((listener) => listener());
+}
+
+function subscribeToLanguage(callback: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  listeners.add(callback);
+
+  function handleStorage(event: StorageEvent) {
+    if (event.key === languageStorageKey) {
+      callback();
+    }
+  }
+
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    listeners.delete(callback);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Language>(() => readStoredLanguage());
+  const lang = useSyncExternalStore(
+    subscribeToLanguage,
+    readStoredLanguage,
+    () => defaultLanguage
+  );
 
   useEffect(() => {
     if (typeof document !== "undefined") {
       document.documentElement.lang = lang;
     }
-
-    try {
-      window.localStorage.setItem(languageStorageKey, lang);
-    } catch {}
   }, [lang]);
-
-  useEffect(() => {
-    function handleStorage(event: StorageEvent) {
-      if (event.key !== languageStorageKey) return;
-
-      if (event.newValue && isSupportedLanguage(event.newValue)) {
-        setLangState(event.newValue as Language);
-        return;
-      }
-
-      setLangState(defaultLanguage);
-    }
-
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
 
   const setLang = useCallback((nextLang: Language) => {
     if (!isSupportedLanguage(nextLang)) {
       return;
     }
 
-    setLangState(nextLang);
+    try {
+      window.localStorage.setItem(languageStorageKey, nextLang);
+    } catch {}
+
+    notifyLanguageChange();
   }, []);
 
   const t = useCallback(

@@ -8,10 +8,14 @@ import { useSearchParams } from "next/navigation";
 import ProductList from "../components/ProductList";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LanguageContext";
+import {
+  getMainCategoryLabel,
+  getSubcategoryLabel,
+} from "../lib/catalog/catalogLabels";
 
 function ProductsContent() {
   const searchParams = useSearchParams();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const { user } = useAuth();
 
   const subCategory = searchParams.get("sub");
@@ -21,15 +25,20 @@ function ProductsContent() {
 
   const pageTitle = useMemo(() => {
     if (subCategory) {
-      return t(`categories.sub.${subCategory}`);
+      return getSubcategoryLabel({ t, lang, subcategoryKey: subCategory, fallback: subCategory });
     }
 
     if (main) {
-      return `${t("products.allPrefix")} ${t(`category.main.${main}`)}`;
+      return `${t("products.allPrefix")} ${getMainCategoryLabel({
+        t,
+        lang,
+        categoryKey: main,
+        fallback: main,
+      })}`;
     }
 
     return t("products.allProducts");
-  }, [main, subCategory, t]);
+  }, [lang, main, subCategory, t]);
 
   return (
     <main className="min-h-screen bg-gray-50 px-6 py-10 sm:px-10 md:px-24 lg:px-48 xl:px-64 2xl:px-[20rem]">
@@ -45,10 +54,14 @@ function ProductsContent() {
               {t("breadcrumb.categories")}
             </Link>
             {" / "}
-            <span className="font-medium text-gray-700">{t(`categories.sub.${subCategory}`)}</span>
+            <span className="font-medium text-gray-700">
+              {getSubcategoryLabel({ t, lang, subcategoryKey: subCategory, fallback: subCategory })}
+            </span>
           </>
         ) : main ? (
-          <span className="font-medium text-gray-700">{t(`category.main.${main}`)}</span>
+          <span className="font-medium text-gray-700">
+            {getMainCategoryLabel({ t, lang, categoryKey: main, fallback: main })}
+          </span>
         ) : (
           <span className="font-medium text-gray-700">{t("products.allProducts")}</span>
         )}

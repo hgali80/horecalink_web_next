@@ -51,8 +51,8 @@ function getProductDescription(product) {
 
 function getProductCode(product) {
   return (
-    cleanText(product?.manufacturerCode) ||
     cleanText(product?.sku) ||
+    cleanText(product?.manufacturerCode) ||
     cleanText(product?.id)
   );
 }

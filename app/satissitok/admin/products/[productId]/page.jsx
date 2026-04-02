@@ -1,4 +1,3 @@
-// app/satissitok/admin/products/[productId]/page.jsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -9,9 +8,9 @@ import {
   Home,
   Save,
   UploadCloud,
-  Image as ImageIcon,
 } from "lucide-react";
 import { ref, getDownloadURL } from "firebase/storage";
+
 import { storage } from "@/firebase";
 import {
   getProduct,
@@ -19,13 +18,96 @@ import {
   uploadProductImages,
 } from "@/app/satissitok/services/productService";
 
-function Field({ label, children }) {
+function Field({ label, children, hint }) {
   return (
     <label className="block space-y-1">
-      <div className="text-xs font-semibold text-gray-700">{label}</div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs font-semibold text-gray-700">{label}</div>
+        {hint ? <div className="text-[11px] text-gray-400">{hint}</div> : null}
+      </div>
       {children}
     </label>
   );
+}
+
+function Section({ title, description, children }) {
+  return (
+    <section className="space-y-4 rounded-xl border p-4">
+      <div>
+        <h2 className="text-sm font-bold text-gray-900">{title}</h2>
+        {description ? <p className="mt-1 text-xs text-gray-500">{description}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function stringifyMeta(value) {
+  try {
+    return JSON.stringify(value && typeof value === "object" ? value : {}, null, 2);
+  } catch {
+    return "{}";
+  }
+}
+
+function buildInitialForm(product) {
+  return {
+    id: product.id ?? "",
+    stock_code: product.stock_code ?? product.sku ?? product.id ?? "",
+    sku: product.sku ?? product.stock_code ?? product.id ?? "",
+    manufacturerCode: product.manufacturerCode ?? product.sku ?? product.id ?? "",
+    barcode: product.barcode ?? "",
+    badge: product.badge ?? "",
+    name: product.name ?? "",
+    name_tr: product.name_tr ?? "",
+    shortDescription: product.shortDescription ?? "",
+    description: product.description ?? "",
+    specs: product.specs ?? "",
+    group: product.group ?? "",
+    groupKey: product.groupKey ?? "",
+    category: product.category ?? product.main_category ?? "",
+    categoryKey: product.categoryKey ?? product.main_category ?? "",
+    subcategory: product.subcategory ?? product.sub_category ?? "",
+    subcategoryKey: product.subcategoryKey ?? product.sub_category ?? "",
+    main_category: product.main_category ?? product.categoryKey ?? product.category ?? "",
+    sub_category: product.sub_category ?? product.subcategoryKey ?? product.subcategory ?? "",
+    slug: product.slug ?? "",
+    searchText: product.searchText ?? "",
+    tags: Array.isArray(product.tags) ? product.tags.join(", ") : "",
+    binding_codes: Array.isArray(product.binding_codes)
+      ? product.binding_codes.join(",")
+      : (product.binding_codes ?? ""),
+    image_names: Array.isArray(product.image_names) ? product.image_names : [],
+    imageBase: product.imageBase ?? product.sku ?? "",
+    brand: product.brand ?? "",
+    unit: product.unit ?? "",
+    price: product.price ?? 0,
+    order: product.order ?? product.sortOrder ?? 0,
+    sortOrder: product.sortOrder ?? product.order ?? 0,
+    vatRate: product.vatRate ?? 16,
+    productType: product.productType ?? "sale_item",
+    capacity: product.capacity ?? "",
+    dimensions: product.dimensions ?? "",
+    material: product.material ?? "",
+    fuelType: product.fuelType ?? "",
+    power: product.power ?? "",
+    voltage: product.voltage ?? "",
+    warranty: product.warranty ?? "",
+    weight: product.weight ?? "",
+    videoUrl: product.videoUrl ?? "",
+    catalogPdf: product.catalogPdf ?? "",
+    technicalPdf: product.technicalPdf ?? "",
+    popular: product.popular ?? "",
+    active: product.active ?? true,
+    webPublished: product.webPublished ?? false,
+    isNew: product.isNew ?? false,
+    stockTracked: product.stockTracked ?? true,
+    saleEnabled: product.saleEnabled ?? true,
+    purchaseEnabled: product.purchaseEnabled ?? true,
+    meta: stringifyMeta(product.meta),
+    createdAt: product.createdAt ?? "",
+    updatedAt: product.updatedAt ?? "",
+  };
 }
 
 export default function ProductDetailEditPage() {
@@ -38,9 +120,7 @@ export default function ProductDetailEditPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadInfo, setUploadInfo] = useState(null);
   const [err, setErr] = useState("");
-
   const [form, setForm] = useState(null);
-
   const [imagePreviews, setImagePreviews] = useState([]);
   const [previewLoading, setPreviewLoading] = useState(false);
 
@@ -54,40 +134,16 @@ export default function ProductDetailEditPage() {
     (async () => {
       try {
         setLoading(true);
-        const p = await getProduct(productId);
+        const product = await getProduct(productId);
 
         if (!alive) return;
 
-        if (!p) {
+        if (!product) {
           setErr("Ürün bulunamadı.");
           return;
         }
 
-        setForm({
-          stock_code: p.stock_code ?? p.id,
-          name: p.name ?? "",
-          name_tr: p.name_tr ?? "",
-          barcode: p.barcode ?? "",
-          main_category: p.main_category ?? "",
-          sub_category: p.sub_category ?? "",
-          brand: p.brand ?? "",
-          unit: p.unit ?? "шт",
-          description: p.description ?? "",
-          specs: p.specs ?? "",
-          price: p.price ?? 0,
-          order: p.order ?? 0,
-          vatRate: p.vatRate ?? 16,
-          productType: p.productType ?? "sale_item",
-          image_names: Array.isArray(p.image_names) ? p.image_names : [],
-          binding_codes: Array.isArray(p.binding_codes)
-            ? p.binding_codes.join(",")
-            : (p.binding_codes ?? ""),
-          active: p.active ?? true,
-          webPublished: p.webPublished ?? false,
-          stockTracked: p.stockTracked ?? true,
-          saleEnabled: p.saleEnabled ?? true,
-          purchaseEnabled: p.purchaseEnabled ?? true,
-        });
+        setForm(buildInitialForm(product));
       } catch (e) {
         if (!alive) return;
         setErr(e?.message || "Yükleme hatası.");
@@ -120,11 +176,7 @@ export default function ProductDetailEditPage() {
             try {
               const fileRef = ref(storage, `product_images/${name}`);
               const url = await getDownloadURL(fileRef);
-              return {
-                name,
-                url,
-                ok: true,
-              };
+              return { name, url, ok: true };
             } catch (e) {
               return {
                 name,
@@ -169,7 +221,7 @@ export default function ProductDetailEditPage() {
         stockCode: productId,
         files,
         existingImageNames: form.image_names || [],
-        onProgress: (p) => setUploadInfo(p),
+        onProgress: (progress) => setUploadInfo(progress),
       });
 
       set("image_names", res.imageNames || []);
@@ -183,12 +235,12 @@ export default function ProductDetailEditPage() {
   }
 
   function removeImageName(name) {
-    const n = (name || "").toString().trim();
-    if (!n) return;
+    const cleanName = (name || "").toString().trim();
+    if (!cleanName) return;
 
     set(
       "image_names",
-      (form.image_names || []).filter((x) => x !== n)
+      (form.image_names || []).filter((x) => x !== cleanName)
     );
   }
 
@@ -213,17 +265,18 @@ export default function ProductDetailEditPage() {
     }
   }
 
-  const hasImages = useMemo(() => {
-    return Array.isArray(form?.image_names) && form.image_names.length > 0;
-  }, [form?.image_names]);
+  const hasImages = useMemo(
+    () => Array.isArray(form?.image_names) && form.image_names.length > 0,
+    [form?.image_names]
+  );
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-95"
           aria-label="Geri"
           title="Geri"
         >
@@ -233,7 +286,7 @@ export default function ProductDetailEditPage() {
 
         <Link
           href="/satissitok/admin"
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-95"
           aria-label="Satış/Stok Ana Sayfa"
           title="Satış/Stok Ana Sayfa"
         >
@@ -248,65 +301,53 @@ export default function ProductDetailEditPage() {
         <div className="text-sm text-red-600">{err}</div>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Ürün Düzenle: <span className="font-mono">{productId}</span>
-            </h1>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Ürün Düzenle: <span className="font-mono">{productId}</span>
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Firestore ürün dokümanındaki alanlar görüntülenir; düzenlenebilir alanlar kaydedilebilir.
+              </p>
+            </div>
 
             <button
               onClick={onSave}
               disabled={working}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-900 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-white hover:bg-gray-900 disabled:opacity-60"
             >
-              <Save className="w-4 h-4" />
+              <Save className="h-4 w-4" />
               {working ? "Kaydediliyor..." : "Kaydet"}
             </button>
           </div>
 
-          <section className="border rounded-xl p-4 space-y-4">
-            <div className="flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-gray-700" />
-              <div className="font-semibold text-gray-900">Fotoğraflar</div>
-            </div>
-
+          <Section
+            title="Fotoğraflar"
+            description="Storage klasörü: product_images/. İsim yapısı belge anahtarına göre korunur."
+          >
             <div className="text-xs text-gray-600">
-              Storage klasörü: <b>product_images/</b> • İsim yapısı:{" "}
-              <b>{productId}.jpg</b>, sonra <b>{productId}-1.jpg</b>,{" "}
-              <b>{productId}-2.jpg</b> ...
+              <b>{productId}.jpg</b>, sonra <b>{productId}-1.jpg</b>, <b>{productId}-2.jpg</b>...
             </div>
 
             {previewLoading ? (
               <div className="text-sm text-gray-500">Fotoğraflar yükleniyor...</div>
             ) : hasImages ? (
               <div className="space-y-3">
-                <div className="text-sm font-semibold text-gray-800">
-                  Mevcut Fotoğraflar
-                </div>
+                <div className="text-sm font-semibold text-gray-800">Mevcut Fotoğraflar</div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                   {imagePreviews.map((img) => (
-                    <div
-                      key={img.name}
-                      className="border rounded-xl overflow-hidden bg-white"
-                    >
-                      <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                    <div key={img.name} className="overflow-hidden rounded-xl border bg-white">
+                      <div className="flex aspect-square items-center justify-center overflow-hidden bg-gray-100">
                         {img.ok && img.url ? (
-                          <img
-                            src={img.url}
-                            alt={img.name}
-                            className="w-full h-full object-cover"
-                          />
+                          <img src={img.url} alt={img.name} className="h-full w-full object-cover" />
                         ) : (
-                          <div className="p-4 text-center text-xs text-red-600">
-                            Görsel yüklenemedi
-                          </div>
+                          <div className="p-4 text-center text-xs text-red-600">Görsel yüklenemedi</div>
                         )}
                       </div>
 
-                      <div className="p-3 space-y-2">
-                        <div className="text-[11px] text-gray-700 font-mono break-all">
-                          {img.name}
-                        </div>
+                      <div className="space-y-2 p-3">
+                        <div className="break-all text-[11px] font-mono text-gray-700">{img.name}</div>
 
                         <div className="flex items-center justify-between gap-2">
                           {img.ok && img.url ? (
@@ -319,9 +360,7 @@ export default function ProductDetailEditPage() {
                               büyüt
                             </a>
                           ) : (
-                            <span className="text-[11px] text-red-500">
-                              Storage URL alınamadı
-                            </span>
+                            <span className="text-[11px] text-red-500">URL alınamadı</span>
                           )}
 
                           <button
@@ -338,225 +377,473 @@ export default function ProductDetailEditPage() {
                 </div>
 
                 <div className="text-[11px] text-gray-500">
-                  Not: “kaldır” sadece Firestore içindeki <b>image_names</b>{" "}
-                  listesinden çıkarır. Storage dosyasını silmez.
+                  “kaldır” işlemi sadece `image_names` listesinden çıkarır, Storage dosyasını silmez.
                 </div>
               </div>
             ) : (
-              <div className="border border-dashed rounded-xl p-5 bg-gray-50">
-                <div className="text-sm font-semibold text-gray-800">
-                  Bu ürüne ait fotoğraf yok.
-                </div>
-                <div className="text-xs text-gray-600 mt-1">
-                  Aşağıdaki alandan bir veya birden fazla fotoğraf ekleyebilirsin.
-                </div>
+              <div className="rounded-xl border border-dashed bg-gray-50 p-5">
+                <div className="text-sm font-semibold text-gray-800">Bu ürüne ait fotoğraf yok.</div>
+                <div className="mt-1 text-xs text-gray-600">Aşağıdan bir veya birden fazla fotoğraf ekleyebilirsin.</div>
               </div>
             )}
 
             {uploadInfo ? (
-              <div className="text-xs text-gray-700 border rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold flex items-center gap-2">
-                  <UploadCloud className="w-4 h-4" />
+              <div className="rounded-lg border bg-gray-50 p-3 text-xs text-gray-700">
+                <div className="flex items-center gap-2 font-semibold">
+                  <UploadCloud className="h-4 w-4" />
                   Foto yükleniyor
                 </div>
                 <div>
                   {uploadInfo.stage === "uploading" ? "Yükleniyor" : "Tamamlandı"}:{" "}
-                  <b>{uploadInfo.filename}</b> ({uploadInfo.index + 1}/
-                  {uploadInfo.total})
+                  <b>{uploadInfo.filename}</b> ({uploadInfo.index + 1}/{uploadInfo.total})
                 </div>
               </div>
             ) : null}
 
-            <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="block w-full text-sm"
-              />
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+              <input ref={fileRef} type="file" accept="image/*" multiple className="block w-full text-sm" />
               <button
                 onClick={onUploadPhotos}
                 disabled={uploading}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border bg-white hover:bg-gray-50 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2 hover:bg-gray-50 disabled:opacity-60"
               >
-                <UploadCloud className="w-4 h-4" />
+                <UploadCloud className="h-4 w-4" />
                 {uploading ? "Yükleniyor..." : "Foto Yükle"}
               </button>
             </div>
 
-            {Array.isArray(form.image_names) && form.image_names.length > 0 ? (
-              <div className="text-xs text-gray-700">
-                <div className="font-semibold mt-2">image_names</div>
-                <ul className="space-y-1 mt-1">
-                  {form.image_names.map((x) => (
-                    <li
-                      key={x}
-                      className="flex items-center justify-between gap-3 border rounded-lg px-3 py-2"
-                    >
-                      <span className="font-mono break-all">{x}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeImageName(x)}
-                        className="text-red-600 hover:underline"
-                      >
-                        kaldır
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </section>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Stok Kodu">
-              <input
-                value={form.stock_code}
-                disabled
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50"
+            <Field label="image_names" hint="Upload sonrası otomatik güncellenir">
+              <textarea
+                value={(form.image_names || []).join("\n")}
+                readOnly
+                className="min-h-[90px] w-full rounded-lg border bg-gray-50 px-3 py-2 font-mono text-xs"
               />
             </Field>
+          </Section>
 
-            <Field label="Barkod">
-              <input
-                value={form.barcode}
-                onChange={(e) => set("barcode", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </Field>
+          <Section title="Kimlik ve Durum" description="Belge anahtarı, temel kimlik alanları ve durum bayrakları">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Field label="Belge ID" hint="Firestore belge kimliği">
+                <input value={form.id} disabled className="w-full rounded-lg border bg-gray-50 px-3 py-2 text-sm" />
+              </Field>
 
-            <Field label="Ürün Adı (RU/KZ)">
-              <input
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </Field>
-
-            <Field label="Ürün Adı (TR)">
-              <input
-                value={form.name_tr}
-                onChange={(e) => set("name_tr", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </Field>
-
-            <Field label="Ana Kategori">
-              <input
-                value={form.main_category}
-                onChange={(e) => set("main_category", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </Field>
-
-            <Field label="Alt Kategori">
-              <input
-                value={form.sub_category}
-                onChange={(e) => set("sub_category", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </Field>
-
-            <Field label="Marka">
-              <input
-                value={form.brand}
-                onChange={(e) => set("brand", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </Field>
-
-            <Field label="Birim">
-              <input
-                value={form.unit}
-                onChange={(e) => set("unit", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </Field>
-
-            <Field label="Fiyat">
-              <input
-                type="number"
-                value={form.price}
-                onChange={(e) => set("price", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </Field>
-
-            <Field label="Sıra (order)">
-              <input
-                type="number"
-                value={form.order}
-                onChange={(e) => set("order", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </Field>
-
-            <Field label="KDV (vatRate)">
-              <input
-                type="number"
-                value={form.vatRate}
-                onChange={(e) => set("vatRate", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </Field>
-
-            <Field label="Ürün Tipi (productType)">
-              <select
-                value={form.productType}
-                onChange={(e) => set("productType", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              >
-                <option value="sale_item">sale_item</option>
-                <option value="consumable">consumable</option>
-                <option value="service">service</option>
-              </select>
-            </Field>
-
-            <Field label="İlgili Ürün Kodları (binding_codes) virgüllü">
-              <input
-                value={form.binding_codes}
-                onChange={(e) => set("binding_codes", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder="12,51"
-              />
-            </Field>
-          </div>
-
-          <Field label="Açıklama (description)">
-            <textarea
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm min-h-[90px]"
-            />
-          </Field>
-
-          <Field label="Teknik (specs)">
-            <textarea
-              value={form.specs}
-              onChange={(e) => set("specs", e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm min-h-[90px]"
-            />
-          </Field>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border rounded-xl p-4">
-            {[
-              ["active", "Aktif"],
-              ["webPublished", "Web’de Yayınla"],
-              ["saleEnabled", "Satış Aktif"],
-              ["purchaseEnabled", "Satınalma Aktif"],
-              ["stockTracked", "Stok Takibi"],
-            ].map(([k, label]) => (
-              <label key={k} className="flex items-center gap-2 text-sm">
+              <Field label="Stok Kodu" hint="Uyumluluk alanı">
                 <input
-                  type="checkbox"
-                  checked={!!form[k]}
-                  onChange={(e) => set(k, e.target.checked)}
+                  value={form.stock_code}
+                  disabled
+                  className="w-full rounded-lg border bg-gray-50 px-3 py-2 text-sm"
                 />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
+              </Field>
+
+              <Field label="SKU" hint="Belge anahtarıyla uyumlu tutulur">
+                <input
+                  value={form.sku}
+                  disabled
+                  className="w-full rounded-lg border bg-gray-50 px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Üretici Kodu">
+                <input
+                  value={form.manufacturerCode}
+                  onChange={(e) => set("manufacturerCode", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Barkod">
+                <input
+                  value={form.barcode}
+                  onChange={(e) => set("barcode", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Rozet">
+                <input
+                  value={form.badge}
+                  onChange={(e) => set("badge", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Ürün Tipi">
+                <select
+                  value={form.productType}
+                  onChange={(e) => set("productType", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                >
+                  <option value="sale_item">sale_item</option>
+                  <option value="consumable">consumable</option>
+                  <option value="service">service</option>
+                </select>
+              </Field>
+
+              <Field label="Fiyat">
+                <input
+                  type="number"
+                  value={form.price}
+                  onChange={(e) => set("price", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="KDV Oranı">
+                <input
+                  type="number"
+                  value={form.vatRate}
+                  onChange={(e) => set("vatRate", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Sıra">
+                <input
+                  type="number"
+                  value={form.order}
+                  onChange={(e) => set("order", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Liste Sırası">
+                <input
+                  type="number"
+                  value={form.sortOrder}
+                  onChange={(e) => set("sortOrder", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Popülerlik">
+                <input
+                  value={form.popular}
+                  onChange={(e) => set("popular", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 rounded-xl border p-4 md:grid-cols-3">
+              {[
+                ["active", "Aktif"],
+                ["webPublished", "Web'de Yayınla"],
+                ["isNew", "Yeni Ürün"],
+                ["saleEnabled", "Satışa Açık"],
+                ["purchaseEnabled", "Satınalmaya Açık"],
+                ["stockTracked", "Stok Takibi"],
+              ].map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!form[key]}
+                    onChange={(e) => set(key, e.target.checked)}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </Section>
+
+          <Section title="İsim ve İçerik" description="Çok dilli isimler, özet ve açıklama alanları">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Ürün Adı">
+                <input
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Ürün Adı (TR)">
+                <input
+                  value={form.name_tr}
+                  onChange={(e) => set("name_tr", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+            </div>
+
+            <Field label="Kısa Açıklama">
+              <textarea
+                value={form.shortDescription}
+                onChange={(e) => set("shortDescription", e.target.value)}
+                className="min-h-[90px] w-full rounded-lg border px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Açıklama">
+              <textarea
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                className="min-h-[130px] w-full rounded-lg border px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Teknik Özellikler">
+              <textarea
+                value={form.specs}
+                onChange={(e) => set("specs", e.target.value)}
+                className="min-h-[130px] w-full rounded-lg border px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Arama Metni">
+              <textarea
+                value={form.searchText}
+                onChange={(e) => set("searchText", e.target.value)}
+                className="min-h-[90px] w-full rounded-lg border px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Etiketler" hint="Virgülle ayır">
+                <textarea
+                  value={form.tags}
+                  onChange={(e) => set("tags", e.target.value)}
+                  className="min-h-[90px] w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Bağlantılı Kodlar" hint="Virgülle ayır">
+                <textarea
+                  value={form.binding_codes}
+                  onChange={(e) => set("binding_codes", e.target.value)}
+                  className="min-h-[90px] w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+            </div>
+          </Section>
+
+          <Section title="Katalog Eşlemesi" description="Route ve katalog filtreleme tarafında kullanılan alanlar">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Field label="Grup">
+                <input
+                  value={form.group}
+                  onChange={(e) => set("group", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Grup Anahtarı">
+                <input
+                  value={form.groupKey}
+                  onChange={(e) => set("groupKey", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Slug">
+                <input
+                  value={form.slug}
+                  onChange={(e) => set("slug", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Kategori">
+                <input
+                  value={form.category}
+                  onChange={(e) => set("category", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Kategori Anahtarı">
+                <input
+                  value={form.categoryKey}
+                  onChange={(e) => {
+                    set("categoryKey", e.target.value);
+                    set("main_category", e.target.value);
+                  }}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Ana Kategori" hint="Admin uyumluluk alanı">
+                <input
+                  value={form.main_category}
+                  onChange={(e) => set("main_category", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Alt Kategori">
+                <input
+                  value={form.subcategory}
+                  onChange={(e) => set("subcategory", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Alt Kategori Anahtarı">
+                <input
+                  value={form.subcategoryKey}
+                  onChange={(e) => {
+                    set("subcategoryKey", e.target.value);
+                    set("sub_category", e.target.value);
+                  }}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Alt Kategori Kısa Alanı" hint="Admin uyumluluk alanı">
+                <input
+                  value={form.sub_category}
+                  onChange={(e) => set("sub_category", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+            </div>
+          </Section>
+
+          <Section title="Teknik Bilgiler" description="Ürünün teknik ve fiziksel özellikleri">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Field label="Marka">
+                <input
+                  value={form.brand}
+                  onChange={(e) => set("brand", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Birim">
+                <input
+                  value={form.unit}
+                  onChange={(e) => set("unit", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Ağırlık">
+                <input
+                  value={form.weight}
+                  onChange={(e) => set("weight", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Kapasite">
+                <input
+                  value={form.capacity}
+                  onChange={(e) => set("capacity", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Ölçüler">
+                <input
+                  value={form.dimensions}
+                  onChange={(e) => set("dimensions", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Materyal">
+                <input
+                  value={form.material}
+                  onChange={(e) => set("material", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Yakıt Tipi">
+                <input
+                  value={form.fuelType}
+                  onChange={(e) => set("fuelType", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Güç">
+                <input
+                  value={form.power}
+                  onChange={(e) => set("power", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Voltaj">
+                <input
+                  value={form.voltage}
+                  onChange={(e) => set("voltage", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Garanti">
+                <input
+                  value={form.warranty}
+                  onChange={(e) => set("warranty", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+            </div>
+          </Section>
+
+          <Section title="Medya ve Linkler" description="Dış kaynak bağlantıları ve türetilmiş medya alanları">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Ana Görsel Kodu">
+                <input
+                  value={form.imageBase}
+                  onChange={(e) => set("imageBase", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Video URL">
+                <input
+                  value={form.videoUrl}
+                  onChange={(e) => set("videoUrl", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Katalog PDF">
+                <input
+                  value={form.catalogPdf}
+                  onChange={(e) => set("catalogPdf", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Teknik PDF">
+                <input
+                  value={form.technicalPdf}
+                  onChange={(e) => set("technicalPdf", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+            </div>
+          </Section>
+
+          <Section title="Meta ve Zaman Bilgileri" description="İçe aktarma ve sistem metadata alanları">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Oluşturulma Tarihi" hint="Salt okunur">
+                <input
+                  value={String(form.createdAt || "")}
+                  readOnly
+                  className="w-full rounded-lg border bg-gray-50 px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Güncellenme Tarihi" hint="Salt okunur">
+                <input
+                  value={String(form.updatedAt || "")}
+                  readOnly
+                  className="w-full rounded-lg border bg-gray-50 px-3 py-2 text-sm"
+                />
+              </Field>
+            </div>
+
+            <Field label="Meta Bilgisi" hint="JSON formatı">
+              <textarea
+                value={form.meta}
+                onChange={(e) => set("meta", e.target.value)}
+                className="min-h-[180px] w-full rounded-lg border px-3 py-2 font-mono text-xs"
+              />
+            </Field>
+          </Section>
         </>
       )}
     </div>

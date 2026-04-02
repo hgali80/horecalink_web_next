@@ -5,7 +5,6 @@ import {
   getDoc,
   getDocs,
   limit,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -48,6 +47,92 @@ function csvToArr(x, { suffix = "" } = {}) {
       if (!suffix) return t;
       return t.toLowerCase().endsWith(suffix.toLowerCase()) ? t : `${t}${suffix}`;
     });
+}
+
+function parseTags(value) {
+  if (Array.isArray(value)) return value.map(toStr).filter(Boolean);
+  return csvToArr(value);
+}
+
+function parseMeta(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+
+  const raw = toStr(value);
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeAdminProductRecord(id, raw = {}) {
+  const sku = toStr(raw.sku || raw.stock_code || id);
+  const name = toStr(raw.name || raw.name_ru || raw.name_tr);
+  const nameTr = toStr(raw.name_tr || raw.name);
+  const mainCategory = toStr(raw.main_category || raw.categoryKey || raw.category);
+  const subCategory = toStr(raw.sub_category || raw.subcategoryKey || raw.subcategory);
+
+  return {
+    id: toStr(id),
+    ...raw,
+    sku,
+    stock_code: sku,
+    manufacturerCode: toStr(raw.manufacturerCode || sku),
+    name,
+    name_tr: nameTr,
+    shortDescription: toStr(raw.shortDescription),
+    barcode: toStr(raw.barcode),
+    badge: toStr(raw.badge),
+    main_category: mainCategory,
+    sub_category: subCategory,
+    category: toStr(raw.category || mainCategory),
+    categoryKey: toStr(raw.categoryKey || mainCategory),
+    subcategory: toStr(raw.subcategory || subCategory),
+    subcategoryKey: toStr(raw.subcategoryKey || subCategory),
+    group: toStr(raw.group || raw.groupKey),
+    groupKey: toStr(raw.groupKey || raw.group),
+    slug: toStr(raw.slug),
+    imageBase: toStr(raw.imageBase || sku),
+    catalogPdf: toStr(raw.catalogPdf),
+    technicalPdf: toStr(raw.technicalPdf),
+    videoUrl: toStr(raw.videoUrl),
+    capacity: toStr(raw.capacity),
+    dimensions: toStr(raw.dimensions),
+    fuelType: toStr(raw.fuelType),
+    material: toStr(raw.material),
+    power: toStr(raw.power),
+    voltage: toStr(raw.voltage),
+    warranty: toStr(raw.warranty),
+    weight: raw.weight ?? "",
+    popular: toStr(raw.popular),
+    searchText: toStr(raw.searchText),
+    description: toStr(raw.description),
+    specs: toStr(raw.specs),
+    order: num(raw.order ?? raw.sortOrder, 0),
+    sortOrder: num(raw.sortOrder ?? raw.order, 0),
+    active: bool(raw.active, true),
+    webPublished: bool(raw.webPublished, false),
+    isNew: bool(raw.isNew, false),
+    saleEnabled: bool(raw.saleEnabled, true),
+    purchaseEnabled: bool(raw.purchaseEnabled, true),
+    stockTracked: bool(raw.stockTracked, true),
+    price: num(raw.price, 0),
+    vatRate: num(raw.vatRate, 16),
+    productType: toStr(raw.productType) || "sale_item",
+    unit: toStr(raw.unit),
+    brand: toStr(raw.brand),
+    image_names: Array.isArray(raw.image_names) ? raw.image_names.map(toStr).filter(Boolean) : [],
+    binding_codes: Array.isArray(raw.binding_codes)
+      ? raw.binding_codes.map(toStr).filter(Boolean)
+      : csvToArr(raw.binding_codes),
+    tags: parseTags(raw.tags),
+    meta: parseMeta(raw.meta),
+    createdAt: raw.createdAt ?? "",
+    updatedAt: raw.updatedAt ?? "",
+  };
 }
 
 /**
@@ -111,7 +196,7 @@ export async function uploadProductImages({
     let url = "";
     try {
       url = await getDownloadURL(r);
-    } catch (_) {}
+    } catch {}
 
     uploaded.push({ filename, path, url });
 
@@ -127,23 +212,53 @@ export async function uploadProductImages({
  * UI formundan gelen raw objeyi Firestore ürün şemasına normalize eder.
  */
 export function normalizeProductInput(raw) {
-  const stock_code = toStr(raw.stock_code);
+  const stock_code = toStr(raw.stock_code || raw.sku || raw.id);
   if (!stock_code) throw new Error("stock_code zorunlu.");
 
+  const mainCategory = toStr(raw.main_category || raw.categoryKey || raw.category);
+  const subCategory = toStr(raw.sub_category || raw.subcategoryKey || raw.subcategory);
+  const groupKey = toStr(raw.groupKey || raw.group);
+
   const product = {
-    main_category: toStr(raw.main_category),
-    sub_category: toStr(raw.sub_category),
+    main_category: mainCategory,
+    sub_category: subCategory,
     barcode: toStr(raw.barcode),
-    stock_code: stock_code, // string güvenli
+    stock_code: stock_code,
+    sku: toStr(raw.sku || stock_code),
+    manufacturerCode: toStr(raw.manufacturerCode || raw.sku || stock_code),
     name: toStr(raw.name),
     name_tr: toStr(raw.name_tr),
+    shortDescription: toStr(raw.shortDescription),
     unit: toStr(raw.unit),
     brand: toStr(raw.brand),
+    badge: toStr(raw.badge),
     description: toStr(raw.description),
     specs: toStr(raw.specs),
+    category: toStr(raw.category || mainCategory),
+    categoryKey: toStr(raw.categoryKey || mainCategory),
+    subcategory: toStr(raw.subcategory || subCategory),
+    subcategoryKey: toStr(raw.subcategoryKey || subCategory),
+    group: toStr(raw.group || groupKey),
+    groupKey: groupKey,
+    slug: toStr(raw.slug),
+    imageBase: toStr(raw.imageBase || stock_code),
+    catalogPdf: toStr(raw.catalogPdf),
+    technicalPdf: toStr(raw.technicalPdf),
+    videoUrl: toStr(raw.videoUrl),
+    capacity: toStr(raw.capacity),
+    dimensions: toStr(raw.dimensions),
+    fuelType: toStr(raw.fuelType),
+    material: toStr(raw.material),
+    power: toStr(raw.power),
+    voltage: toStr(raw.voltage),
+    warranty: toStr(raw.warranty),
+    weight: raw.weight === "" ? null : raw.weight ?? null,
+    popular: toStr(raw.popular),
+    searchText: toStr(raw.searchText),
 
     price: num(raw.price, 0),
     order: num(raw.order, 0),
+    sortOrder: num(raw.sortOrder ?? raw.order, 0),
 
     image_names: Array.isArray(raw.image_names)
       ? raw.image_names.map(toStr).filter(Boolean)
@@ -153,8 +268,12 @@ export function normalizeProductInput(raw) {
       ? raw.binding_codes.map(toStr).filter(Boolean)
       : csvToArr(raw.binding_codes),
 
+    tags: parseTags(raw.tags),
+    meta: parseMeta(raw.meta),
+
     active: bool(raw.active, true),
     webPublished: bool(raw.webPublished, false),
+    isNew: bool(raw.isNew, false),
     productType: toStr(raw.productType) || "sale_item",
     stockTracked: bool(raw.stockTracked, true),
     saleEnabled: bool(raw.saleEnabled, true),
@@ -170,7 +289,7 @@ export async function getProduct(productId) {
   const ref = doc(db, "products", id);
   const snap = await getDoc(ref);
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
+  return normalizeAdminProductRecord(snap.id, snap.data());
 }
 
 export async function createProduct(raw) {
@@ -207,7 +326,9 @@ export async function updateProduct(productId, raw) {
 }
 
 export async function listProductsAdmin() {
-  const q = query(collection(db, "products"), orderBy("stock_code", "asc"), limit(500));
+  const q = query(collection(db, "products"), limit(500));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs
+    .map((d) => normalizeAdminProductRecord(d.id, d.data()))
+    .sort((a, b) => toStr(a.stock_code).localeCompare(toStr(b.stock_code), "tr"));
 }

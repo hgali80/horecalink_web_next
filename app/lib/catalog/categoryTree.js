@@ -1,19 +1,17 @@
 // app/lib/catalog/categoryTree.js
 
 import { categoryMap } from "../../data/categoryMap";
+import {
+  getGroupLabel,
+  getMainCategoryLabel,
+  getSubcategoryLabel,
+} from "./catalogLabels";
 
 function sortByLabel(a, b) {
   return String(a.label || "").localeCompare(String(b.label || ""), "tr");
 }
 
-function translateLabel(t, key, fallback) {
-  if (!t || !key) return fallback;
-
-  const translated = t(key);
-  return translated === key ? fallback : translated;
-}
-
-export function buildCatalogTree(t) {
+export function buildCatalogTree({ t, lang }) {
   const groups = {};
 
   Object.entries(categoryMap).forEach(([subcategoryKey, item]) => {
@@ -23,7 +21,7 @@ export function buildCatalogTree(t) {
     if (!groups[groupKey]) {
       groups[groupKey] = {
         key: groupKey,
-        label: translateLabel(t, `category.group.${groupKey}`, item.groupLabel),
+        label: getGroupLabel({ t, lang, groupKey, fallback: item.groupLabel }),
         categories: {},
       };
     }
@@ -31,14 +29,14 @@ export function buildCatalogTree(t) {
     if (!groups[groupKey].categories[categoryKey]) {
       groups[groupKey].categories[categoryKey] = {
         key: categoryKey,
-        label: translateLabel(t, `category.main.${categoryKey}`, item.categoryLabel),
+        label: getMainCategoryLabel({ t, lang, categoryKey, fallback: item.categoryLabel }),
         subcategories: [],
       };
     }
 
     groups[groupKey].categories[categoryKey].subcategories.push({
       key: subcategoryKey,
-      label: translateLabel(t, `categories.sub.${subcategoryKey}`, item.subLabel),
+      label: getSubcategoryLabel({ t, lang, subcategoryKey, fallback: item.subLabel }),
     });
   });
 
