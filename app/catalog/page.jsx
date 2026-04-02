@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BriefcaseBusiness, Building2, ChefHat, ChevronRight } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
+import { getGroupLabel } from "../lib/catalog/catalogLabels";
 
 const groups = [
   {
@@ -10,23 +11,26 @@ const groups = [
     description: "catalog.groupCards.institutional",
     href: "/catalog/institutional",
     icon: Building2,
+    fallback: "Temizlik & Hijyen",
   },
   {
     key: "equipment",
     description: "catalog.groupCards.equipment",
     href: "/catalog/equipment",
     icon: BriefcaseBusiness,
+    fallback: "Mutfak Ekipmanlari",
   },
   {
     key: "stainless",
     description: "catalog.groupCards.stainless",
     href: "/catalog/stainless",
     icon: ChefHat,
+    fallback: "Paslanmaz Ekipmanlar",
   },
 ];
 
 export default function CatalogLandingPage() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   return (
     <main className="min-h-screen bg-[#f8f9fb] px-4 pb-16 pt-10 md:px-6 lg:px-8">
@@ -51,6 +55,13 @@ export default function CatalogLandingPage() {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {groups.map((group) => {
             const Icon = group.icon;
+            const groupLabel = getGroupLabel({
+              t,
+              lang,
+              groupKey: group.key,
+              fallback: group.fallback,
+            });
+
             return (
               <Link
                 key={group.key}
@@ -61,7 +72,7 @@ export default function CatalogLandingPage() {
                   <Icon className="h-7 w-7" />
                 </div>
                 <h2 className="text-2xl font-extrabold tracking-[-0.03em] text-[#1d3246]">
-                  {t(`category.group.${group.key}`)}
+                  {groupLabel}
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-slate-500">{t(group.description)}</p>
                 <div className="mt-6 text-sm font-bold uppercase tracking-[0.14em] text-[#1d3246]">

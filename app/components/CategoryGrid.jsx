@@ -11,9 +11,9 @@ import { useLang } from "../context/LanguageContext";
 import { getGroupLabel, getMainCategoryLabel } from "../lib/catalog/catalogLabels";
 
 const GROUP_LABELS = {
-  institutional: "Kurumsal",
-  equipment: "Yatirim",
-  stainless: "Paslanmaz",
+  institutional: "Temizlik & Hijyen",
+  equipment: "Mutfak Ekipmanlari",
+  stainless: "Paslanmaz Ekipmanlar",
   accessories: "Aksesuar",
 };
 

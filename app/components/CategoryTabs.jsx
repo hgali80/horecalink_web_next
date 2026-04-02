@@ -7,9 +7,9 @@ import { useLang } from "../context/LanguageContext";
 import { getGroupLabel } from "../lib/catalog/catalogLabels";
 
 const GROUPS = [
-  { key: "institutional", fallback: "Kurumsal" },
-  { key: "equipment", fallback: "Yatırım" },
-  { key: "stainless", fallback: "Paslanmaz" },
+  { key: "institutional", fallback: "Temizlik & Hijyen" },
+  { key: "equipment", fallback: "Mutfak Ekipmanlari" },
+  { key: "stainless", fallback: "Paslanmaz Ekipmanlar" },
   { key: "accessories", fallback: "Aksesuar" },
 ];
 
