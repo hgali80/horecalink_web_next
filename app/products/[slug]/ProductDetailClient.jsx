@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   ChevronRight,
   FileText,
+  Package2,
   ShieldCheck,
   Sparkles,
   Truck,
@@ -42,6 +43,21 @@ function formatPrice(value) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(numeric);
+}
+
+function formatPriceWithDecimal(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+
+  return new Intl.NumberFormat("ru-RU", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(numeric);
+}
+
+function asNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 function resolveText(t, key, fallback, params) {
@@ -131,6 +147,90 @@ function buildHighlights(product, t) {
   }));
 }
 
+function normalizeUnitType(value, t) {
+  const clean = cleanText(value).toLowerCase();
+  if (!clean) return "";
+
+  const labels = {
+    roll: resolveText(t, "productDetail.packaging.unitType.roll", "roll"),
+    piece: resolveText(t, "productDetail.packaging.unitType.piece", "piece"),
+    ml: resolveText(t, "productDetail.packaging.unitType.ml", "ml"),
+    kg: resolveText(t, "productDetail.packaging.unitType.kg", "kg"),
+  };
+
+  return labels[clean] || clean;
+}
+
+function buildPackagingSummary(product, t) {
+  const price = asNumber(product?.price);
+  const packQty = asNumber(product?.packQty);
+  const caseQty = asNumber(product?.caseQty);
+  const unitType = normalizeUnitType(product?.unitType, t);
+  const totalUnits = packQty && caseQty ? packQty * caseQty : null;
+  const pricePerPack = price && caseQty ? price / caseQty : null;
+  const pricePerUnit = price && totalUnits ? price / totalUnits : null;
+  const hasPackagingData = price || packQty || caseQty || unitType;
+
+  if (!hasPackagingData) return null;
+
+  const chips = [];
+
+  if (price) {
+    chips.push({
+      label: resolveText(t, "productDetail.packaging.casePrice", "Case price"),
+      value: `${formatPrice(price)} ₸`,
+    });
+  }
+
+  if (caseQty) {
+    chips.push({
+      label: resolveText(t, "productDetail.packaging.caseQty", "Packs per case"),
+      value: `${caseQty}`,
+    });
+  }
+
+  if (packQty) {
+    chips.push({
+      label: resolveText(t, "productDetail.packaging.packQty", "Units per pack"),
+      value: unitType ? `${packQty} ${unitType}` : `${packQty}`,
+    });
+  }
+
+  if (totalUnits) {
+    chips.push({
+      label: resolveText(t, "productDetail.packaging.totalUnits", "Total units in case"),
+      value: unitType ? `${totalUnits} ${unitType}` : `${totalUnits}`,
+    });
+  }
+
+  const microLines = [];
+
+  if (pricePerPack) {
+    microLines.push(
+      `${resolveText(t, "productDetail.packaging.perPack", "Per pack")}: ${formatPriceWithDecimal(pricePerPack)} ₸`
+    );
+  }
+
+  if (pricePerUnit) {
+    const suffix = unitType || resolveText(t, "productDetail.packaging.unit", "unit");
+    microLines.push(
+      `${resolveText(t, "productDetail.packaging.perUnit", "Per unit")}: ${formatPriceWithDecimal(pricePerUnit)} ₸ / ${suffix}`
+    );
+  }
+
+  return {
+    isPaperProduct: cleanText(product?.categoryKey) === "paper-products",
+    title: resolveText(t, "productDetail.packaging.title", "Commercial packaging"),
+    subtitle: resolveText(
+      t,
+      "productDetail.packaging.subtitle",
+      "Case-pack structure and unit economics"
+    ),
+    chips,
+    microLines,
+  };
+}
+
 export default function ProductDetailClient({ product, relatedProducts }) {
   const { t } = useLang();
   const productTitle =
@@ -147,6 +247,7 @@ export default function ProductDetailClient({ product, relatedProducts }) {
   const badge = resolveBadgeLabel(t, getBadge(product));
   const technicalSpecsText = getTechnicalSpecsText(product);
   const formattedPrice = formatPrice(product?.price);
+  const packagingSummary = buildPackagingSummary(product, t);
 
   const groupKey = cleanText(product?.groupKey);
   const categoryKey = cleanText(product?.categoryKey);
@@ -216,6 +317,50 @@ export default function ProductDetailClient({ product, relatedProducts }) {
               <p className="mb-8 text-lg leading-relaxed text-slate-600">
                 {productShortDescription}
               </p>
+
+              {packagingSummary ? (
+                <div
+                  className={`mb-8 overflow-hidden rounded-2xl border ${
+                    packagingSummary.isPaperProduct
+                      ? "border-[#d7e4ec] bg-gradient-to-br from-[#f4f8fb] via-white to-[#eef4f7]"
+                      : "border-[#e6e8ea] bg-white"
+                  }`}
+                >
+                  <div className="flex items-start gap-4 p-5">
+                    <div className="rounded-2xl bg-[#1d3246] p-3 text-white">
+                      <Package2 className="h-5 w-5" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                        {packagingSummary.subtitle}
+                      </div>
+                      <h3 className="mt-1 text-lg font-bold text-[#1d3246]">
+                        {packagingSummary.title}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-px bg-[#e6e8ea] sm:grid-cols-2">
+                    {packagingSummary.chips.map((item) => (
+                      <div key={item.label} className="bg-white px-5 py-4">
+                        <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                          {item.label}
+                        </div>
+                        <div className="mt-1 text-base font-bold text-[#1d3246]">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {packagingSummary.microLines.length ? (
+                    <div className="flex flex-wrap gap-3 border-t border-[#e6e8ea] px-5 py-4 text-sm font-medium text-slate-600">
+                      {packagingSummary.microLines.map((line) => (
+                        <span key={line}>{line}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="mb-10 space-y-4">
                 {highlights.map((item, index) => {

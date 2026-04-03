@@ -31,6 +31,8 @@ const BADGE_OPTIONS = [
   { value: "professional_series", labelKey: "product.badges.professional_series", fallback: "Profesyonel Seri" },
 ];
 
+const UNIT_TYPE_OPTIONS = ["roll", "piece", "ml", "kg"];
+
 const LEGACY_BADGE_ALIASES = {
   Yeni: "new",
   "Cok Satan": "best_seller",
@@ -126,6 +128,9 @@ function buildInitialForm(product) {
     capacity: product.capacity ?? "",
     dimensions: product.dimensions ?? "",
     material: product.material ?? "",
+    packQty: product.packQty ?? "",
+    caseQty: product.caseQty ?? "",
+    unitType: product.unitType ?? "",
     fuelType: product.fuelType ?? "",
     power: product.power ?? "",
     voltage: product.voltage ?? "",
@@ -802,6 +807,39 @@ export default function ProductDetailEditPage() {
                   onChange={(e) => set("material", e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 text-sm"
                 />
+              </Field>
+
+              <Field label="Pack Qty">
+                <input
+                  type="number"
+                  value={form.packQty}
+                  onChange={(e) => set("packQty", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Case Qty">
+                <input
+                  type="number"
+                  value={form.caseQty}
+                  onChange={(e) => set("caseQty", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </Field>
+
+              <Field label="Unit Type">
+                <select
+                  value={form.unitType}
+                  onChange={(e) => set("unitType", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                >
+                  <option value="">{t("common.select")}</option>
+                  {UNIT_TYPE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {t(`productDetail.packaging.unitType.${option}`)}
+                    </option>
+                  ))}
+                </select>
               </Field>
 
               <Field label="Yakıt Tipi">
