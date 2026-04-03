@@ -18,7 +18,7 @@ const groups = [
     description: "catalog.groupCards.equipment",
     href: "/catalog/equipment",
     icon: BriefcaseBusiness,
-    fallback: "Mutfak Ekipmanlari",
+    fallback: "Mutfak Ekipmanları",
   },
   {
     key: "stainless",
