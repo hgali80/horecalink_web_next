@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { auth } from "../../firebase/index";
+import { db } from "../../firebase/index";
+import {
+  buildVisitorPeriods,
+  DASHBOARD_TIMEZONE,
+  getRangeStarts,
+} from "../lib/analytics/visitorPeriods";
 import { useAuth } from "../context/AuthContext";
 
 const EMPTY_PERIODS = {
@@ -14,6 +21,24 @@ const EMPTY_PERIODS = {
 
 function formatNumber(value) {
   return new Intl.NumberFormat("tr-TR").format(Number(value || 0));
+}
+
+async function loadStatsFromFirestore() {
+  const ranges = getRangeStarts();
+  const snapshot = await getDocs(
+    query(
+      collection(db, "visit_logs"),
+      where("visitedAt", ">=", ranges.startOfYear),
+      where("visitedAt", "<=", ranges.now)
+    )
+  );
+
+  return {
+    ok: true,
+    timezone: DASHBOARD_TIMEZONE,
+    generatedAt: ranges.now.toISOString(),
+    periods: buildVisitorPeriods(snapshot.docs.map((doc) => doc.data() || {}), ranges),
+  };
 }
 
 export default function VisitorStatsPanel() {
@@ -50,6 +75,16 @@ export default function VisitorStatsPanel() {
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok || data?.ok !== true) {
+          if (String(data?.error || "").includes("Firebase Admin env degiskenleri eksik")) {
+            const fallback = await loadStatsFromFirestore();
+
+            if (!cancelled) {
+              setPeriods({ ...EMPTY_PERIODS, ...(fallback?.periods || {}) });
+            }
+
+            return;
+          }
+
           throw new Error(data?.error || "Ziyaretci istatistikleri alinamadi.");
         }
 

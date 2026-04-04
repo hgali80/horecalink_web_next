@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { addDoc, collection } from "firebase/firestore";
 
+import { db } from "@/firebase/index";
 import { getAdminServices } from "@/app/lib/server/firebaseAdmin";
 
 export const runtime = "nodejs";
@@ -26,17 +28,22 @@ export async function POST(request) {
       return NextResponse.json({ ok: true, skipped: true });
     }
 
-    const { adminDb } = getAdminServices();
     const userAgent = request.headers.get("user-agent") || "";
-
-    await adminDb.collection("visit_logs").add({
+    const payload = {
       visitorId,
       sessionId,
       pathname,
       referrer,
       userAgent,
       visitedAt: new Date(),
-    });
+    };
+
+    try {
+      const { adminDb } = getAdminServices();
+      await adminDb.collection("visit_logs").add(payload);
+    } catch {
+      await addDoc(collection(db, "visit_logs"), payload);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
