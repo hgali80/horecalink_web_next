@@ -3,8 +3,7 @@ import {
   createUrlsetResponse,
   getBaseUrl,
   getTodayDate,
-} from "../lib/server/sitemap";
-
+} from "../lib/server/sitemapUtils";
 export const revalidate = 3600;
 
 const STATIC_PAGES = [

@@ -4,8 +4,7 @@ import {
   getBaseUrl,
   getPublishedProductsForSitemap,
   getTodayDate,
-} from "../lib/server/sitemap";
-
+} from "../lib/server/sitemapUtils";
 export const revalidate = 3600;
 
 export async function GET() {
