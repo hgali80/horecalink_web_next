@@ -1,3 +1,6 @@
+import { collection, getDocs, query, where } from "firebase/firestore";
+
+import { db } from "../../../firebase";
 import { getAdminServices } from "./firebaseAdmin";
 
 const BASE_URL = "https://horecalink.kz";
@@ -100,14 +103,30 @@ export function getTodayDate() {
 }
 
 export async function getPublishedProductsForSitemap() {
-  const { adminDb } = getAdminServices();
-  const snapshot = await adminDb
-    .collection("products")
-    .where("active", "==", true)
-    .where("webPublished", "==", true)
-    .get();
+  let docs = [];
 
-  return snapshot.docs
+  try {
+    const { adminDb } = getAdminServices();
+    const snapshot = await adminDb
+      .collection("products")
+      .where("active", "==", true)
+      .where("webPublished", "==", true)
+      .get();
+
+    docs = snapshot.docs;
+  } catch {
+    const snapshot = await getDocs(
+      query(
+        collection(db, "products"),
+        where("active", "==", true),
+        where("webPublished", "==", true)
+      )
+    );
+
+    docs = snapshot.docs;
+  }
+
+  return docs
     .map((doc) => {
       const data = doc.data();
 
