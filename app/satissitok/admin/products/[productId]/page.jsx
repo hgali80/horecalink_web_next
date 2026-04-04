@@ -827,7 +827,13 @@ export default function ProductDetailEditPage() {
                 />
               </Field>
 
-              <Field label="Unit Type">
+              <Field
+                label={
+                  t("admin.products.fields.unitType") === "admin.products.fields.unitType"
+                    ? "Unit Type"
+                    : t("admin.products.fields.unitType")
+                }
+              >
                 <select
                   value={form.unitType}
                   onChange={(e) => set("unitType", e.target.value)}

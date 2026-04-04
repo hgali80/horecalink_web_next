@@ -9,6 +9,7 @@ const groups = [
   {
     key: "institutional",
     description: "catalog.groupCards.institutional",
+    cta: "catalog.groupCardsCta.institutional",
     href: "/catalog/institutional",
     icon: Building2,
     fallback: "Temizlik & Hijyen",
@@ -16,6 +17,7 @@ const groups = [
   {
     key: "equipment",
     description: "catalog.groupCards.equipment",
+    cta: "catalog.groupCardsCta.equipment",
     href: "/catalog/equipment",
     icon: BriefcaseBusiness,
     fallback: "Mutfak Ekipmanları",
@@ -23,6 +25,7 @@ const groups = [
   {
     key: "stainless",
     description: "catalog.groupCards.stainless",
+    cta: "catalog.groupCardsCta.stainless",
     href: "/catalog/stainless",
     icon: ChefHat,
     fallback: "Paslanmaz Ekipmanlar",
@@ -74,9 +77,11 @@ export default function CatalogLandingPage() {
                 <h2 className="text-2xl font-extrabold tracking-[-0.03em] text-[#1d3246]">
                   {groupLabel}
                 </h2>
-                <p className="mt-3 text-sm leading-6 text-slate-500">{t(group.description)}</p>
+                <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-500">
+                  {t(group.description)}
+                </p>
                 <div className="mt-6 text-sm font-bold uppercase tracking-[0.14em] text-[#1d3246]">
-                  {t("catalog.openCatalog") || "Open catalog"}
+                  {t(group.cta) || t("catalog.openCatalog") || "Open catalog"}
                 </div>
               </Link>
             );

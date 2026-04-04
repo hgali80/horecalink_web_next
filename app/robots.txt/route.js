@@ -6,7 +6,6 @@ User-agent: *
 Allow: /
 
 Sitemap: https://horecalink.kz/sitemap.xml
-Sitemap: https://horecalink.kz/sitemap-products.xml
 `.trim();
 
   return new Response(content, {

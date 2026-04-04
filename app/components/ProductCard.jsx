@@ -114,7 +114,7 @@ export default function ProductCard({ product }) {
   const unit = cleanText(product?.unit) || t("productDetail.unit");
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_14px_30px_rgba(29,50,70,0.05)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(29,50,70,0.08)]">
+    <article className="group flex h-full flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_16px_34px_rgba(29,50,70,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_22px_46px_rgba(29,50,70,0.1)]">
       <Link href={href} className="relative block bg-[#f5f7f9]">
         <div className="absolute left-4 right-4 top-4 z-10 flex items-start justify-between gap-2">
           <span className="inline-flex rounded-full bg-white px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1d3246] shadow-sm">
@@ -127,14 +127,14 @@ export default function ProductCard({ product }) {
           ) : null}
         </div>
 
-        <div className="relative aspect-[4/3.3] w-full overflow-hidden">
+        <div className="relative aspect-[4/3.45] w-full overflow-hidden">
           {imageUrl ? (
             <Image
               src={imageUrl}
               alt={title}
               fill
               unoptimized
-              className="object-contain p-4 transition-transform duration-500 group-hover:scale-105"
+              className="object-contain p-5 transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
             <div className="flex h-full items-center justify-center">
@@ -147,29 +147,29 @@ export default function ProductCard({ product }) {
         </div>
       </Link>
 
-      <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
-        <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+      <div className="flex flex-1 flex-col px-6 pb-6 pt-5">
+        <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
           {t("productDetail.stockCode")}: {code || "-"}
         </div>
 
-        <h3 className="line-clamp-2 min-h-[58px] text-[16px] font-semibold leading-[1.08] tracking-[-0.035em] text-[#12263a]">
+        <h3 className="line-clamp-2 min-h-[64px] text-[18px] font-semibold leading-[1.08] tracking-[-0.04em] text-[#12263a]">
           <Link href={href}>{title}</Link>
         </h3>
 
         {description ? (
-          <p className="mt-3 line-clamp-2 min-h-[44px] text-[13px] leading-5 text-slate-500">
+          <p className="mt-3 line-clamp-2 min-h-[48px] text-[14px] leading-6 text-slate-500">
             {description}
           </p>
         ) : (
-          <div className="mt-3 min-h-[44px]" />
+          <div className="mt-3 min-h-[48px]" />
         )}
 
-        <div className="mt-6">
+        <div className="mt-7">
           {formattedPrice ? (
             <div className="flex items-end gap-1 text-[#12263a]">
-              <span className="text-[18px] font-extrabold tracking-[-0.03em]">{formattedPrice}</span>
-              <span className="pb-[2px] text-[13px] font-bold">₸</span>
-              <span className="pb-[2px] text-[12px] text-slate-500">/ {unit}</span>
+              <span className="text-[22px] font-extrabold tracking-[-0.04em]">{formattedPrice}</span>
+              <span className="pb-[3px] text-[14px] font-bold">₸</span>
+              <span className="pb-[3px] text-[13px] text-slate-500">/ {unit}</span>
             </div>
           ) : (
             <div className="text-[14px] font-semibold text-slate-500">
@@ -178,7 +178,7 @@ export default function ProductCard({ product }) {
           )}
         </div>
 
-        <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+        <div className="mt-6 flex items-center justify-between gap-3 border-t border-slate-100 pt-5">
           <Link
             href={href}
             className="inline-flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.14em] text-[#1d3246] transition hover:text-[#34495e]"

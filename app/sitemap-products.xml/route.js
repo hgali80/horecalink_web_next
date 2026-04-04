@@ -1,35 +1,26 @@
-//app/sitemap-products.xml/route.js
-import { db } from "@/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import {
+  buildUrlEntry,
+  createUrlsetResponse,
+  getBaseUrl,
+  getPublishedProductsForSitemap,
+  getTodayDate,
+} from "../lib/server/sitemap";
+
+export const revalidate = 3600;
 
 export async function GET() {
-  const baseUrl = "https://horecalink.kz";
+  const baseUrl = getBaseUrl();
+  const today = getTodayDate();
+  const products = await getPublishedProductsForSitemap();
 
-  const q = query(
-  collection(db, "products"),
-  where("active", "==", true),
-  where("webPublished", "==", true)
-);
-const snap = await getDocs(q);
-
-  const urls = snap.docs.map((doc) => {
-    return `
-  <url>
-    <loc>${baseUrl}/products/${doc.data().slug || doc.id}</loc>
-    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>`;
-  });
-
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.join("")}
-</urlset>`;
-
-  return new Response(xml, {
-    headers: {
-      "Content-Type": "application/xml",
-    },
-  });
+  return createUrlsetResponse(
+    products.map((product) =>
+      buildUrlEntry({
+        loc: `${baseUrl}/products/${product.slug}`,
+        lastmod: product.updatedAt || today,
+        changefreq: "weekly",
+        priority: 0.8,
+      })
+    )
+  );
 }

@@ -137,7 +137,7 @@ export default function ProductList({
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center">
+      <div className="mx-auto max-w-[1600px] px-4 py-20 text-center sm:px-6 lg:px-8">
         Yukleniyor...
       </div>
     );
@@ -146,7 +146,7 @@ export default function ProductList({
   return (
     <main className="min-h-screen bg-white">
       <div className="border-b border-gray-100 bg-gray-50/50">
-        <div className="max-w-7xl mx-auto px-4 py-3">
+        <div className="mx-auto max-w-[1600px] px-4 py-3 sm:px-6 lg:px-8">
           <nav className="flex items-center space-x-2 text-sm">
             <Link href="/" className="text-gray-500 hover:text-gray-900">
               {t("categories.breadcrumb.home")}
@@ -198,7 +198,7 @@ export default function ProductList({
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="text-2xl font-bold mb-6">
           {filterSubCategory
             ? getSubcategoryLabel({
@@ -220,7 +220,7 @@ export default function ProductList({
         {filtered.length === 0 ? (
           <div>Urun bulunamadi.</div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 2xl:gap-8">
             {filtered.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}

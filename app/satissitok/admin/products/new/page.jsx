@@ -740,7 +740,13 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Unit Type">
+          <Field
+            label={
+              t("admin.products.fields.unitType") === "admin.products.fields.unitType"
+                ? "Unit Type"
+                : t("admin.products.fields.unitType")
+            }
+          >
             <select
               value={form.unitType}
               onChange={(e) => setField("unitType", e.target.value)}
