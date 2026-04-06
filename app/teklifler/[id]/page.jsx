@@ -17,10 +17,11 @@ import { useAuth } from "../../context/AuthContext";
 import { useLang } from "../../context/LanguageContext";
 import {
   canViewQuote,
+  getQuoteStatusLabelKey,
   getGuestQuoteAccess,
   getOrCreateVisitorIdentity,
   getQuoteRequestById,
-  QUOTE_STATUSES,
+  normalizeQuoteStatus,
   saveGuestQuoteAccess,
 } from "../../services/quoteService";
 
@@ -64,19 +65,6 @@ const statusTone = {
   closed: "bg-slate-100 text-slate-700",
   draft: "bg-slate-100 text-slate-700",
 };
-
-const legacyStatusMap = {
-  new: "received",
-  priced: "preparing",
-  answered: "offered",
-  approved: "in_delivery",
-  closed: "completed",
-};
-
-function normalizeStatus(status) {
-  if (!status) return "received";
-  return legacyStatusMap[status] || status;
-}
 
 export default function QuoteDetailPage() {
   const params = useParams();
@@ -179,8 +167,8 @@ export default function QuoteDetailPage() {
   }
 
   const rawStatusKey = item.status || "received";
-  const statusKey = normalizeStatus(rawStatusKey);
-  const statusLabel = QUOTE_STATUSES[statusKey]?.label || statusKey;
+  const statusKey = rawStatusKey === "new" ? "received" : normalizeQuoteStatus(rawStatusKey);
+  const statusLabel = t(getQuoteStatusLabelKey(rawStatusKey));
   const activeStepIndex = Math.max(0, progressSteps.findIndex((step) => step.key === statusKey));
   const listAmount = item.pricing?.listAmount || 0;
   const specialAmount = item.pricing?.specialAmount || 0;

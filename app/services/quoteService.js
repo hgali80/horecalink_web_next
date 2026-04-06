@@ -30,6 +30,58 @@ export const QUOTE_STATUSES = {
   cancelled: { key: "cancelled", label: "İptal" },
 };
 
+Object.assign(QUOTE_STATUSES, {
+  received: { key: "received", labelKey: "adminQuoteDetail.status.received" },
+  preparing: { key: "preparing", labelKey: "adminQuoteDetail.status.preparing" },
+  offered: { key: "offered", labelKey: "adminQuoteDetail.status.offered" },
+  in_delivery: { key: "in_delivery", labelKey: "adminQuoteDetail.status.inDelivery" },
+  completed: { key: "completed", labelKey: "adminQuoteDetail.status.completed" },
+});
+
+const LEGACY_STATUS_MAP = {
+  priced: "preparing",
+  answered: "offered",
+  approved: "in_delivery",
+  closed: "completed",
+};
+
+export function normalizeQuoteStatus(status) {
+  if (!status) return "received";
+  return LEGACY_STATUS_MAP[status] || status;
+}
+
+export function getQuoteStatusLabelKey(status) {
+  const normalizedStatus = normalizeQuoteStatus(status);
+  const meta = QUOTE_STATUSES[normalizedStatus] || QUOTE_STATUSES[status];
+  if (meta?.labelKey) return meta.labelKey;
+
+  switch (normalizedStatus) {
+    case "draft":
+    case "new":
+      return "adminQuoteDetail.status.new";
+    case "received":
+      return "adminQuoteDetail.status.received";
+    case "reviewing":
+      return "adminQuoteDetail.status.reviewing";
+    case "priced":
+    case "preparing":
+      return "adminQuoteDetail.status.preparing";
+    case "answered":
+    case "offered":
+      return "adminQuoteDetail.status.offered";
+    case "approved":
+    case "in_delivery":
+      return "adminQuoteDetail.status.inDelivery";
+    case "closed":
+    case "completed":
+      return "adminQuoteDetail.status.completed";
+    case "cancelled":
+      return "adminQuoteDetail.status.cancelled";
+    default:
+      return "adminQuoteDetail.status.received";
+  }
+}
+
 function isBrowser() {
   return typeof window !== "undefined";
 }

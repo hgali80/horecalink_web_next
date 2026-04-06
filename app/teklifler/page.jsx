@@ -6,9 +6,10 @@ import { ArrowRight, FileText, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LanguageContext";
 import {
+  getQuoteStatusLabelKey,
   getGuestQuoteRequests,
   getUserQuoteRequests,
-  QUOTE_STATUSES,
+  normalizeQuoteStatus,
 } from "../services/quoteService";
 
 function formatDate(value, lang) {
@@ -41,11 +42,16 @@ function formatDate(value, lang) {
 
 const statusTone = {
   new: "bg-blue-50 text-blue-700",
+  received: "bg-blue-50 text-blue-700",
   reviewing: "bg-amber-50 text-amber-700",
   priced: "bg-violet-50 text-violet-700",
+  preparing: "bg-violet-50 text-violet-700",
   answered: "bg-emerald-50 text-emerald-700",
+  offered: "bg-emerald-50 text-emerald-700",
   approved: "bg-emerald-50 text-emerald-700",
+  in_delivery: "bg-cyan-50 text-cyan-700",
   closed: "bg-slate-100 text-slate-700",
+  completed: "bg-slate-100 text-slate-700",
   cancelled: "bg-red-50 text-red-700",
   draft: "bg-slate-100 text-slate-700",
 };
@@ -136,8 +142,9 @@ export default function QuoteHistoryPage() {
         ) : (
           <div className="grid gap-4">
             {items.map((item) => {
-              const statusKey = item.status || "new";
-              const statusLabel = QUOTE_STATUSES[statusKey]?.label || statusKey;
+              const rawStatusKey = item.status || "new";
+              const statusKey = normalizeQuoteStatus(rawStatusKey);
+              const statusLabel = t(getQuoteStatusLabelKey(rawStatusKey));
 
               const href = item.userId
                 ? `/teklifler/${item.id}`
