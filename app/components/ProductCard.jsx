@@ -57,10 +57,6 @@ function getProductCode(product) {
   );
 }
 
-function getBrand(product) {
-  return cleanText(product?.brand) || "HorecaLink";
-}
-
 function getImageUrl(product) {
   const imageNames = Array.isArray(product?.image_names)
     ? product.image_names.filter(Boolean)
@@ -82,7 +78,6 @@ export default function ProductCard({ product }) {
   const title = getProductName(product);
   const description = getProductDescription(product);
   const code = getProductCode(product);
-  const brand = getBrand(product);
   const imageUrl = getImageUrl(product);
   const formattedPrice = formatPrice(product?.price);
   const unit = cleanText(product?.unit) || t("productDetail.unit");
@@ -90,12 +85,6 @@ export default function ProductCard({ product }) {
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_16px_34px_rgba(29,50,70,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_22px_46px_rgba(29,50,70,0.1)]">
       <Link href={href} className="relative block bg-[#f5f7f9]">
-        <div className="absolute left-4 right-4 top-4 z-10 flex items-start justify-between gap-2">
-          <span className="inline-flex rounded-full bg-white px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1d3246] shadow-sm">
-            {brand}
-          </span>
-        </div>
-
         <div className="relative aspect-[4/3.45] w-full overflow-hidden">
           {imageUrl ? (
             <Image

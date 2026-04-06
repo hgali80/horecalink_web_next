@@ -7,9 +7,9 @@ export const defaultLanguage = "tr";
 export const languageStorageKey = "hl_lang";
 
 export const languageOptions = [
-  { code: "tr", label: "Turkce" },
-  { code: "ru", label: "Russkiy" },
   { code: "kz", label: "Qazaqsha" },
+  { code: "ru", label: "Russkiy" },
+  { code: "tr", label: "Turkce" },
   { code: "en", label: "English" },
 ];
 
