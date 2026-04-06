@@ -7,18 +7,6 @@ import { ArrowUpRight, FileText, Package2 } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
-const LEGACY_BADGE_ALIASES = {
-  Yeni: "new",
-  "Cok Satan": "best_seller",
-  Kampanya: "campaign",
-  Firsat: "opportunity",
-  Onerilen: "recommended",
-  Stokta: "in_stock",
-  "Sinirli Stok": "limited_stock",
-  "Proje Urunu": "project_product",
-  "Profesyonel Seri": "professional_series",
-};
-
 function cleanText(value) {
   if (value === null || value === undefined) return "";
   const text = String(value).trim();
@@ -73,19 +61,6 @@ function getBrand(product) {
   return cleanText(product?.brand) || "HorecaLink";
 }
 
-function getBadge(product) {
-  return cleanText(product?.badge);
-}
-
-function resolveBadgeLabel(t, badge) {
-  const value = cleanText(badge);
-  if (!value) return "";
-
-  const badgeKey = LEGACY_BADGE_ALIASES[value] || value;
-  const translated = t(`product.badges.${badgeKey}`);
-  return translated === `product.badges.${badgeKey}` ? value : translated;
-}
-
 function getImageUrl(product) {
   const imageNames = Array.isArray(product?.image_names)
     ? product.image_names.filter(Boolean)
@@ -108,7 +83,6 @@ export default function ProductCard({ product }) {
   const description = getProductDescription(product);
   const code = getProductCode(product);
   const brand = getBrand(product);
-  const badge = resolveBadgeLabel(t, getBadge(product));
   const imageUrl = getImageUrl(product);
   const formattedPrice = formatPrice(product?.price);
   const unit = cleanText(product?.unit) || t("productDetail.unit");
@@ -120,11 +94,6 @@ export default function ProductCard({ product }) {
           <span className="inline-flex rounded-full bg-white px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1d3246] shadow-sm">
             {brand}
           </span>
-          {badge ? (
-            <span className="inline-flex rounded-full bg-[#1d3246] px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-white shadow-sm">
-              {badge}
-            </span>
-          ) : null}
         </div>
 
         <div className="relative aspect-[4/3.45] w-full overflow-hidden">
