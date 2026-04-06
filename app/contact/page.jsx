@@ -3,8 +3,6 @@
 
 import { Phone, Mail, MapPin } from "lucide-react";
 import { useState } from "react";
-import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { app } from "../../firebase";
 import { useLang } from "../context/LanguageContext";
 
 const MAX_MESSAGE_LENGTH = 500;
@@ -21,8 +19,6 @@ export default function ContactPage() {
     message: "",
   });
 
-  const db = getFirestore(app);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -37,12 +33,22 @@ export default function ContactPage() {
     setSuccess(false);
 
     try {
-      await addDoc(collection(db, "contact_messages"), {
-        ...form,
-        lang,
-        read: false,
-        createdAt: serverTimestamp(),
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...form,
+          lang,
+        }),
       });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Mesaj gonderilemedi.");
+      }
 
       setSuccess(true);
       setForm({ name: "", email: "", phone: "", message: "" });
@@ -68,19 +74,19 @@ export default function ContactPage() {
           <div className="flex items-start space-x-3">
             <MapPin className="mt-1 text-blue-600" />
             <p className="leading-relaxed text-gray-700">
-              <strong>ТОО «Viroo Trade»</strong>
+              <strong>{t("contact.company")}</strong>
               <br />
-              г. Алматы, индекс 050050
+              {t("contact.address.line1")}
               <br />
-              Жетысуский район,
+              {t("contact.address.line2")}
               <br />
-              ул. Черноморская дом 12
+              {t("contact.address.line3")}
             </p>
           </div>
 
           <div className="flex items-center space-x-3">
             <Phone className="text-blue-600" />
-            <span className="text-gray-700">+7 700 444 6 911</span>
+            <span className="text-gray-700">+7 700 444 69 11</span>
           </div>
 
           <div className="flex items-center space-x-3">
@@ -107,7 +113,6 @@ export default function ContactPage() {
               name="email"
               value={form.email}
               onChange={handleChange}
-              required
               placeholder={t("contact.form.email")}
               className="w-full rounded-lg border px-4 py-2"
             />

@@ -22,11 +22,10 @@ export default function PrivacyPage() {
         <h2 className="text-xl font-semibold">
           {t("privacy.section1.title")}
         </h2>
+        <p>{t("privacy.section1.text")}</p>
         <ul className="list-disc pl-6 space-y-2">
-          <li>{t("privacy.section1.name")}</li>
-          <li>{t("privacy.section1.phone")}</li>
-          <li>{t("privacy.section1.password")}</li>
-          <li>{t("privacy.section1.address")}</li>
+          <li>{t("privacy.section1.item1")}</li>
+          <li>{t("privacy.section1.item2")}</li>
         </ul>
 
         <h2 className="text-xl font-semibold">
@@ -41,18 +40,12 @@ export default function PrivacyPage() {
           <li>{t("privacy.section3.item1")}</li>
           <li>{t("privacy.section3.item2")}</li>
           <li>{t("privacy.section3.item3")}</li>
-          <li>{t("privacy.section3.item4")}</li>
-          <li>{t("privacy.section3.item5")}</li>
         </ul>
 
         <h2 className="text-xl font-semibold">
           {t("privacy.section4.title")}
         </h2>
-        <ul className="list-disc pl-6 space-y-2">
-          <li>{t("privacy.section4.logistic")}</li>
-          <li>{t("privacy.section4.sms")}</li>
-          <li>{t("privacy.section4.legal")}</li>
-        </ul>
+        <p>{t("privacy.section4.text")}</p>
 
         <h2 className="text-xl font-semibold">
           {t("privacy.section5.title")}
@@ -67,28 +60,22 @@ export default function PrivacyPage() {
         <h2 className="text-xl font-semibold">
           {t("privacy.section7.title")}
         </h2>
-        <ul className="list-disc pl-6 space-y-2">
-          <li>{t("privacy.section7.item1")}</li>
-          <li>{t("privacy.section7.item2")}</li>
-          <li>{t("privacy.section7.item3")}</li>
-        </ul>
-
-        <h2 className="text-xl font-semibold">
-          {t("privacy.section8.title")}
-        </h2>
-        <p>{t("privacy.section8.text")}</p>
-
-        <h2 className="text-xl font-semibold">
-          {t("privacy.section9.title")}
-        </h2>
         <p>
           Horecalink<br />
           {t("privacy.contactEmail")}:{" "}
           <a
-            href="mailto:info@horekalink.kz"
+            href="mailto:info@horecalink.kz"
             className="text-blue-600 underline"
           >
-            info@horekalink.kz
+            info@horecalink.kz
+          </a>
+          <br />
+          {t("privacy.contactPhone")}:{" "}
+          <a
+            href="tel:+77004446911"
+            className="text-blue-600 underline"
+          >
+            +7 700 444 69 11
           </a>
         </p>
       </section>

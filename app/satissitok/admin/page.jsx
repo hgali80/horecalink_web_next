@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   FileText,
   FileSpreadsheet,
+  Mail,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import VisitorStatsPanel from "../../components/VisitorStatsPanel";
@@ -93,6 +94,14 @@ export default function SalesStockDashboard() {
             href="/satissitok/admin/quotes"
             color="orange"
             icon={<FileText />}
+          />
+
+          <DashboardCard
+            title="Mesajlar"
+            desc="Iletisim formundan gelen mesajlari oku"
+            href="/satissitok/admin/contact-messages"
+            color="blue"
+            icon={<Mail />}
           />
 
           <DashboardCard

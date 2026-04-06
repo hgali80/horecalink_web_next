@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   BadgeCheck,
   ChevronRight,
@@ -169,7 +170,8 @@ function buildPackagingSummary(product, t) {
   const totalUnits = packQty && caseQty ? packQty * caseQty : null;
   const pricePerPack = price && caseQty ? price / caseQty : null;
   const pricePerUnit = price && totalUnits ? price / totalUnits : null;
-  const hasPackagingData = price || packQty || caseQty || unitType;
+  const hasPackagingData =
+    Number.isFinite(packQty) || Number.isFinite(caseQty) || Boolean(cleanText(product?.unitType));
 
   if (!hasPackagingData) return null;
 
@@ -233,6 +235,7 @@ function buildPackagingSummary(product, t) {
 
 export default function ProductDetailClient({ product, relatedProducts }) {
   const { t } = useLang();
+  const [activeTab, setActiveTab] = useState("description");
   const productTitle =
     cleanText(product?.name) ||
     cleanText(product?.name_tr) ||
@@ -450,98 +453,135 @@ export default function ProductDetailClient({ product, relatedProducts }) {
 
         <div className="mt-24">
           <div className="flex overflow-x-auto border-b border-[#e6e8ea]">
-            <button className="whitespace-nowrap border-b-4 border-[#1d3246] px-8 py-4 font-bold text-[#1d3246]">
+            <button
+              type="button"
+              onClick={() => setActiveTab("description")}
+              className={`whitespace-nowrap px-8 py-4 ${
+                activeTab === "description"
+                  ? "border-b-4 border-[#1d3246] font-bold text-[#1d3246]"
+                  : "font-medium text-slate-500"
+              }`}
+            >
               {t("productDetail.tabs.description")}
             </button>
-            <button className="whitespace-nowrap px-8 py-4 font-medium text-slate-500">
+            <button
+              type="button"
+              onClick={() => setActiveTab("specs")}
+              className={`whitespace-nowrap px-8 py-4 ${
+                activeTab === "specs"
+                  ? "border-b-4 border-[#1d3246] font-bold text-[#1d3246]"
+                  : "font-medium text-slate-500"
+              }`}
+            >
               {t("productDetail.tabs.specs")}
             </button>
           </div>
 
           <div className="grid grid-cols-1 gap-16 py-12 md:grid-cols-2">
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold text-[#1d3246]">{t("productDetail.tabs.description")}</h3>
+            {activeTab === "description" ? (
+              <>
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-[#1d3246]">{t("productDetail.tabs.description")}</h3>
 
-              <p className="whitespace-pre-line leading-relaxed text-slate-600">
-                {product.description || resolveText(t, "productDetail.noDescription", "Aciklama bulunmuyor.")}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/50 bg-[#f2f4f6] p-8 backdrop-blur-sm">
-              <div className="mb-6 flex items-start gap-4">
-                <div className="rounded-lg bg-[#1d3246] p-3 text-white">
-                  <Wrench className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-[#1d3246]">
-                    {resolveText(t, "productDetail.info.professionalTitle", "Profesyonel kullanim")}
-                  </h4>
-                  <p className="text-sm text-slate-600">
-                    {resolveText(
-                      t,
-                      "productDetail.info.professionalText",
-                      "Urun karti katalog verisiyle dinamik uretilir ve hizli teklif surecini destekler."
-                    )}
+                  <p className="whitespace-pre-line leading-relaxed text-slate-600">
+                    {product.description || resolveText(t, "productDetail.noDescription", "Aciklama bulunmuyor.")}
                   </p>
                 </div>
-              </div>
 
-              <div className="flex items-start gap-4">
-                <div className="rounded-lg bg-[#1d3246] p-3 text-white">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-[#1d3246]">
-                    {resolveText(t, "productDetail.info.consistencyTitle", "Katalog tutarliligi")}
-                  </h4>
-                  <p className="text-sm text-slate-600">
-                    {resolveText(
-                      t,
-                      "productDetail.info.consistencyText",
-                      "Gorseller, aciklama ve teknik alanlar tek veri kaynagindan okunur."
-                    )}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {technicalSpecsText || specs.length ? (
-            <div className="mt-4 rounded-2xl bg-white p-8 shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
-              <h2 className="mb-6 text-2xl font-extrabold text-[#1d3246]">
-                {t("productDetail.tabs.specs")}
-              </h2>
-
-              {technicalSpecsText ? (
-                <div className="mb-6 rounded-xl border border-[#e6e8ea] bg-[#f8f9fb] px-5 py-4">
-                  <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.08em] text-slate-400">
-                    {t("productDetail.tabs.specs")}
-                  </div>
-                  <div className="whitespace-pre-line text-[15px] leading-7 text-[#1d3246]">
-                    {technicalSpecsText}
-                  </div>
-                </div>
-              ) : null}
-
-              {specs.length ? (
-                <div className="overflow-hidden rounded-xl border border-[#e6e8ea]">
-                  {specs.map(([label, value], index) => (
-                    <div
-                      key={`${label}-${index}`}
-                      className={`grid grid-cols-1 gap-2 px-5 py-4 md:grid-cols-[220px_minmax(0,1fr)] ${
-                        index % 2 === 1 ? "bg-[#f2f4f6]" : "bg-white"
-                      }`}
-                    >
-                      <div className="text-[12px] font-bold uppercase tracking-[0.08em] text-slate-400">
-                        {label}
-                      </div>
-                      <div className="text-[15px] font-medium text-[#1d3246]">{value}</div>
+                <div className="rounded-2xl border border-white/50 bg-[#f2f4f6] p-8 backdrop-blur-sm">
+                  <div className="mb-6 flex items-start gap-4">
+                    <div className="rounded-lg bg-[#1d3246] p-3 text-white">
+                      <Wrench className="h-5 w-5" />
                     </div>
-                  ))}
+                    <div>
+                      <h4 className="font-bold text-[#1d3246]">
+                        {resolveText(t, "productDetail.info.professionalTitle", "Profesyonel kullanim")}
+                      </h4>
+                      <p className="text-sm text-slate-600">
+                        {resolveText(
+                          t,
+                          "productDetail.info.professionalText",
+                          "Urun karti katalog verisiyle dinamik uretilir ve hizli teklif surecini destekler."
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="rounded-lg bg-[#1d3246] p-3 text-white">
+                      <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-[#1d3246]">
+                        {resolveText(t, "productDetail.info.consistencyTitle", "Katalog tutarliligi")}
+                      </h4>
+                      <p className="text-sm text-slate-600">
+                        {resolveText(
+                          t,
+                          "productDetail.info.consistencyText",
+                          "Gorseller, aciklama ve teknik alanlar tek veri kaynagindan okunur."
+                        )}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              ) : null}
-            </div>
-          ) : null}
+              </>
+            ) : (
+              <>
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-[#1d3246]">{t("productDetail.tabs.specs")}</h3>
+
+                  <div className="rounded-2xl border border-[#e6e8ea] bg-white p-6 shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
+                    <div className="whitespace-pre-line text-[15px] leading-7 text-slate-600">
+                      {technicalSpecsText || resolveText(t, "productDetail.noDescription", "Aciklama bulunmuyor.")}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[#e6e8ea] bg-[#f8f9fb] p-8">
+                  <div className="mb-6 flex items-start gap-4">
+                    <div className="rounded-lg bg-[#1d3246] p-3 text-white">
+                      <Wrench className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-[#1d3246]">{t("productDetail.tabs.specs")}</h4>
+                      <p className="text-sm text-slate-600">
+                        {resolveText(
+                          t,
+                          "productDetail.info.consistencyText",
+                          "Gorseller, aciklama ve teknik alanlar tek veri kaynagindan okunur."
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {specs.length ? (
+                    <div className="overflow-hidden rounded-xl border border-[#e6e8ea]">
+                      {specs.map(([label, value], index) => (
+                        <div
+                          key={`${label}-${index}`}
+                          className={`grid grid-cols-1 gap-2 px-5 py-4 md:grid-cols-[220px_minmax(0,1fr)] ${
+                            index % 2 === 1 ? "bg-[#f2f4f6]" : "bg-white"
+                          }`}
+                        >
+                          <div className="text-[12px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                            {label}
+                          </div>
+                          <div className="text-[15px] font-medium text-[#1d3246]">{value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-[#d7dce2] bg-white px-5 py-4 text-sm text-slate-500">
+                      {technicalSpecsText
+                        ? resolveText(t, "productDetail.tabs.specs", "Teknik Ozellikler")
+                        : resolveText(t, "productDetail.noDescription", "Aciklama bulunmuyor.")}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <RelatedProducts products={relatedProducts} />
