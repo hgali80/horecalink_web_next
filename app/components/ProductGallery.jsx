@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Package2, PlayCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package2, PlayCircle, X } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
@@ -81,6 +81,7 @@ export default function ProductGallery({ product }) {
   );
   const [images, setImages] = useState(fallbackImages);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,18 +120,40 @@ export default function ProductGallery({ product }) {
 
   const selectedImage = images[selectedIndex] || "";
   const selectedImageUrl = getImageUrl(selectedImage);
+  const hasMultipleImages = images.length > 1;
+
+  function goToPreviousImage() {
+    setSelectedIndex((current) =>
+      current === 0 ? images.length - 1 : current - 1
+    );
+  }
+
+  function goToNextImage() {
+    setSelectedIndex((current) =>
+      current === images.length - 1 ? 0 : current + 1
+    );
+  }
 
   return (
-    <div className="space-y-4">
+    <>
+      <div className="space-y-4">
       <div className="aspect-square overflow-hidden rounded-xl bg-white shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
-        <div className="relative h-full w-full">
+        <button
+          type="button"
+          className="relative h-full w-full cursor-zoom-in"
+          onClick={() => {
+            if (selectedImageUrl) setIsLightboxOpen(true);
+          }}
+          aria-label={product?.name || "Product image"}
+        >
           {selectedImageUrl ? (
             <Image
               src={selectedImageUrl}
               alt={product?.name || "Product image"}
               fill
               unoptimized
-              className="object-contain p-8"
+              sizes="(max-width: 1024px) 100vw, 60vw"
+              className="object-contain object-center p-6"
             />
           ) : (
             <div className="flex h-full items-center justify-center bg-[#f2f4f6]">
@@ -140,7 +163,7 @@ export default function ProductGallery({ product }) {
               </div>
             </div>
           )}
-        </div>
+        </button>
       </div>
 
       <div className="grid grid-cols-5 gap-4">
@@ -177,6 +200,59 @@ export default function ProductGallery({ product }) {
           <PlayCircle className="h-8 w-8" />
         </div>
       </div>
-    </div>
+      </div>
+
+      {isLightboxOpen ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            type="button"
+            onClick={() => setIsLightboxOpen(false)}
+            className="absolute right-4 top-4 rounded-full bg-white/10 p-3 text-white transition hover:bg-white/20"
+            aria-label="Close full screen image"
+          >
+            <X className="h-6 w-6" />
+          </button>
+
+          {hasMultipleImages ? (
+            <button
+              type="button"
+              onClick={goToPreviousImage}
+              className="absolute left-4 rounded-full bg-white/10 p-3 text-white transition hover:bg-white/20"
+              aria-label="Previous image"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+          ) : null}
+
+          <div className="relative h-[85vh] w-full max-w-6xl">
+            {selectedImageUrl ? (
+              <Image
+                src={selectedImageUrl}
+                alt={product?.name || "Product image"}
+                fill
+                unoptimized
+                sizes="100vw"
+                className="object-contain object-center"
+              />
+            ) : null}
+          </div>
+
+          {hasMultipleImages ? (
+            <button
+              type="button"
+              onClick={goToNextImage}
+              className="absolute right-4 rounded-full bg-white/10 p-3 text-white transition hover:bg-white/20"
+              aria-label="Next image"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </>
   );
 }
