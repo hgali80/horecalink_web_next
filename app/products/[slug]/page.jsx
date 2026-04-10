@@ -5,6 +5,7 @@ import {
   getProductBySlug,
   getRelatedProducts,
 } from "../../lib/firestore/products";
+import { hydrateProductImageNames } from "../../lib/server/productImages";
 
 export default async function ProductDetailPage({ params }) {
   const { slug } = await params;
@@ -15,7 +16,8 @@ export default async function ProductDetailPage({ params }) {
     notFound();
   }
 
-  const relatedProducts = await getRelatedProducts(product, 8);
+  const hydratedProduct = await hydrateProductImageNames(product);
+  const relatedProducts = await getRelatedProducts(hydratedProduct, 8);
 
-  return <ProductDetailClient product={product} relatedProducts={relatedProducts} />;
+  return <ProductDetailClient product={hydratedProduct} relatedProducts={relatedProducts} />;
 }

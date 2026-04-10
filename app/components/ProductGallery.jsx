@@ -1,12 +1,13 @@
 //app/components/ProductGallery.jsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Package2, PlayCircle } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
+const MAX_AUTO_IMAGES = 12;
 
 function getImageUrl(imageName) {
   if (!imageName) return null;
@@ -16,25 +17,105 @@ function getImageUrl(imageName) {
   )}?alt=media`;
 }
 
+function cleanText(value) {
+  if (value === null || value === undefined) return "";
+  const text = String(value).trim();
+  if (!text || text.toLowerCase() === "null") return "";
+  return text;
+}
+
+function ensureImageExtension(value) {
+  const text = cleanText(value);
+  if (!text) return "";
+  return /\.[a-z0-9]+$/i.test(text) ? text : `${text}.jpg`;
+}
+
+function toImageStem(value) {
+  return cleanText(value).replace(/\.[a-z0-9]+$/i, "");
+}
+
+function getImageCandidates(product) {
+  const existingNames = Array.isArray(product?.image_names)
+    ? product.image_names.map((item) => ensureImageExtension(item)).filter(Boolean)
+    : [];
+
+  const baseStem =
+    toImageStem(product?.stock_code) ||
+    toImageStem(product?.imageBase) ||
+    toImageStem(product?.sku) ||
+    toImageStem(product?.manufacturerCode) ||
+    toImageStem(product?.id);
+
+  if (!baseStem) return Array.from(new Set(existingNames));
+
+  const generatedNames = Array.from(
+    { length: MAX_AUTO_IMAGES },
+    (_, index) => (index === 0 ? `${baseStem}.jpg` : `${baseStem}-${index}.jpg`)
+  );
+
+  return Array.from(new Set([...existingNames, ...generatedNames]));
+}
+
+function probeImage(imageName) {
+  const imageUrl = getImageUrl(imageName);
+
+  return new Promise((resolve) => {
+    if (!imageUrl || typeof window === "undefined") {
+      resolve(false);
+      return;
+    }
+
+    const img = new window.Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = imageUrl;
+  });
+}
+
 export default function ProductGallery({ product }) {
   const { t } = useLang();
-  const images = useMemo(
-    () => {
-      const names = Array.isArray(product?.image_names)
-        ? product.image_names.filter(Boolean)
-        : [];
+  const candidateImages = useMemo(() => getImageCandidates(product), [product]);
+  const fallbackImages = useMemo(
+    () => candidateImages.slice(0, 1),
+    [candidateImages]
+  );
+  const [images, setImages] = useState(fallbackImages);
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
-      if (names.length) return names;
+  useEffect(() => {
+    let cancelled = false;
 
-      if (product?.imageBase) {
-        return [/\.[a-z0-9]+$/i.test(product.imageBase) ? product.imageBase : `${product.imageBase}.jpg`];
+    setImages(fallbackImages);
+    setSelectedIndex(0);
+
+    async function discoverImages() {
+      if (!candidateImages.length) {
+        if (!cancelled) setImages([]);
+        return;
       }
 
-      return [];
-    },
-    [product]
-  );
-  const [selectedIndex, setSelectedIndex] = useState(0);
+      const results = await Promise.all(
+        candidateImages.map(async (imageName) => ({
+          imageName,
+          exists: await probeImage(imageName),
+        }))
+      );
+
+      if (cancelled) return;
+
+      const discoveredImages = results
+        .filter((item) => item.exists)
+        .map((item) => item.imageName);
+
+      setImages(discoveredImages.length ? discoveredImages : fallbackImages);
+    }
+
+    discoverImages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [candidateImages, fallbackImages]);
 
   const selectedImage = images[selectedIndex] || "";
   const selectedImageUrl = getImageUrl(selectedImage);

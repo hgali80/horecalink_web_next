@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 
 export const STAFF_ROLES = new Set([
   "super_admin",
@@ -30,6 +31,10 @@ export function getAdminApp() {
       clientEmail,
       privateKey,
     }),
+    storageBucket:
+      process.env.FIREBASE_ADMIN_STORAGE_BUCKET ||
+      process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+      "horecakatalog-e2d10.firebasestorage.app",
   });
 }
 
@@ -40,6 +45,7 @@ export function getAdminServices() {
     adminApp,
     adminAuth: getAuth(adminApp),
     adminDb: getFirestore(adminApp),
+    adminStorage: getStorage(adminApp),
   };
 }
 
