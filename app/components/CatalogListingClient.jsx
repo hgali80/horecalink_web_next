@@ -18,6 +18,7 @@ import { buildCatalogTree } from "../lib/catalog/categoryTree";
 import { getCatalogLabels } from "../lib/catalog/categoryLabels";
 import { getCatalogProducts } from "../lib/firestore/products";
 import { useLang } from "../context/LanguageContext";
+import { normalizeCatalogGroupKey } from "../lib/catalog/catalogLabels";
 
 const PAGE_SIZE = 12;
 
@@ -110,10 +111,11 @@ export default function CatalogListingClient({
   const [loading, setLoading] = useState(true);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
+  const normalizedGroup = useMemo(() => normalizeCatalogGroupKey(group), [group]);
   const tree = useMemo(() => buildCatalogTree({ t, lang }), [lang, t]);
   const labels = useMemo(
-    () => getCatalogLabels({ group, category, subcategory, t, lang }),
-    [category, group, lang, subcategory, t]
+    () => getCatalogLabels({ group: normalizedGroup, category, subcategory, t, lang }),
+    [category, lang, normalizedGroup, subcategory, t]
   );
 
   const searchValue = searchParams.get("q") || "";
@@ -129,7 +131,7 @@ export default function CatalogListingClient({
 
       try {
         const items = await getCatalogProducts({
-          groupKey: group,
+          groupKey: normalizedGroup,
           categoryKey: category || null,
           subcategoryKey: subcategory || null,
         });
@@ -154,7 +156,7 @@ export default function CatalogListingClient({
     return () => {
       cancelled = true;
     };
-  }, [category, group, subcategory]);
+  }, [category, normalizedGroup, subcategory]);
 
   const availableBrands = useMemo(
     () => [...new Set(products.map(getBrandLabel))].sort((a, b) => a.localeCompare(b, "ru")),
@@ -235,7 +237,7 @@ export default function CatalogListingClient({
 
         <div className="mt-6 space-y-4">
           {tree.map((groupItem) => {
-            const isCurrentGroup = groupItem.key === group;
+            const isCurrentGroup = groupItem.key === normalizedGroup;
             const groupHref = getGroupHref(groupItem.key);
 
             return (
@@ -260,7 +262,8 @@ export default function CatalogListingClient({
 
                 <div className="mt-4 space-y-3">
                   {groupItem.categories.map((categoryItem) => {
-                    const categorySelected = groupItem.key === group && categoryItem.key === category;
+                    const categorySelected =
+                      groupItem.key === normalizedGroup && categoryItem.key === category;
                     const categoryHref = getCategoryHref(groupItem.key, categoryItem.key);
 
                     return (
@@ -285,7 +288,7 @@ export default function CatalogListingClient({
                         <div className="mt-3 space-y-1">
                           {categoryItem.subcategories.map((subItem) => {
                             const active =
-                              groupItem.key === group &&
+                              groupItem.key === normalizedGroup &&
                               categoryItem.key === category &&
                               subItem.key === subcategory;
 
@@ -364,7 +367,7 @@ export default function CatalogListingClient({
 
           <ChevronRight className="h-4 w-4" />
           {category ? (
-            <Link href={`/catalog/${group}`} className="hover:text-[#1d3246]">
+            <Link href={`/catalog/${normalizedGroup}`} className="hover:text-[#1d3246]">
               {labels.groupLabel}
             </Link>
           ) : (
@@ -375,7 +378,7 @@ export default function CatalogListingClient({
             <>
               <ChevronRight className="h-4 w-4" />
               {subcategory ? (
-                <Link href={`/catalog/${group}/${category}`} className="hover:text-[#1d3246]">
+                <Link href={`/catalog/${normalizedGroup}/${category}`} className="hover:text-[#1d3246]">
                   {labels.categoryLabel}
                 </Link>
               ) : (

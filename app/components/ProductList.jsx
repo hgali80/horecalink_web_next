@@ -14,6 +14,7 @@ import {
   getGroupLabel,
   getMainCategoryLabel,
   getSubcategoryLabel,
+  normalizeCatalogGroupKey,
   resolveProductCategoryKeys,
 } from "../lib/catalog/catalogLabels";
 
@@ -28,18 +29,19 @@ export default function ProductList({
 
   const db = getFirestore(app);
   const { t, lang } = useLang();
+  const normalizedFilterGroup = normalizeCatalogGroupKey(filterGroup);
 
   const targetSubcategoryKeys = useMemo(() => {
     if (filterSubCategory) {
       return categoryMap[filterSubCategory] ? [filterSubCategory] : [];
     }
 
-    if (filterGroup && filterMainCategory) {
-      return categoryData?.[filterGroup]?.mainCategories?.[filterMainCategory] || [];
+    if (normalizedFilterGroup && filterMainCategory) {
+      return categoryData?.[normalizedFilterGroup]?.mainCategories?.[filterMainCategory] || [];
     }
 
     return [];
-  }, [filterSubCategory, filterGroup, filterMainCategory]);
+  }, [filterSubCategory, filterMainCategory, normalizedFilterGroup]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -69,7 +71,7 @@ export default function ProductList({
             return resolved.subcategoryKey === filterSubCategory;
           });
         } else if (filterMainCategory) {
-          if (!filterGroup) {
+          if (!normalizedFilterGroup) {
             console.warn("[ProductList] main filtre var ama group yok.");
             setProducts([]);
             return;
@@ -78,7 +80,7 @@ export default function ProductList({
           if (!targetSubcategoryKeys.length) {
             console.warn(
               "[ProductList] main kategori icin kategori eslesmesi bulunamadi:",
-              filterGroup,
+              normalizedFilterGroup,
               filterMainCategory
             );
             setProducts([]);
@@ -88,7 +90,7 @@ export default function ProductList({
           nextProducts = list.filter((product) => {
             const resolved = resolveProductCategoryKeys(product);
             return (
-              resolved.groupKey === filterGroup &&
+              resolved.groupKey === normalizedFilterGroup &&
               resolved.categoryKey === filterMainCategory &&
               targetSubcategoryKeys.includes(resolved.subcategoryKey)
             );
@@ -105,7 +107,7 @@ export default function ProductList({
     };
 
     fetchProducts();
-  }, [db, filterSubCategory, filterMainCategory, filterGroup, targetSubcategoryKeys]);
+  }, [db, filterSubCategory, filterMainCategory, normalizedFilterGroup, targetSubcategoryKeys]);
 
   const filtered = useMemo(() => {
     const q = String(searchQuery || "").trim().toLowerCase();
@@ -158,11 +160,16 @@ export default function ProductList({
               {t("breadcrumb.categories") || t("menu.products") || "Kategoriler"}
             </Link>
 
-            {filterGroup && (
+            {normalizedFilterGroup && (
               <>
                 <span className="text-gray-300">/</span>
                 <span className="text-gray-900 font-medium">
-                  {getGroupLabel({ t, lang, groupKey: filterGroup, fallback: filterGroup })}
+                  {getGroupLabel({
+                    t,
+                    lang,
+                    groupKey: normalizedFilterGroup,
+                    fallback: normalizedFilterGroup,
+                  })}
                 </span>
               </>
             )}

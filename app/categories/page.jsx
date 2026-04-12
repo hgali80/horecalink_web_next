@@ -25,13 +25,14 @@ import {
   getGroupLabel,
   getMainCategoryLabel,
   getSubcategoryLabel,
+  normalizeCatalogGroupKey,
   resolveProductCategoryKeys,
 } from "../lib/catalog/catalogLabels";
 
 const ITEMS_PER_PAGE = 18;
 function CategoriesContent() {
   const searchParams = useSearchParams();
-  const groupFromUrl = searchParams.get("group");
+  const groupFromUrl = normalizeCatalogGroupKey(searchParams.get("group"));
   const { t, lang } = useLang();
 
   const [selectedGroup, setSelectedGroup] = useState("institutional");
@@ -133,7 +134,8 @@ function CategoriesContent() {
   const groupIcons = {
     institutional: "🏢",
     equipment: "⚙️",
-    stainless: "🔩",
+    paslanmaz: "🔩",
+    accessories: "🔧",
   };
 
   const FilterSidebar = () => (

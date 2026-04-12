@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BriefcaseBusiness, Building2, ChefHat, ChevronRight } from "lucide-react";
+import { BriefcaseBusiness, Building2, ChefHat, ChevronRight, Wrench } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
 import { getGroupLabel } from "../lib/catalog/catalogLabels";
 
@@ -23,12 +23,20 @@ const groups = [
     fallback: "Mutfak Ekipmanları",
   },
   {
-    key: "stainless",
+    key: "paslanmaz",
     description: "catalog.groupCards.stainless",
     cta: "catalog.groupCardsCta.stainless",
-    href: "/catalog/stainless",
+    href: "/catalog/paslanmaz",
     icon: ChefHat,
     fallback: "Paslanmaz Ekipmanlar",
+  },
+  {
+    key: "accessories",
+    href: "/catalog/accessories",
+    icon: Wrench,
+    fallback: "Aksesuar",
+    fallbackDescription: "Yedek parca ve cihaz aksesuarlarini tek bir katalog altinda bulun.",
+    fallbackCta: "Urunleri Gor",
   },
 ];
 
@@ -55,7 +63,7 @@ export default function CatalogLandingPage() {
           </p>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
           {groups.map((group) => {
             const Icon = group.icon;
             const groupLabel = getGroupLabel({
@@ -78,10 +86,18 @@ export default function CatalogLandingPage() {
                   {groupLabel}
                 </h2>
                 <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-500">
-                  {t(group.description)}
+                  {group.description
+                    ? t(group.description) !== group.description
+                      ? t(group.description)
+                      : group.fallbackDescription || ""
+                    : group.fallbackDescription || ""}
                 </p>
                 <div className="mt-6 text-sm font-bold uppercase tracking-[0.14em] text-[#1d3246]">
-                  {t(group.cta) || t("catalog.openCatalog") || "Open catalog"}
+                  {group.cta
+                    ? t(group.cta) !== group.cta
+                      ? t(group.cta)
+                      : group.fallbackCta || t("catalog.openCatalog") || "Open catalog"
+                    : group.fallbackCta || t("catalog.openCatalog") || "Open catalog"}
                 </div>
               </Link>
             );

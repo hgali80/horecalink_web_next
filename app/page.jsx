@@ -69,7 +69,7 @@ export default function Home() {
         t("home.categories.endustriyel.desc") ||
         "Günlük operasyonlar için dayanıklı mutfak gereçleri ve paketleme ürünleri.",
       image: "/kart_paslanmaz.jpg",
-      href: "/catalog/stainless",
+      href: "/catalog/paslanmaz",
       cta: t("home.categories.endustriyel.cta") || "Kataloğu Gör",
     },
   ],

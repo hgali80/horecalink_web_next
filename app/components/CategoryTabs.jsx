@@ -9,7 +9,7 @@ import { getGroupLabel } from "../lib/catalog/catalogLabels";
 const GROUPS = [
   { key: "institutional", fallback: "Temizlik & Hijyen" },
   { key: "equipment", fallback: "Mutfak Ekipmanları" },
-  { key: "stainless", fallback: "Paslanmaz Ekipmanlar" },
+  { key: "paslanmaz", fallback: "Paslanmaz Ekipmanlar" },
   { key: "accessories", fallback: "Aksesuar" },
 ];
 

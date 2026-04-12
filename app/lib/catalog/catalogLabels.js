@@ -151,6 +151,7 @@ const LABELS_BY_LANG = {
 
 const GROUP_KEY_ALIASES = {
   stainless: "stainless_steel",
+  paslanmaz: "stainless_steel",
 };
 
 const MAIN_KEY_ALIASES = {
@@ -278,9 +279,9 @@ function readKnownKey(...values) {
   return "";
 }
 
-function normalizeGroupKey(value) {
+export function normalizeCatalogGroupKey(value) {
   const key = String(value || "").trim();
-  if (key === "stainless_steel") return "stainless";
+  if (key === "stainless_steel" || key === "stainless") return "paslanmaz";
   return key;
 }
 
@@ -293,15 +294,15 @@ export function resolveProductCategoryKeys(product) {
 
   if (subcategoryKey) {
     const item = categoryMap[subcategoryKey];
-    return {
-      groupKey: normalizeGroupKey(item?.groupKey || product?.groupKey || product?.group),
+      return {
+      groupKey: normalizeCatalogGroupKey(item?.groupKey || product?.groupKey || product?.group),
       categoryKey: String(item?.categoryKey || product?.categoryKey || product?.main_category || "").trim(),
       subcategoryKey,
     };
   }
 
   return {
-    groupKey: normalizeGroupKey(product?.groupKey || product?.group),
+    groupKey: normalizeCatalogGroupKey(product?.groupKey || product?.group),
     categoryKey: String(product?.categoryKey || product?.main_category || product?.category || "").trim(),
     subcategoryKey: "",
   };

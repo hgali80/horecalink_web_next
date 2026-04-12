@@ -13,7 +13,7 @@ import { getGroupLabel, getMainCategoryLabel } from "../lib/catalog/catalogLabel
 const GROUP_LABELS = {
   institutional: "Temizlik & Hijyen",
   equipment: "Mutfak Ekipmanları",
-  stainless: "Paslanmaz Ekipmanlar",
+  paslanmaz: "Paslanmaz Ekipmanlar",
   accessories: "Aksesuar",
 };
 
