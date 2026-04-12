@@ -1,12 +1,15 @@
 //app/components/ProductCard.jsx
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, FileText, Package2 } from "lucide-react";
+import { ArrowUpRight, FileText } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
+const PLACEHOLDER_IMAGE = "/Placeholder.png";
+
 function cleanText(value) {
   if (value === null || value === undefined) return "";
   const text = String(value).trim();
@@ -16,7 +19,7 @@ function cleanText(value) {
 
 function formatPrice(value) {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return null;
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
 
   return new Intl.NumberFormat("ru-RU", {
     minimumFractionDigits: 0,
@@ -73,12 +76,14 @@ function getImageUrl(product) {
 
 export default function ProductCard({ product }) {
   const { t } = useLang();
+  const [imageError, setImageError] = useState(false);
 
   const href = getProductHref(product);
   const title = getProductName(product);
   const description = getProductDescription(product);
   const code = getProductCode(product);
   const imageUrl = getImageUrl(product);
+  const displayImageUrl = !imageError && imageUrl ? imageUrl : PLACEHOLDER_IMAGE;
   const formattedPrice = formatPrice(product?.price);
   const unit = cleanText(product?.unit) || t("productDetail.unit");
 
@@ -86,22 +91,14 @@ export default function ProductCard({ product }) {
     <article className="group flex h-full flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_16px_34px_rgba(29,50,70,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_22px_46px_rgba(29,50,70,0.1)]">
       <Link href={href} className="relative block bg-[#f5f7f9]">
         <div className="relative aspect-[4/3.45] w-full overflow-hidden">
-          {imageUrl ? (
-            <Image
-              src={imageUrl}
-              alt={title}
-              fill
-              unoptimized
-              className="object-contain p-5 transition-transform duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <div className="flex flex-col items-center gap-2 text-slate-400">
-                <Package2 className="h-10 w-10" strokeWidth={1.75} />
-                <span className="text-sm font-medium">{t("productDetail.noImage")}</span>
-              </div>
-            </div>
-          )}
+          <Image
+            src={displayImageUrl}
+            alt={title}
+            fill
+            unoptimized
+            onError={() => setImageError(true)}
+            className="object-contain p-5 transition-transform duration-500 group-hover:scale-105"
+          />
         </div>
       </Link>
 
@@ -131,7 +128,7 @@ export default function ProductCard({ product }) {
             </div>
           ) : (
             <div className="text-[14px] font-semibold text-slate-500">
-              Price on request
+              {t("productcard.noPrice")}
             </div>
           )}
         </div>

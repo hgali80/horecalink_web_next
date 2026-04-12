@@ -38,7 +38,7 @@ function cleanText(value) {
 
 function formatPrice(value) {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return null;
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
 
   return new Intl.NumberFormat("ru-RU", {
     minimumFractionDigits: 0,
@@ -48,7 +48,7 @@ function formatPrice(value) {
 
 function formatPriceWithDecimal(value) {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return null;
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
 
   return new Intl.NumberFormat("ru-RU", {
     minimumFractionDigits: 1,
@@ -389,7 +389,7 @@ export default function ProductDetailClient({ product, relatedProducts }) {
                       </span>
                     </>
                   ) : (
-                    <span className="text-xl font-bold text-slate-500">Price on request</span>
+                    <span className="text-xl font-bold text-slate-500">{t("productcard.noPrice")}</span>
                   )}
                 </div>
 

@@ -8,6 +8,7 @@ import { useLang } from "../context/LanguageContext";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
 const MAX_AUTO_IMAGES = 12;
+const PLACEHOLDER_IMAGE = "/Placeholder.png";
 
 function getImageUrl(imageName) {
   if (!imageName) return null;
@@ -82,12 +83,16 @@ export default function ProductGallery({ product }) {
   const [images, setImages] = useState(fallbackImages);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [selectedImageFailed, setSelectedImageFailed] = useState(false);
+  const [failedImages, setFailedImages] = useState({});
 
   useEffect(() => {
     let cancelled = false;
 
     setImages(fallbackImages);
     setSelectedIndex(0);
+    setSelectedImageFailed(false);
+    setFailedImages({});
 
     async function discoverImages() {
       if (!candidateImages.length) {
@@ -119,19 +124,23 @@ export default function ProductGallery({ product }) {
   }, [candidateImages, fallbackImages]);
 
   const selectedImage = images[selectedIndex] || "";
-  const selectedImageUrl = getImageUrl(selectedImage);
+  const selectedImageUrl =
+    !selectedImageFailed && selectedImage ? getImageUrl(selectedImage) : PLACEHOLDER_IMAGE;
   const hasMultipleImages = images.length > 1;
+  const thumbnailItems = images.length ? images.slice(0, 4) : [PLACEHOLDER_IMAGE];
 
   function goToPreviousImage() {
     setSelectedIndex((current) =>
       current === 0 ? images.length - 1 : current - 1
     );
+    setSelectedImageFailed(false);
   }
 
   function goToNextImage() {
     setSelectedIndex((current) =>
       current === images.length - 1 ? 0 : current + 1
     );
+    setSelectedImageFailed(false);
   }
 
   return (
@@ -146,51 +155,58 @@ export default function ProductGallery({ product }) {
           }}
           aria-label={product?.name || "Product image"}
         >
-          {selectedImageUrl ? (
-            <Image
-              src={selectedImageUrl}
-              alt={product?.name || "Product image"}
-              fill
-              unoptimized
-              sizes="(max-width: 1024px) 100vw, 60vw"
-              className="object-contain object-center p-6"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center bg-[#f2f4f6]">
-              <div className="flex flex-col items-center gap-3 text-slate-400">
-                <Package2 className="h-12 w-12" strokeWidth={1.75} />
-                <span className="text-sm font-medium">{t("productDetail.noImage")}</span>
-              </div>
-            </div>
-          )}
+          <Image
+            src={selectedImageUrl}
+            alt={product?.name || "Product image"}
+            fill
+            unoptimized
+            sizes="(max-width: 1024px) 100vw, 60vw"
+            onError={() => setSelectedImageFailed(true)}
+            className="object-contain object-center p-6"
+          />
         </button>
       </div>
 
       <div className="grid grid-cols-5 gap-4">
-        {images.slice(0, 4).map((imageName, index) => {
-          const imageUrl = getImageUrl(imageName);
-          const active = index === selectedIndex;
+        {thumbnailItems.map((imageName, index) => {
+          const imageUrl =
+            imageName === PLACEHOLDER_IMAGE || failedImages[imageName]
+              ? PLACEHOLDER_IMAGE
+              : getImageUrl(imageName);
+          const active = images.length ? index === selectedIndex : index === 0;
 
           return (
             <button
               key={`${imageName}-${index}`}
               type="button"
-              onClick={() => setSelectedIndex(index)}
+              onClick={() => {
+                if (!images.length) return;
+                setSelectedIndex(index);
+                setSelectedImageFailed(false);
+              }}
               className={`aspect-square overflow-hidden rounded-lg transition ${
                 active ? "border-2 border-[#34495E] bg-white" : "bg-white hover:opacity-80"
               }`}
-              aria-label={t("productDetail.openImage", { index: index + 1 })}
+              aria-label={
+                images.length
+                  ? t("productDetail.openImage", { index: index + 1 })
+                  : t("productDetail.noImage")
+              }
             >
               <div className="relative h-full w-full">
-                {imageUrl ? (
-                  <Image
-                    src={imageUrl}
-                    alt={`${product?.name || "Product"} ${index + 1}`}
-                    fill
-                    unoptimized
-                    className="object-cover"
-                  />
-                ) : null}
+                <Image
+                  src={imageUrl}
+                  alt={`${product?.name || "Product"} ${index + 1}`}
+                  fill
+                  unoptimized
+                  onError={() =>
+                    setFailedImages((current) => ({
+                      ...current,
+                      [imageName]: true,
+                    }))
+                  }
+                  className="object-cover"
+                />
               </div>
             </button>
           );
@@ -236,6 +252,7 @@ export default function ProductGallery({ product }) {
                 fill
                 unoptimized
                 sizes="100vw"
+                onError={() => setSelectedImageFailed(true)}
                 className="object-contain object-center"
               />
             ) : null}

@@ -10,6 +10,8 @@ import { categoryMap } from "../data/categoryMap";
 import { useLang } from "../context/LanguageContext";
 import { getGroupLabel, getMainCategoryLabel } from "../lib/catalog/catalogLabels";
 
+const PLACEHOLDER_IMAGE = "/Placeholder.png";
+
 const GROUP_LABELS = {
   institutional: "Temizlik & Hijyen",
   equipment: "Mutfak Ekipmanları",
@@ -114,15 +116,12 @@ export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
     )}?alt=media`;
 
   const getImagePath = (product) => {
-    if (product.imageBase) {
-      return getFirebaseImageUrl(product.imageBase);
-    }
+    const imageNames = Array.isArray(product?.image_names)
+      ? product.image_names.filter(Boolean)
+      : [];
+    const imageName = imageNames[0] || String(product?.imageBase || "").trim();
 
-    if (product.subcategoryKey) {
-      return `/category_icons/${product.subcategoryKey}.png`;
-    }
-
-    return null;
+    return imageName ? getFirebaseImageUrl(imageName) : PLACEHOLDER_IMAGE;
   };
 
   if (loading) {
@@ -167,19 +166,16 @@ export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
                   className="block overflow-hidden rounded-xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
                   <div className="relative flex h-40 w-full items-center justify-center bg-gray-100">
-                    {imageSrc ? (
-                      <Image
-                        src={imageSrc}
-                        alt={productName}
-                        fill
-                        className="object-cover"
-                        onError={(event) => {
-                          event.currentTarget.style.display = "none";
-                        }}
-                      />
-                    ) : (
-                      <div className="text-xs text-gray-400">{t("categoryGrid.noImage")}</div>
-                    )}
+                    <Image
+                      src={imageSrc}
+                      alt={productName}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                      onError={(event) => {
+                        event.currentTarget.src = PLACEHOLDER_IMAGE;
+                      }}
+                    />
                   </div>
 
                   <div className="p-3 text-center">
