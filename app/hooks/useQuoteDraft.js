@@ -20,11 +20,27 @@ function subscribeToQuoteDraft(callback) {
 }
 
 function getSnapshot() {
-  return getQuoteDraft();
+  if (typeof window === "undefined") {
+    return "[]";
+  }
+
+  try {
+    return window.localStorage.getItem("horecalink_quote_draft") || "[]";
+  } catch {
+    return "[]";
+  }
 }
 
 export function useQuoteDraft() {
-  const items = useSyncExternalStore(subscribeToQuoteDraft, getSnapshot, () => []);
+  const snapshot = useSyncExternalStore(subscribeToQuoteDraft, getSnapshot, () => "[]");
+  const items = useMemo(() => {
+    try {
+      const parsed = JSON.parse(snapshot);
+      return Array.isArray(parsed) ? parsed : getQuoteDraft();
+    } catch {
+      return getQuoteDraft();
+    }
+  }, [snapshot]);
 
   return useMemo(() => {
     const totalQuantity = items.reduce(
