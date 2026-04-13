@@ -19,6 +19,7 @@ import { getCatalogLabels } from "../lib/catalog/categoryLabels";
 import { getCatalogProducts } from "../lib/firestore/products";
 import { useLang } from "../context/LanguageContext";
 import { normalizeCatalogGroupKey } from "../lib/catalog/catalogLabels";
+import { compareProductsByCategoryOrder } from "../lib/catalog/productSort";
 
 const PAGE_SIZE = 12;
 
@@ -77,15 +78,7 @@ function sortFilteredProducts(products, sortValue) {
   }
 
   return list.sort((a, b) => {
-    const aOrder = Number.isFinite(Number(a?.sortOrder)) ? Number(a.sortOrder) : 999999;
-    const bOrder = Number.isFinite(Number(b?.sortOrder)) ? Number(b.sortOrder) : 999999;
-
-    if (aOrder !== bOrder) return aOrder - bOrder;
-
-    return String(a?.name || a?.name_tr || "").localeCompare(
-      String(b?.name || b?.name_tr || ""),
-      "ru"
-    );
+    return compareProductsByCategoryOrder(a, b);
   });
 }
 

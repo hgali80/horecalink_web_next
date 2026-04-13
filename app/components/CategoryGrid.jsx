@@ -9,6 +9,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { categoryMap } from "../data/categoryMap";
 import { useLang } from "../context/LanguageContext";
 import { getGroupLabel, getMainCategoryLabel } from "../lib/catalog/catalogLabels";
+import { compareProductsByCategoryOrder } from "../lib/catalog/productSort";
 
 const PLACEHOLDER_IMAGE = "/Placeholder.png";
 
@@ -81,11 +82,7 @@ export default function CategoryGrid({ selectedGroup, searchTerm = "" }) {
 
         return haystack.includes(term);
       })
-      .sort((a, b) => {
-        const aOrder = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : 999999;
-        const bOrder = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : 999999;
-        return aOrder - bOrder;
-      });
+      .sort(compareProductsByCategoryOrder);
   }, [products, searchTerm, selectedGroup]);
 
   const groupedByCategory = useMemo(() => {

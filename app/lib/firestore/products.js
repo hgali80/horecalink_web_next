@@ -8,6 +8,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "../../../firebase";
+import { compareProductsByCategoryOrder, getProductOrderValue } from "../catalog/productSort";
 
 function asBoolean(value, fallback = false) {
   if (typeof value === "boolean") return value;
@@ -177,11 +178,7 @@ function normalizeProduct(doc) {
     sortOrder: Number.isFinite(Number(data.sortOrder))
       ? Number(data.sortOrder)
       : 999999,
-    order: Number.isFinite(Number(data.order))
-      ? Number(data.order)
-      : Number.isFinite(Number(data.sortOrder))
-        ? Number(data.sortOrder)
-        : 999999,
+    order: getProductOrderValue(data),
     price: Number.isFinite(Number(data.price)) ? Number(data.price) : null,
     vatRate: Number.isFinite(Number(data.vatRate)) ? Number(data.vatRate) : null,
     createdAt: normalizeTimestamp(data.createdAt),
@@ -191,13 +188,7 @@ function normalizeProduct(doc) {
 }
 
 function sortProducts(a, b) {
-  const orderDiff = (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999);
-  if (orderDiff !== 0) return orderDiff;
-
-  return String(a.name || a.name_tr || "").localeCompare(
-    String(b.name || b.name_tr || ""),
-    "ru"
-  );
+  return compareProductsByCategoryOrder(a, b);
 }
 
 export async function getCatalogProducts({

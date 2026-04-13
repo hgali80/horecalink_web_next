@@ -17,6 +17,7 @@ import {
   normalizeCatalogGroupKey,
   resolveProductCategoryKeys,
 } from "../lib/catalog/catalogLabels";
+import { compareProductsByCategoryOrder } from "../lib/catalog/productSort";
 
 export default function ProductList({
   filterSubCategory,
@@ -97,7 +98,7 @@ export default function ProductList({
           });
         }
 
-        setProducts(nextProducts.sort((a, b) => (a.order ?? 999999) - (b.order ?? 999999)));
+        setProducts(nextProducts.sort(compareProductsByCategoryOrder));
       } catch (err) {
         console.error("[ProductList] Urunler yuklenirken hata:", err);
         setProducts([]);
