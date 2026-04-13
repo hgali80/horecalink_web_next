@@ -3,7 +3,7 @@ import ru from "../locales/ru.json";
 import kz from "../locales/kz.json";
 import en from "../locales/en.json";
 
-export const defaultLanguage = "tr";
+export const defaultLanguage = "ru";
 export const languageStorageKey = "hl_lang";
 
 export const languageOptions = [
