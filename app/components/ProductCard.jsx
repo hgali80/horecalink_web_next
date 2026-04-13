@@ -4,8 +4,9 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, FileText } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
+import ProductQuoteActions from "./ProductQuoteActions";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
 const PLACEHOLDER_IMAGE = "/Placeholder.png";
@@ -142,13 +143,7 @@ export default function ProductCard({ product }) {
             <ArrowUpRight className="h-4 w-4" />
           </Link>
 
-          <Link
-            href={`/teklif-talep?product=${encodeURIComponent(product?.id || "")}`}
-            className="inline-flex items-center gap-2 rounded-full bg-[#1d3246] px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-white transition hover:bg-[#243f58]"
-          >
-            <FileText className="h-4 w-4" />
-            {t("header.menu.createQuote")}
-          </Link>
+          <ProductQuoteActions product={product} variant="compact" />
         </div>
       </div>
     </article>

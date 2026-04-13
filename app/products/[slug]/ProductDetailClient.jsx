@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import ProductGallery from "../../components/ProductGallery";
+import ProductQuoteActions from "../../components/ProductQuoteActions";
 import RelatedProducts from "../../components/RelatedProducts";
 import { useLang } from "../../context/LanguageContext";
 
@@ -393,13 +394,7 @@ export default function ProductDetailClient({ product, relatedProducts }) {
                   )}
                 </div>
 
-                <Link
-                  href={`/teklif-talep?product=${encodeURIComponent(product.id || "")}`}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#1d3246] to-[#34495e] py-5 text-lg font-bold tracking-wide text-white transition-all hover:opacity-90"
-                >
-                  <FileText className="h-5 w-5" />
-                  {t("header.menu.createQuote")}
-                </Link>
+                <ProductQuoteActions product={product} showRequestButton />
 
                 {product.technicalPdf ? (
                   <a

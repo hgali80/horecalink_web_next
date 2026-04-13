@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LanguageContext";
+import { useQuoteDraft } from "../hooks/useQuoteDraft";
 
 const STAFF_ROLES = new Set(["super_admin", "admin", "staff", "sales", "viewer"]);
 
@@ -18,6 +19,7 @@ export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { t } = useLang();
+  const { itemKinds } = useQuoteDraft();
   const canOpenSalesStock = STAFF_ROLES.has(user?.role);
 
   const baseLinkClass = mobile
@@ -47,11 +49,16 @@ export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
       <Link href="/teklifler" onClick={onNavigate} className={baseLinkClass}>
         <ReceiptText size={18} />
         {t("header.menu.quotes")}
+        {itemKinds > 0 ? (
+          <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-[#ef7d32] px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
+            {itemKinds}
+          </span>
+        ) : null}
       </Link>
 
       <Link href="/teklif-talep" onClick={onNavigate} className={primaryLinkClass}>
         <PackageSearch size={18} />
-        {t("header.menu.createQuote")}
+        {t("quoteDraft.add")}
       </Link>
 
       {canOpenSalesStock ? (
