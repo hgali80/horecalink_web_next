@@ -48,16 +48,16 @@ export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
       <Link href="/teklifler" onClick={onNavigate} className={baseLinkClass}>
         <ReceiptText size={18} />
         {t("header.menu.quotes")}
-        {itemKinds > 0 ? (
-          <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-[#ef7d32] px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
-            {itemKinds}
-          </span>
-        ) : null}
       </Link>
 
       <Link href="/teklif-talep" onClick={onNavigate} className={primaryLinkClass}>
         <PackageSearch size={18} />
         {t("quoteDraft.add")}
+        {itemKinds > 0 ? (
+          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-[#ef7d32] px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
+            {itemKinds}
+          </span>
+        ) : null}
       </Link>
 
       {canOpenSalesStock ? (
