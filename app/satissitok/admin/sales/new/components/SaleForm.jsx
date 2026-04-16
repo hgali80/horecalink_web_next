@@ -423,6 +423,11 @@ export default function SaleForm({
     return Math.round((totals.total - paid) * 100) / 100;
   }, [totals.total, paidAmount]);
 
+  const filledItemCount = useMemo(
+    () => items.filter((row) => row?.productId && Number(row.quantity || 0) > 0).length,
+    [items]
+  );
+
   const vatDisabled = saleType !== "official";
 
   const yy = useMemo(() => year2FromDateISO(invoiceDate), [invoiceDate]);
@@ -1316,6 +1321,18 @@ export default function SaleForm({
                       {fmtMoney(remaining)} ₸
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-3 space-y-1 mt-4">
+                <div className="text-[10px] font-bold uppercase text-slate-300">Belge Ozeti</div>
+                <div className="text-sm font-semibold text-white">
+                  {selectedCari?.firm || "Musteri secilmedi"}
+                </div>
+                <div className="text-xs text-slate-300">
+                  {filledItemCount} gecerli satir â€¢ {negativeStockWarnings.length > 0
+                    ? `${negativeStockWarnings.length} stok uyarisi`
+                    : "stok uyarisi yok"}
                 </div>
               </div>
 

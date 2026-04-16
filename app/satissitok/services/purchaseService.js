@@ -1,29 +1,31 @@
-// app/satissitok/services/purchaseService.js
 import {
   collection,
   doc,
-  serverTimestamp,
   runTransaction,
-  deleteDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase";
 
 import {
+  buildPurchaseCancellationPlan,
   readStockBalancesForPurchase,
+  writePurchaseCancelStockMovements,
   writePurchaseStockMovements,
+  writeStockBalancesAfterPurchaseCancel,
   writeStockBalancesWithAvgCost,
 } from "./stockService";
-
+import { reserveNextInvoiceNo } from "./invoiceCounterService";
+import { getDefaultCashAccountId } from "./cashAccountService";
+import { initializeSettlementFields } from "./documentSettlementService";
+import { normalizeDocumentItemSnapshot } from "./inventoryCatalogService";
+import { writePurchaseCostEntries } from "./inventoryCostService";
+import { writeCashMovementTransaction } from "./financeService";
 import {
-  reserveNextInvoiceNo,
-  reserveNextDraftNo,
-} from "./invoiceCounterService";
-
-/* ===============================
-   FATURA FORMAT
-   Final: PR-26-000001 / PF-26-000001
-   Draft: PD-26-000001
-================================ */
+  isConfirmedStatus,
+  isDraftStatus,
+  normalizeDocumentStatus,
+} from "./documentFlow";
+import { createCariTransaction } from "@/app/satissitok/admin/cari/services/cariService";
 
 function toDateOrNull(dateISO) {
   if (!dateISO) return null;
@@ -40,16 +42,10 @@ function round2(n) {
   return Math.round(num(n) * 100) / 100;
 }
 
-function normalizeStatus(status) {
-  const s = String(status || "completed").trim().toLowerCase();
-  if (s === "draft" || s === "pending" || s === "completed" || s === "cancelled") {
-    return s;
-  }
-  return "completed";
-}
-
 function normalizeItems(items) {
-  return Array.isArray(items) ? items : [];
+  return Array.isArray(items)
+    ? items.map((row) => normalizeDocumentItemSnapshot(row))
+    : [];
 }
 
 function buildTotals(payload, type) {
@@ -59,8 +55,6 @@ function buildTotals(payload, type) {
   const vat = round2(vatRaw);
   const gross = round2(t.gross ?? payload.grossTotal ?? payload.total ?? net + vat);
 
-  const vatTotal = type === "official" ? vat : 0;
-
   return {
     totalsNormalized: {
       net,
@@ -69,10 +63,20 @@ function buildTotals(payload, type) {
       gross,
     },
     net,
-    vat,
-    vatTotal,
+    vatTotal: type === "official" ? vat : 0,
     gross,
   };
+}
+
+function createStatusPayload({
+  payloadStatus,
+  existingStatus,
+  fallback = "draft",
+}) {
+  if (payloadStatus === undefined || payloadStatus === null || payloadStatus === "") {
+    return normalizeDocumentStatus(existingStatus, { fallback });
+  }
+  return normalizeDocumentStatus(payloadStatus, { fallback });
 }
 
 function buildBasePurchaseData({
@@ -87,77 +91,58 @@ function buildBasePurchaseData({
   gross,
 }) {
   return {
-    // tedarikçi
     supplierName: (payload.supplierName || "").trim(),
     supplierCariId: payload.supplierCariId || null,
-
-    // ek alanlar
     supplierBin: (payload.supplierBin || "").trim(),
     supplierRef: (payload.supplierRef || "").trim(),
     responsiblePerson: (payload.responsiblePerson || "").trim(),
-
-    // tarihler
     documentDate: toDateOrNull(payload.documentDate),
-
-    // tür/depo/vergi
     purchaseType: type,
     warehouseKey,
     taxRate: type === "official" ? Number(payload.taxRate || 0) : 0,
     vatMode: type === "official" ? payload.vatMode || "inclusive" : null,
-
-    // kalemler/toplam
     items,
     totals: totalsNormalized,
-
-    // top-level totals
     netTotal: net,
     vatTotal,
     grossTotal: gross,
-
-    // ödeme/not/ek
+    settlementSummary: initializeSettlementFields({ invoiceAmount: gross }).settlementSummary,
     paymentMethod: (payload.paymentMethod || "").trim(),
     payment: payload.payment || null,
     dueDate: toDateOrNull(payload.dueDate),
     notes: (payload.notes || "").trim(),
     attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
-
-    // durum
     status,
-    isDraftLike: status !== "completed",
-
+    isDraftLike: !isConfirmedStatus(status),
     updatedAt: serverTimestamp(),
   };
 }
 
-/* =========================================================
-   CREATE / UPDATE PURCHASE
-   - draft/pending => no stock, no avg cost, no cari movement
-   - completed     => normal final flow
-========================================================= */
-
 export async function createPurchase(payload) {
-  return await runTransaction(db, async (transaction) => {
-    const type = payload.purchaseType; // official | actual
-    if (type !== "official" && type !== "actual") {
-      throw new Error("purchaseType geçersiz: official | actual olmalı");
-    }
+  const isPaidNow = payload?.payment?.isPaid === true || payload?.isPaid === true;
+  const defaultAccountId = isPaidNow
+    ? payload?.payment?.accountId || payload?.accountId || (await getDefaultCashAccountId())
+    : null;
 
-    const status = normalizeStatus(payload.status || "completed");
-    const isFinal = status === "completed";
+  if (isPaidNow && !defaultAccountId) {
+    throw new Error("Pesin odeme icin varsayilan kasa/banka hesabi gerekli");
+  }
 
-    // Depo – satınalma ekranında seçimi yoksa varsayılan: main
+  return runTransaction(db, async (transaction) => {
+    const type = payload.purchaseType === "actual" ? "actual" : "official";
+    const status = createStatusPayload({
+      payloadStatus: payload?.status,
+      existingStatus: null,
+      fallback: "draft",
+    });
+    const isConfirmed = isConfirmedStatus(status);
     const warehouseKey = (payload.warehouseKey || "main").trim() || "main";
-
     const manualInvoice = (payload.invoiceNo ?? payload.documentNo ?? "").trim();
     const invoiceNoAutoFlag = payload.invoiceNoAuto === true;
 
     const items = normalizeItems(payload.items);
     const purchaseId = (payload.purchaseId || payload.id || "").trim();
     const isUpdate = !!purchaseId;
-
-    /* =====================
-       READ PHASE (ALL READS FIRST)
-    ===================== */
 
     const purchaseRef = isUpdate
       ? doc(db, "purchases", purchaseId)
@@ -167,45 +152,35 @@ export async function createPurchase(payload) {
     const existingData = existingSnap?.exists() ? existingSnap.data() : null;
 
     if (isUpdate && !existingData) {
-      throw new Error("Güncellenecek satınalma kaydı bulunamadı");
+      throw new Error("Guncellenecek satinalma kaydi bulunamadi");
     }
 
-    const prevStatus = normalizeStatus(existingData?.status || "draft");
-    const prevWasFinal = prevStatus === "completed";
+    const normalizedStatus = createStatusPayload({
+      payloadStatus: payload?.status,
+      existingStatus: existingData?.status,
+      fallback: "draft",
+    });
+    const prevStatus = normalizeDocumentStatus(existingData?.status, { fallback: "draft" });
+    const prevWasConfirmed = isConfirmedStatus(prevStatus);
+    const needsFinalize = isConfirmedStatus(normalizedStatus) && !prevWasConfirmed;
 
-    // Draft/pending -> completed geçişinde stok read gerekir
-    // Yeni completed kayıtta da gerekir
-    const needsStockRead = isFinal && !prevWasFinal;
-
-    const existingBalances = needsStockRead
+    const existingBalances = needsFinalize
       ? await readStockBalancesForPurchase({
           transaction,
           items,
         })
       : null;
 
-    let invoiceNo = "";
-    let invoiceNoAutoValue = null;
-    let invoiceNoManual = false;
+    let invoiceNo = existingData?.invoiceNo || null;
+    let invoiceNoAutoValue = existingData?.invoiceNoAuto ?? null;
+    let invoiceNoManual = !!existingData?.invoiceNoManual;
     let invoiceSequence = existingData?.invoiceSequence ?? null;
     let invoiceYear2 = existingData?.invoiceYear2 ?? null;
     let invoiceCounterRef = existingData?.invoiceCounterRef ?? null;
 
-    let draftNo = existingData?.draftNo ?? null;
-    let draftSequence = existingData?.draftSequence ?? null;
-    let draftYear2 = existingData?.draftYear2 ?? null;
-    let draftCounterRef = existingData?.draftCounterRef ?? null;
-
-    // FINAL BELGE
-    if (isFinal) {
-      if (prevWasFinal && existingData?.invoiceNo) {
-        // Zaten final belgeyse numara korunur
-        invoiceNo = String(existingData.invoiceNo || "").trim();
-        invoiceNoAutoValue = existingData.invoiceNoAuto ?? null;
-        invoiceNoManual = !!existingData.invoiceNoManual;
-      } else {
-        // Yeni final kayıt ya da draft -> final dönüşümü
-        const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
+    if (isConfirmedStatus(normalizedStatus)) {
+      if (!prevWasConfirmed || !invoiceNo) {
+        const { yy, nextSeq, autoInvoice, counterRefPath } = await reserveNextInvoiceNo({
           transaction,
           kind: "purchases",
           type,
@@ -215,58 +190,25 @@ export async function createPurchase(payload) {
         invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
         invoiceNoAutoValue = invoiceNo === autoInvoice ? autoInvoice : null;
         invoiceNoManual = invoiceNo !== autoInvoice;
-
         invoiceSequence = nextSeq;
         invoiceYear2 = yy;
-        invoiceCounterRef = "invoice_counters/purchases";
+        invoiceCounterRef = counterRefPath;
       }
     } else {
-      // DRAFT / PENDING
-      if (existingData?.draftNo) {
-        // Mevcut taslak güncelleniyor, draft no korunur
-        invoiceNo = existingData.draftNo;
-        draftNo = existingData.draftNo;
-        draftSequence = existingData?.draftSequence ?? null;
-        draftYear2 = existingData?.draftYear2 ?? null;
-        draftCounterRef = existingData?.draftCounterRef ?? "draft_counters/purchases";
-      } else {
-        // Yeni taslak numarası üret
-        const { yy, nextSeq, autoDraftNo } = await reserveNextDraftNo({
-          transaction,
-          kind: "purchases",
-          dateISO: payload.documentDate,
-        });
-
-        invoiceNo = autoDraftNo;
-        draftNo = autoDraftNo;
-        draftSequence = nextSeq;
-        draftYear2 = yy;
-        draftCounterRef = "draft_counters/purchases";
-      }
-
+      invoiceNo = null;
       invoiceNoAutoValue = null;
       invoiceNoManual = false;
-
-      // completed olmayan kayıtta normal invoice sequence tutulmaz
       invoiceSequence = null;
       invoiceYear2 = null;
       invoiceCounterRef = null;
     }
 
-    /* =====================
-       TOTALS NORMALIZATION
-    ===================== */
-
     const { totalsNormalized, net, vatTotal, gross } = buildTotals(payload, type);
-
-    /* =====================
-       WRITE PHASE
-    ===================== */
 
     const baseData = buildBasePurchaseData({
       payload,
       type,
-      status,
+      status: normalizedStatus,
       warehouseKey,
       items,
       totalsNormalized,
@@ -277,8 +219,6 @@ export async function createPurchase(payload) {
 
     const docData = {
       ...baseData,
-
-      // fatura
       invoiceNo,
       documentNo: invoiceNo,
       invoiceNoAuto: invoiceNoAutoValue,
@@ -286,22 +226,16 @@ export async function createPurchase(payload) {
       invoiceSequence,
       invoiceYear2,
       invoiceCounterRef,
-
-      // draft info
-      draftNo,
-      draftSequence,
-      draftYear2,
-      draftCounterRef,
-
-      // finalize info
-      approvedAt:
-        status === "completed" && !prevWasFinal ? serverTimestamp() : existingData?.approvedAt ?? null,
-      finalizedAt:
-        status === "completed" && !prevWasFinal ? serverTimestamp() : existingData?.finalizedAt ?? null,
+      draftNo: null,
+      draftSequence: null,
+      draftYear2: null,
+      draftCounterRef: null,
+      approvedAt: needsFinalize ? serverTimestamp() : existingData?.approvedAt ?? null,
+      finalizedAt: needsFinalize ? serverTimestamp() : existingData?.finalizedAt ?? null,
     };
 
     if (isUpdate) {
-      transaction.update(purchaseRef, docData);
+      transaction.set(purchaseRef, docData, { merge: true });
     } else {
       transaction.set(purchaseRef, {
         ...docData,
@@ -309,12 +243,7 @@ export async function createPurchase(payload) {
       });
     }
 
-    /* =====================
-       STOK HAREKETLERİ
-       Sadece finalleşme anında
-    ===================== */
-
-    if (needsStockRead) {
+    if (needsFinalize) {
       writePurchaseStockMovements({
         transaction,
         purchaseId: purchaseRef.id,
@@ -334,165 +263,178 @@ export async function createPurchase(payload) {
         existingBalances,
         warehouseKey,
       });
-    }
 
-    /* =====================
-       CARİ HAREKETİ
-       Sadece finalleşme anında
-    ===================== */
-
-    if (needsStockRead && payload.supplierCariId) {
-      const desc = (payload.description || payload.notes || "Satınalma faturası").trim();
-      const cariTxRef = doc(collection(db, "cari_transactions"));
-
-      transaction.set(cariTxRef, {
-        cariId: payload.supplierCariId,
-
-        operationDate: toDateOrNull(payload.documentDate),
-        dueDate: toDateOrNull(payload.dueDate),
-
-        // canonical
-        operationType: "purchase_invoice",
-        direction: "credit",
-        amount: gross,
-        refId: purchaseRef.id,
-        documentNo: invoiceNo,
-        note: desc,
-        paymentMethod: (payload.paymentMethod || "").trim() || null,
-        operationCategory: payload.operationCategory || "trade_goods",
-        currency: "KZT",
-
-        // legacy
-        debit: 0,
-        credit: gross,
-        description: desc,
-        source: "purchase",
-
-        createdAt: serverTimestamp(),
+      writePurchaseCostEntries({
+        transaction,
+        purchaseId: purchaseRef.id,
+        purchaseType: type,
+        supplierCariId: payload.supplierCariId || null,
+        supplierName: (payload.supplierName || "").trim(),
+        invoiceNo,
+        documentDate: payload.documentDate || null,
+        warehouseKey,
+        items,
       });
+
+      if (payload.supplierCariId) {
+        const desc = (payload.description || payload.notes || "Satinalma faturasi").trim();
+        createCariTransaction(transaction, {
+          cariId: payload.supplierCariId,
+          direction: "credit",
+          operationType: "purchase_invoice",
+          source: "purchase",
+          refId: purchaseRef.id,
+          amount: gross,
+          operationDate: payload.documentDate,
+          dueDate: payload.dueDate,
+          documentNo: invoiceNo,
+          paymentMethod: (payload.paymentMethod || "").trim() || null,
+          currency: "KZT",
+          note: desc,
+        });
+      }
+
+      if (payload.supplierCariId && isPaidNow) {
+        await writeCashMovementTransaction(transaction, {
+          kind: "pay",
+          mode: "payment",
+          cariId: payload.supplierCariId,
+          amount: gross,
+          method: (payload.paymentMethod || payload?.payment?.method || "cash").trim() || "cash",
+          accountId: defaultAccountId,
+          operationDate:
+            payload?.payment?.paidDate || payload?.paidDate || payload.documentDate || null,
+          invoiceId: purchaseRef.id,
+          invoiceNo,
+          invoiceKind: "purchase",
+          description: `Satinalma aninda odeme - ${invoiceNo}`,
+        });
+      }
     }
 
     return purchaseRef.id;
   });
 }
 
-/* =========================================================
-   DELETE DRAFT PURCHASE
-   - Sadece draft / pending silinir
-   - completed kayıt burada silinmez
-========================================================= */
-
 export async function deleteDraftPurchase({ purchaseId }) {
   if (!purchaseId) throw new Error("purchaseId zorunlu");
 
-  const purchaseRef = doc(db, "purchases", purchaseId);
-
-  await runTransaction(db, async (transaction) => {
+  return runTransaction(db, async (transaction) => {
+    const purchaseRef = doc(db, "purchases", purchaseId);
     const snap = await transaction.get(purchaseRef);
 
     if (!snap.exists()) {
-      throw new Error("Taslak satınalma bulunamadı");
+      throw new Error("Taslak satinalma bulunamadi");
     }
 
-    const purchase = snap.data();
-    const status = normalizeStatus(purchase?.status || "draft");
+    const status = normalizeDocumentStatus(snap.data()?.status, {
+      fallback: "draft",
+    });
 
-    if (status === "completed") {
-      throw new Error("Tamamlanmış satınalma taslak olarak silinemez");
+    if (!isDraftStatus(status)) {
+      throw new Error("Onayli satinalma taslak olarak silinemez");
     }
 
     transaction.delete(purchaseRef);
   });
-
-  return true;
 }
-
-/* =========================================================
-   CANCEL PURCHASE (MEVCUT YAPI KORUNDU)
-========================================================= */
 
 export async function cancelPurchase({ purchaseId }) {
   if (!purchaseId) throw new Error("purchaseId zorunlu");
 
-  return await runTransaction(db, async (transaction) => {
+  return runTransaction(db, async (transaction) => {
     const purchaseRef = doc(db, "purchases", purchaseId);
     const snap = await transaction.get(purchaseRef);
 
-    if (!snap.exists()) throw new Error("Satınalma bulunamadı");
+    if (!snap.exists()) throw new Error("Satinalma bulunamadi");
 
     const purchase = snap.data();
-    if (purchase.status === "cancelled") return true;
+    if (normalizeDocumentStatus(purchase.status, { fallback: "draft" }) === "cancelled") {
+      return true;
+    }
 
-    const items = purchase.items || [];
-    const type = purchase.purchaseType;
+    const wasConfirmed = isConfirmedStatus(purchase.status);
+    const items = normalizeItems(purchase.items);
+    const type = purchase.purchaseType === "actual" ? "actual" : "official";
 
-    const wasFinal = purchase.status === "completed";
-
-    const existingBalances = wasFinal
-      ? await readStockBalancesForPurchase({
-          transaction,
-          items,
-        })
-      : null;
-
-    if (wasFinal) {
-      writePurchaseStockMovements({
+    if (wasConfirmed) {
+      const operationDate = purchase.documentDate?.toDate
+        ? purchase.documentDate.toDate()
+        : purchase.documentDate || new Date();
+      const existingBalances = await readStockBalancesForPurchase({
         transaction,
-        purchaseId: purchaseRef.id,
-        purchaseType: type,
         items,
-        supplierName: purchase.supplierName || "",
-        invoiceNo: purchase.invoiceNo,
-        documentDate: purchase.documentDate || null,
-        currency: "KZT",
-        warehouseKey: purchase.warehouseKey || "main",
-        reverse: true,
       });
 
-      writeStockBalancesWithAvgCost({
-        transaction,
+      const plan = buildPurchaseCancellationPlan({
         purchaseType: type,
         items,
         existingBalances,
         warehouseKey: purchase.warehouseKey || "main",
-        reverse: true,
+      });
+
+      if ((plan.stockErrors || []).length > 0) {
+        throw new Error("Iptal icin yeterli stok yok. Bu alis daha sonra kullanilmis olabilir.");
+      }
+
+      writePurchaseCancelStockMovements({
+        transaction,
+        purchaseId: purchaseRef.id,
+        purchaseType: type,
+        items: plan.linePlans,
+        supplierName: purchase.supplierName || "",
+        invoiceNo: purchase.invoiceNo || "",
+        documentDate: purchase.documentDate || null,
+        currency: "KZT",
+      });
+
+      writeStockBalancesAfterPurchaseCancel({
+        transaction,
+        items: plan.linePlans,
+        existingBalances,
       });
 
       if (purchase.supplierCariId) {
-        const gross = Number(purchase.grossTotal ?? purchase.totals?.gross ?? 0);
-        const desc = "Satınalma faturası iptali";
+        const gross = round2(num(purchase.grossTotal ?? purchase.totals?.gross));
+        const documentNo = purchase.invoiceNo || null;
 
-        const cariTxRef = doc(collection(db, "cari_transactions"));
-
-        transaction.set(cariTxRef, {
+        createCariTransaction(transaction, {
           cariId: purchase.supplierCariId,
-          operationDate: new Date(),
-
-          // canonical
-          operationType: "purchase_cancel",
           direction: "debit",
-          amount: gross,
-          refId: purchaseId,
-          documentNo: purchase.invoiceNo,
-          note: desc,
-          currency: "KZT",
-
-          // legacy
-          debit: gross,
-          credit: 0,
-          description: desc,
+          operationType: "purchase_cancel",
           source: "purchase_cancel",
-
-          createdAt: serverTimestamp(),
+          refId: purchaseId,
+          amount: gross,
+          operationDate,
+          documentNo,
+          currency: "KZT",
+          note: "Satinalma faturasi iptali",
         });
       }
+
+      writePurchaseCostEntries({
+        transaction,
+        purchaseId,
+        purchaseType: type,
+        supplierCariId: purchase.supplierCariId || null,
+        supplierName: purchase.supplierName || "",
+        invoiceNo: purchase.invoiceNo || "",
+        documentDate: operationDate,
+        warehouseKey: purchase.warehouseKey || "main",
+        items: plan.linePlans,
+        entryType: "purchase_cancel",
+      });
     }
 
-    transaction.update(purchaseRef, {
-      status: "cancelled",
-      cancelledAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    transaction.set(
+      purchaseRef,
+      {
+        status: "cancelled",
+        cancelledAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
 
     return true;
   });

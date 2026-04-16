@@ -3,7 +3,8 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/firebase";
 
-const SETTINGS_REF = doc(db, "satissitok_settings", "main");
+const SETTINGS_REF = doc(db, "settings", "main");
+const LEGACY_SETTINGS_REF = doc(db, "satissitok_settings", "main");
 
 const cleanText = (v) => (typeof v === "string" ? v.trim() : "");
 
@@ -70,13 +71,30 @@ const DEFAULT_SETTINGS = {
   },
 };
 
+function isPermissionError(err) {
+  const code = String(err?.code || "");
+  return code === "permission-denied" || /insufficient permissions/i.test(String(err?.message || ""));
+}
+
+async function readLegacySettings() {
+  try {
+    const snap = await getDoc(LEGACY_SETTINGS_REF);
+    return snap.exists() ? snap.data() || null : null;
+  } catch (err) {
+    if (isPermissionError(err)) return null;
+    throw err;
+  }
+}
+
 export async function getSettings() {
   try {
     const snap = await getDoc(SETTINGS_REF);
 
     if (!snap.exists()) {
-      await setDoc(SETTINGS_REF, DEFAULT_SETTINGS, { merge: true });
-      return DEFAULT_SETTINGS;
+      const legacyData = await readLegacySettings();
+      const seededSettings = legacyData || DEFAULT_SETTINGS;
+      await setDoc(SETTINGS_REF, seededSettings, { merge: true });
+      return seededSettings;
     }
 
     const s = snap.data() || {};
@@ -108,7 +126,9 @@ export async function getSettings() {
 
     return merged;
   } catch (err) {
-    console.error("getSettings error:", err);
+    if (!isPermissionError(err)) {
+      console.error("getSettings error:", err);
+    }
     return DEFAULT_SETTINGS;
   }
 }

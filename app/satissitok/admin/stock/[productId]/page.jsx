@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase";
 import { ArrowLeft, Home } from "lucide-react";
+import { listProductCostEntriesByProduct } from "@/app/satissitok/services/inventoryCostService";
 
 function fmtMoney(n) {
   const x = Number(n) || 0;
@@ -30,12 +31,31 @@ function fmtDate(ts) {
   return d.toLocaleDateString("tr-TR");
 }
 
+function typeLabel(value) {
+  const type = String(value || "").trim().toLowerCase();
+  if (type === "purchase") return "Satinalma";
+  if (type === "purchase_cancel") return "Alis Iptali";
+  if (type === "sale") return "Satis";
+  if (type === "sale_cancel") return "Satis Iptali";
+  if (type === "sale_return") return "Satis Iadesi";
+  if (type === "manual_in") return "Manuel Giris";
+  if (type === "manual_out") return "Manuel Cikis";
+  if (type === "opening_balance") return "Acilis";
+  if (type === "wastage") return "Fire";
+  if (type === "count_surplus") return "Sayim Fazlasi";
+  if (type === "count_shortage") return "Sayim Eksigi";
+  if (type === "transfer_in") return "Transfer Giris";
+  if (type === "transfer_out") return "Transfer Cikis";
+  return value || "-";
+}
+
 export default function StockMovementsPage() {
   const { productId } = useParams();
   const router = useRouter();
 
   const [product, setProduct] = useState(null);
   const [movements, setMovements] = useState([]);
+  const [costEntries, setCostEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -57,19 +77,23 @@ export default function StockMovementsPage() {
   useEffect(() => {
     const loadMovements = async () => {
       try {
-        const q = query(
-          collection(db, "stock_movements"),
-          where("productId", "==", productId),
-          orderBy("createdAt", "desc")
-        );
-
-        const snap = await getDocs(q);
+        const [snap, loadedCostEntries] = await Promise.all([
+          getDocs(
+            query(
+              collection(db, "stock_movements"),
+              where("productId", "==", productId),
+              orderBy("createdAt", "desc")
+            )
+          ),
+          listProductCostEntriesByProduct(productId),
+        ]);
         setMovements(
           snap.docs.map((d) => ({
             id: d.id,
             ...d.data(),
           }))
         );
+        setCostEntries(loadedCostEntries);
       } catch (e) {
         console.error("STOCK MOVEMENTS ERROR:", e);
         setError(
@@ -161,6 +185,53 @@ export default function StockMovementsPage() {
         <div>
           <strong>Birim:</strong> {product?.unit || "-"}
         </div>
+        <div>
+          <strong>Satis Fiyati:</strong> {fmtMoney(product?.price || 0)} â‚¸
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full border border-collapse text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="border px-3 py-2">Tarih</th>
+              <th className="border px-3 py-2">Tur</th>
+              <th className="border px-3 py-2">Tedarikci</th>
+              <th className="border px-3 py-2">Belge</th>
+              <th className="border px-3 py-2">Miktar</th>
+              <th className="border px-3 py-2">Brut Birim</th>
+              <th className="border px-3 py-2">Net Birim</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {costEntries.slice(0, 12).map((entry) => (
+              <tr key={entry.id} className="hover:bg-gray-50">
+                <td className="border px-3 py-2 text-center">
+                  {fmtDate(entry.documentDate || entry.createdAt)}
+                </td>
+                <td className="border px-3 py-2 text-center">{entry.entryType || "-"}</td>
+                <td className="border px-3 py-2">{entry.supplierName || "-"}</td>
+                <td className="border px-3 py-2">{entry.invoiceNo || "-"}</td>
+                <td className="border px-3 py-2 text-center">{entry.qty || 0}</td>
+                <td className="border px-3 py-2 text-right">
+                  {fmtMoney(entry.grossUnitCost || 0)} â‚¸
+                </td>
+                <td className="border px-3 py-2 text-right">
+                  {fmtMoney(entry.netUnitCost || 0)} â‚¸
+                </td>
+              </tr>
+            ))}
+
+            {costEntries.length === 0 && (
+              <tr>
+                <td colSpan={7} className="border px-3 py-6 text-center text-gray-500">
+                  Maliyet gecmisi bulunamadi.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <div className="overflow-x-auto">
@@ -183,7 +254,7 @@ export default function StockMovementsPage() {
               <tr key={m.id} className="hover:bg-gray-50">
                 <td className="border px-3 py-2 text-center">{fmtDate(m.createdAt)}</td>
                 <td className="border px-3 py-2 text-center">
-                  {m.type === "purchase" ? "Satınalma" : m.type}
+                  {typeLabel(m.type)}
                 </td>
                 <td className="border px-3 py-2 text-center">
                   {m.purchaseType === "official"

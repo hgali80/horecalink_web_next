@@ -2,7 +2,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, PlusCircle, Trash2 } from "lucide-react";
+import { AlertTriangle, Copy, GripVertical, PlusCircle, Trash2 } from "lucide-react";
+import { buildProductSnapshot } from "@/app/satissitok/services/inventoryCatalogService";
 
 function num(x) {
   const n = Number(x);
@@ -18,6 +19,18 @@ function fmtMoney(n) {
   return x.toLocaleString("tr-TR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
+  });
+}
+
+function filterProducts(products, queryText) {
+  const q = String(queryText || "").trim().toLowerCase();
+  return (products || []).filter((p) => {
+    if (!q) return true;
+    const name = String(p?.name || p?.title || p?.productName || "").toLowerCase();
+    const id = String(p?.id || "").toLowerCase();
+    const sku = String(p?.sku || p?.stockCode || p?.code || "").toLowerCase();
+    const barcode = String(p?.barcode || "").toLowerCase();
+    return name.includes(q) || id.includes(q) || sku.includes(q) || barcode.includes(q);
   });
 }
 
@@ -91,6 +104,7 @@ function normalizeRow(
   const safe = {
     productId: row?.productId || "",
     productName: row?.productName || "",
+    productSnapshot: row?.productSnapshot || null,
     unit: row?.unit || defaultUnit,
     warehouseKey: row?.warehouseKey || defaultWarehouse,
     quantity: Math.max(0, num(row?.quantity || 0)) || 1,
@@ -117,6 +131,7 @@ function makeEmptyRow({ defaultUnit, defaultWarehouse, defaultVatRate }) {
   return {
     productId: "",
     productName: "",
+    productSnapshot: null,
     unit: defaultUnit,
     warehouseKey: defaultWarehouse,
     quantity: 1,
@@ -249,6 +264,21 @@ export default function SaleItemsTable({
     ]);
   }
 
+  function duplicateRow(i) {
+    setItems((prev) => {
+      const base = normalizeRow(prev[i] || {}, {
+        defaultUnit,
+        defaultWarehouse,
+        defaultVatRate,
+        saleType,
+        vatMode,
+      });
+      const next = [...prev];
+      next.splice(i + 1, 0, { ...base });
+      return next;
+    });
+  }
+
   function updateDdPosForIndex(idx) {
     const el = inputRefs.current[idx];
     if (!el) return;
@@ -273,6 +303,7 @@ export default function SaleItemsTable({
     const patch = {
       productId: p.id,
       productName: label,
+      productSnapshot: buildProductSnapshot(p),
       unitPrice: num(p?.price || 0),
       unit: firestoreUnit || items?.[i]?.unit || defaultUnit,
       warehouseKey,
@@ -303,14 +334,6 @@ export default function SaleItemsTable({
   }, [setItems, saleType, vatMode, defaultUnit, defaultWarehouse, defaultVatRate]);
 
   useEffect(() => {
-    const next = {};
-    (items || []).forEach((row, i) => {
-      next[i] = currentRowLabel(row);
-    });
-    setQueryByIndex(next);
-  }, [items, productById]);
-
-  useEffect(() => {
     const onScrollOrResize = () => {
       if (openIndex === -1) return;
       updateDdPosForIndex(openIndex);
@@ -323,6 +346,26 @@ export default function SaleItemsTable({
       window.removeEventListener("resize", onScrollOrResize);
     };
   }, [openIndex]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (disabled) return;
+      if (event.altKey && event.key.toLowerCase() === "n") {
+        event.preventDefault();
+        setItems((prev) => [
+          ...prev,
+          makeEmptyRow({
+            defaultUnit,
+            defaultWarehouse,
+            defaultVatRate: saleType === "official" ? defaultVatRate : 0,
+          }),
+        ]);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [defaultUnit, defaultWarehouse, defaultVatRate, disabled, saleType, setItems]);
 
   const totals = useMemo(() => {
     const sum = { net: 0, vat: 0, total: 0 };
@@ -379,6 +422,8 @@ export default function SaleItemsTable({
           );
 
           const rowUnitOptions = getRowUnitOptions(row);
+          const stockGap = Math.max(num(row.quantity) - avail, 0);
+          const lineProfit = round2(num(row.total) - num(row.quantity) * purchaseUnitCost);
 
           return (
             <div
@@ -413,6 +458,13 @@ export default function SaleItemsTable({
                             updateRow(i, {
                               productId: "",
                               productName: "",
+                              productSnapshot: null,
+                              unitPrice: 0,
+                              discountRate: 0,
+                              vatRate: saleType === "official" ? defaultVatRate : 0,
+                              net: 0,
+                              vat: 0,
+                              total: 0,
                               purchaseUnitCost: 0,
                             });
                           }
@@ -430,14 +482,7 @@ export default function SaleItemsTable({
                               .trim()
                               .toLowerCase();
 
-                            const list = (products || [])
-                              .filter((p) => {
-                                const label = productLabel(p).toLowerCase();
-                                const id = String(p.id || "").toLowerCase();
-                                if (!q) return true;
-                                return label.includes(q) || id.includes(q);
-                              })
-                              .slice(0, 1);
+                            const list = filterProducts(products, q).slice(0, 1);
 
                             if (list[0]) pickProduct(i, list[0]);
                           }
@@ -462,14 +507,7 @@ export default function SaleItemsTable({
                               .trim()
                               .toLowerCase();
 
-                            const list = (products || [])
-                              .filter((p) => {
-                                const label = productLabel(p).toLowerCase();
-                                const id = String(p.id || "").toLowerCase();
-                                if (!q) return true;
-                                return label.includes(q) || id.includes(q);
-                              })
-                              .slice(0, 80);
+                            const list = filterProducts(products, q).slice(0, 80);
 
                             if (!list.length) {
                               return (
@@ -502,21 +540,47 @@ export default function SaleItemsTable({
                     </div>
 
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 font-semibold">
+                        Satir #{i + 1}
+                      </span>
                       <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1">
                         SKU: {row.productId || "-"}
                       </span>
-                      <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-1">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-1 ${
+                          stockGap > 0 ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"
+                        }`}
+                      >
                         Stok: {fmtMoney(avail)}
+                        {stockGap > 0 ? ` • Eksik ${fmtMoney(stockGap)}` : " • Yeterli"}
                       </span>
                       {showPurchaseCost && (
                         <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-2 py-1">
                           Alış: {fmtMoney(purchaseUnitCost)}
                         </span>
                       )}
+                      {showPurchaseCost && row.productId && (
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-1 ${
+                            lineProfit >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                          }`}
+                        >
+                          Kar: {fmtMoney(lineProfit)}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => duplicateRow(i)}
+                      disabled={disabled || !row.productId}
+                      className="p-2 rounded-xl hover:bg-slate-100 text-slate-600 disabled:opacity-30"
+                      title="Satiri kopyala"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => removeRow(i)}
@@ -575,6 +639,8 @@ export default function SaleItemsTable({
                     <input
                       className="w-full text-right text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       type="number"
+                      min="0"
+                      step="0.01"
                       value={row.quantity}
                       onChange={(e) => updateRow(i, { quantity: e.target.value })}
                       disabled={disabled}
@@ -588,6 +654,8 @@ export default function SaleItemsTable({
                     <input
                       className="w-full text-right text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       type="number"
+                      min="0"
+                      step="0.01"
                       value={row.unitPrice}
                       onChange={(e) =>
                         updateRow(i, { unitPrice: e.target.value })
@@ -628,6 +696,8 @@ export default function SaleItemsTable({
                     <input
                       className="w-full text-right text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       type="number"
+                      min="0"
+                      step="0.01"
                       value={row.discountRate}
                       onChange={(e) =>
                         updateRow(i, { discountRate: e.target.value })
@@ -694,6 +764,13 @@ export default function SaleItemsTable({
                     </div>
                   </div>
                 </div>
+
+                {row.productId && stockGap > 0 && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Bu satir secilen depo icin mevcut stoktan {fmtMoney(stockGap)} fazla.
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -716,7 +793,9 @@ export default function SaleItemsTable({
             </div>
 
             <div className="rounded-xl bg-blue-600 text-white border border-blue-600 px-4 py-3">
-              <div className="text-xs text-blue-100 mb-1">Genel Toplam</div>
+              <div className="text-xs text-blue-100 mb-1">
+                Genel Toplam • {(items || []).filter((x) => x?.productId).length} satir
+              </div>
               <div className="text-xl font-extrabold text-right">
                 {fmtMoney(totals.total)}
               </div>

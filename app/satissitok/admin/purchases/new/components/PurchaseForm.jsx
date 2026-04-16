@@ -82,6 +82,7 @@ export default function PurchaseForm({
   onSubmit,
   initialData = null,
   onDeleteDraft = null,
+  disabled = false,
 }) {
   /* ===============================
      DURUM / TÜR
@@ -395,6 +396,13 @@ export default function PurchaseForm({
     return { net: r(net), vat: r(vat), gross: r(gross) };
   }, [items]);
 
+  const filledItemCount = useMemo(
+    () => items.filter((row) => row?.productId && Number(row.quantity || 0) > 0).length,
+    [items]
+  );
+  const paidAmount = isPaid ? totals.gross : 0;
+  const remainingBalance = Math.max(0, Math.round((totals.gross - paidAmount) * 100) / 100);
+
   /* ===============================
      ATTACHMENTS (METADATA)
   ================================ */
@@ -586,6 +594,7 @@ export default function PurchaseForm({
             <button
               type="button"
               onClick={() => window.print()}
+              disabled={disabled}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm"
               title="PDF Yazdır"
             >
@@ -596,6 +605,7 @@ export default function PurchaseForm({
             <button
               type="button"
               onClick={() => handleAction("completed")}
+              disabled={disabled}
               className="flex items-center gap-2 px-6 py-2 bg-[#135bec] text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
               title="Onayla ve Stoka Al"
             >
@@ -932,6 +942,8 @@ export default function PurchaseForm({
   vatMode={vatMode}
   hideVat={hideVatColumns}
   initialItems={initialData?.items || []}
+  supplierId={supplierCariId}
+  supplierName={supplierName}
 />
 
           {/* ÖDEME + NOT */}
@@ -955,6 +967,7 @@ export default function PurchaseForm({
                           ? "py-2 px-1 text-[10px] font-bold border-2 border-[#135bec] bg-blue-50 rounded-lg text-[#135bec]"
                           : "py-2 px-1 text-[10px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50"
                       }
+                      disabled={disabled}
                     >
                       Banka Transferi
                     </button>
@@ -966,6 +979,7 @@ export default function PurchaseForm({
                           ? "py-2 px-1 text-[10px] font-bold border-2 border-[#135bec] bg-blue-50 rounded-lg text-[#135bec]"
                           : "py-2 px-1 text-[10px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50"
                       }
+                      disabled={disabled}
                     >
                       Nakit
                     </button>
@@ -977,6 +991,7 @@ export default function PurchaseForm({
                           ? "py-2 px-1 text-[10px] font-bold border-2 border-[#135bec] bg-blue-50 rounded-lg text-[#135bec]"
                           : "py-2 px-1 text-[10px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50"
                       }
+                      disabled={disabled}
                     >
                       Kaspi QR/Biz
                     </button>
@@ -992,6 +1007,7 @@ export default function PurchaseForm({
                     <button
                       type="button"
                       onClick={() => setIsPaid(false)}
+                      disabled={disabled}
                       className={
                         !isPaid
                           ? "py-2 px-2 text-[10px] font-bold border-2 border-[#135bec] bg-blue-50 rounded-lg text-[#135bec]"
@@ -1007,6 +1023,7 @@ export default function PurchaseForm({
                         setIsPaid(true);
                         if (!paidDate) setPaidDate(documentDate || "");
                       }}
+                      disabled={disabled}
                       className={
                         isPaid
                           ? "py-2 px-2 text-[10px] font-bold border-2 border-emerald-600 bg-emerald-50 rounded-lg text-emerald-700"
@@ -1028,6 +1045,7 @@ export default function PurchaseForm({
                         type="date"
                         value={paidDate}
                         onChange={(e) => setPaidDate(e.target.value)}
+                        disabled={disabled}
                       />
                       <p className="text-[10px] text-slate-400">
                         Not: <b>Onayla ve Stoka Al</b> ile birlikte cari hareketine “ödendi” işlenir.
@@ -1045,6 +1063,7 @@ export default function PurchaseForm({
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
+                    disabled={disabled}
                   />
                 </div>
               </div>
@@ -1060,6 +1079,7 @@ export default function PurchaseForm({
                 placeholder="Dahili açıklamalar, lojistik talimatları..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+                disabled={disabled}
               />
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -1075,6 +1095,7 @@ export default function PurchaseForm({
                       addAttachments(e.target.files);
                       e.target.value = "";
                     }}
+                    disabled={disabled}
                   />
                 </label>
                 <span className="text-[10px] text-slate-400">
@@ -1101,6 +1122,7 @@ export default function PurchaseForm({
                         type="button"
                         className="text-xs font-bold text-red-600 hover:underline"
                         onClick={() => removeAttachment(idx)}
+                        disabled={disabled}
                       >
                         Kaldır
                       </button>
@@ -1160,6 +1182,7 @@ export default function PurchaseForm({
                   type="button"
                   onClick={() => handleAction("draft")}
                   className="w-full py-4 bg-[#135bec] hover:bg-blue-700 rounded-xl font-black text-sm tracking-tight transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
+                  disabled={disabled}
                 >
                   <Save size={18} />
                   TASLAĞI KAYDET
@@ -1169,6 +1192,7 @@ export default function PurchaseForm({
                   type="button"
                   onClick={() => handleAction("pending")}
                   className="w-full py-3 bg-amber-500 hover:bg-amber-600 rounded-xl font-black text-xs tracking-tight transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+                  disabled={disabled}
                 >
                   <Clock3 size={16} />
                   ONAY BEKLİYOR OLARAK KAYDET
@@ -1179,6 +1203,7 @@ export default function PurchaseForm({
                     type="button"
                     onClick={handleDeleteDraft}
                     className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs tracking-tight transition-all border border-red-500 flex items-center justify-center gap-2"
+                    disabled={disabled}
                   >
                     <Trash2 size={16} />
                     TASLAĞI SİL
@@ -1213,6 +1238,7 @@ export default function PurchaseForm({
                     }
                   }}
                   className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs tracking-tight transition-all border border-slate-700"
+                  disabled={disabled}
                 >
                   FORMU TEMİZLE
                 </button>
@@ -1224,6 +1250,32 @@ export default function PurchaseForm({
                 Hızlı Görüşler
               </h3>
               <div className="flex flex-col gap-4">
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
+                  <p className="text-[10px] text-amber-600 font-black uppercase">
+                    Bakiye
+                  </p>
+                  <p className="text-xs text-amber-800 font-medium mt-1">
+                    Odenen: <b>{fmtMoney(paidAmount)} â‚¸</b>
+                    {" â€¢ "}
+                    Acik: <b>{fmtMoney(remainingBalance)} â‚¸</b>
+                  </p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-[10px] text-slate-500 font-black uppercase">
+                    Tedarikci
+                  </p>
+                  <p className="text-xs text-slate-700 font-medium mt-1">
+                    {supplierName || "Secilmedi"}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-[10px] text-blue-600 font-black uppercase">
+                    Gecerli Satir
+                  </p>
+                  <p className="text-xs text-blue-800 font-medium mt-1">
+                    {filledItemCount} satir â€¢ Depo: <b>{warehouseKey}</b>
+                  </p>
+                </div>
                 <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
                   <p className="text-[10px] text-emerald-600 font-black uppercase">
                     Ödeme

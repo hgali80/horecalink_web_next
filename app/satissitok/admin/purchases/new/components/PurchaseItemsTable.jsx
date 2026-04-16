@@ -1,10 +1,16 @@
 // app/satissitok/admin/purchases/new/components/PurchaseItemsTable.jsx
 "use client";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
 import { Boxes, Plus, Search, Trash2 } from "lucide-react";
+import {
+  buildLatestCostIndex,
+  listProductCostEntries,
+} from "@/app/satissitok/services/inventoryCostService";
+import { buildProductSnapshot } from "@/app/satissitok/services/inventoryCatalogService";
 
 function num(x) {
   const n = Number(x);
@@ -31,6 +37,7 @@ function makeEmptyRow() {
   return {
     productId: "",
     productName: "",
+    productSnapshot: null,
     sku: "",
     unit: "",
     qty: 1,
@@ -56,8 +63,17 @@ function normalizeText(v) {
   return String(v || "").trim().toLowerCase();
 }
 
-function sameText(a, b) {
-  return normalizeText(a) === normalizeText(b);
+function filterProducts(products, queryText) {
+  const q = normalizeText(queryText);
+  return (products || []).filter((p) => {
+    if (!q) return true;
+    return (
+      normalizeText(productLabel(p)).includes(q) ||
+      normalizeText(p?.id).includes(q) ||
+      normalizeText(p?.sku || p?.stockCode || p?.code).includes(q) ||
+      normalizeText(p?.barcode).includes(q)
+    );
+  });
 }
 
 function getDateMs(v) {
@@ -185,7 +201,7 @@ export default function PurchaseItemsTable({
   supplierName = "",
 }) {
   const [products, setProducts] = useState([]);
-  const [purchases, setPurchases] = useState([]);
+  const [costEntries, setCostEntries] = useState([]);
   const [items, setItems] = useState([makeEmptyRow()]);
 
   const [openIndex, setOpenIndex] = useState(-1);
@@ -196,13 +212,24 @@ export default function PurchaseItemsTable({
 
   useEffect(() => {
     const load = async () => {
-      const [productsSnap, purchasesSnap] = await Promise.all([
+      const [productsResult, costEntriesResult] = await Promise.allSettled([
         getDocs(collection(db, "products")),
-        getDocs(collection(db, "purchases")),
+        listProductCostEntries(),
       ]);
 
-      setProducts(productsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setPurchases(purchasesSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      if (productsResult.status === "fulfilled") {
+        setProducts(productsResult.value.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } else {
+        console.warn("Products load skipped:", productsResult.reason);
+        setProducts([]);
+      }
+
+      if (costEntriesResult.status === "fulfilled") {
+        setCostEntries(costEntriesResult.value);
+      } else {
+        console.warn("Cost entries load skipped:", costEntriesResult.reason);
+        setCostEntries([]);
+      }
     };
 
     load();
@@ -257,6 +284,7 @@ export default function PurchaseItemsTable({
     const normalized = {
       productId: row?.productId || "",
       productName: row?.productName || "",
+      productSnapshot: row?.productSnapshot || null,
       sku: row?.sku || row?.stockCode || row?.code || "",
       unit: row?.unit || "",
       qty: Math.max(0, num(row?.qty ?? row?.quantity ?? 1)) || 1,
@@ -297,6 +325,7 @@ export default function PurchaseItemsTable({
       if (Array.isArray(prev) && prev.length > 0) return prev;
       return [makeEmptyRow()];
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialItems]);
 
   useEffect(() => {
@@ -307,6 +336,7 @@ export default function PurchaseItemsTable({
         return x;
       })
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vatRate, vatMode, hideVat]);
 
   const addRow = () => {
@@ -366,55 +396,33 @@ export default function PurchaseItemsTable({
     closeTimerRef.current = setTimeout(() => setOpenIndex(-1), 150);
   };
 
+  const latestCostIndex = useMemo(() => buildLatestCostIndex(costEntries), [costEntries]);
+
   const findLatestPurchaseInfo = ({ productId, supplierId, supplierName }) => {
     const targetProductId = String(productId || "").trim();
-    const targetSupplierId = String(supplierId || "").trim();
-    const targetSupplierName = String(supplierName || "").trim();
-
     if (!targetProductId) return null;
-    if (!targetSupplierId && !targetSupplierName) return null;
 
-    const matched = [];
+    const supplierKey = String(supplierId || "").trim();
+    const supplierNameKey = String(supplierName || "").trim().toLowerCase();
 
-    for (const purchase of purchases || []) {
-      if (!isValidCompletedPurchase(purchase)) continue;
+    const entry =
+      (supplierKey
+        ? latestCostIndex[`${targetProductId}__supplier:${supplierKey}`]
+        : null) ||
+      (supplierNameKey
+        ? latestCostIndex[`${targetProductId}__name:${supplierNameKey}`]
+        : null) ||
+      latestCostIndex[`${targetProductId}__default`] ||
+      null;
 
-      const purchaseSupplierId = String(getPurchaseSupplierId(purchase) || "").trim();
-      const purchaseSupplierName = String(getPurchaseSupplierName(purchase) || "").trim();
+    if (!entry) return null;
 
-      let supplierMatched = false;
-
-      if (targetSupplierId && purchaseSupplierId) {
-        supplierMatched = targetSupplierId === purchaseSupplierId;
-      } else if (targetSupplierName && purchaseSupplierName) {
-        supplierMatched = sameText(targetSupplierName, purchaseSupplierName);
-      }
-
-      if (!supplierMatched) continue;
-
-      const rows = getPurchaseItems(purchase);
-      if (!Array.isArray(rows) || rows.length === 0) continue;
-
-      for (const row of rows) {
-        if (getItemProductId(row) !== targetProductId) continue;
-
-        const price = getItemUnitPrice(row);
-        const dateValue = getPurchaseDateValue(purchase);
-        const dateMs = getDateMs(dateValue);
-
-        matched.push({
-          unitPrice: price,
-          dateValue,
-          dateMs,
-          docNo: getPurchaseDocNo(purchase),
-        });
-      }
-    }
-
-    if (!matched.length) return null;
-
-    matched.sort((a, b) => b.dateMs - a.dateMs);
-    return matched[0];
+    return {
+      unitPrice: round2(num(entry.grossUnitCost ?? entry.unitPrice)),
+      dateValue: entry.documentDate || entry.createdAt || null,
+      dateMs: getDateMs(entry.documentDate || entry.createdAt || null),
+      docNo: entry.invoiceNo || "",
+    };
   };
 
   const pickProduct = (i, p) => {
@@ -431,6 +439,7 @@ export default function PurchaseItemsTable({
       productName: (p?.name || "").trim(),
       sku,
       unit: (p?.unit || "").trim(),
+      productSnapshot: buildProductSnapshot(p),
       unitPrice: latest ? num(latest.unitPrice) : 0,
 
       priceSource: "auto",
@@ -473,7 +482,7 @@ export default function PurchaseItemsTable({
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supplierId, supplierName, purchases]);
+  }, [supplierId, supplierName, latestCostIndex]);
 
   useEffect(() => {
     if (openIndex < 0) return;
@@ -487,13 +496,25 @@ export default function PurchaseItemsTable({
     };
   }, [openIndex]);
 
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (disabled) return;
+      if (event.key === "Insert" || (event.altKey && event.key.toLowerCase() === "n")) {
+        event.preventDefault();
+        addRow();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [disabled]);
+
   const vatLabel = hideVat ? "0%" : `${num(vatRate || 0)}%`;
 
   const totalQty = useMemo(
     () => items.reduce((s, r) => s + num(r.qty), 0),
     [items]
   );
-
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -565,9 +586,16 @@ export default function PurchaseItemsTable({
                             patchRow(i, {
                               productId: "",
                               productName: "",
+                              productSnapshot: null,
                               sku: "",
                               unit: "",
                               unitPrice: 0,
+                              netUnitPrice: 0,
+                              vatUnitPrice: 0,
+                              grossUnitPrice: 0,
+                              netLineTotal: 0,
+                              vatLineTotal: 0,
+                              grossLineTotal: 0,
                               priceSource: "auto",
                               lastPurchaseUnitPrice: 0,
                               lastPurchaseDate: "",
@@ -585,14 +613,7 @@ export default function PurchaseItemsTable({
                               .trim()
                               .toLowerCase();
 
-                            const list = (products || [])
-                              .filter((p) => {
-                                const label = productLabel(p).toLowerCase();
-                                const id = String(p.id || "").toLowerCase();
-                                if (!q) return true;
-                                return label.includes(q) || id.includes(q);
-                              })
-                              .slice(0, 1);
+                            const list = filterProducts(products, q).slice(0, 1);
 
                             if (list[0]) pickProduct(i, list[0]);
                           }
@@ -615,14 +636,7 @@ export default function PurchaseItemsTable({
                               .trim()
                               .toLowerCase();
 
-                            const list = (products || [])
-                              .filter((p) => {
-                                const label = productLabel(p).toLowerCase();
-                                const id = String(p.id || "").toLowerCase();
-                                if (!q) return true;
-                                return label.includes(q) || id.includes(q);
-                              })
-                              .slice(0, 80);
+                            const list = filterProducts(products, q).slice(0, 80);
 
                             if (!list.length) {
                               return (
@@ -640,7 +654,11 @@ export default function PurchaseItemsTable({
                                 onMouseDown={(e) => e.preventDefault()}
                                 onClick={() => pickProduct(i, p)}
                               >
-                                {productLabel(p)}
+                                <div className="font-medium">{productLabel(p)}</div>
+                                <div className="text-[11px] text-slate-400">
+                                  SKU: {p?.sku || p?.stockCode || p?.code || p.id || "-"}
+                                  {p?.price != null ? ` • Satis: ${fmt(p.price)}` : ""}
+                                </div>
                               </button>
                             ));
                           })()}
@@ -667,6 +685,7 @@ export default function PurchaseItemsTable({
                     className="w-full bg-slate-50 border border-slate-200 rounded py-1 px-2 text-sm text-center focus:border-[#135bec] focus:ring-0"
                     type="number"
                     min={0}
+                    step="0.01"
                     value={row.qty}
                     disabled={disabled}
                     onChange={(e) => patchRow(i, { qty: e.target.value })}
@@ -685,6 +704,7 @@ export default function PurchaseItemsTable({
                       className="w-full bg-transparent border-none p-0 text-sm font-mono font-bold text-right focus:ring-0"
                       type="number"
                       min={0}
+                      step="0.01"
                       value={row.unitPrice}
                       disabled={disabled}
                       onChange={(e) =>

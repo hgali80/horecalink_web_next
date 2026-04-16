@@ -1,4 +1,3 @@
-// app/satissitok/admin/finance/collect/page.jsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -7,9 +6,12 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Home, Save } from "lucide-react";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/firebase";
-
-import { listCashAccounts, getDefaultCashAccountId } from "@/app/satissitok/services/cashAccountService";
+import {
+  getDefaultCashAccountId,
+  listCashAccounts,
+} from "@/app/satissitok/services/cashAccountService";
 import { createCashMovement } from "@/app/satissitok/services/financeService";
+import { listOpenDocumentsByCari } from "@/app/satissitok/services/documentSettlementService";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -25,13 +27,11 @@ export default function CollectPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
   const [caris, setCaris] = useState([]);
   const [accounts, setAccounts] = useState([]);
-  const [defaultAccountId, setDefaultAccountId] = useState("");
+  const [openDocuments, setOpenDocuments] = useState([]);
 
-  // form
-  const [mode, setMode] = useState("payment"); // payment | advance
+  const [mode, setMode] = useState("payment");
   const [cariId, setCariId] = useState("");
   const [amount, setAmount] = useState(0);
   const [method, setMethod] = useState("cash");
@@ -50,8 +50,7 @@ export default function CollectPage() {
 
         const acc = await listCashAccounts();
         setAccounts(acc);
-        const defId = (await getDefaultCashAccountId()) || (acc[0]?.id ?? "");
-        setDefaultAccountId(defId);
+        const defId = (await getDefaultCashAccountId()) || acc[0]?.id || "";
         setAccountId(defId);
       } finally {
         setLoading(false);
@@ -59,18 +58,46 @@ export default function CollectPage() {
     })();
   }, []);
 
-  const selectedCari = useMemo(
-    () => caris.find((c) => c.id === cariId) || null,
-    [caris, cariId]
+  useEffect(() => {
+    const loadOpenDocs = async () => {
+      if (!cariId || mode === "advance") {
+        setOpenDocuments([]);
+        setInvoiceId("");
+        return;
+      }
+
+      const docs = await listOpenDocumentsByCari({ kind: "sale", cariId });
+      setOpenDocuments(docs);
+    };
+
+    loadOpenDocs();
+  }, [cariId, mode]);
+
+  const selectedCari = useMemo(() => caris.find((c) => c.id === cariId) || null, [caris, cariId]);
+  const selectedDocument = useMemo(
+    () => openDocuments.find((doc) => doc.id === invoiceId) || null,
+    [openDocuments, invoiceId]
   );
+
+  useEffect(() => {
+    if (!selectedDocument || mode === "advance") return;
+    setInvoiceNo(selectedDocument.invoiceNo || "");
+    if (!(num(amount) > 0)) {
+      setAmount(selectedDocument.outstandingAmount || 0);
+    }
+  }, [selectedDocument, mode]);
 
   async function onSave() {
     if (saving) return;
 
     const amt = Math.round(num(amount) * 100) / 100;
-    if (!cariId) return alert("Cari seç");
+    if (!cariId) return alert("Cari sec");
     if (!(amt > 0)) return alert("Tutar gir");
-    if (!accountId) return alert("Hesap seç (varsayılan: Nakit)");
+    if (!accountId) return alert("Hesap sec");
+
+    if (selectedDocument && amt > num(selectedDocument.outstandingAmount)) {
+      return alert("Tahsilat tutari acik belge tutarini asamaz");
+    }
 
     setSaving(true);
     try {
@@ -82,8 +109,9 @@ export default function CollectPage() {
         method,
         accountId,
         operationDate,
-        invoiceId: invoiceId.trim() || null,
+        invoiceId: invoiceId || null,
         invoiceNo: invoiceNo.trim() || null,
+        invoiceKind: "sale",
         description: description.trim() || null,
       });
 
@@ -91,13 +119,13 @@ export default function CollectPage() {
       router.push(`/satissitok/admin/cari/${cariId}`);
     } catch (e) {
       console.error("COLLECT_SAVE_ERROR:", e);
-      alert(e?.message || "Kayıt sırasında hata");
+      alert(e?.message || "Kayit sirasinda hata");
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading) return <div className="p-6">Yükleniyor…</div>;
+  if (loading) return <div className="p-6">Yukleniyor...</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -105,30 +133,18 @@ export default function CollectPage() {
         <button
           type="button"
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
-          aria-label="Geri"
-          title="Geri"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
         >
           <ArrowLeft size={18} />
           <span className="text-sm font-semibold">Geri</span>
         </button>
 
-        <Link
-          href="/satissitok/admin"
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
-          aria-label="Satış/Stok Ana Sayfa"
-          title="Satış/Stok Ana Sayfa"
-        >
+        <Link href="/satissitok/admin" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50">
           <Home size={18} />
           <span className="text-sm font-semibold">Ana Sayfa</span>
         </Link>
 
-        <Link
-          href="/satissitok/admin/finance"
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
-          aria-label="Finans"
-          title="Finans"
-        >
+        <Link href="/satissitok/admin/finance" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50">
           <span className="text-sm font-semibold">Finans</span>
         </Link>
       </div>
@@ -136,122 +152,102 @@ export default function CollectPage() {
       <div>
         <h1 className="text-2xl font-bold">Tahsilat</h1>
         <div className="text-sm text-gray-600 mt-1">
-          {selectedCari ? <strong>{selectedCari.firm}</strong> : "Cari seç"}
+          {selectedCari ? <strong>{selectedCari.firm}</strong> : "Cari sec"}
         </div>
       </div>
 
       <div className="bg-white border rounded-xl p-5 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm mb-1">Tür</label>
+          <label>
+            <div className="text-sm mb-1">Tur</div>
             <select className="border px-3 py-2 w-full" value={mode} onChange={(e) => setMode(e.target.value)}>
               <option value="payment">Tahsilat</option>
               <option value="advance">Avans</option>
             </select>
-          </div>
+          </label>
 
-          <div>
-            <label className="block text-sm mb-1">Tarih</label>
-            <input
-              type="date"
-              className="border px-3 py-2 w-full"
-              value={operationDate}
-              onChange={(e) => setOperationDate(e.target.value)}
-            />
-          </div>
+          <label>
+            <div className="text-sm mb-1">Tarih</div>
+            <input type="date" className="border px-3 py-2 w-full" value={operationDate} onChange={(e) => setOperationDate(e.target.value)} />
+          </label>
 
-          <div>
-            <label className="block text-sm mb-1">Cari</label>
+          <label>
+            <div className="text-sm mb-1">Cari</div>
             <select className="border px-3 py-2 w-full" value={cariId} onChange={(e) => setCariId(e.target.value)}>
-              <option value="">Seç…</option>
+              <option value="">Sec...</option>
               {caris.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.firm}
                 </option>
               ))}
             </select>
-          </div>
+          </label>
 
-          <div>
-            <label className="block text-sm mb-1">Tutar (₸)</label>
-            <input
-              type="number"
-              className="border px-3 py-2 w-full"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </div>
+          <label>
+            <div className="text-sm mb-1">Hesap</div>
+            <select className="border px-3 py-2 w-full" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+              <option value="">Sec...</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
-          <div>
-            <label className="block text-sm mb-1">Yöntem</label>
+        {mode === "payment" && (
+          <label>
+            <div className="text-sm mb-1">Acik belge</div>
+            <select className="border px-3 py-2 w-full" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)}>
+              <option value="">Sec...</option>
+              {openDocuments.map((doc) => (
+                <option key={doc.id} value={doc.id}>
+                  {doc.invoiceNo} - Acik: {doc.outstandingAmount.toLocaleString("tr-TR")}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {selectedDocument ? (
+          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-800">
+            Belge: <b>{selectedDocument.invoiceNo}</b> | Tutar:{" "}
+            <b>{selectedDocument.invoiceAmount.toLocaleString("tr-TR")}</b> | Kapanan:{" "}
+            <b>{selectedDocument.settledAmount.toLocaleString("tr-TR")}</b> | Kalan:{" "}
+            <b>{selectedDocument.outstandingAmount.toLocaleString("tr-TR")}</b>
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <label>
+            <div className="text-sm mb-1">Yontem</div>
             <select className="border px-3 py-2 w-full" value={method} onChange={(e) => setMethod(e.target.value)}>
               <option value="cash">Nakit</option>
               <option value="bank">Banka</option>
               <option value="kaspi">Kaspi</option>
               <option value="card">Kart</option>
             </select>
-          </div>
+          </label>
 
-          <div>
-            <label className="block text-sm mb-1">Hesap (default: Nakit)</label>
-            <select
-              className="border px-3 py-2 w-full"
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-            >
-              <option value="">Seç…</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} {a.default ? "(default)" : ""}
-                </option>
-              ))}
-            </select>
-            {!accountId && defaultAccountId ? (
-              <div className="text-xs text-gray-500 mt-1">
-                Varsayılan hesap bulunamadıysa önce Finans → Hesaplar’dan “Nakit” hesabı oluştur.
-              </div>
-            ) : null}
-          </div>
+          <label>
+            <div className="text-sm mb-1">Tutar</div>
+            <input type="number" className="border px-3 py-2 w-full" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </label>
+
+          <label>
+            <div className="text-sm mb-1">Fatura No</div>
+            <input className="border px-3 py-2 w-full" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
+          </label>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm mb-1">Bağlı Fatura ID (opsiyonel)</label>
-            <input
-              className="border px-3 py-2 w-full"
-              value={invoiceId}
-              onChange={(e) => setInvoiceId(e.target.value)}
-              placeholder="saleId (opsiyonel)"
-            />
-          </div>
-          <div>
-            <label className="block text-sm mb-1">Fatura No (opsiyonel)</label>
-            <input
-              className="border px-3 py-2 w-full"
-              value={invoiceNo}
-              onChange={(e) => setInvoiceNo(e.target.value)}
-              placeholder="SR-26-000001"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm mb-1">Açıklama</label>
-          <input
-            className="border px-3 py-2 w-full"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Not…"
-          />
-        </div>
+        <label>
+          <div className="text-sm mb-1">Aciklama</div>
+          <input className="border px-3 py-2 w-full" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Not..." />
+        </label>
 
         <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={saving}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-60"
-          >
+          <button type="button" onClick={onSave} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-60">
             <Save size={18} />
             Kaydet
           </button>

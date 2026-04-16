@@ -62,10 +62,10 @@ export function getInvoicePrefix(kind, type) {
   const t = normalizeType(type);
 
   if (k === "purchases") {
-    return t === "official" ? "PR" : "PF";
+    return t === "official" ? "RA" : "FA";
   }
 
-  return t === "official" ? "SR" : "SF";
+  return t === "official" ? "RS" : "FS";
 }
 
 export function getDraftPrefix(kind) {

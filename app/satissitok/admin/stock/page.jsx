@@ -7,6 +7,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Home } from "lucide-react";
 import { db } from "@/firebase";
+import {
+  buildLatestCostIndex,
+  listProductCostEntries,
+} from "@/app/satissitok/services/inventoryCostService";
 
 function fmtMoney(n) {
   const x = Number(n) || 0;
@@ -50,6 +54,7 @@ export default function AdminStockPage() {
   const [products, setProducts] = useState([]);
   const [balances, setBalances] = useState({});
   const [movementCounts, setMovementCounts] = useState({});
+  const [latestCosts, setLatestCosts] = useState({});
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -83,14 +88,23 @@ export default function AdminStockPage() {
   // 🔹 Stok hareket sayıları (SEÇENEK A)
   useEffect(() => {
     const loadMovements = async () => {
-      const snap = await getDocs(collection(db, "stock_movements"));
+      const [snap, costEntries] = await Promise.all([
+        getDocs(collection(db, "stock_movements")),
+        listProductCostEntries(),
+      ]);
       const counts = {};
       snap.docs.forEach((d) => {
         const { productId } = d.data();
         if (!productId) return;
         counts[productId] = (counts[productId] || 0) + 1;
       });
+      const latest = {};
+      Object.entries(buildLatestCostIndex(costEntries)).forEach(([key, entry]) => {
+        if (!key.endsWith("__default")) return;
+        latest[key.replace("__default", "")] = entry;
+      });
       setMovementCounts(counts);
+      setLatestCosts(latest);
       setLoading(false);
     };
     loadMovements();
@@ -105,12 +119,14 @@ export default function AdminStockPage() {
             id: p.id,
             name: p.name || "-",
             unit: p.unit || "-",
+            salePrice: num(p.price || 0),
 
             officialQty: sumBucketQty(b, "official"),
             officialAvg: sumBucketAvgCost(b, "official"),
 
             actualQty: sumBucketQty(b, "actual"),
             actualAvg: sumBucketAvgCost(b, "actual"),
+            lastPurchaseCost: num(latestCosts[p.id]?.grossUnitCost || 0),
 
             movementCount: movementCounts[p.id] || 0,
           };
@@ -120,7 +136,7 @@ export default function AdminStockPage() {
         // 🔽 Hareket sayısına göre sırala
         .sort((a, b) => b.movementCount - a.movementCount)
     );
-  }, [products, balances, movementCounts, search]);
+  }, [products, balances, movementCounts, latestCosts, search]);
 
   if (loading) {
     return <div className="p-6 text-center text-gray-500">Yükleniyor...</div>;
@@ -152,7 +168,23 @@ export default function AdminStockPage() {
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold">Stok Durumu</h1>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <h1 className="text-2xl font-bold">Stok Durumu</h1>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/satissitok/admin/stock/movements"
+            className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Hareket Listesi
+          </Link>
+          <Link
+            href="/satissitok/admin/stock/movements/new"
+            className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Yeni Stok Hareketi
+          </Link>
+        </div>
+      </div>
 
       {/* 🔍 Arama */}
       <input
@@ -175,6 +207,8 @@ export default function AdminStockPage() {
 
               <th className="border px-3 py-2">Fiili Stok</th>
               <th className="border px-3 py-2">Fiili Ort. Maliyet</th>
+              <th className="border px-3 py-2">Satis Fiyati</th>
+              <th className="border px-3 py-2">Son Alis</th>
 
               <th className="border px-3 py-2">Hareket</th>
               <th className="border px-3 py-2">Detay</th>
@@ -196,6 +230,10 @@ export default function AdminStockPage() {
 
                 <td className="border px-3 py-2 text-right">{fmtMoney(r.actualAvg)} ₸</td>
 
+                <td className="border px-3 py-2 text-right">{fmtMoney(r.salePrice)} â‚¸</td>
+
+                <td className="border px-3 py-2 text-right">{fmtMoney(r.lastPurchaseCost)} â‚¸</td>
+
                 <td className="border px-3 py-2 text-center">{r.movementCount}</td>
 
                 <td className="border px-3 py-2 text-center">
@@ -208,7 +246,7 @@ export default function AdminStockPage() {
 
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="border px-3 py-6 text-center text-gray-500">
+                <td colSpan={10} className="border px-3 py-6 text-center text-gray-500">
                   Kayıt bulunamadı.
                 </td>
               </tr>

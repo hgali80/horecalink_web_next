@@ -1,4 +1,3 @@
-// app/satissitok/services/saleService.js
 import {
   collection,
   doc,
@@ -9,37 +8,23 @@ import {
 import { db } from "@/firebase";
 
 import {
+  buildSaleStockPlan,
   readStockBalancesForSale,
   writeSaleStockMovements,
-  writeStockBalancesAfterSale,
   writeStockBalancesAfterReturn,
+  writeStockBalancesAfterSale,
 } from "./stockService";
-
+import { reserveNextInvoiceNo } from "./invoiceCounterService";
+import { getDefaultCashAccountId } from "./cashAccountService";
+import { initializeSettlementFields } from "./documentSettlementService";
+import { writeCashMovementTransaction } from "./financeService";
+import { normalizeDocumentItemSnapshot } from "./inventoryCatalogService";
 import {
-  reserveNextInvoiceNo,
-  reserveNextDraftNo,
-} from "./invoiceCounterService";
+  isConfirmedStatus,
+  isDraftStatus,
+  normalizeDocumentStatus,
+} from "./documentFlow";
 import { createCariTransaction } from "@/app/satissitok/admin/cari/services/cariService";
-
-/* ===============================
-   CREATE / UPDATE SALE
-   - draft / pending => no stock, no avgCost, no cari, no item subcollection
-   - completed       => final flow
-================================ */
-
-function normalizeStatus(status) {
-  const s = String(status || "completed").trim().toLowerCase();
-  if (
-    s === "draft" ||
-    s === "pending" ||
-    s === "completed" ||
-    s === "cancelled" ||
-    s === "returned"
-  ) {
-    return s;
-  }
-  return "completed";
-}
 
 function round2(n) {
   const x = Number(n) || 0;
@@ -53,53 +38,152 @@ function toDateOrNull(dateISO) {
 }
 
 function normalizeItems(items) {
-  return Array.isArray(items) ? items : [];
+  return Array.isArray(items)
+    ? items.map((row) => normalizeDocumentItemSnapshot(row))
+    : [];
 }
 
-function computeDraftTotals(items, saleType) {
+function readNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function buildDraftTotals(items, saleType) {
   let netTotal = 0;
   let vatTotal = 0;
   let grossTotal = 0;
 
   for (const row of items) {
     if (!row?.productId) continue;
-
-    const net = Number(row.net || 0);
-    const vat = Number(row.vat || 0);
-    const total = Number(row.total || 0);
-
-    netTotal += net;
-    vatTotal += vat;
-    grossTotal += total;
+    netTotal += readNumber(row.net);
+    vatTotal += readNumber(row.vat);
+    grossTotal += readNumber(row.total);
   }
 
-  netTotal = round2(netTotal);
-  vatTotal = round2(vatTotal);
-  grossTotal = round2(grossTotal);
-
   return {
-    netTotal,
-    vatTotal: saleType === "official" ? vatTotal : 0,
-    grossTotal,
+    netTotal: round2(netTotal),
+    vatTotal: saleType === "official" ? round2(vatTotal) : 0,
+    grossTotal: round2(grossTotal),
   };
 }
 
-export async function createSale(payload) {
-  return await runTransaction(db, async (transaction) => {
-    const saleType = payload?.saleType === "actual" ? "actual" : "official";
-    const status = normalizeStatus(payload?.status || "completed");
-    const isFinal = status === "completed";
+function mapFinalizedItems({ items, saleType, linePlans }) {
+  const planMap = new Map(
+    (linePlans || []).map((row) => {
+      const key = [
+        row.productId,
+        row.warehouseKey || "main",
+        readNumber(row.quantity),
+        readNumber(row.unitPrice),
+      ].join("__");
+      return [key, row];
+    })
+  );
 
+  return (items || [])
+    .filter((row) => row?.productId && readNumber(row.quantity) > 0)
+    .map((row) => {
+      const key = [
+        row.productId,
+        row.warehouseKey || "main",
+        readNumber(row.quantity),
+        readNumber(row.unitPrice),
+      ].join("__");
+      const planned = planMap.get(key) || row;
+      const quantity = round2(readNumber(planned.quantity ?? row.quantity));
+      const net = round2(readNumber(row.net));
+      const vat = saleType === "official" ? round2(readNumber(row.vat)) : 0;
+      const total = round2(readNumber(row.total));
+      const totalCost = round2(readNumber(planned.totalCost));
+
+      return {
+        ...row,
+        warehouseKey: (planned.warehouseKey || row.warehouseKey || "main").trim() || "main",
+        quantity,
+        vatRate: saleType === "official" ? readNumber(row.vatRate) : 0,
+        net,
+        vat,
+        total,
+        stockConsumption: Array.isArray(planned.stockConsumption)
+          ? planned.stockConsumption
+          : [],
+        costBreakdown: Array.isArray(planned.costBreakdown) ? planned.costBreakdown : [],
+        totalCost,
+        profit: round2(net - totalCost),
+      };
+    });
+}
+
+function createStatusPayload({
+  payloadStatus,
+  existingStatus,
+  fallback = "draft",
+}) {
+  if (payloadStatus === undefined || payloadStatus === null || payloadStatus === "") {
+    return normalizeDocumentStatus(existingStatus, { fallback });
+  }
+  return normalizeDocumentStatus(payloadStatus, { fallback });
+}
+
+function buildSaleMovementRows(items) {
+  return (items || []).flatMap((item) => {
+    const parts = Array.isArray(item.costBreakdown)
+      ? item.costBreakdown
+      : Array.isArray(item.stockConsumption)
+      ? item.stockConsumption
+      : [];
+
+    return parts
+      .map((part) => {
+        const qty = round2(readNumber(part.qty));
+        if (!item?.productId || !(qty > 0)) return null;
+
+        const unitCost = round2(
+          readNumber(part.unitCost ?? part.costAtSale ?? item.costAtSale)
+        );
+
+        return {
+          ...item,
+          warehouseKey: (item.warehouseKey || "main").trim() || "main",
+          stockConsumption: [
+            {
+              bucket: part.bucket === "official" ? "official" : "actual",
+              qty,
+              unitCost,
+            },
+          ],
+          costBreakdown: [
+            {
+              bucket: part.bucket === "official" ? "official" : "actual",
+              qty,
+              unitCost,
+              totalCost: round2(qty * unitCost),
+            },
+          ],
+        };
+      })
+      .filter(Boolean);
+  });
+}
+
+export async function createSale(payload) {
+  const payment = payload?.payment || {};
+  const paidAmount = round2(payment.paidAmount ?? payload?.paidAmount ?? 0);
+  const defaultAccountId = paidAmount > 0
+    ? payload?.payment?.accountId || payload?.accountId || (await getDefaultCashAccountId())
+    : null;
+
+  if (paidAmount > 0 && !defaultAccountId) {
+    throw new Error("Pesin tahsilat icin varsayilan kasa/banka hesabi gerekli");
+  }
+
+  return runTransaction(db, async (transaction) => {
+    const saleType = payload?.saleType === "actual" ? "actual" : "official";
     const saleChannel = (payload?.saleChannel || payload?.platformId || "other").trim();
     const cariId = payload?.cariId || null;
-
-    const payment = payload?.payment || {};
     const paymentMethod = (payment.method || payload?.paymentMethod || "").trim();
-    const paidAmount = Number(payment.paidAmount ?? payload?.paidAmount ?? 0) || 0;
-
     const invoiceDateISO =
-      payload?.invoiceDate || new Date().toISOString().slice(0, 10);
-
+      payload?.invoiceDate || payload?.documentDate || new Date().toISOString().slice(0, 10);
     const manualInvoice = (payload?.invoiceNo || payload?.docNo || "").trim();
     const invoiceNoAutoFlag = payload?.invoiceNoAuto === true;
 
@@ -107,103 +191,71 @@ export async function createSale(payload) {
     const saleId = (payload?.saleId || payload?.id || "").trim();
     const isUpdate = !!saleId;
 
-    /* =====================
-       READ PHASE (ALL READS FIRST)
-    ===================== */
-
     const saleRef = isUpdate ? doc(db, "sales", saleId) : doc(collection(db, "sales"));
     const existingSnap = isUpdate ? await transaction.get(saleRef) : null;
     const existingData = existingSnap?.exists() ? existingSnap.data() : null;
 
     if (isUpdate && !existingData) {
-      throw new Error("Güncellenecek satış kaydı bulunamadı");
+      throw new Error("Guncellenecek satis kaydi bulunamadi");
     }
 
-    const prevStatus = normalizeStatus(existingData?.status || "draft");
-    const prevWasFinal = prevStatus === "completed";
+    const status = createStatusPayload({
+      payloadStatus: payload?.status,
+      existingStatus: existingData?.status,
+      fallback: "draft",
+    });
+    const isConfirmed = isConfirmedStatus(status);
+    const prevStatus = normalizeDocumentStatus(existingData?.status, { fallback: "draft" });
+    const prevWasConfirmed = isConfirmedStatus(prevStatus);
+    const needsFinalize = isConfirmed && !prevWasConfirmed;
 
     let existingBalances = null;
-    let negativeStockItems = [];
-    let itemsForStock = [];
+    let finalizedItems = [];
+    let stockErrors = [];
 
-    // Sadece yeni finalleşme anında stok okunur
-    const needsStockRead = isFinal && !prevWasFinal;
-
-    if (needsStockRead) {
-      // 1) Stok bakiyeleri + avgCost oku
+    if (needsFinalize) {
       existingBalances = await readStockBalancesForSale({
         transaction,
         items,
         saleType,
       });
 
-      // 2) Negatif stok kontrolü
-      const soldByKey = {};
-      for (const it of items) {
-        if (!it?.productId) continue;
-        const whKey = (it.warehouseKey || "main").trim() || "main";
-        const q = Number(it.quantity || 0);
-        if (!q) continue;
-        const k = `${it.productId}__${whKey}`;
-        soldByKey[k] = (soldByKey[k] || 0) + q;
-      }
+      const plan = buildSaleStockPlan({
+        saleType,
+        items,
+        existingBalances,
+      });
 
-      for (const [compoundKey, sold] of Object.entries(soldByKey)) {
-        const [productId, warehouseKey] = compoundKey.split("__");
-        const available = Number(existingBalances?.[compoundKey]?.qty || 0);
-        if (available < sold) {
-          negativeStockItems.push({ productId, warehouseKey, available, sold });
-        }
-      }
+      finalizedItems = mapFinalizedItems({
+        items,
+        saleType,
+        linePlans: plan.linePlans,
+      });
+      stockErrors = plan.stockErrors || [];
 
-      itemsForStock = items
-        .filter((r) => r?.productId && Number(r.quantity || 0) > 0)
-        .map((r) => {
-          const whKey = (r.warehouseKey || "main").trim() || "main";
-          const bal = existingBalances?.[`${r.productId}__${whKey}`] || {};
-
-          const avgCost = Number(bal.avgCost || 0);
-          const manualPurchaseUnitCost = Number(
-            r.purchaseUnitCost ?? r.costAtSale ?? 0
-          );
-          const costAtSale =
-            manualPurchaseUnitCost > 0 ? manualPurchaseUnitCost : avgCost;
-
-          return {
-            ...r,
-            warehouseKey: whKey,
-            purchaseUnitCost: manualPurchaseUnitCost > 0 ? manualPurchaseUnitCost : 0,
-            costAtSale,
-            costSource:
-              manualPurchaseUnitCost > 0
-                ? "manual"
-                : bal.costSource || (saleType === "official" ? "official" : "actual"),
-            fallbackOfficialAvgCost: Number(bal.fallbackOfficialAvgCost || 0),
-          };
+      if (finalizedItems.length !== items.filter((row) => row?.productId && readNumber(row.quantity) > 0).length) {
+        stockErrors.push({
+          reason: "missing_finalized_lines",
         });
+      }
+
+      if (stockErrors.length > 0) {
+        throw new Error("Stok yetersiz. Satis onaylanamadi.");
+      }
+    } else if (prevWasConfirmed && Array.isArray(existingData?.items)) {
+      finalizedItems = existingData.items;
     }
 
-    let invoiceNo = "";
-    let invoiceNoAuto = null;
-    let invoiceNoManual = false;
+    let invoiceNo = existingData?.invoiceNo || null;
+    let invoiceNoAuto = existingData?.invoiceNoAuto ?? null;
+    let invoiceNoManual = !!existingData?.invoiceNoManual;
     let invoiceSequence = existingData?.invoiceSequence ?? null;
     let invoiceYear2 = existingData?.invoiceYear2 ?? null;
     let invoiceCounterRef = existingData?.invoiceCounterRef ?? null;
 
-    let draftNo = existingData?.draftNo ?? null;
-    let draftSequence = existingData?.draftSequence ?? null;
-    let draftYear2 = existingData?.draftYear2 ?? null;
-    let draftCounterRef = existingData?.draftCounterRef ?? null;
-
-    if (isFinal) {
-      if (prevWasFinal && existingData?.invoiceNo) {
-        // zaten final kayıt ise numara korunur
-        invoiceNo = String(existingData.invoiceNo || "").trim();
-        invoiceNoAuto = existingData.invoiceNoAuto ?? null;
-        invoiceNoManual = !!existingData.invoiceNoManual;
-      } else {
-        // yeni final kayıt ya da draft -> final dönüşümü
-        const { yy, nextSeq, autoInvoice } = await reserveNextInvoiceNo({
+    if (isConfirmed) {
+      if (!prevWasConfirmed || !invoiceNo) {
+        const { yy, nextSeq, autoInvoice, counterRefPath } = await reserveNextInvoiceNo({
           transaction,
           kind: "sales",
           type: saleType,
@@ -213,32 +265,12 @@ export async function createSale(payload) {
         invoiceNo = invoiceNoAutoFlag ? autoInvoice : manualInvoice || autoInvoice;
         invoiceNoAuto = invoiceNo === autoInvoice ? autoInvoice : null;
         invoiceNoManual = invoiceNo !== autoInvoice;
-
         invoiceSequence = nextSeq;
         invoiceYear2 = yy;
-        invoiceCounterRef = "invoice_counters/sales";
+        invoiceCounterRef = counterRefPath;
       }
     } else {
-      if (existingData?.draftNo) {
-        invoiceNo = existingData.draftNo;
-        draftNo = existingData.draftNo;
-        draftSequence = existingData?.draftSequence ?? null;
-        draftYear2 = existingData?.draftYear2 ?? null;
-        draftCounterRef = existingData?.draftCounterRef ?? "draft_counters/sales";
-      } else {
-        const { yy, nextSeq, autoDraftNo } = await reserveNextDraftNo({
-          transaction,
-          kind: "sales",
-          dateISO: invoiceDateISO,
-        });
-
-        invoiceNo = autoDraftNo;
-        draftNo = autoDraftNo;
-        draftSequence = nextSeq;
-        draftYear2 = yy;
-        draftCounterRef = "draft_counters/sales";
-      }
-
+      invoiceNo = null;
       invoiceNoAuto = null;
       invoiceNoManual = false;
       invoiceSequence = null;
@@ -246,133 +278,87 @@ export async function createSale(payload) {
       invoiceCounterRef = null;
     }
 
-    /* =====================
-       TOTALS / PROFIT
-    ===================== */
+    const activeItems = needsFinalize ? finalizedItems : items;
+    const draftTotals = buildDraftTotals(activeItems, saleType);
 
-    let netTotal = 0;
-    let vatTotal = 0;
-    let grossTotal = 0;
-    let costTotalUsed = 0;
-    let profitTotal = 0;
+    const netTotal = round2(
+      activeItems.reduce((sum, row) => sum + readNumber(row.net), 0)
+    );
+    const vatTotal =
+      saleType === "official"
+        ? round2(activeItems.reduce((sum, row) => sum + readNumber(row.vat), 0))
+        : 0;
+    const grossTotal = round2(
+      activeItems.reduce((sum, row) => sum + readNumber(row.total), 0)
+    );
+    const costTotalUsed = needsFinalize
+      ? round2(activeItems.reduce((sum, row) => sum + readNumber(row.totalCost), 0))
+      : 0;
+    const profitTotal = needsFinalize
+      ? round2(activeItems.reduce((sum, row) => sum + readNumber(row.profit), 0))
+      : 0;
 
-    if (needsStockRead) {
-      for (const row of items) {
-        if (!row?.productId) continue;
+    const totals = isConfirmed
+      ? { netTotal, vatTotal, grossTotal, costTotalUsed, profitTotal }
+      : {
+          netTotal: draftTotals.netTotal,
+          vatTotal: draftTotals.vatTotal,
+          grossTotal: draftTotals.grossTotal,
+          costTotalUsed: 0,
+          profitTotal: 0,
+        };
 
-        const quantity = Number(row.quantity || 0);
-        if (quantity <= 0) continue;
-
-        const net = Number(row.net || 0);
-        const vat = Number(row.vat || 0);
-        const total = Number(row.total || 0);
-
-        netTotal += net;
-        vatTotal += vat;
-        grossTotal += total;
-
-        const whKey = (row.warehouseKey || "main").trim() || "main";
-        const balKey = `${row.productId}__${whKey}`;
-        const bal = existingBalances?.[balKey] || {};
-
-        const avgCost = Number(bal.avgCost || 0);
-        const manualPurchaseUnitCost = Number(
-          row.purchaseUnitCost ?? row.costAtSale ?? 0
-        );
-        const costAtSale =
-          manualPurchaseUnitCost > 0 ? manualPurchaseUnitCost : avgCost;
-
-        const lineCost = round2(quantity * costAtSale);
-        const lineProfit = round2(net - lineCost);
-
-        costTotalUsed += lineCost;
-        profitTotal += lineProfit;
-      }
-
-      netTotal = round2(netTotal);
-      vatTotal = round2(vatTotal);
-      grossTotal = round2(grossTotal);
-      costTotalUsed = round2(costTotalUsed);
-      profitTotal = round2(profitTotal);
-    } else {
-      const totals = computeDraftTotals(items, saleType);
-      netTotal = totals.netTotal;
-      vatTotal = totals.vatTotal;
-      grossTotal = totals.grossTotal;
-      costTotalUsed = 0;
-      profitTotal = 0;
-      negativeStockItems = [];
-    }
-
-    // vat summary
     const ratesUsed = Array.from(
       new Set(
-        (items || [])
-          .filter((x) => x?.productId)
-          .map((x) => Number(x.vatRate || 0))
+        activeItems
+          .filter((row) => row?.productId)
+          .map((row) => Number(row.vatRate || 0))
       )
     );
     const saleVatRate =
       saleType === "official" && ratesUsed.length === 1 ? ratesUsed[0] : null;
 
-    /* =====================
-       WRITE PHASE
-    ===================== */
-
     const saleData = {
-      // legacy alanlar
-      saleNo: invoiceNo,
+      saleNo: invoiceNo || null,
       saleType,
-
-      // yeni alanlar
       saleChannel,
       platformId: saleChannel,
-
       invoiceNo,
-      invoiceNoAuto: invoiceNoAuto || null,
+      documentNo: invoiceNo,
+      invoiceNoAuto,
       invoiceNoManual,
       invoiceSequence,
       invoiceYear2,
       invoiceCounterRef,
-
-      draftNo,
-      draftSequence,
-      draftYear2,
-      draftCounterRef,
-
-      cariId: cariId || null,
-
+      draftNo: null,
+      draftSequence: null,
+      draftYear2: null,
+      draftCounterRef: null,
+      cariId,
       vatRate: saleType === "official" ? saleVatRate : 0,
       vatRatesUsed: saleType === "official" ? ratesUsed : [],
       vatMode: saleType === "official" ? payload?.vatMode || "exclude" : null,
-
       payment: {
         method: paymentMethod || null,
-        paidAmount: paidAmount > 0 ? round2(paidAmount) : 0,
+        paidAmount: paidAmount > 0 ? paidAmount : 0,
       },
-
-      items, // draft edit için ana dokümanda da saklıyoruz
-      netTotal,
-      vatTotal: saleType === "official" ? vatTotal : 0,
-      grossTotal,
-
-      costTotalUsed,
-      profitTotal,
-
-      hasNegativeStock: negativeStockItems.length > 0,
-      negativeStockItems,
-
+      items: activeItems,
+      netTotal: totals.netTotal,
+      vatTotal: totals.vatTotal,
+      grossTotal: totals.grossTotal,
+      costTotalUsed: totals.costTotalUsed,
+      profitTotal: totals.profitTotal,
+      ...initializeSettlementFields({ invoiceAmount: totals.grossTotal }),
+      hasNegativeStock: false,
+      negativeStockItems: [],
       status,
-      isDraftLike: status !== "completed",
-
+      isDraftLike: !isConfirmed,
       invoiceDate: toDateOrNull(invoiceDateISO),
       documentDate: toDateOrNull(invoiceDateISO),
-
       approvedAt:
-        status === "completed" && !prevWasFinal ? serverTimestamp() : existingData?.approvedAt ?? null,
+        needsFinalize ? serverTimestamp() : existingData?.approvedAt ?? null,
       finalizedAt:
-        status === "completed" && !prevWasFinal ? serverTimestamp() : existingData?.finalizedAt ?? null,
-
+        needsFinalize ? serverTimestamp() : existingData?.finalizedAt ?? null,
       updatedAt: serverTimestamp(),
     };
 
@@ -385,88 +371,36 @@ export async function createSale(payload) {
       });
     }
 
-    /* =====================
-       ITEMS SUBCOLLECTION
-       Sadece finalleşme anında yaz
-    ===================== */
-
-    if (needsStockRead) {
+    if (needsFinalize) {
       const itemsCol = collection(db, "sales", saleRef.id, "items");
 
-      for (const row of items) {
-        if (!row?.productId) continue;
-
-        const quantity = Number(row.quantity || 0);
-        if (quantity <= 0) continue;
-
-        const unitPrice = Number(row.unitPrice || 0);
-        const discountRate = Number(row.discountRate || 0);
-
-        const net = Number(row.net || 0);
-        const vat = Number(row.vat || 0);
-        const total = Number(row.total || 0);
-
-        const whKey = (row.warehouseKey || "main").trim() || "main";
-        const balKey = `${row.productId}__${whKey}`;
-        const bal = existingBalances?.[balKey] || {};
-
-        const avgCost = Number(bal.avgCost || 0);
-        const manualPurchaseUnitCost = Number(
-          row.purchaseUnitCost ?? row.costAtSale ?? 0
-        );
-        const costAtSale =
-          manualPurchaseUnitCost > 0 ? manualPurchaseUnitCost : avgCost;
-
-        const costSource =
-          manualPurchaseUnitCost > 0
-            ? "manual"
-            : bal.costSource || (saleType === "official" ? "official" : "actual");
-
-        const fallbackOfficialAvgCost = Number(bal.fallbackOfficialAvgCost || 0);
-
-        const lineCost = round2(quantity * costAtSale);
-        const lineProfit = round2(net - lineCost);
-
+      for (const row of activeItems) {
         const itemRef = doc(itemsCol);
-
         transaction.set(itemRef, {
           productId: row.productId,
           productName: row.productName || "",
+          productSnapshot: row.productSnapshot || null,
           unit: row.unit || "",
-
-          warehouseKey: whKey,
-
-          quantity,
-          unitPrice,
-          discountRate,
-
-          vatRate: saleType === "official" ? Number(row.vatRate || 0) : 0,
-
-          net,
-          vat: saleType === "official" ? vat : 0,
-          total,
-
-          purchaseUnitCost: manualPurchaseUnitCost > 0 ? manualPurchaseUnitCost : 0,
-          costAtSale,
-          costSource,
-          fallbackOfficialAvgCost,
-          lineCost,
-          profit: lineProfit,
+          warehouseKey: row.warehouseKey || "main",
+          quantity: round2(readNumber(row.quantity)),
+          unitPrice: round2(readNumber(row.unitPrice)),
+          discountRate: round2(readNumber(row.discountRate)),
+          vatRate: saleType === "official" ? round2(readNumber(row.vatRate)) : 0,
+          net: round2(readNumber(row.net)),
+          vat: saleType === "official" ? round2(readNumber(row.vat)) : 0,
+          total: round2(readNumber(row.total)),
+          stockConsumption: Array.isArray(row.stockConsumption) ? row.stockConsumption : [],
+          costBreakdown: Array.isArray(row.costBreakdown) ? row.costBreakdown : [],
+          totalCost: round2(readNumber(row.totalCost)),
+          profit: round2(readNumber(row.profit)),
         });
       }
-    }
 
-    /* =====================
-       STOK HAREKETLERİ
-       Sadece finalleşme anında
-    ===================== */
-
-    if (needsStockRead) {
       writeSaleStockMovements({
         transaction,
         saleId: saleRef.id,
         saleType,
-        items: itemsForStock,
+        items: activeItems,
         saleChannel,
         invoiceNo,
         invoiceDate: invoiceDateISO,
@@ -474,41 +408,39 @@ export async function createSale(payload) {
 
       writeStockBalancesAfterSale({
         transaction,
-        saleType,
-        items: itemsForStock,
+        items: activeItems,
         existingBalances,
       });
-    }
 
-    /* =====================
-       CARİ HAREKETLERİ
-       Sadece finalleşme anında
-    ===================== */
-
-    if (needsStockRead && cariId) {
-      createCariTransaction(transaction, {
-        cariId,
-        type: "debit",
-        source: "sale",
-        refId: saleRef.id,
-        amount: grossTotal,
-        operationDate: invoiceDateISO,
-        currency: "KZT",
-        note: `Satış faturası: ${invoiceNo}`,
-      });
-
-      if (paidAmount > 0) {
+      if (cariId) {
         createCariTransaction(transaction, {
           cariId,
-          type: "credit",
-          source: "sale_payment",
+          direction: "debit",
+          operationType: "sale_invoice",
+          source: "sale",
           refId: saleRef.id,
-          amount: paidAmount,
+          amount: totals.grossTotal,
           operationDate: invoiceDateISO,
+          documentNo: invoiceNo,
           currency: "KZT",
-          paymentMethod: paymentMethod || null,
-          note: `Tahsilat (${paymentMethod || ""}) - ${invoiceNo}`,
+          note: `Satis faturasi: ${invoiceNo}`,
         });
+
+        if (paidAmount > 0) {
+          await writeCashMovementTransaction(transaction, {
+            kind: "collect",
+            mode: "payment",
+            cariId,
+            amount: paidAmount,
+            method: paymentMethod || "cash",
+            accountId: defaultAccountId,
+            operationDate: invoiceDateISO,
+            invoiceId: saleRef.id,
+            invoiceNo,
+            invoiceKind: "sale",
+            description: `Satis aninda tahsilat - ${invoiceNo}`,
+          });
+        }
       }
     }
 
@@ -516,102 +448,119 @@ export async function createSale(payload) {
   });
 }
 
-/* ===============================
-   DELETE DRAFT SALE
-   - Sadece draft / pending silinir
-================================ */
 export async function deleteDraftSale({ saleId }) {
   if (!saleId) throw new Error("saleId gerekli");
 
-  return await runTransaction(db, async (transaction) => {
+  return runTransaction(db, async (transaction) => {
     const saleRef = doc(db, "sales", saleId);
     const saleSnap = await transaction.get(saleRef);
 
     if (!saleSnap.exists()) {
-      throw new Error("Taslak satış bulunamadı");
+      throw new Error("Taslak satis bulunamadi");
     }
 
-    const sale = saleSnap.data();
-    const status = normalizeStatus(sale?.status || "draft");
+    const status = normalizeDocumentStatus(saleSnap.data()?.status, {
+      fallback: "draft",
+    });
 
-    if (status === "completed") {
-      throw new Error("Tamamlanmış satış taslak olarak silinemez");
+    if (!isDraftStatus(status)) {
+      throw new Error("Onayli satis taslak olarak silinemez");
     }
 
     transaction.delete(saleRef);
   });
 }
 
-/* ===============================
-   CANCEL SALE (reverse stock, mark cancelled)
-================================ */
-export async function cancelSale({ saleId }) {
-  if (!saleId) throw new Error("saleId gerekli");
-
+async function reverseConfirmedSale({ saleId, movementType, markFields }) {
   const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
   const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-  return await runTransaction(db, async (transaction) => {
+  return runTransaction(db, async (transaction) => {
     const saleRef = doc(db, "sales", saleId);
     const saleSnap = await transaction.get(saleRef);
-    if (!saleSnap.exists()) throw new Error("Satış bulunamadı");
+    if (!saleSnap.exists()) throw new Error("Satis bulunamadi");
 
     const sale = saleSnap.data();
-    if (sale.status !== "completed") return;
+    if (!isConfirmedStatus(sale?.status)) return true;
 
     const saleType = sale.saleType === "actual" ? "actual" : "official";
+    const reversalItems = buildSaleMovementRows(items.length > 0 ? items : sale.items || []);
 
     const existingBalances = await readStockBalancesForSale({
       transaction,
-      items,
+      items: reversalItems,
       saleType,
     });
 
     writeStockBalancesAfterReturn({
       transaction,
-      saleType,
-      items: items.map((i) => ({
-        productId: i.productId,
-        quantity: i.quantity,
-        warehouseKey: i.warehouseKey || "main",
-      })),
+      items: reversalItems,
       existingBalances,
     });
 
     const stockCollection = collection(db, "stock_movements");
-    for (const it of items) {
-      if (!it.productId || !it.quantity) continue;
-      const qty = Number(it.quantity) || 0;
-      if (!qty) continue;
+    for (const item of reversalItems) {
+      const part = item.costBreakdown?.[0];
+      const qty = round2(readNumber(part?.qty));
+      if (!item.productId || !(qty > 0)) continue;
 
       const ref = doc(stockCollection);
       transaction.set(ref, {
-        productId: it.productId,
-        productName: it.productName || "",
-        unit: it.unit || "",
-
+        productId: item.productId,
+        productName: item.productName || "",
+        unit: item.unit || "",
         qty,
-
-        type: "sale_cancel",
+        type: movementType,
         saleId,
         saleType,
-        bucket: saleType === "official" ? "official" : "actual",
-
-        warehouseKey: (it.warehouseKey || "main").trim() || "main",
-
-        unitCost: Number(it.costAtSale || 0),
-        totalCost: Math.round(qty * Number(it.costAtSale || 0) * 100) / 100,
-        costSource: it.costSource || null,
-        fallbackOfficialAvgCost: Number(it.fallbackOfficialAvgCost || 0),
-
+        bucket: part?.bucket === "official" ? "official" : "actual",
+        warehouseKey: item.warehouseKey || "main",
+        unitCost: round2(readNumber(part?.unitCost)),
+        totalCost: round2(readNumber(part?.totalCost)),
         saleChannel: sale.saleChannel || sale.platformId || null,
         invoiceNo: sale.saleNo || sale.invoiceNo || "",
         documentDate: sale.documentDate?.toDate
           ? sale.documentDate.toDate()
           : sale.documentDate || null,
-
         createdAt: serverTimestamp(),
       });
+    }
+
+    if (sale.cariId) {
+      const documentNo = sale.invoiceNo || sale.saleNo || null;
+      const operationDate = sale.documentDate?.toDate
+        ? sale.documentDate.toDate()
+        : sale.documentDate || new Date();
+
+      createCariTransaction(transaction, {
+        cariId: sale.cariId,
+        direction: "credit",
+        operationType: "sale_cancel",
+        source: "sale_cancel",
+        refId: saleId,
+        amount: round2(readNumber(sale.grossTotal)),
+        operationDate,
+        documentNo,
+        currency: "KZT",
+        note: `Satis iptali: ${documentNo || saleId}`,
+      });
+
+      const paidAmount = round2(readNumber(sale.payment?.paidAmount));
+      if (paidAmount > 0) {
+        createCariTransaction(transaction, {
+          cariId: sale.cariId,
+          direction: "debit",
+          operationType: "sale_payment_cancel",
+          source: "sale_payment_cancel",
+          refId: saleId,
+          amount: paidAmount,
+          operationDate,
+          documentNo,
+          currency: "KZT",
+          paymentMethod: sale.payment?.method || null,
+          note: `Tahsilat iadesi: ${documentNo || saleId}`,
+        });
+      }
     }
 
     transaction.set(
@@ -620,92 +569,31 @@ export async function cancelSale({ saleId }) {
         status: "cancelled",
         cancelledAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        ...markFields,
       },
       { merge: true }
     );
+
+    return true;
   });
 }
 
-/* ===============================
-   RETURN SALE (reverse stock, mark returned)
-================================ */
+export async function cancelSale({ saleId }) {
+  if (!saleId) throw new Error("saleId gerekli");
+  return reverseConfirmedSale({
+    saleId,
+    movementType: "sale_cancel",
+    markFields: {},
+  });
+}
+
 export async function returnSale({ saleId }) {
   if (!saleId) throw new Error("saleId gerekli");
-
-  const itemsSnap = await getDocs(collection(db, "sales", saleId, "items"));
-  const items = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  return await runTransaction(db, async (transaction) => {
-    const saleRef = doc(db, "sales", saleId);
-    const saleSnap = await transaction.get(saleRef);
-    if (!saleSnap.exists()) throw new Error("Satış bulunamadı");
-
-    const sale = saleSnap.data();
-    if (sale.status !== "completed") return;
-
-    const saleType = sale.saleType === "actual" ? "actual" : "official";
-
-    const existingBalances = await readStockBalancesForSale({
-      transaction,
-      items,
-      saleType,
-    });
-
-    writeStockBalancesAfterReturn({
-      transaction,
-      saleType,
-      items: items.map((i) => ({
-        productId: i.productId,
-        quantity: i.quantity,
-        warehouseKey: i.warehouseKey || "main",
-      })),
-      existingBalances,
-    });
-
-    const stockCollection = collection(db, "stock_movements");
-    for (const it of items) {
-      if (!it.productId || !it.quantity) continue;
-      const qty = Number(it.quantity) || 0;
-      if (!qty) continue;
-
-      const ref = doc(stockCollection);
-      transaction.set(ref, {
-        productId: it.productId,
-        productName: it.productName || "",
-        unit: it.unit || "",
-
-        qty,
-
-        type: "sale_return",
-        saleId,
-        saleType,
-        bucket: saleType === "official" ? "official" : "actual",
-
-        warehouseKey: (it.warehouseKey || "main").trim() || "main",
-
-        unitCost: Number(it.costAtSale || 0),
-        totalCost: Math.round(qty * Number(it.costAtSale || 0) * 100) / 100,
-        costSource: it.costSource || null,
-        fallbackOfficialAvgCost: Number(it.fallbackOfficialAvgCost || 0),
-
-        saleChannel: sale.saleChannel || sale.platformId || null,
-        invoiceNo: sale.saleNo || sale.invoiceNo || "",
-        documentDate: sale.documentDate?.toDate
-          ? sale.documentDate.toDate()
-          : sale.documentDate || null,
-
-        createdAt: serverTimestamp(),
-      });
-    }
-
-    transaction.set(
-      saleRef,
-      {
-        status: "returned",
-        returnedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+  return reverseConfirmedSale({
+    saleId,
+    movementType: "sale_return",
+    markFields: {
+      returnedAt: serverTimestamp(),
+    },
   });
 }
