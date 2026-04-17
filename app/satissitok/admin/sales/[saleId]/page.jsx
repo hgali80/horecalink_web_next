@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
+  CreditCard,
   FileDown,
   Hash,
   Home,
@@ -52,7 +53,7 @@ function formatMoney(value) {
 }
 
 function getSettlementSummary(sale) {
-  const invoiceAmount = Number(sale?.grossTotal || 0) || 0;
+  const invoiceAmount = Number(sale?.grossTotal || sale?.grandTotal || 0) || 0;
   const summary = sale?.settlementSummary || {};
   const settledAmount = Number(summary.settledAmount || 0) || 0;
   const outstandingAmount =
@@ -70,17 +71,17 @@ function settlementLabel(status) {
 }
 
 function StatusBadge({ status }) {
-  const tone =
-    status === "cancelled"
-      ? "bg-red-100 text-red-700 border-red-200"
-      : status === "draft"
-      ? "bg-amber-100 text-amber-700 border-amber-200"
-      : "bg-emerald-100 text-emerald-700 border-emerald-200";
+  const normalized = normalizeStatus(status);
+  const config =
+    normalized === "draft"
+      ? { label: "Taslak", tone: "border-amber-200 bg-amber-50 text-amber-700" }
+      : normalized === "cancelled"
+      ? { label: String(status || "").toLowerCase() === "returned" ? "Iade" : "Iptal", tone: "border-red-200 bg-red-50 text-red-700" }
+      : { label: "Onayli", tone: "border-emerald-200 bg-emerald-50 text-emerald-700" };
 
-  const label = status === "cancelled" ? "Iptal" : status === "draft" ? "Taslak" : "Onayli";
   return (
-    <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase ${tone}`}>
-      {label}
+    <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase ${config.tone}`}>
+      {config.label}
     </span>
   );
 }
@@ -161,37 +162,31 @@ export default function SaleDetailPage() {
           saleData?.customerName ||
           saleData?.customerTitle ||
           saleData?.companyName ||
-          null;
-        setCari(fallbackName ? { id: null, name: fallbackName } : null);
-        return;
-      }
+          "Musteri bilgisi yok";
 
-      try {
-        const cariSnap = await getDoc(doc(db, "caris", String(cariId)));
+        setCari({
+          id: null,
+          firm: fallbackName,
+          phone: saleData?.customerPhone || saleData?.phone || null,
+        });
+      } else {
+        const cariSnap = await getDoc(doc(db, "caris", cariId));
         if (cariSnap.exists()) {
           setCari({ id: cariSnap.id, ...cariSnap.data() });
         } else {
           setCari({
-            id: String(cariId),
-            name:
-              saleData?.cariName ||
-              saleData?.customerName ||
-              saleData?.customerTitle ||
-              saleData?.companyName ||
-              "-",
+            id: cariId,
+            firm: saleData?.cariName || saleData?.customerName || "Cari bulunamadi",
+            phone: saleData?.customerPhone || saleData?.phone || null,
           });
         }
-      } catch {
-        setCari({
-          id: String(cariId),
-          name:
-            saleData?.cariName ||
-            saleData?.customerName ||
-            saleData?.customerTitle ||
-            saleData?.companyName ||
-            "-",
-        });
       }
+    } catch (error) {
+      console.error("SALE_DETAIL_LOAD_ERROR:", error);
+      setSale(null);
+      setItems([]);
+      setCari(null);
+      setSettlementRows([]);
     } finally {
       setLoading(false);
     }
@@ -199,23 +194,21 @@ export default function SaleDetailPage() {
 
   useEffect(() => {
     loadSaleData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleId]);
 
   async function handleCancelSale() {
-    if (!sale || normalizeStatus(sale.status) !== "confirmed") return;
-
-    const ok = confirm(
-      "Bu satisi iptal etmek istiyor musunuz?\nStoklar otomatik olarak geri eklenecektir."
-    );
+    if (!sale || working) return;
+    const ok = window.confirm("Bu satis iptal edilsin mi?");
     if (!ok) return;
 
     setWorking(true);
     try {
-      await cancelSale({ saleId });
+      await cancelSale(sale.id);
       await loadSaleData();
+      alert("Satis iptal edildi.");
     } catch (error) {
-      alert(error?.message || "Satis iptal edilirken hata olustu");
+      console.error("SALE_CANCEL_ERROR:", error);
+      alert(error?.message || "Satis iptal edilirken hata olustu.");
     } finally {
       setWorking(false);
     }
@@ -241,6 +234,31 @@ export default function SaleDetailPage() {
     "-";
 
   const cariPhone = cari?.phone || cari?.tel || cari?.mobile || sale?.customerPhone || sale?.phone || null;
+
+  const canCollect =
+    normalizedStatus === "confirmed" &&
+    settlementSummary.outstandingAmount > 0 &&
+    Boolean(sale?.cariId || sale?.customerId || cari?.id);
+
+  function buildCollectHref({ closeMode = false } = {}) {
+    const params = new URLSearchParams();
+
+    params.set("mode", "payment");
+    params.set("source", closeMode ? "sale-detail-close" : "sale-detail");
+    params.set("cariId", sale?.cariId || sale?.customerId || cari?.id || "");
+    params.set("invoiceId", sale?.id || "");
+    params.set("invoiceNo", sale?.invoiceNo || sale?.draftNo || "");
+    params.set("amount", String(settlementSummary.outstandingAmount || 0));
+    params.set("returnTo", `/satissitok/admin/sales/${sale?.id || saleId}`);
+
+    if (closeMode) {
+      params.set("lockCari", "1");
+      params.set("lockInvoice", "1");
+      params.set("lockAmount", "1");
+    }
+
+    return `/satissitok/admin/finance/collect?${params.toString()}`;
+  }
 
   if (loading) {
     return (
@@ -273,37 +291,68 @@ export default function SaleDetailPage() {
           <Home size={18} />
           <span className="text-sm font-semibold">Ana Sayfa</span>
         </Link>
+
+        <Link
+          href="/satissitok/admin/sales"
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-95"
+        >
+          <span className="text-sm font-semibold">Satislar</span>
+        </Link>
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-            {sale.invoiceNo || "Fatura No Yok"}
-          </h1>
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <StatusBadge status={normalizedStatus} />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+              {sale?.invoiceNo || sale?.draftNo || "Satis Detayi"}
+            </h1>
+            <StatusBadge status={sale?.status} />
             <SettlementBadge status={settlementSummary.status} />
           </div>
+
+          <p className="text-sm text-gray-500">
+            Belge hareketlerini, tahsilat ozetini ve satir detaylarini buradan izleyin.
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-gray-700 shadow-sm transition-all hover:bg-gray-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50"
           >
-            <Printer size={18} />
-            <span className="text-sm font-semibold">Yazdir</span>
+            <Printer size={16} />
+            <span>Yazdir</span>
           </button>
 
           <button
             type="button"
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-gray-700 shadow-sm transition-all hover:bg-gray-50"
+            onClick={() => alert("PDF export daha sonra eklenecek")}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50"
           >
-            <FileDown size={18} />
-            <span className="text-sm font-semibold">PDF</span>
+            <FileDown size={16} />
+            <span>PDF</span>
           </button>
+
+          {canCollect && (
+            <>
+              <Link
+                href={buildCollectHref()}
+                className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition-all hover:bg-emerald-100"
+              >
+                <CreditCard size={16} />
+                <span>Tahsilat Al</span>
+              </Link>
+
+              <Link
+                href={buildCollectHref({ closeMode: true })}
+                className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm transition-all hover:bg-indigo-100"
+              >
+                <CreditCard size={16} />
+                <span>Tam Kapat</span>
+              </Link>
+            </>
+          )}
 
           {normalizedStatus === "confirmed" && (
             <button
@@ -518,18 +567,12 @@ export default function SaleDetailPage() {
               </div>
             )}
 
-            <div className="flex w-full items-center justify-between gap-4 pt-2 md:w-80">
-              <span className="whitespace-nowrap text-lg font-bold uppercase text-gray-900">Genel Toplam</span>
-              <span className="whitespace-nowrap font-mono text-2xl font-bold tracking-tighter text-indigo-600">
-                {formatMoney(sale.grossTotal || 0)} <span className="ml-1 text-sm">KZT</span>
-              </span>
+            <div className="flex w-full items-center justify-between text-base font-bold md:w-80">
+              <span className="text-gray-900">Genel Toplam</span>
+              <span className="font-mono text-indigo-700">{formatMoney(sale.grossTotal || sale.grandTotal || 0)} KZT</span>
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="text-center text-[11px] uppercase tracking-widest text-gray-400">
-        Bu belge sistem tarafindan otomatik olusturulmustur.
       </div>
     </div>
   );

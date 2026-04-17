@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Home, Save } from "lucide-react";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/firebase";
@@ -24,6 +24,17 @@ function num(x) {
 
 export default function CollectPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const initialMode = searchParams.get("mode") === "advance" ? "advance" : "payment";
+  const prefillCariId = searchParams.get("cariId") || "";
+  const prefillInvoiceId = searchParams.get("invoiceId") || "";
+  const prefillInvoiceNo = searchParams.get("invoiceNo") || "";
+  const prefillAmount = searchParams.get("amount") || "";
+  const returnTo = searchParams.get("returnTo") || "";
+  const lockCari = searchParams.get("lockCari") === "1";
+  const lockInvoice = searchParams.get("lockInvoice") === "1";
+  const lockAmount = searchParams.get("lockAmount") === "1";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,14 +42,14 @@ export default function CollectPage() {
   const [accounts, setAccounts] = useState([]);
   const [openDocuments, setOpenDocuments] = useState([]);
 
-  const [mode, setMode] = useState("payment");
-  const [cariId, setCariId] = useState("");
-  const [amount, setAmount] = useState(0);
+  const [mode, setMode] = useState(initialMode);
+  const [cariId, setCariId] = useState(prefillCariId);
+  const [amount, setAmount] = useState(prefillAmount || 0);
   const [method, setMethod] = useState("cash");
   const [accountId, setAccountId] = useState("");
   const [operationDate, setOperationDate] = useState(todayISO());
-  const [invoiceId, setInvoiceId] = useState("");
-  const [invoiceNo, setInvoiceNo] = useState("");
+  const [invoiceId, setInvoiceId] = useState(prefillInvoiceId);
+  const [invoiceNo, setInvoiceNo] = useState(prefillInvoiceNo);
   const [description, setDescription] = useState("");
 
   useEffect(() => {
@@ -57,6 +68,15 @@ export default function CollectPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!prefillCariId && !prefillInvoiceId && !prefillInvoiceNo && !prefillAmount) return;
+    setMode(initialMode);
+    setCariId(prefillCariId);
+    setInvoiceId(prefillInvoiceId);
+    setInvoiceNo(prefillInvoiceNo);
+    setAmount(prefillAmount || 0);
+  }, [initialMode, prefillAmount, prefillCariId, prefillInvoiceId, prefillInvoiceNo]);
 
   useEffect(() => {
     const loadOpenDocs = async () => {
@@ -87,6 +107,17 @@ export default function CollectPage() {
     }
   }, [selectedDocument, mode]);
 
+  useEffect(() => {
+    if (!prefillInvoiceId || mode === "advance" || openDocuments.length === 0) return;
+
+    const matched = openDocuments.find((doc) => doc.id === prefillInvoiceId);
+    if (!matched) return;
+
+    setInvoiceId(matched.id);
+    setInvoiceNo(matched.invoiceNo || prefillInvoiceNo || "");
+    setAmount(prefillAmount !== "" ? prefillAmount : matched.outstandingAmount || 0);
+  }, [mode, openDocuments, prefillAmount, prefillInvoiceId, prefillInvoiceNo]);
+
   async function onSave() {
     if (saving) return;
 
@@ -116,7 +147,7 @@ export default function CollectPage() {
       });
 
       alert(`Kaydedildi. Makbuz: ${res?.receiptNo || "-"}`);
-      router.push(`/satissitok/admin/cari/${cariId}`);
+      router.push(returnTo || `/satissitok/admin/cari/${cariId}`);
     } catch (e) {
       console.error("COLLECT_SAVE_ERROR:", e);
       alert(e?.message || "Kayit sirasinda hata");
@@ -156,11 +187,17 @@ export default function CollectPage() {
         </div>
       </div>
 
+      {(lockCari || lockInvoice || lockAmount) && (
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+          Satis ekranindan yonlendirilen tahsilat akisi acildi. Cari, belge ve/veya tutar alanlari kontrollu olarak on dolduruldu.
+        </div>
+      )}
+
       <div className="bg-white border rounded-xl p-5 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label>
             <div className="text-sm mb-1">Tur</div>
-            <select className="border px-3 py-2 w-full" value={mode} onChange={(e) => setMode(e.target.value)}>
+            <select className="border px-3 py-2 w-full disabled:bg-gray-100 disabled:text-gray-500" value={mode} onChange={(e) => setMode(e.target.value)} disabled={lockInvoice}>
               <option value="payment">Tahsilat</option>
               <option value="advance">Avans</option>
             </select>
@@ -173,7 +210,7 @@ export default function CollectPage() {
 
           <label>
             <div className="text-sm mb-1">Cari</div>
-            <select className="border px-3 py-2 w-full" value={cariId} onChange={(e) => setCariId(e.target.value)}>
+            <select className="border px-3 py-2 w-full disabled:bg-gray-100 disabled:text-gray-500" value={cariId} onChange={(e) => setCariId(e.target.value)} disabled={lockCari}>
               <option value="">Sec...</option>
               {caris.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -199,7 +236,7 @@ export default function CollectPage() {
         {mode === "payment" && (
           <label>
             <div className="text-sm mb-1">Acik belge</div>
-            <select className="border px-3 py-2 w-full" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)}>
+            <select className="border px-3 py-2 w-full disabled:bg-gray-100 disabled:text-gray-500" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)} disabled={lockInvoice}>
               <option value="">Sec...</option>
               {openDocuments.map((doc) => (
                 <option key={doc.id} value={doc.id}>
@@ -232,12 +269,12 @@ export default function CollectPage() {
 
           <label>
             <div className="text-sm mb-1">Tutar</div>
-            <input type="number" className="border px-3 py-2 w-full" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input type="number" className="border px-3 py-2 w-full disabled:bg-gray-100 disabled:text-gray-500" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={lockAmount} />
           </label>
 
           <label>
             <div className="text-sm mb-1">Fatura No</div>
-            <input className="border px-3 py-2 w-full" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
+            <input className="border px-3 py-2 w-full disabled:bg-gray-100 disabled:text-gray-500" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} disabled={lockInvoice} />
           </label>
         </div>
 

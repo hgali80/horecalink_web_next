@@ -168,14 +168,18 @@ function buildSaleMovementRows(items) {
 
 export async function createSale(payload) {
   const payment = payload?.payment || {};
-  const paidAmount = round2(payment.paidAmount ?? payload?.paidAmount ?? 0);
-  const defaultAccountId = paidAmount > 0
-    ? payload?.payment?.accountId || payload?.accountId || (await getDefaultCashAccountId())
-    : null;
+  const requestedPaymentStatus = String(
+    payment.status || payload?.paymentStatus || (payment.isPaid ? "paid" : "unpaid")
+  )
+    .trim()
+    .toLowerCase();
 
-  if (paidAmount > 0 && !defaultAccountId) {
-    throw new Error("Pesin tahsilat icin varsayilan kasa/banka hesabi gerekli");
-  }
+  const normalizedPaymentStatus =
+    requestedPaymentStatus === "paid"
+      ? "paid"
+      : requestedPaymentStatus === "partial"
+      ? "partial"
+      : "unpaid";
 
   return runTransaction(db, async (transaction) => {
     const saleType = payload?.saleType === "actual" ? "actual" : "official";
@@ -205,6 +209,16 @@ export async function createSale(payload) {
       fallback: "draft",
     });
     const isConfirmed = isConfirmedStatus(status);
+    const paidAmount = round2(payment.paidAmount ?? payload?.paidAmount ?? 0);
+    const shouldWriteInstantCollection = isConfirmed && paidAmount > 0;
+    const defaultAccountId = shouldWriteInstantCollection
+      ? payload?.payment?.accountId || payload?.accountId || (await getDefaultCashAccountId())
+      : null;
+
+    if (shouldWriteInstantCollection && !defaultAccountId) {
+      throw new Error("Pesin tahsilat icin varsayilan kasa/banka hesabi gerekli");
+    }
+
     const prevStatus = normalizeDocumentStatus(existingData?.status, { fallback: "draft" });
     const prevWasConfirmed = isConfirmedStatus(prevStatus);
     const needsFinalize = isConfirmed && !prevWasConfirmed;
@@ -340,7 +354,9 @@ export async function createSale(payload) {
       vatMode: saleType === "official" ? payload?.vatMode || "exclude" : null,
       payment: {
         method: paymentMethod || null,
+        status: normalizedPaymentStatus,
         paidAmount: paidAmount > 0 ? paidAmount : 0,
+        isPaid: normalizedPaymentStatus === "paid",
       },
       items: activeItems,
       netTotal: totals.netTotal,
@@ -426,7 +442,7 @@ export async function createSale(payload) {
           note: `Satis faturasi: ${invoiceNo}`,
         });
 
-        if (paidAmount > 0) {
+        if (shouldWriteInstantCollection) {
           await writeCashMovementTransaction(transaction, {
             kind: "collect",
             mode: "payment",
@@ -434,7 +450,8 @@ export async function createSale(payload) {
             amount: paidAmount,
             method: paymentMethod || "cash",
             accountId: defaultAccountId,
-            operationDate: invoiceDateISO,
+            operationDate:
+              payload?.payment?.paidDate || payload?.paidDate || invoiceDateISO,
             invoiceId: saleRef.id,
             invoiceNo,
             invoiceKind: "sale",

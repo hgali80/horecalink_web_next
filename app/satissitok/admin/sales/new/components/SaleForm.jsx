@@ -145,8 +145,8 @@ export default function SaleForm({
 
   // Payment
   const [paymentMethod, setPaymentMethod] = useState("bank");
+  const [paymentStatus, setPaymentStatus] = useState("unpaid"); // unpaid | partial | paid
   const [paidAmount, setPaidAmount] = useState(0);
-  const [isPaid, setIsPaid] = useState(false);
 
   // Logistics + notes
   const [deliveryMode, setDeliveryMode] = useState("pickup");
@@ -215,7 +215,23 @@ export default function SaleForm({
 
     setPaymentMethod(payment.method || initialData.paymentMethod || "bank");
     setPaidAmount(resolvedPaidAmount);
-    setIsPaid(Boolean(payment.isPaid) || resolvedPaidAmount > 0);
+
+    const detectedPaymentStatus =
+      payment.status ||
+      initialData.paymentStatus ||
+      (resolvedPaidAmount <= 0
+        ? "unpaid"
+        : resolvedPaidAmount >= Number(initialData.grossTotal || 0)
+        ? "paid"
+        : "partial");
+
+    setPaymentStatus(
+      detectedPaymentStatus === "paid"
+        ? "paid"
+        : detectedPaymentStatus === "partial"
+        ? "partial"
+        : "unpaid"
+    );
 
     const meta = initialData.meta || {};
     const delivery = meta.delivery || {};
@@ -285,8 +301,16 @@ export default function SaleForm({
       setCariSearch("");
 
       setPaymentMethod(d.paymentMethod || "bank");
-      setPaidAmount(Number(d.paidAmount || 0));
-      setIsPaid(Boolean(d.isPaid));
+      const loadedPaidAmount = Number(d.paidAmount || 0) || 0;
+      setPaidAmount(loadedPaidAmount);
+      setPaymentStatus(
+        d.paymentStatus ||
+          (loadedPaidAmount <= 0
+            ? "unpaid"
+            : loadedPaidAmount >= Number(d?.totals?.total || 0) && Number(d?.totals?.total || 0) > 0
+            ? "paid"
+            : "partial")
+      );
 
       setDeliveryMode(d.deliveryMode || "pickup");
       setDeliveryDate(d.deliveryDate || "");
@@ -540,8 +564,8 @@ export default function SaleForm({
       invoiceNoDirty,
       cariId,
       paymentMethod,
+      paymentStatus,
       paidAmount,
-      isPaid,
       deliveryMode,
       deliveryDate,
       plateNo,
@@ -610,9 +634,16 @@ export default function SaleForm({
       0
     );
 
-    const finalPaidAmount = isPaid
-      ? Number(paidAmount || 0) || Number(totalFromFixedItems || 0) || 0
-      : Number(paidAmount || 0) || 0;
+    const orderTotal = Number(totalFromFixedItems || 0) || 0;
+    let finalPaidAmount = 0;
+
+    if (paymentStatus === "paid") {
+      finalPaidAmount = orderTotal;
+    } else if (paymentStatus === "partial") {
+      finalPaidAmount = Math.max(0, Math.min(Number(paidAmount || 0) || 0, orderTotal));
+    } else {
+      finalPaidAmount = 0;
+    }
 
     const payload = {
       saleId: saleId || initialData?.id || initialData?.saleId || null,
@@ -632,11 +663,13 @@ export default function SaleForm({
       cariId: cariId || null,
 
       paymentMethod,
+      paymentStatus,
       paidAmount: finalPaidAmount,
       payment: {
         method: paymentMethod,
+        status: paymentStatus,
         paidAmount: finalPaidAmount,
-        isPaid: Boolean(isPaid),
+        isPaid: paymentStatus === "paid",
       },
 
       meta: {
@@ -1254,17 +1287,17 @@ export default function SaleForm({
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-300 uppercase">
-                    Tahsilat Durumu
+                    Ödeme Durumu
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
                       onClick={() => {
-                        setIsPaid(false);
+                        setPaymentStatus("unpaid");
                         setPaidAmount(0);
                       }}
                       className={
-                        !isPaid
+                        paymentStatus === "unpaid"
                           ? "h-10 rounded-xl bg-white text-slate-900 font-extrabold"
                           : "h-10 rounded-xl bg-white/10 hover:bg-white/15 font-bold"
                       }
@@ -1276,20 +1309,39 @@ export default function SaleForm({
                     <button
                       type="button"
                       onClick={() => {
-                        setIsPaid(true);
-                        const t = Number(totals.total || 0) || 0;
-                        const current = Number(paidAmount || 0) || 0;
-                        if (current <= 0 && t > 0) setPaidAmount(t);
+                        const totalAmount = Number(totals.total || 0) || 0;
+                        const currentAmount = Number(paidAmount || 0) || 0;
+                        setPaymentStatus("partial");
+                        if (currentAmount <= 0 && totalAmount > 0) {
+                          setPaidAmount(Math.min(totalAmount, totalAmount / 2));
+                        }
                       }}
                       className={
-                        isPaid
+                        paymentStatus === "partial"
+                          ? "h-10 rounded-xl bg-amber-500 text-white font-extrabold"
+                          : "h-10 rounded-xl bg-white/10 hover:bg-white/15 font-bold"
+                      }
+                      disabled={disabled}
+                      title="Bu satış faturası için kısmi tahsilat alındı"
+                    >
+                      Kısmi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const totalAmount = Number(totals.total || 0) || 0;
+                        setPaymentStatus("paid");
+                        setPaidAmount(totalAmount);
+                      }}
+                      className={
+                        paymentStatus === "paid"
                           ? "h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-extrabold"
                           : "h-10 rounded-xl bg-white/10 hover:bg-white/15 font-bold"
                       }
                       disabled={disabled}
-                      title="Bu satış faturası için tahsilat alındı"
+                      title="Bu satış faturası için tam tahsilat alındı"
                     >
-                      Alındı
+                      Tam Ödeme
                     </button>
                   </div>
                 </div>
@@ -1297,20 +1349,27 @@ export default function SaleForm({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-slate-300 uppercase">
-                      Ödenen Tutar
+                      Tahsil Edilen Tutar
                     </label>
                     <input
                       type="number"
-                      value={paidAmount}
+                      value={paymentStatus === "paid" ? Number(totals.total || 0) || 0 : paidAmount}
                       onChange={(e) => {
                         const v = Number(e.target.value || 0) || 0;
                         const max = Number(totals.total || 0) || 0;
                         const clamped = Math.max(0, Math.min(v, max));
                         setPaidAmount(clamped);
-                        setIsPaid(clamped > 0 && clamped >= max);
+
+                        if (clamped <= 0) {
+                          setPaymentStatus("unpaid");
+                        } else if (clamped >= max && max > 0) {
+                          setPaymentStatus("paid");
+                        } else {
+                          setPaymentStatus("partial");
+                        }
                       }}
-                      className="w-full h-10 rounded-xl bg-white/10 border border-white/10 text-white px-3 text-sm font-bold outline-none"
-                      disabled={disabled}
+                      className="w-full h-10 rounded-xl bg-white/10 border border-white/10 text-white px-3 text-sm font-bold outline-none disabled:bg-white/5 disabled:text-slate-300"
+                      disabled={disabled || paymentStatus === "unpaid" || paymentStatus === "paid"}
                     />
                   </div>
                   <div>

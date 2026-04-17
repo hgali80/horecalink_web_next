@@ -37,7 +37,9 @@ export async function writeCashMovementTransaction(transaction, payload) {
   const accountId = String(payload?.accountId || "").trim();
   if (!accountId) throw new Error("Hesap (accountId) zorunlu");
 
-  const operationDateISO = payload?.operationDate || new Date().toISOString().slice(0, 10);
+  const operationDateISO =
+    payload?.operationDate || new Date().toISOString().slice(0, 10);
+
   const invoiceId = String(payload?.invoiceId || "").trim() || null;
   const invoiceNo = String(payload?.invoiceNo || "").trim() || null;
   const invoiceKind = String(payload?.invoiceKind || "").trim() || null;
@@ -67,6 +69,10 @@ export async function writeCashMovementTransaction(transaction, payload) {
     }
   }
 
+  /**
+   * 🔴 1. TÜM READ’LER BURADA
+   */
+
   const { receiptNo } = await reserveNextReceiptNo({
     transaction,
     kind: kind === "collect" ? "collect" : "pay",
@@ -76,6 +82,13 @@ export async function writeCashMovementTransaction(transaction, payload) {
   const description = String(payload?.description || "").trim() || null;
   const documentNo = invoiceNo || null;
 
+  /**
+   * 🔵 2. WRITE BAŞLANGICI
+   */
+
+  const cashRef = doc(collection(db, "cash_transactions"));
+
+  // 1) Cari hareketi
   createCariTransaction(transaction, {
     cariId,
     direction,
@@ -90,14 +103,16 @@ export async function writeCashMovementTransaction(transaction, payload) {
     currency: "KZT",
     note:
       description ||
-      `${kind === "collect" ? "Tahsilat" : "Odeme"} (${method})${invoiceNo ? ` - ${invoiceNo}` : ""}`,
+      `${kind === "collect" ? "Tahsilat" : "Odeme"} (${method})${
+        invoiceNo ? ` - ${invoiceNo}` : ""
+      }`,
     paymentMethod: method,
     type: direction,
     source: operationType,
     refId: invoiceId || null,
   });
 
-  const cashRef = doc(collection(db, "cash_transactions"));
+  // 2) Kasa hareketi
   transaction.set(cashRef, {
     accountId,
     direction: cashDir,
@@ -118,6 +133,7 @@ export async function writeCashMovementTransaction(transaction, payload) {
     updatedAt: serverTimestamp(),
   });
 
+  // 3) Settlement (EN SON)
   let settlement = null;
   if (invoiceId && mode !== "advance") {
     settlement = await writeDocumentSettlement({

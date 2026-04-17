@@ -192,6 +192,34 @@ export default function SalesListPage() {
     return "bg-indigo-50 text-indigo-600";
   }
 
+  function buildCollectHref(row, { closeMode = false } = {}) {
+    const settlement = getSettlementSummary(row);
+    const params = new URLSearchParams();
+
+    params.set("mode", "payment");
+    params.set("source", closeMode ? "sale-list-close" : "sale-list");
+    params.set("cariId", row.cariId || row.customerId || "");
+    params.set("invoiceId", row.id || "");
+    params.set("invoiceNo", row.invoiceNo || row.draftNo || "");
+    params.set("amount", String(settlement.outstandingAmount || 0));
+    params.set("returnTo", getRowHref(row));
+
+    if (closeMode) {
+      params.set("lockCari", "1");
+      params.set("lockInvoice", "1");
+      params.set("lockAmount", "1");
+    }
+
+    return `/satissitok/admin/finance/collect?${params.toString()}`;
+  }
+
+  function canCollect(row) {
+    const normalizedStatus = normalizeStatus(row.status);
+    if (normalizedStatus !== "confirmed") return false;
+    const settlement = getSettlementSummary(row);
+    return settlement.outstandingAmount > 0 && Boolean(row.cariId || row.customerId);
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
@@ -282,49 +310,55 @@ export default function SalesListPage() {
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
-            <option value="">Tumu</option>
+            <option value="">Tum Durumlar</option>
             <option value="draft">Taslak</option>
             <option value="confirmed">Onayli</option>
-            <option value="cancelled">Iptal / Iade</option>
+            <option value="cancelled">Iptal</option>
           </select>
         </div>
 
-        <div className="flex min-w-[260px] flex-col gap-1">
-          <label className="ml-1 text-[10px] font-bold uppercase text-gray-400">
-            Cari / Belge / Platform
-          </label>
-          <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5 ring-1 ring-gray-200">
-            <Search size={16} className="text-gray-400" />
-            <input
-              className="w-full bg-transparent text-sm outline-none"
-              placeholder="Cari adi, belge no veya platform..."
-              value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="ml-auto flex items-center gap-2 rounded-lg bg-indigo-50 px-4 py-2 text-sm text-gray-500">
-          <span className="font-semibold text-indigo-700">{filteredRows.length}</span> Kayit Bulundu
+        <div className="ml-auto flex min-w-[220px] flex-1 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 ring-1 ring-gray-200 focus-within:ring-2 focus-within:ring-indigo-500 md:max-w-sm">
+          <Search size={16} className="text-gray-400" />
+          <input
+            type="text"
+            placeholder="Cari, belge no veya platform ara..."
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
+          />
         </div>
       </div>
+
+      {filteredRows.some((row) => row.hasNegativeStock) && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 shadow-sm">
+          <div className="mt-0.5 rounded-xl bg-amber-100 p-2 text-amber-600">
+            <AlertTriangle size={18} />
+          </div>
+          <div>
+            <p className="font-semibold">Eksi stok olusan satislar var.</p>
+            <p className="text-sm text-amber-800/80">
+              Uyari rozetli satirlar fiziksel stok takibi icin tekrar kontrol edilmelidir.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100">
-            <thead className="bg-gray-50/50">
+            <thead className="bg-gray-50/70">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">
-                  Belge / Durum
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">
-                  Tur & Platform
+                  Belge
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">
                   Cari
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">
                   Tarih
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">
+                  Kanal
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-gray-500">
                   Tutar
@@ -344,9 +378,12 @@ export default function SalesListPage() {
                 const isDraftLike = normalizedStatus === "draft";
                 const isCancelled = normalizedStatus === "cancelled";
                 const settlement = getSettlementSummary(row);
-
                 return (
-                  <tr key={row.id} className={`group transition-colors ${getRowStyle(row)}`}>
+                  <tr
+                    key={row.id}
+                    className={`group cursor-pointer transition-colors ${getRowStyle(row)}`}
+                    onClick={() => router.push(href)}
+                  >
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className={`rounded-lg p-2 ${getIconStyle(row)}`}>
@@ -368,78 +405,88 @@ export default function SalesListPage() {
 
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="flex flex-col gap-1">
-                        <span className={`text-sm ${isCancelled ? "text-gray-400" : "text-gray-700"}`}>
-                          {row.saleType === "official" ? "Resmi" : "Fiili"}
+                        <span
+                          className={`font-medium ${
+                            isCancelled ? "text-gray-400 line-through" : "text-gray-800"
+                          }`}
+                        >
+                          {caris[row.cariId] || row.cariName || "Isimsiz Cari"}
                         </span>
-                        <span className="text-xs italic font-medium text-gray-400">
-                          @{row.saleChannel || row.platformId || "-"}
-                        </span>
-                        {isDraftLike && (
-                          <span className="text-[11px] font-medium text-slate-500">
-                            Duzenlenebilir kayit
+                        {row.hasNegativeStock && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                            <AlertTriangle size={12} />
+                            Eksi Stok
                           </span>
                         )}
                       </div>
                     </td>
 
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <div className="text-sm font-semibold text-gray-800">
-                        {caris[row.cariId] || row.cariId || "-"}
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+                      <div className="inline-flex items-center gap-2">
+                        <Calendar size={14} className="text-gray-400" />
+                        <span>{formatDate(row.documentDate || row.createdAt)}</span>
                       </div>
                     </td>
 
                     <td className="whitespace-nowrap px-6 py-4">
-                      <div className="flex items-center gap-2 text-sm font-medium text-gray-500">
-                        <Calendar size={14} className="text-gray-400" />
-                        {formatDate(row.invoiceDate || row.documentDate)}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium uppercase text-gray-700">
+                          {row.saleChannel || row.platformId || "-"}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {row.saleType === "official" ? "Resmi" : "Fiili"}
+                        </span>
                       </div>
                     </td>
 
                     <td className="whitespace-nowrap px-6 py-4 text-right">
-                      <div
-                        className={`text-base font-bold ${
-                          isCancelled ? "text-gray-400 line-through" : "text-gray-900"
-                        }`}
-                      >
-                        {formatMoney(settlement.invoiceAmount)}
-                        <span className="ml-1 text-[10px] font-normal text-gray-400">₸</span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="font-semibold text-gray-900">
+                          {formatMoney(settlement.invoiceAmount)} KZT
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          Kalan: {formatMoney(settlement.outstandingAmount)} KZT
+                        </span>
                       </div>
-                      {normalizedStatus === "confirmed" && (
-                        <div className="mt-1 text-xs text-amber-700">
-                          Acik: {formatMoney(settlement.outstandingAmount)} ₸
-                        </div>
-                      )}
                     </td>
 
-                    <td className="px-6 py-4">
-                      {normalizedStatus === "confirmed" ? (
-                        <div className="space-y-1">
-                          <SettlementBadge status={settlement.status} />
-                          <div className="text-xs text-gray-500">
-                            Tahsil: {formatMoney(settlement.settledAmount)} ₸
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">-</span>
-                      )}
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <SettlementBadge status={settlement.status} />
                     </td>
 
-                    <td className="whitespace-nowrap px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {row.hasNegativeStock && normalizedStatus === "confirmed" && (
-                          <div className="group/tool relative flex items-center">
-                            <AlertTriangle size={18} className="animate-pulse text-amber-500" />
-                            <span className="absolute bottom-full mb-2 hidden whitespace-nowrap rounded bg-gray-800 p-1 text-[10px] text-white group-hover/tool:block">
-                              Eksi stok uyarisi
-                            </span>
-                          </div>
+                        {canCollect(row) && (
+                          <>
+                            <Link
+                              href={buildCollectHref(row)}
+                              className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                              title="Tahsilat Al"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <CreditCard size={14} />
+                              <span>Tahsilat Al</span>
+                            </Link>
+
+                            <Link
+                              href={buildCollectHref(row, { closeMode: true })}
+                              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                              title="Tam Kapat"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <ChevronRight size={14} />
+                              <span>Tam Kapat</span>
+                            </Link>
+                          </>
                         )}
+
                         <Link
                           href={href}
-                          className="rounded-full p-1.5 text-gray-400 transition-shadow hover:bg-white hover:text-indigo-600 hover:shadow-sm"
-                          title={isDraftLike ? "Duzenle" : "Detay"}
+                          className="inline-flex items-center justify-center rounded-full bg-gray-100 p-2 text-gray-500 transition hover:bg-indigo-100 hover:text-indigo-600"
+                          title={isDraftLike ? "Taslagi duzenle" : "Detayi gor"}
+                          onClick={(event) => event.stopPropagation()}
                         >
-                          <ChevronRight size={20} />
+                          <ChevronRight size={16} />
                         </Link>
                       </div>
                     </td>
