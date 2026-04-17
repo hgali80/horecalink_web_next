@@ -730,22 +730,28 @@ export default function SaleForm({
       : "Taslak";
 
   return (
-    <div className="bg-slate-50 min-h-[70vh]">
-      <div className="max-w-[1600px] mx-auto p-6">
-        <div className="grid grid-cols-12 gap-6">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.08),_transparent_34%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_100%)]">
+      <div className="max-w-[1680px] mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-12 gap-5">
           {/* LEFT */}
-          <div className="col-span-12 lg:col-span-9 space-y-6">
+          <div className="col-span-12 space-y-5 lg:col-span-9">
             {/* Header */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-wrap items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-blue-50 text-blue-700">
-                  <Wallet size={22} />
+            <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.35)]">
+              <div className="mb-6 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                <span>Satış Operasyonları</span>
+                <span className="text-slate-300">/</span>
+                <span>Fatura Yönetimi</span>
+              </div>
+              <div className="flex flex-wrap items-start justify-between gap-6">
+                <div className="flex items-start gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-300/40">
+                  <Wallet size={24} />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-extrabold text-slate-900 leading-none">
+                  <h1 className="text-2xl font-black tracking-tight text-slate-950 leading-none">
                     {isEditMode ? "Satış Kaydını Düzenle" : "Satış Faturası Oluştur"}
                   </h1>
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <div className="flex items-center gap-2 mt-3 flex-wrap">
                     <span
                       className={
                         status === "completed"
@@ -768,9 +774,9 @@ export default function SaleForm({
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+              <div className="grid w-full gap-4 sm:w-auto sm:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block tracking-[0.18em]">
                     Fatura Tarihi
                   </label>
                   <div className="relative">
@@ -782,27 +788,27 @@ export default function SaleForm({
                       type="date"
                       value={invoiceDate}
                       onChange={(e) => setInvoiceDate(e.target.value)}
-                      className="pl-9 h-10 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      className="pl-9 h-11 w-full rounded-xl bg-white border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none"
                       disabled={disabled}
                     />
                   </div>
                 </div>
 
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block tracking-[0.18em]">
                     Vade Tarihi
                   </label>
                   <input
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="h-10 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none px-3"
+                    className="h-11 w-full rounded-xl bg-white border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none px-3"
                     disabled={disabled}
                   />
                 </div>
 
-                <div className="flex flex-col min-w-[220px]">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 min-w-[220px]">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block tracking-[0.18em]">
                     Süreç Durumu
                   </label>
                   <select
@@ -811,7 +817,7 @@ export default function SaleForm({
                       setStatus(normalizeStatus(e.target.value));
                       if (!isEditMode) setInvoiceNoDirty(false);
                     }}
-                    className="h-10 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none px-3"
+                    className="h-11 w-full rounded-xl bg-white border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none px-3"
                     disabled={disabled}
                   >
                     <option value="draft">Taslak</option>
@@ -819,6 +825,7 @@ export default function SaleForm({
                     <option value="completed">Onaylandı</option>
                   </select>
                 </div>
+              </div>
               </div>
             </div>
 
@@ -863,16 +870,37 @@ export default function SaleForm({
             )}
 
             {/* Customer */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Building2 className="text-blue-700" size={18} />
-                <h3 className="font-bold text-slate-900">Müşteri Bilgileri</h3>
-              </div>
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.9fr_0.9fr]">
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
+                <div className="mb-6 flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                      <Building2 size={22} />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                        Cari Hesap Seçimi
+                      </div>
+                      <h3 className="text-xl font-black leading-tight tracking-[-0.03em] text-slate-950">
+                        {selectedCari?.firm || "Müşteri seçilmedi"}
+                      </h3>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("sale-cari-select")?.focus()}
+                    className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                    disabled={disabled}
+                  >
+                    Değiştir
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+                  <div className="space-y-4">
                   <input
-                    className="w-full border border-slate-200 bg-slate-50 rounded-xl text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     placeholder="Şirket Adı / BIN / Telefon ara..."
                     value={cariSearch}
                     onChange={(e) => setCariSearch(e.target.value)}
@@ -880,7 +908,8 @@ export default function SaleForm({
                   />
 
                   <select
-                    className="w-full border border-slate-200 bg-white rounded-xl text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    id="sale-cari-select"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     value={cariId}
                     onChange={(e) => setCariId(e.target.value)}
                     disabled={disabled}
@@ -893,19 +922,31 @@ export default function SaleForm({
                     ))}
                   </select>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <input
-                      className="border border-slate-200 bg-slate-50 rounded-xl text-sm px-3 py-2"
-                      placeholder="BIN"
-                      value={selectedCari?.bin || ""}
-                      readOnly
-                    />
-                    <input
-                      className="border border-slate-200 bg-slate-50 rounded-xl text-sm px-3 py-2"
-                      placeholder="Telefon"
-                      value={selectedCari?.mobile || ""}
-                      readOnly
-                    />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl bg-slate-50 px-4 py-4">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                        BIN
+                      </div>
+                      <div className="mt-1 text-lg font-black text-slate-950">
+                        {selectedCari?.bin || "-"}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 px-4 py-4">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                        Telefon
+                      </div>
+                      <div className="mt-1 text-lg font-black text-slate-950">
+                        {selectedCari?.mobile || "-"}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 px-4 py-4">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                        Risk Grubu
+                      </div>
+                      <div className="mt-1 text-lg font-black text-emerald-700">
+                        {selectedCari?.riskGroup || "Standart"}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex flex-col">
@@ -925,7 +966,26 @@ export default function SaleForm({
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="rounded-2xl bg-slate-50 px-4 py-4">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                          Kredi Limiti
+                        </div>
+                        <div className="mt-1 text-2xl font-black tracking-[-0.03em] text-slate-950">
+                          {fmtMoney(selectedCari?.creditLimit || 0)} ₸
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border-l-4 border-rose-500 bg-slate-50 px-4 py-4">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                          Mevcut Bakiye
+                        </div>
+                        <div className="mt-1 text-2xl font-black tracking-[-0.03em] text-rose-600">
+                          {fmtMoney(selectedCari?.currentBalance || 0)} ₸
+                        </div>
+                      </div>
+                    </div>
+
                   <textarea
                     className="w-full border border-slate-200 bg-slate-50 rounded-xl text-sm px-3 py-2"
                     placeholder="Adres"
@@ -933,13 +993,50 @@ export default function SaleForm({
                     value={selectedCari?.legalAddress || ""}
                     readOnly
                   />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-500">Satış Türü</span>
+                    <span className="text-xl font-black tracking-[-0.03em] text-slate-950">
+                      {saleType === "official" ? "Resmi" : "Fiili"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-500">Kanal</span>
+                    <span className="text-xl font-black tracking-[-0.03em] text-slate-950">
+                      {(platforms || []).find((p) => p.key === saleChannel)?.label || saleChannel || "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-500">Fatura No</span>
+                    <span className="text-xl font-black tracking-[0.06em] text-slate-950">
+                      {invoiceNo?.trim() || "OTOMATIK"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-500">Vade Tarihi</span>
+                    <span className="text-xl font-black tracking-[-0.03em] text-slate-950">
+                      {dueDate || "-"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-8 rounded-2xl bg-slate-50 px-4 py-4">
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    <span>Ek Ayarlar</span>
+                    <span>{vatMode === "include" ? "KDV Dahil" : "KDV Hariç"}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Sale type + Platform */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+            <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-6">
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
                 <div className="flex items-center gap-2 mb-4">
                   <BadgeCheck className="text-blue-700" size={18} />
                   <h3 className="font-bold text-slate-900">Satış Tipi</h3>
@@ -1029,7 +1126,7 @@ export default function SaleForm({
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
                 <div className="flex items-center gap-2 mb-4">
                   <Truck className="text-blue-700" size={18} />
                   <h3 className="font-bold text-slate-900">Satış Platformu</h3>
@@ -1057,7 +1154,7 @@ export default function SaleForm({
             </div>
 
             {/* Items */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
               <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ClipboardList className="text-blue-700" size={18} />
@@ -1127,7 +1224,7 @@ export default function SaleForm({
             </div>
 
             {/* Logistics */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
               <div className="flex items-center gap-2 mb-4">
                 <Truck className="text-blue-700" size={18} />
                 <h3 className="font-bold text-slate-900">
@@ -1201,8 +1298,8 @@ export default function SaleForm({
             </div>
 
             {/* Notes */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-20">
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
                 <div className="flex items-center gap-2 mb-4">
                   <ClipboardList className="text-blue-700" size={18} />
                   <h3 className="font-bold text-slate-900">Notlar</h3>
@@ -1219,7 +1316,7 @@ export default function SaleForm({
                 />
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
                 <div className="flex items-center gap-2 mb-4">
                   <ClipboardList className="text-blue-700" size={18} />
                   <h3 className="font-bold text-slate-900">İç Not</h3>
@@ -1239,30 +1336,30 @@ export default function SaleForm({
           </div>
 
           {/* RIGHT */}
-          <div className="col-span-12 lg:col-span-3 space-y-6">
-            <div className="bg-[#0b1220] text-white rounded-2xl shadow-sm p-6">
-              <div className="text-[11px] uppercase tracking-widest text-slate-300 font-bold">
-                Genel Toplam
+          <div className="col-span-12 space-y-5 lg:col-span-3">
+            <div className="sticky top-6 rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 font-bold">
+                Toplam Tutar
               </div>
-              <div className="mt-2 text-4xl font-extrabold">
+              <div className="mt-3 text-3xl font-black tracking-tight text-slate-950">
                 {fmtMoney(totals.total)} ₸
               </div>
-              <div className="mt-2 text-xs text-slate-300">
+              <div className="mt-2 text-xs text-slate-500">
                 {vatDisabled ? "KDV Pasif" : "KDV Aktif"}
               </div>
 
-              <div className="mt-6 space-y-2 text-sm">
-                <div className="flex justify-between text-slate-200">
+              <div className="mt-8 space-y-3 border-t border-slate-200 pt-5 text-sm">
+                <div className="flex justify-between text-slate-600">
                   <span>Ara Toplam</span>
                   <span className="font-bold">{fmtMoney(totals.net)} ₸</span>
                 </div>
-                <div className="flex justify-between text-slate-200">
+                <div className="flex justify-between text-slate-600">
                   <span>KDV Toplamı</span>
                   <span className="font-bold">
                     {fmtMoney(vatDisabled ? 0 : totals.vat)} ₸
                   </span>
                 </div>
-                <div className="flex justify-between text-slate-200">
+                <div className="flex justify-between text-slate-600">
                   <span>Toplam İndirim</span>
                   <span className="font-bold text-red-300">
                     -{fmtMoney(totals.discount)} ₸
@@ -1270,14 +1367,14 @@ export default function SaleForm({
                 </div>
               </div>
 
-              <div className="mt-6 border-t border-white/10 pt-4 space-y-3">
-                <label className="text-[10px] font-bold text-slate-300 uppercase">
+              <div className="mt-6 border-t border-slate-200 pt-5 space-y-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em]">
                   Ödeme Yöntemi
                 </label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full h-10 rounded-xl bg-white/10 border border-white/10 text-white px-3 text-sm font-bold outline-none"
+                  className="w-full h-11 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 px-4 text-sm font-bold outline-none"
                   disabled={disabled}
                 >
                   <option value="bank">Banka Havalesi</option>
@@ -1286,7 +1383,7 @@ export default function SaleForm({
                 </select>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-300 uppercase">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em]">
                     Ödeme Durumu
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -1298,8 +1395,8 @@ export default function SaleForm({
                       }}
                       className={
                         paymentStatus === "unpaid"
-                          ? "h-10 rounded-xl bg-white text-slate-900 font-extrabold"
-                          : "h-10 rounded-xl bg-white/10 hover:bg-white/15 font-bold"
+                          ? "h-10 rounded-xl border border-slate-950 bg-slate-950 text-sm font-semibold text-white"
+                          : "h-10 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 hover:bg-slate-100"
                       }
                       disabled={disabled}
                       title="Bu satış faturası için tahsilat alınmadı"
@@ -1318,8 +1415,8 @@ export default function SaleForm({
                       }}
                       className={
                         paymentStatus === "partial"
-                          ? "h-10 rounded-xl bg-amber-500 text-white font-extrabold"
-                          : "h-10 rounded-xl bg-white/10 hover:bg-white/15 font-bold"
+                          ? "h-10 rounded-xl bg-amber-500 text-sm font-semibold text-white"
+                          : "h-10 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 hover:bg-slate-100"
                       }
                       disabled={disabled}
                       title="Bu satış faturası için kısmi tahsilat alındı"
@@ -1335,8 +1432,8 @@ export default function SaleForm({
                       }}
                       className={
                         paymentStatus === "paid"
-                          ? "h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-extrabold"
-                          : "h-10 rounded-xl bg-white/10 hover:bg-white/15 font-bold"
+                          ? "h-10 rounded-xl bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-700"
+                          : "h-10 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 hover:bg-slate-100"
                       }
                       disabled={disabled}
                       title="Bu satış faturası için tam tahsilat alındı"
@@ -1348,7 +1445,7 @@ export default function SaleForm({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em]">
                       Tahsil Edilen Tutar
                     </label>
                     <input
@@ -1368,27 +1465,27 @@ export default function SaleForm({
                           setPaymentStatus("partial");
                         }
                       }}
-                      className="w-full h-10 rounded-xl bg-white/10 border border-white/10 text-white px-3 text-sm font-bold outline-none disabled:bg-white/5 disabled:text-slate-300"
+                      className="w-full h-11 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 px-4 text-sm font-bold outline-none disabled:bg-slate-100 disabled:text-slate-400"
                       disabled={disabled || paymentStatus === "unpaid" || paymentStatus === "paid"}
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em]">
                       Kalan Bakiye
                     </label>
-                    <div className="w-full h-10 rounded-xl bg-white/5 border border-white/10 px-3 text-sm font-extrabold flex items-center">
+                    <div className="flex h-11 w-full items-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm font-extrabold text-rose-700">
                       {fmtMoney(remaining)} ₸
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-xl bg-white/5 border border-white/10 px-3 py-3 space-y-1 mt-4">
-                <div className="text-[10px] font-bold uppercase text-slate-300">Belge Ozeti</div>
-                <div className="text-sm font-semibold text-white">
+              <div className="mt-5 space-y-2 rounded-2xl bg-slate-100 px-4 py-4">
+                <div className="text-center text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Belge Ozeti</div>
+                <div className="text-sm font-semibold text-slate-950">
                   {selectedCari?.firm || "Musteri secilmedi"}
                 </div>
-                <div className="text-xs text-slate-300">
+                <div className="text-xs text-slate-500">
                   {filledItemCount} gecerli satir â€¢ {negativeStockWarnings.length > 0
                     ? `${negativeStockWarnings.length} stok uyarisi`
                     : "stok uyarisi yok"}
@@ -1420,7 +1517,7 @@ export default function SaleForm({
                   <button
                     type="button"
                     onClick={() => submit("draft")}
-                    className="h-11 rounded-xl bg-white/10 hover:bg-white/15 font-bold flex items-center justify-center gap-2 active:scale-95 transition"
+                    className="h-11 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-slate-100 font-bold flex items-center justify-center gap-2 active:scale-95 transition"
                     disabled={disabled}
                   >
                     <Save size={18} />
@@ -1428,7 +1525,7 @@ export default function SaleForm({
                   </button>
                   <button
                     type="button"
-                    className="h-11 rounded-xl bg-white/10 hover:bg-white/15 font-bold flex items-center justify-center gap-2 active:scale-95 transition"
+                    className="h-11 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-slate-100 font-bold flex items-center justify-center gap-2 active:scale-95 transition"
                     disabled={disabled}
                     onClick={() => window.print()}
                   >
@@ -1451,8 +1548,8 @@ export default function SaleForm({
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-4">
-              <div className="text-sm font-extrabold text-slate-900">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)] space-y-4">
+              <div className="text-sm font-extrabold uppercase tracking-[0.2em] text-slate-500">
                 Lojistik & Notlar
               </div>
 

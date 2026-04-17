@@ -146,6 +146,54 @@ export function writeDocumentSettlement({
   });
 }
 
+export async function writeDocumentSettlements({
+  transaction,
+  kind,
+  allocations,
+  operationDate,
+  receiptNo,
+  accountId,
+  method,
+  description,
+  cashTxId,
+}) {
+  const rows = Array.isArray(allocations)
+    ? allocations
+        .map((row) => ({
+          invoiceId: text(row?.invoiceId),
+          amount: round2(row?.amount),
+          invoiceNo: text(row?.invoiceNo) || null,
+        }))
+        .filter((row) => row.invoiceId && row.amount > 0)
+    : [];
+
+  const results = [];
+
+  for (const row of rows) {
+    const result = await writeDocumentSettlement({
+      transaction,
+      kind,
+      invoiceId: row.invoiceId,
+      amount: row.amount,
+      operationDate,
+      receiptNo,
+      accountId,
+      method,
+      description,
+      cashTxId,
+    });
+
+    results.push({
+      ...result,
+      invoiceId: row.invoiceId,
+      amount: row.amount,
+      invoiceNo: result?.invoiceNo || row.invoiceNo || null,
+    });
+  }
+
+  return results;
+}
+
 export async function listOpenDocumentsByCari({ kind, cariId }) {
   if (!cariId) return [];
 

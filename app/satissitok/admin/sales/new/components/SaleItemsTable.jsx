@@ -1,8 +1,15 @@
-// app/satissitok/admin/sales/new/components/SaleItemsTable.jsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Copy, GripVertical, PlusCircle, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  GripVertical,
+  PlusCircle,
+  Trash2,
+} from "lucide-react";
 import { buildProductSnapshot } from "@/app/satissitok/services/inventoryCatalogService";
 
 function num(x) {
@@ -75,10 +82,10 @@ function calcRow({ row, saleType, vatMode }) {
   }
 
   const vatRate = Math.max(0, num(row.vatRate));
-  const k = 1 + vatRate / 100;
+  const factor = 1 + vatRate / 100;
 
   if (vatMode === "include") {
-    const net = discounted / k;
+    const net = discounted / factor;
     const vat = discounted - net;
     return {
       net: round2(net),
@@ -90,6 +97,7 @@ function calcRow({ row, saleType, vatMode }) {
   const net = discounted;
   const vat = net * (vatRate / 100);
   const total = net + vat;
+
   return {
     net: round2(net),
     vat: round2(vat),
@@ -110,17 +118,11 @@ function normalizeRow(
     quantity: Math.max(0, num(row?.quantity || 0)) || 1,
     unitPrice: Math.max(0, num(row?.unitPrice || 0)),
     discountRate: Math.min(100, Math.max(0, num(row?.discountRate || 0))),
-    vatRate:
-      saleType === "official"
-        ? Math.max(0, num(row?.vatRate ?? defaultVatRate))
-        : 0,
+    vatRate: saleType === "official" ? Math.max(0, num(row?.vatRate ?? defaultVatRate)) : 0,
     net: num(row?.net || 0),
     vat: num(row?.vat || 0),
     total: num(row?.total || 0),
-    purchaseUnitCost: Math.max(
-      0,
-      num(row?.purchaseUnitCost ?? row?.costAtSale ?? 0)
-    ),
+    purchaseUnitCost: Math.max(0, num(row?.purchaseUnitCost ?? row?.costAtSale ?? 0)),
   };
 
   const calc = calcRow({ row: safe, saleType, vatMode });
@@ -165,20 +167,26 @@ export default function SaleItemsTable({
   const bucketKey = saleType === "official" ? "official" : "actual";
 
   const productById = useMemo(() => {
-    const m = {};
-    for (const p of products || []) m[p.id] = p;
-    return m;
+    const map = {};
+    for (const p of products || []) map[p.id] = p;
+    return map;
   }, [products]);
+
+  const warehouseByKey = useMemo(() => {
+    const map = {};
+    for (const w of warehouses || []) map[w.key] = w;
+    return map;
+  }, [warehouses]);
 
   const [openIndex, setOpenIndex] = useState(-1);
   const [queryByIndex, setQueryByIndex] = useState({});
+  const [expandedRows, setExpandedRows] = useState({});
   const closeTimerRef = useRef(null);
-
   const inputRefs = useRef({});
   const [ddPos, setDdPos] = useState({ top: 0, left: 0, width: 520 });
 
-  function setQuery(i, v) {
-    setQueryByIndex((prev) => ({ ...prev, [i]: v }));
+  function setQuery(i, value) {
+    setQueryByIndex((prev) => ({ ...prev, [i]: value }));
   }
 
   function closeDropdownSoon() {
@@ -198,13 +206,9 @@ export default function SaleItemsTable({
   function getRowUnitOptions(row) {
     const base = Array.isArray(units) ? [...units] : [];
     const selectedUnit = String(row?.unit || "").trim();
-
     if (!selectedUnit) return base;
 
-    const exists = base.some(
-      (u) => String(u?.key || "").trim() === selectedUnit
-    );
-
+    const exists = base.some((u) => String(u?.key || "").trim() === selectedUnit);
     if (exists) return base;
 
     return [
@@ -279,28 +283,29 @@ export default function SaleItemsTable({
     });
   }
 
-  function updateDdPosForIndex(idx) {
-    const el = inputRefs.current[idx];
+  function toggleRowDetails(index) {
+    setExpandedRows((prev) => ({ ...prev, [index]: !prev[index] }));
+  }
+
+  function updateDdPosForIndex(index) {
+    const el = inputRefs.current[index];
     if (!el) return;
-    const r = el.getBoundingClientRect();
-    setDdPos({ top: r.bottom + 6, left: r.left, width: r.width });
+    const rect = el.getBoundingClientRect();
+    setDdPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
   }
 
   function pickProduct(i, p) {
     const label = productLabel(p);
     const warehouseKey = items?.[i]?.warehouseKey || defaultWarehouse;
-
     const defaultPurchaseUnitCost = getAvgCost({
       balances,
       productId: p.id,
       warehouseKey,
       saleType,
     });
+    const firestoreUnit = p?.unit || p?.unitKey || p?.saleUnit || p?.barcodeUnit || "";
 
-    const firestoreUnit =
-      p?.unit || p?.unitKey || p?.saleUnit || p?.barcodeUnit || "";
-
-    const patch = {
+    updateRow(i, {
       productId: p.id,
       productName: label,
       productSnapshot: buildProductSnapshot(p),
@@ -312,9 +317,8 @@ export default function SaleItemsTable({
           ? Math.max(0, num(p?.vatRate ?? items?.[i]?.vatRate ?? defaultVatRate))
           : 0,
       purchaseUnitCost: Math.max(0, num(defaultPurchaseUnitCost)),
-    };
+    });
 
-    updateRow(i, patch);
     setQuery(i, label);
     setOpenIndex(-1);
   }
@@ -352,53 +356,57 @@ export default function SaleItemsTable({
       if (disabled) return;
       if (event.altKey && event.key.toLowerCase() === "n") {
         event.preventDefault();
-        setItems((prev) => [
-          ...prev,
-          makeEmptyRow({
-            defaultUnit,
-            defaultWarehouse,
-            defaultVatRate: saleType === "official" ? defaultVatRate : 0,
-          }),
-        ]);
+        addRow();
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [defaultUnit, defaultWarehouse, defaultVatRate, disabled, saleType, setItems]);
+  }, [disabled, defaultUnit, defaultWarehouse, defaultVatRate, saleType]);
 
   const totals = useMemo(() => {
     const sum = { net: 0, vat: 0, total: 0 };
-    for (const r of items || []) {
-      sum.net += num(r.net);
-      sum.vat += num(r.vat);
-      sum.total += num(r.total);
+    for (const row of items || []) {
+      sum.net += num(row.net);
+      sum.vat += num(row.vat);
+      sum.total += num(row.total);
     }
-    sum.net = round2(sum.net);
-    sum.vat = round2(sum.vat);
-    sum.total = round2(sum.total);
-    return sum;
+
+    return {
+      net: round2(sum.net),
+      vat: round2(sum.vat),
+      total: round2(sum.total),
+    };
   }, [items]);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl overflow-visible">
-      <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-        <div className="font-semibold text-slate-800">Fatura Satırları</div>
+    <div className="overflow-visible rounded-[24px] border border-slate-200/90 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3.5">
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            Kalemler
+          </div>
+          <div className="mt-1 font-semibold text-slate-800">Fatura Satirlari</div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+            {(items || []).filter((x) => x?.productId).length} secili • Alt+N
+          </div>
         <button
           type="button"
           onClick={addRow}
           disabled={disabled}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
         >
           <PlusCircle className="w-4 h-4" />
-          Satır Ekle (Alt+N)
+          Satir Ekle (Alt+N)
         </button>
+        </div>
       </div>
 
       <div className="p-3 md:p-4 space-y-3">
         {(items || []).map((row, i) => {
           const warehouseKey = row.warehouseKey || defaultWarehouse;
-
           const avail = row.productId
             ? getAvailableQty({
                 balances,
@@ -407,7 +415,6 @@ export default function SaleItemsTable({
                 bucketKey,
               })
             : 0;
-
           const computedPurchaseUnitCost = row.productId
             ? getAvgCost({
                 balances,
@@ -416,21 +423,23 @@ export default function SaleItemsTable({
                 saleType,
               })
             : 0;
-
-          const purchaseUnitCost = num(
-            row.purchaseUnitCost ?? computedPurchaseUnitCost
-          );
-
+          const purchaseUnitCost = num(row.purchaseUnitCost ?? computedPurchaseUnitCost);
           const rowUnitOptions = getRowUnitOptions(row);
           const stockGap = Math.max(num(row.quantity) - avail, 0);
           const lineProfit = round2(num(row.total) - num(row.quantity) * purchaseUnitCost);
+          const isExpanded = Boolean(expandedRows[i]);
+          const warehouseLabel =
+            warehouseByKey[row.warehouseKey || defaultWarehouse]?.name ||
+            warehouseByKey[row.warehouseKey || defaultWarehouse]?.label ||
+            row.warehouseKey ||
+            defaultWarehouse;
 
           return (
             <div
               key={i}
-              className="rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition-colors"
+              className="rounded-[20px] border border-slate-200 bg-slate-50/55 transition-colors hover:border-slate-300"
             >
-              <div className="p-3 md:p-4 space-y-3">
+              <div className="space-y-3 p-3.5 md:p-4">
                 <div className="flex items-start gap-3">
                   <div className="pt-2 text-slate-400 hidden md:block">
                     <GripVertical className="w-4 h-4" />
@@ -439,8 +448,10 @@ export default function SaleItemsTable({
                   <div className="flex-1 min-w-0">
                     <div className="relative">
                       <input
-                        ref={(el) => (inputRefs.current[i] = el)}
-                        className="w-full text-sm md:text-base font-bold bg-white border border-slate-200 rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        ref={(el) => {
+                          inputRefs.current[i] = el;
+                        }}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={queryByIndex[i] ?? currentRowLabel(row)}
                         onFocus={() => {
                           updateDdPosForIndex(i);
@@ -451,10 +462,11 @@ export default function SaleItemsTable({
                         }}
                         onChange={(e) => {
                           updateDdPosForIndex(i);
-                          const v = e.target.value;
-                          setQuery(i, v);
+                          const value = e.target.value;
+                          setQuery(i, value);
                           setOpenIndex(i);
-                          if (!v) {
+
+                          if (!value) {
                             updateRow(i, {
                               productId: "",
                               productName: "",
@@ -469,25 +481,19 @@ export default function SaleItemsTable({
                             });
                           }
                         }}
-                        onBlur={() => closeDropdownSoon()}
+                        onBlur={closeDropdownSoon}
                         onKeyDown={(e) => {
-                          if (e.key === "Escape") {
-                            setOpenIndex(-1);
-                          }
+                          if (e.key === "Escape") setOpenIndex(-1);
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            const q = String(
-                              queryByIndex[i] ?? currentRowLabel(row)
-                            )
+                            const q = String(queryByIndex[i] ?? currentRowLabel(row))
                               .trim()
                               .toLowerCase();
-
                             const list = filterProducts(products, q).slice(0, 1);
-
                             if (list[0]) pickProduct(i, list[0]);
                           }
                         }}
-                        placeholder="Ürün ara / seç…"
+                        placeholder="Urun ara / sec..."
                         disabled={disabled}
                       />
 
@@ -501,18 +507,15 @@ export default function SaleItemsTable({
                           }}
                         >
                           {(() => {
-                            const q = String(
-                              queryByIndex[i] ?? currentRowLabel(row)
-                            )
+                            const q = String(queryByIndex[i] ?? currentRowLabel(row))
                               .trim()
                               .toLowerCase();
-
                             const list = filterProducts(products, q).slice(0, 80);
 
                             if (!list.length) {
                               return (
                                 <div className="px-3 py-2 text-sm text-slate-500">
-                                  Sonuç yok
+                                  Sonuc yok
                                 </div>
                               );
                             }
@@ -525,12 +528,10 @@ export default function SaleItemsTable({
                                 onMouseDown={(e) => e.preventDefault()}
                                 onClick={() => pickProduct(i, p)}
                               >
-                                <div className="font-medium">
-                                  {productLabel(p)}
-                                </div>
+                                <div className="font-medium">{productLabel(p)}</div>
                                 <div className="text-xs text-slate-400">
                                   SKU: {p.id || "-"}{" "}
-                                  {(p?.unit || p?.unitKey) ? `• Birim: ${p?.unit || p?.unitKey}` : ""}
+                                  {p?.unit || p?.unitKey ? `• Birim: ${p?.unit || p?.unitKey}` : ""}
                                 </div>
                               </button>
                             ));
@@ -551,27 +552,31 @@ export default function SaleItemsTable({
                           stockGap > 0 ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"
                         }`}
                       >
-                        Stok: {fmtMoney(avail)}
-                        {stockGap > 0 ? ` • Eksik ${fmtMoney(stockGap)}` : " • Yeterli"}
+                        {row.productId
+                          ? stockGap > 0
+                            ? `Eksik ${fmtMoney(stockGap)}`
+                            : `Stok ${fmtMoney(avail)}`
+                          : "Urun sec"}
                       </span>
-                      {showPurchaseCost && (
-                        <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-2 py-1">
-                          Alış: {fmtMoney(purchaseUnitCost)}
-                        </span>
-                      )}
-                      {showPurchaseCost && row.productId && (
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-1 ${
-                            lineProfit >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                          }`}
-                        >
-                          Kar: {fmtMoney(lineProfit)}
-                        </span>
-                      )}
                     </div>
                   </div>
 
                   <div className="shrink-0 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleRowDetails(i)}
+                      disabled={disabled}
+                      className="inline-flex items-center gap-1 rounded-xl px-2 py-2 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                      title={isExpanded ? "Detayi gizle" : "Detayi goster"}
+                    >
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                      <span className="hidden md:inline text-xs font-semibold">Detay</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => duplicateRow(i)}
@@ -581,6 +586,7 @@ export default function SaleItemsTable({
                     >
                       <Copy className="w-4 h-4" />
                     </button>
+
                     <button
                       type="button"
                       onClick={() => removeRow(i)}
@@ -593,51 +599,11 @@ export default function SaleItemsTable({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                   <label className="block">
-                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
-                      Depo
-                    </div>
-                    <select
-                      className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={row.warehouseKey || defaultWarehouse}
-                      onChange={(e) =>
-                        updateRow(i, { warehouseKey: e.target.value })
-                      }
-                      disabled={disabled}
-                    >
-                      {(warehouses || []).map((w) => (
-                        <option key={w.key} value={w.key}>
-                          {w.name || w.label || w.key}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="block">
-                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
-                      Birim
-                    </div>
-                    <select
-                      className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={row.unit || defaultUnit}
-                      onChange={(e) => updateRow(i, { unit: e.target.value })}
-                      disabled={disabled}
-                    >
-                      {rowUnitOptions.map((u) => (
-                        <option key={u.key} value={u.key}>
-                          {u.name || u.label || u.key}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="block">
-                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
-                      Miktar
-                    </div>
+                    <div className="mb-1 text-[11px] font-semibold text-slate-500">Miktar</div>
                     <input
-                      className="w-full text-right text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-right text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                       type="number"
                       min="0"
                       step="0.01"
@@ -647,128 +613,177 @@ export default function SaleItemsTable({
                     />
                   </label>
 
+                  <div className="block">
+                    <div className="mb-1 text-[11px] font-semibold text-slate-500">Birim</div>
+                    <div className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700">
+                      {row.unit || defaultUnit || "-"}
+                    </div>
+                  </div>
+
                   <label className="block">
                     <div className="mb-1 text-[11px] font-semibold text-slate-500">
                       Birim Fiyat
                     </div>
                     <input
-                      className="w-full text-right text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-right text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                       type="number"
                       min="0"
                       step="0.01"
                       value={row.unitPrice}
-                      onChange={(e) =>
-                        updateRow(i, { unitPrice: e.target.value })
-                      }
+                      onChange={(e) => updateRow(i, { unitPrice: e.target.value })}
                       disabled={disabled}
                     />
                   </label>
 
-                  {showPurchaseCost && (
-                    <label className="block">
-                      <div className="mb-1 text-[11px] font-semibold text-slate-500">
-                        Alış Fiyatı
-                      </div>
-                      {allowPurchaseCostEdit ? (
-                        <input
-                          className="w-full text-right text-xs border border-amber-200 rounded-xl px-3 py-2.5 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={purchaseUnitCost}
-                          onChange={(e) =>
-                            updateRow(i, { purchaseUnitCost: e.target.value })
-                          }
-                          disabled={disabled}
-                        />
-                      ) : (
-                        <div className="w-full text-right text-xs font-semibold text-slate-700 border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50">
-                          {fmtMoney(purchaseUnitCost)}
-                        </div>
-                      )}
-                    </label>
-                  )}
-
                   <label className="block">
-                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
-                      İskonto %
-                    </div>
+                    <div className="mb-1 text-[11px] font-semibold text-slate-500">Iskonto %</div>
                     <input
-                      className="w-full text-right text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-right text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                       type="number"
                       min="0"
                       step="0.01"
                       value={row.discountRate}
-                      onChange={(e) =>
-                        updateRow(i, { discountRate: e.target.value })
-                      }
+                      onChange={(e) => updateRow(i, { discountRate: e.target.value })}
                       disabled={disabled}
                     />
                   </label>
 
-                  <label className="block">
-                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
-                      KDV %
-                    </div>
-                    <select
-                      className="w-full text-right text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={
-                        saleType === "official"
-                          ? row.vatRate ?? defaultVatRate
-                          : 0
-                      }
-                      onChange={(e) => updateRow(i, { vatRate: e.target.value })}
-                      disabled={disabled || saleType !== "official"}
-                    >
-                      {(vatRates || []).map((v) => (
-                        <option key={v.rate} value={v.rate}>
-                          {v.rate}%
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
                   <div className="block">
-                    <div className="mb-1 text-[11px] font-semibold text-slate-500">
-                      Toplam
-                    </div>
-                    <div className="w-full text-right text-sm font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 text-slate-900">
+                    <div className="mb-1 text-[11px] font-semibold text-slate-500">Toplam</div>
+                    <div className="w-full rounded-xl border border-slate-900 px-3 py-2.5 text-right text-sm font-semibold text-slate-950">
                       {fmtMoney(row.total)}
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2">
-                    <div className="text-[11px] text-slate-500 mb-1">
-                      Ara Toplam
-                    </div>
-                    <div className="text-sm font-semibold text-right">
-                      {fmtMoney(row.net)}
-                    </div>
-                  </div>
+                {isExpanded && (
+                  <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                      <label className="block">
+                        <div className="mb-1 text-[11px] font-semibold text-slate-500">Depo</div>
+                        <select
+                          className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={row.warehouseKey || defaultWarehouse}
+                          onChange={(e) => updateRow(i, { warehouseKey: e.target.value })}
+                          disabled={disabled}
+                        >
+                          {(warehouses || []).map((w) => (
+                            <option key={w.key} value={w.key}>
+                              {w.name || w.label || w.key}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                  <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2">
-                    <div className="text-[11px] text-slate-500 mb-1">KDV</div>
-                    <div className="text-sm font-semibold text-right">
-                      {fmtMoney(row.vat)}
-                    </div>
-                  </div>
+                      <label className="block">
+                        <div className="mb-1 text-[11px] font-semibold text-slate-500">Birim</div>
+                        <select
+                          className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={row.unit || defaultUnit}
+                          onChange={(e) => updateRow(i, { unit: e.target.value })}
+                          disabled={disabled}
+                        >
+                          {rowUnitOptions.map((u) => (
+                            <option key={u.key} value={u.key}>
+                              {u.name || u.label || u.key}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                  <div className="rounded-xl bg-blue-50 border border-blue-200 px-3 py-2">
-                    <div className="text-[11px] text-blue-700 mb-1">
-                      Genel Toplam
-                    </div>
-                    <div className="text-base font-bold text-right text-blue-900">
-                      {fmtMoney(row.total)}
-                    </div>
-                  </div>
-                </div>
+                      <label className="block">
+                        <div className="mb-1 text-[11px] font-semibold text-slate-500">KDV %</div>
+                        <select
+                          className="w-full text-right text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={saleType === "official" ? row.vatRate ?? defaultVatRate : 0}
+                          onChange={(e) => updateRow(i, { vatRate: e.target.value })}
+                          disabled={disabled || saleType !== "official"}
+                        >
+                          {(vatRates || []).map((v) => (
+                            <option key={v.rate} value={v.rate}>
+                              {v.rate}%
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                {row.productId && stockGap > 0 && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4" />
-                    Bu satir secilen depo icin mevcut stoktan {fmtMoney(stockGap)} fazla.
+                      <div className="rounded-xl bg-white border border-slate-200 px-3 py-2.5">
+                        <div className="text-[11px] text-slate-500 mb-1">Stok</div>
+                        <div
+                          className={`text-sm font-semibold ${
+                            stockGap > 0 ? "text-red-700" : "text-slate-800"
+                          }`}
+                        >
+                          {fmtMoney(avail)}
+                        </div>
+                      </div>
+
+                      {showPurchaseCost && (
+                        <label className="block">
+                          <div className="mb-1 text-[11px] font-semibold text-slate-500">
+                            Alis Fiyati
+                          </div>
+                          {allowPurchaseCostEdit ? (
+                            <input
+                              className="w-full text-right text-xs border border-amber-200 rounded-xl px-3 py-2.5 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={purchaseUnitCost}
+                              onChange={(e) => updateRow(i, { purchaseUnitCost: e.target.value })}
+                              disabled={disabled}
+                            />
+                          ) : (
+                            <div className="w-full text-right text-xs font-semibold text-slate-700 border border-slate-200 rounded-xl px-3 py-2.5 bg-white">
+                              {fmtMoney(purchaseUnitCost)}
+                            </div>
+                          )}
+                        </label>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="rounded-xl bg-white border border-slate-200 px-3 py-2">
+                        <div className="text-[11px] text-slate-500 mb-1">Depo</div>
+                        <div className="text-sm font-semibold text-slate-800">{warehouseLabel}</div>
+                      </div>
+
+                      <div className="rounded-xl bg-white border border-slate-200 px-3 py-2">
+                        <div className="text-[11px] text-slate-500 mb-1">Ara Toplam</div>
+                        <div className="text-sm font-semibold text-right">{fmtMoney(row.net)}</div>
+                      </div>
+
+                      <div className="rounded-xl bg-white border border-slate-200 px-3 py-2">
+                        <div className="text-[11px] text-slate-500 mb-1">KDV</div>
+                        <div className="text-sm font-semibold text-right">{fmtMoney(row.vat)}</div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-950 bg-slate-950 px-3 py-2 text-white">
+                        <div className="mb-1 text-[11px] text-slate-300">Genel Toplam</div>
+                        <div className="text-right text-base font-bold text-white">
+                          {fmtMoney(row.total)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {showPurchaseCost && row.productId && (
+                      <div
+                        className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
+                          lineProfit >= 0
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-rose-200 bg-rose-50 text-rose-700"
+                        }`}
+                      >
+                        Kar: {fmtMoney(lineProfit)}
+                      </div>
+                    )}
+
+                    {row.productId && stockGap > 0 && (
+                      <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        Bu satir secilen depo icin mevcut stoktan {fmtMoney(stockGap)} fazla.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -776,29 +791,23 @@ export default function SaleItemsTable({
           );
         })}
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="rounded-[20px] border border-slate-200 bg-slate-50 p-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="rounded-xl bg-white border border-slate-200 px-4 py-3">
               <div className="text-xs text-slate-500 mb-1">Toplam Ara Toplam</div>
-              <div className="text-lg font-bold text-right">
-                {fmtMoney(totals.net)}
-              </div>
+              <div className="text-lg font-bold text-right">{fmtMoney(totals.net)}</div>
             </div>
 
             <div className="rounded-xl bg-white border border-slate-200 px-4 py-3">
               <div className="text-xs text-slate-500 mb-1">Toplam KDV</div>
-              <div className="text-lg font-bold text-right">
-                {fmtMoney(totals.vat)}
-              </div>
+              <div className="text-lg font-bold text-right">{fmtMoney(totals.vat)}</div>
             </div>
 
-            <div className="rounded-xl bg-blue-600 text-white border border-blue-600 px-4 py-3">
-              <div className="text-xs text-blue-100 mb-1">
+            <div className="rounded-xl border border-slate-950 bg-slate-950 px-4 py-3 text-white">
+              <div className="mb-1 text-xs text-slate-300">
                 Genel Toplam • {(items || []).filter((x) => x?.productId).length} satir
               </div>
-              <div className="text-xl font-extrabold text-right">
-                {fmtMoney(totals.total)}
-              </div>
+              <div className="text-xl font-extrabold text-right">{fmtMoney(totals.total)}</div>
             </div>
           </div>
         </div>

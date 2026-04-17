@@ -553,9 +553,11 @@ export default function PurchaseForm({
     : "Yeni Satınalma Faturası";
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="min-h-screen bg-[linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_50%,_#f8fafc_100%)]">
+      <div className="mx-auto flex max-w-[1580px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
       {/* Breadcrumb */}
-      <div className="flex flex-col gap-1">
+      <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.35)]">
+        <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2 text-xs text-slate-500 font-medium uppercase tracking-wider">
           <span className="hover:text-[#135bec]">SATINALMA</span>
           <span className="text-slate-300">›</span>
@@ -564,9 +566,9 @@ export default function PurchaseForm({
           </span>
         </div>
 
-        <div className="flex justify-between items-end mt-2">
+        <div className="flex justify-between items-end mt-2 gap-4 flex-wrap">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">
               {titleText}
             </h1>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -614,16 +616,17 @@ export default function PurchaseForm({
             </button>
           </div>
         </div>
+        </div>
       </div>
 
       {/* GRID */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-5">
         {/* SOL */}
-        <div className="col-span-12 lg:col-span-9 flex flex-col gap-6">
+        <div className="col-span-12 flex flex-col gap-5 lg:col-span-9">
           {/* DURUM + TÜR */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* FATURA DURUMU */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
               <h3 className="text-sm font-bold text-slate-500 mb-4 uppercase tracking-tight">
                 Fatura Durumu
               </h3>
@@ -680,7 +683,7 @@ export default function PurchaseForm({
             </div>
 
             {/* ALIM SINIFLANDIRMASI */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
               <h3 className="text-sm font-bold text-slate-500 mb-4 uppercase tracking-tight">
                 Alım Sınıflandırması
               </h3>
@@ -757,7 +760,7 @@ export default function PurchaseForm({
           </div>
 
           {/* TEDARİKÇİ & LOJİSTİK */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
             <div className="flex items-center gap-2 mb-6 text-[#135bec]">
               <Building2 size={20} />
               <h2 className="text-lg font-bold text-slate-900">
@@ -936,6 +939,20 @@ export default function PurchaseForm({
           </div>
 
           {/* SATIR ÖĞELERİ */}
+          <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                Kalemler
+              </div>
+              <div className="mt-1 text-base font-black tracking-[-0.03em] text-slate-950">
+                {filledItemCount} geçerli ürün satırı
+              </div>
+            </div>
+            <div className="rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">
+              Tedarik giriş alanı
+            </div>
+          </div>
           <PurchaseItemsTable
   onChange={setItems}
   vatRate={effectiveVatRate}
@@ -945,10 +962,11 @@ export default function PurchaseForm({
   supplierId={supplierCariId}
   supplierName={supplierName}
 />
+          </div>
 
           {/* ÖDEME + NOT */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
               <h3 className="text-sm font-bold text-slate-500 mb-4 uppercase tracking-tight">
                 Ödeme ve Şartlar
               </h3>
@@ -1069,7 +1087,7 @@ export default function PurchaseForm({
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+            <div className="flex flex-col rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
               <h3 className="text-sm font-bold text-slate-500 mb-4 uppercase tracking-tight">
                 Notlar ve Ekler
               </h3>
@@ -1136,36 +1154,36 @@ export default function PurchaseForm({
 
         {/* SAĞ */}
         <div className="col-span-12 lg:col-span-3">
-          <div className="sticky top-8 flex flex-col gap-6">
-            <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-xl shadow-slate-900/10">
-              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">
+          <div className="sticky top-6 flex flex-col gap-5">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 text-slate-900 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
+              <h2 className="mb-5 text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
                 Finansal Özet
               </h2>
               <div className="space-y-4">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-400 font-medium">Ara Toplam</span>
+                  <span className="font-medium text-slate-500">Ara Toplam</span>
                   <span className="font-mono">{fmtMoney(totals.net)} ₸</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-400 font-medium">
+                  <span className="font-medium text-slate-500">
                     KDV (%{effectiveVatRate})
                   </span>
-                  <span className="font-mono text-emerald-400">
+                  <span className="font-mono text-emerald-600">
                     +{fmtMoney(totals.vat)} ₸
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-400 font-medium">İndirim</span>
-                  <span className="font-mono text-red-400">
+                  <span className="font-medium text-slate-500">İndirim</span>
+                  <span className="font-mono text-red-500">
                     -{fmtMoney(0)} ₸
                   </span>
                 </div>
-                <div className="pt-4 mt-4 border-t border-slate-800">
+                <div className="mt-4 border-t border-slate-200 pt-4">
                   <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">
                     Genel Toplam
                   </p>
                   <div className="flex justify-between items-baseline">
-                    <span className="text-3xl font-black text-white">
+                    <span className="text-3xl font-black text-slate-950">
                       {new Intl.NumberFormat("tr-TR", {
                         maximumFractionDigits: 0,
                       }).format(Number(totals.gross || 0))}
@@ -1181,7 +1199,7 @@ export default function PurchaseForm({
                 <button
                   type="button"
                   onClick={() => handleAction("draft")}
-                  className="w-full py-4 bg-[#135bec] hover:bg-blue-700 rounded-xl font-black text-sm tracking-tight transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 py-3 text-sm font-semibold tracking-tight text-white transition-all hover:bg-slate-800"
                   disabled={disabled}
                 >
                   <Save size={18} />
@@ -1191,7 +1209,7 @@ export default function PurchaseForm({
                 <button
                   type="button"
                   onClick={() => handleAction("pending")}
-                  className="w-full py-3 bg-amber-500 hover:bg-amber-600 rounded-xl font-black text-xs tracking-tight transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-xs font-semibold tracking-tight text-white transition-all hover:bg-amber-600"
                   disabled={disabled}
                 >
                   <Clock3 size={16} />
@@ -1202,7 +1220,7 @@ export default function PurchaseForm({
                   <button
                     type="button"
                     onClick={handleDeleteDraft}
-                    className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs tracking-tight transition-all border border-red-500 flex items-center justify-center gap-2"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500 bg-red-600 py-3 text-xs font-semibold tracking-tight text-white transition-all hover:bg-red-700"
                     disabled={disabled}
                   >
                     <Trash2 size={16} />
@@ -1237,7 +1255,7 @@ export default function PurchaseForm({
                       }
                     }
                   }}
-                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs tracking-tight transition-all border border-slate-700"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-100 py-3 text-xs font-semibold tracking-tight text-slate-700 transition-all hover:bg-slate-200"
                   disabled={disabled}
                 >
                   FORMU TEMİZLE
@@ -1245,7 +1263,7 @@ export default function PurchaseForm({
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.32)]">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">
                 Hızlı Görüşler
               </h3>
@@ -1305,6 +1323,7 @@ export default function PurchaseForm({
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

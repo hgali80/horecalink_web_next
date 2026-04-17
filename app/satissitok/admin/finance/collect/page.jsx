@@ -22,6 +22,33 @@ function num(x) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function round2(x) {
+  return Math.round(num(x) * 100) / 100;
+}
+
+function fmtMoney(value) {
+  return round2(value).toLocaleString("tr-TR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function buildAutoAllocations({ totalAmount, selectedIds, openDocuments }) {
+  const next = {};
+  let remaining = round2(totalAmount);
+
+  for (const invoiceId of selectedIds) {
+    const doc = openDocuments.find((row) => row.id === invoiceId);
+    if (!doc) continue;
+
+    const assigned = round2(Math.min(remaining, num(doc.outstandingAmount)));
+    next[invoiceId] = assigned;
+    remaining = round2(remaining - assigned);
+  }
+
+  return next;
+}
+
 export default function CollectPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -48,9 +75,17 @@ export default function CollectPage() {
   const [method, setMethod] = useState("cash");
   const [accountId, setAccountId] = useState("");
   const [operationDate, setOperationDate] = useState(todayISO());
-  const [invoiceId, setInvoiceId] = useState(prefillInvoiceId);
-  const [invoiceNo, setInvoiceNo] = useState(prefillInvoiceNo);
   const [description, setDescription] = useState("");
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState(
+    prefillInvoiceId ? [prefillInvoiceId] : []
+  );
+  const [allocationMap, setAllocationMap] = useState(
+    prefillInvoiceId
+      ? {
+          [prefillInvoiceId]: round2(prefillAmount || 0),
+        }
+      : {}
+  );
 
   useEffect(() => {
     (async () => {
@@ -70,19 +105,24 @@ export default function CollectPage() {
   }, []);
 
   useEffect(() => {
-    if (!prefillCariId && !prefillInvoiceId && !prefillInvoiceNo && !prefillAmount) return;
+    if (!prefillCariId && !prefillInvoiceId && !prefillAmount) return;
     setMode(initialMode);
     setCariId(prefillCariId);
-    setInvoiceId(prefillInvoiceId);
-    setInvoiceNo(prefillInvoiceNo);
     setAmount(prefillAmount || 0);
-  }, [initialMode, prefillAmount, prefillCariId, prefillInvoiceId, prefillInvoiceNo]);
+    if (prefillInvoiceId) {
+      setSelectedInvoiceIds([prefillInvoiceId]);
+      setAllocationMap({
+        [prefillInvoiceId]: round2(prefillAmount || 0),
+      });
+    }
+  }, [initialMode, prefillAmount, prefillCariId, prefillInvoiceId]);
 
   useEffect(() => {
     const loadOpenDocs = async () => {
       if (!cariId || mode === "advance") {
         setOpenDocuments([]);
-        setInvoiceId("");
+        setSelectedInvoiceIds([]);
+        setAllocationMap({});
         return;
       }
 
@@ -93,19 +133,35 @@ export default function CollectPage() {
     loadOpenDocs();
   }, [cariId, mode]);
 
-  const selectedCari = useMemo(() => caris.find((c) => c.id === cariId) || null, [caris, cariId]);
-  const selectedDocument = useMemo(
-    () => openDocuments.find((doc) => doc.id === invoiceId) || null,
-    [openDocuments, invoiceId]
-  );
+  useEffect(() => {
+    if (mode === "advance") {
+      setSelectedInvoiceIds([]);
+      setAllocationMap({});
+    }
+  }, [mode]);
 
   useEffect(() => {
-    if (!selectedDocument || mode === "advance") return;
-    setInvoiceNo(selectedDocument.invoiceNo || "");
-    if (!(num(amount) > 0)) {
-      setAmount(selectedDocument.outstandingAmount || 0);
+    if (mode === "advance") return;
+
+    const validIds = selectedInvoiceIds.filter((invoiceId) =>
+      openDocuments.some((doc) => doc.id === invoiceId)
+    );
+
+    if (validIds.length !== selectedInvoiceIds.length) {
+      setSelectedInvoiceIds(validIds);
     }
-  }, [selectedDocument, mode]);
+
+    setAllocationMap((prev) => {
+      const next = {};
+      for (const invoiceId of validIds) {
+        const doc = openDocuments.find((row) => row.id === invoiceId);
+        if (!doc) continue;
+        const currentValue = round2(prev[invoiceId]);
+        next[invoiceId] = round2(Math.min(currentValue, num(doc.outstandingAmount)));
+      }
+      return next;
+    });
+  }, [mode, openDocuments, selectedInvoiceIds]);
 
   useEffect(() => {
     if (!prefillInvoiceId || mode === "advance" || openDocuments.length === 0) return;
@@ -113,21 +169,119 @@ export default function CollectPage() {
     const matched = openDocuments.find((doc) => doc.id === prefillInvoiceId);
     if (!matched) return;
 
-    setInvoiceId(matched.id);
-    setInvoiceNo(matched.invoiceNo || prefillInvoiceNo || "");
-    setAmount(prefillAmount !== "" ? prefillAmount : matched.outstandingAmount || 0);
-  }, [mode, openDocuments, prefillAmount, prefillInvoiceId, prefillInvoiceNo]);
+    const nextAmount =
+      prefillAmount !== "" ? round2(prefillAmount) : round2(matched.outstandingAmount || 0);
+
+    setSelectedInvoiceIds([matched.id]);
+    setAllocationMap({ [matched.id]: nextAmount });
+    if (!(num(amount) > 0)) {
+      setAmount(nextAmount);
+    }
+  }, [amount, mode, openDocuments, prefillAmount, prefillInvoiceId]);
+
+  useEffect(() => {
+    if (!lockAmount || selectedInvoiceIds.length !== 1) return;
+    setAllocationMap((prev) => ({
+      ...prev,
+      [selectedInvoiceIds[0]]: round2(amount),
+    }));
+  }, [amount, lockAmount, selectedInvoiceIds]);
+
+  const selectedCari = useMemo(() => caris.find((c) => c.id === cariId) || null, [caris, cariId]);
+  const selectedDocuments = useMemo(
+    () => openDocuments.filter((doc) => selectedInvoiceIds.includes(doc.id)),
+    [openDocuments, selectedInvoiceIds]
+  );
+  const selectedCount = selectedDocuments.length;
+  const selectedOutstandingTotal = useMemo(
+    () => round2(selectedDocuments.reduce((sum, row) => sum + num(row.outstandingAmount), 0)),
+    [selectedDocuments]
+  );
+  const allocatedTotal = useMemo(
+    () =>
+      round2(
+        selectedDocuments.reduce((sum, row) => sum + num(allocationMap[row.id]), 0)
+      ),
+    [allocationMap, selectedDocuments]
+  );
+  const unallocatedAmount = round2(num(amount) - allocatedTotal);
+
+  function toggleInvoice(invoiceId) {
+    if (lockInvoice) return;
+
+    setSelectedInvoiceIds((prev) => {
+      const exists = prev.includes(invoiceId);
+      const nextIds = exists ? prev.filter((id) => id !== invoiceId) : [...prev, invoiceId];
+
+      setAllocationMap((current) => {
+        if (exists) {
+          const next = { ...current };
+          delete next[invoiceId];
+          return next;
+        }
+
+        const next = { ...current };
+        const draftAllocations = buildAutoAllocations({
+          totalAmount: amount,
+          selectedIds: nextIds,
+          openDocuments,
+        });
+
+        for (const id of nextIds) {
+          next[id] = draftAllocations[id] ?? round2(current[id]);
+        }
+
+        return next;
+      });
+
+      return nextIds;
+    });
+  }
+
+  function autoDistribute() {
+    setAllocationMap(
+      buildAutoAllocations({
+        totalAmount: amount,
+        selectedIds: selectedInvoiceIds,
+        openDocuments,
+      })
+    );
+  }
 
   async function onSave() {
     if (saving) return;
 
-    const amt = Math.round(num(amount) * 100) / 100;
+    const amt = round2(amount);
     if (!cariId) return alert("Cari sec");
     if (!(amt > 0)) return alert("Tutar gir");
     if (!accountId) return alert("Hesap sec");
 
-    if (selectedDocument && amt > num(selectedDocument.outstandingAmount)) {
-      return alert("Tahsilat tutari acik belge tutarini asamaz");
+    const settlementLines =
+      mode === "advance"
+        ? []
+        : selectedDocuments
+            .map((doc) => ({
+              invoiceId: doc.id,
+              invoiceNo: doc.invoiceNo || null,
+              amount: round2(allocationMap[doc.id]),
+              outstandingAmount: round2(doc.outstandingAmount),
+            }))
+            .filter((row) => row.amount > 0);
+
+    for (const row of settlementLines) {
+      if (row.amount - row.outstandingAmount > 0.001) {
+        return alert(`Tahsilat tutari acik belgeyi asamaz: ${row.invoiceNo || row.invoiceId}`);
+      }
+    }
+
+    if (mode !== "advance" && settlementLines.length > 0) {
+      const distributed = round2(
+        settlementLines.reduce((sum, row) => sum + num(row.amount), 0)
+      );
+
+      if (Math.abs(distributed - amt) > 0.001) {
+        return alert("Tahsilat tutari ile secili faturalara dagitilan toplam ayni olmali");
+      }
     }
 
     setSaving(true);
@@ -140,9 +294,17 @@ export default function CollectPage() {
         method,
         accountId,
         operationDate,
-        invoiceId: invoiceId || null,
-        invoiceNo: invoiceNo.trim() || null,
+        invoiceId: settlementLines.length === 1 ? settlementLines[0].invoiceId : null,
+        invoiceNo:
+          settlementLines.length === 1
+            ? settlementLines[0].invoiceNo
+            : prefillInvoiceNo.trim() || null,
         invoiceKind: "sale",
+        settlementLines: settlementLines.map((row) => ({
+          invoiceId: row.invoiceId,
+          invoiceNo: row.invoiceNo,
+          amount: row.amount,
+        })),
         description: description.trim() || null,
       });
 
@@ -159,7 +321,7 @@ export default function CollectPage() {
   if (loading) return <div className="p-6">Yukleniyor...</div>;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -233,29 +395,6 @@ export default function CollectPage() {
           </label>
         </div>
 
-        {mode === "payment" && (
-          <label>
-            <div className="text-sm mb-1">Acik belge</div>
-            <select className="border px-3 py-2 w-full disabled:bg-gray-100 disabled:text-gray-500" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)} disabled={lockInvoice}>
-              <option value="">Sec...</option>
-              {openDocuments.map((doc) => (
-                <option key={doc.id} value={doc.id}>
-                  {doc.invoiceNo} - Acik: {doc.outstandingAmount.toLocaleString("tr-TR")}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {selectedDocument ? (
-          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-800">
-            Belge: <b>{selectedDocument.invoiceNo}</b> | Tutar:{" "}
-            <b>{selectedDocument.invoiceAmount.toLocaleString("tr-TR")}</b> | Kapanan:{" "}
-            <b>{selectedDocument.settledAmount.toLocaleString("tr-TR")}</b> | Kalan:{" "}
-            <b>{selectedDocument.outstandingAmount.toLocaleString("tr-TR")}</b>
-          </div>
-        ) : null}
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <label>
             <div className="text-sm mb-1">Yontem</div>
@@ -268,15 +407,139 @@ export default function CollectPage() {
           </label>
 
           <label>
-            <div className="text-sm mb-1">Tutar</div>
+            <div className="text-sm mb-1">Tahsilat Tutari</div>
             <input type="number" className="border px-3 py-2 w-full disabled:bg-gray-100 disabled:text-gray-500" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={lockAmount} />
           </label>
 
           <label>
-            <div className="text-sm mb-1">Fatura No</div>
-            <input className="border px-3 py-2 w-full disabled:bg-gray-100 disabled:text-gray-500" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} disabled={lockInvoice} />
+            <div className="text-sm mb-1">Secili Belge</div>
+            <input
+              className="border px-3 py-2 w-full bg-gray-50 text-gray-700"
+              value={
+                selectedCount === 0
+                  ? mode === "advance"
+                    ? "Avans hareketi"
+                    : prefillInvoiceNo || "Belge secilmedi"
+                  : selectedCount === 1
+                  ? selectedDocuments[0]?.invoiceNo || "Tek belge"
+                  : `${selectedCount} belge secildi`
+              }
+              readOnly
+            />
           </label>
         </div>
+
+        {mode === "payment" && (
+          <div className="rounded-xl border border-slate-200 p-4 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Acik Satis Faturalari</div>
+                <div className="text-xs text-slate-500">
+                  Birden fazla fatura secip tek tahsilati dagitabilirsin.
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={autoDistribute}
+                disabled={lockInvoice || selectedInvoiceIds.length === 0}
+                className="px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-sm font-semibold text-indigo-700 disabled:opacity-50"
+              >
+                Tutari Dagit
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                <div className="text-[11px] font-bold uppercase text-slate-500">Tahsilat</div>
+                <div className="mt-1 text-lg font-bold text-slate-900">{fmtMoney(amount)} KZT</div>
+              </div>
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
+                <div className="text-[11px] font-bold uppercase text-emerald-700">Dagitilan</div>
+                <div className="mt-1 text-lg font-bold text-emerald-800">{fmtMoney(allocatedTotal)} KZT</div>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3">
+                <div className="text-[11px] font-bold uppercase text-amber-700">Kalan Dagitim</div>
+                <div className="mt-1 text-lg font-bold text-amber-800">{fmtMoney(unallocatedAmount)} KZT</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                <div className="text-[11px] font-bold uppercase text-slate-500">Secili Acik Tutar</div>
+                <div className="mt-1 text-lg font-bold text-slate-900">{fmtMoney(selectedOutstandingTotal)} KZT</div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-100 text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Sec</th>
+                    <th className="px-3 py-2 text-left">Fatura</th>
+                    <th className="px-3 py-2 text-right">Toplam</th>
+                    <th className="px-3 py-2 text-right">Acik</th>
+                    <th className="px-3 py-2 text-right">Dagitilacak</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {openDocuments.map((doc) => {
+                    const checked = selectedInvoiceIds.includes(doc.id);
+                    const allocated = round2(allocationMap[doc.id]);
+
+                    return (
+                      <tr key={doc.id} className={checked ? "bg-indigo-50/40" : ""}>
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={lockInvoice && !checked}
+                            onChange={() => toggleInvoice(doc.id)}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="font-medium text-slate-900">{doc.invoiceNo}</div>
+                        </td>
+                        <td className="px-3 py-2 text-right text-slate-600">{fmtMoney(doc.invoiceAmount)}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-amber-700">{fmtMoney(doc.outstandingAmount)}</td>
+                        <td className="px-3 py-2 text-right">
+                          <input
+                            type="number"
+                            value={checked ? allocated : ""}
+                            disabled={!checked || (lockInvoice && lockAmount)}
+                            onChange={(e) => {
+                              const value = round2(e.target.value);
+                              setAllocationMap((prev) => ({
+                                ...prev,
+                                [doc.id]: Math.max(0, Math.min(value, round2(doc.outstandingAmount))),
+                              }));
+                            }}
+                            className="w-32 border px-3 py-1.5 rounded-lg text-right disabled:bg-gray-100"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {openDocuments.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-6 text-center text-gray-500">
+                        Bu cariye ait acik satis faturasi bulunamadi.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {selectedDocuments.length > 0 && (
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-800">
+                {selectedDocuments.map((doc) => (
+                  <div key={doc.id}>
+                    {doc.invoiceNo}: Acik {fmtMoney(doc.outstandingAmount)} KZT | Dagitim {fmtMoney(allocationMap[doc.id])} KZT
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <label>
           <div className="text-sm mb-1">Aciklama</div>
