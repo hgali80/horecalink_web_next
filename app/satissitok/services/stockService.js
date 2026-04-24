@@ -394,7 +394,6 @@ export function buildSaleStockPlan({ saleType, items, existingBalances }) {
           availableOfficial: officialQty,
           reason: "insufficient_total_stock",
         });
-        continue;
       }
 
       const actualUsed = Math.min(actualQty, quantity);
@@ -417,7 +416,6 @@ export function buildSaleStockPlan({ saleType, items, existingBalances }) {
       continue;
     }
 
-    let rowHasError = false;
     for (const part of allocations) {
       const bucket = part.bucket === "official" ? "official" : "actual";
       const available = Number(buckets[bucket]?.qty || 0);
@@ -433,11 +431,8 @@ export function buildSaleStockPlan({ saleType, items, existingBalances }) {
           available,
           reason: "insufficient_bucket_stock",
         });
-        rowHasError = true;
       }
     }
-
-    if (rowHasError) continue;
 
     const costBreakdown = allocations.map((part) => {
       const bucket = part.bucket === "official" ? "official" : "actual";

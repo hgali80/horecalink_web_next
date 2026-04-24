@@ -16,6 +16,20 @@ function shouldSkipPath(pathname) {
   return EXCLUDED_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
+function normalizeCountry(value) {
+  const country = String(value || "").trim().toUpperCase();
+  return country || null;
+}
+
+function getVisitorCountry(request) {
+  return normalizeCountry(
+    request.headers.get("x-vercel-ip-country") ||
+      request.headers.get("cf-ipcountry") ||
+      request.headers.get("x-country-code") ||
+      request.headers.get("cloudfront-viewer-country")
+  );
+}
+
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -29,12 +43,14 @@ export async function POST(request) {
     }
 
     const userAgent = request.headers.get("user-agent") || "";
+    const country = getVisitorCountry(request);
     const payload = {
       visitorId,
       sessionId,
       pathname,
       referrer,
       userAgent,
+      country,
       visitedAt: new Date(),
     };
 

@@ -4,6 +4,13 @@
 import { useEffect, useState } from "react";
 import { getSettings, saveSettings } from "@/app/satissitok/services/settingsService";
 
+function slugifyKey(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
 
@@ -106,7 +113,12 @@ export default function SettingsPage() {
                     value={p.label || ""}
                     onChange={(e) => {
                       const x = [...platforms];
-                      x[i] = { ...x[i], label: e.target.value };
+                      const nextLabel = e.target.value;
+                      x[i] = {
+                        ...x[i],
+                        label: nextLabel,
+                        key: x[i]?.key || slugifyKey(nextLabel),
+                      };
                       setPlatforms(x);
                     }}
                   />
@@ -147,6 +159,9 @@ export default function SettingsPage() {
               >
                 <span className="text-lg mr-1">+</span> Yeni Platform Ekle
               </button>
+              <p className="text-xs text-gray-500">
+                Platform anahtari bos ise etiketten otomatik uretilir. Satis ekranindaki kanal alani bu listedeki aktif platformlari kullanir.
+              </p>
             </div>
           </section>
 

@@ -59,8 +59,29 @@ function createPeriod(label) {
     label,
     totalVisits: 0,
     uniqueVisitors: 0,
+    kazakhstanTotalVisits: 0,
+    kazakhstanUniqueVisitors: 0,
     visitorIds: new Set(),
+    kazakhstanVisitorIds: new Set(),
   };
+}
+
+function normalizeCountry(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function applyVisitToPeriod(period, visitorId, country) {
+  period.totalVisits += 1;
+  if (visitorId) {
+    period.visitorIds.add(visitorId);
+  }
+
+  if (country === "KZ") {
+    period.kazakhstanTotalVisits += 1;
+    if (visitorId) {
+      period.kazakhstanVisitorIds.add(visitorId);
+    }
+  }
 }
 
 export function normalizeVisitDate(value) {
@@ -89,27 +110,24 @@ export function buildVisitorPeriods(visitRows, ranges = getRangeStarts()) {
   visitRows.forEach((item) => {
     const visitedAt = normalizeVisitDate(item?.visitedAt);
     const visitorId = String(item?.visitorId || "").trim();
+    const country = normalizeCountry(item?.country);
 
     if (!visitedAt) return;
 
     if (visitedAt >= ranges.startOfYear) {
-      periods.year.totalVisits += 1;
-      if (visitorId) periods.year.visitorIds.add(visitorId);
+      applyVisitToPeriod(periods.year, visitorId, country);
     }
 
     if (visitedAt >= ranges.startOfMonth) {
-      periods.month.totalVisits += 1;
-      if (visitorId) periods.month.visitorIds.add(visitorId);
+      applyVisitToPeriod(periods.month, visitorId, country);
     }
 
     if (visitedAt >= ranges.startOfWeek) {
-      periods.week.totalVisits += 1;
-      if (visitorId) periods.week.visitorIds.add(visitorId);
+      applyVisitToPeriod(periods.week, visitorId, country);
     }
 
     if (visitedAt >= ranges.startOfToday) {
-      periods.today.totalVisits += 1;
-      if (visitorId) periods.today.visitorIds.add(visitorId);
+      applyVisitToPeriod(periods.today, visitorId, country);
     }
   });
 
@@ -120,6 +138,10 @@ export function buildVisitorPeriods(visitRows, ranges = getRangeStarts()) {
         label: period.label,
         totalVisits: period.totalVisits,
         uniqueVisitors: period.visitorIds.size,
+        globalTotalVisits: period.totalVisits,
+        globalUniqueVisitors: period.visitorIds.size,
+        kazakhstanTotalVisits: period.kazakhstanTotalVisits,
+        kazakhstanUniqueVisitors: period.kazakhstanVisitorIds.size,
       },
     ])
   );

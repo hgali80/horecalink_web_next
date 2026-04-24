@@ -1,30 +1,19 @@
-// app/satissitok/admin/sales/new/page.jsx
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  orderBy,
-} from "firebase/firestore";
-import { db } from "@/firebase";
+import { collection, doc, getDoc, getDocs, orderBy, query } from "firebase/firestore";
 import { ArrowLeft, Home } from "lucide-react";
 
+import { db } from "@/firebase";
 import SaleForm from "./components/SaleForm";
-import {
-  createSale,
-  deleteDraftSale,
-} from "@/app/satissitok/services/saleService";
+import { createSale, deleteDraftSale } from "@/app/satissitok/services/saleService";
 import { getSettings } from "@/app/satissitok/services/settingsService";
 
 const LoadingIcon = () => (
   <svg
-    className="animate-spin h-5 w-5 text-blue-600"
+    className="h-5 w-5 animate-spin text-sky-600"
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
     viewBox="0 0 24 24"
@@ -45,15 +34,24 @@ const LoadingIcon = () => (
   </svg>
 );
 
+function ShellLoading({ label }) {
+  return (
+    <div className="min-h-screen bg-[#f7f9fb] px-4 py-10">
+      <div className="mx-auto flex min-h-[70vh] max-w-3xl flex-col items-center justify-center space-y-4 rounded-[24px] border border-slate-200 bg-white p-10 text-center shadow-sm">
+        <LoadingIcon />
+        <p className="text-sm font-semibold text-slate-600 animate-pulse">{label}</p>
+      </div>
+    </div>
+  );
+}
+
 function SalesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
   const draftId = (searchParams.get("draftId") || "").trim();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
   const [products, setProducts] = useState([]);
   const [caris, setCaris] = useState([]);
   const [balances, setBalances] = useState({});
@@ -61,32 +59,58 @@ function SalesPageContent() {
   const [initialData, setInitialData] = useState(null);
 
   useEffect(() => {
-    loadAll();
-  }, [draftId]);
+    let ignore = false;
 
-  async function loadAll() {
-    setLoading(true);
-    try {
-      const [p, c, b, s, draft] = await Promise.all([
-        loadProducts(),
-        loadCaris(),
-        loadBalances(),
-        getSettings(),
-        loadDraftIfAny(),
-      ]);
+    async function run() {
+      setLoading(true);
+      try {
+        let draft = null;
+        if (draftId) {
+          const ref = doc(db, "sales", draftId);
+          const snap = await getDoc(ref);
 
-      setProducts(p);
-      setCaris(c);
-      setBalances(b);
-      setSettings(s);
-      setInitialData(draft);
-    } catch (e) {
-      console.error("SALE PAGE LOAD ERROR:", e);
-      alert(e?.message || "Sayfa yüklenirken bir hata oluştu.");
-    } finally {
-      setLoading(false);
+          if (!snap.exists()) {
+            if (!ignore) {
+              alert("Satis kaydi bulunamadi.");
+              router.replace("/satissitok/admin/sales");
+            }
+            return;
+          }
+
+          draft = {
+            id: snap.id,
+            ...snap.data(),
+          };
+        }
+
+        const [p, c, b, s, loadedDraft] = await Promise.all([
+          loadProducts(),
+          loadCaris(),
+          loadBalances(),
+          getSettings(),
+          Promise.resolve(draft),
+        ]);
+
+        if (ignore) return;
+        setProducts(p);
+        setCaris(c);
+        setBalances(b);
+        setSettings(s);
+        setInitialData(loadedDraft);
+      } catch (e) {
+        if (ignore) return;
+        console.error("SALE PAGE LOAD ERROR:", e);
+        alert(e?.message || "Sayfa yuklenirken bir hata olustu.");
+      } finally {
+        if (!ignore) setLoading(false);
+      }
     }
-  }
+
+    run();
+    return () => {
+      ignore = true;
+    };
+  }, [draftId, router]);
 
   async function loadProducts() {
     const snap = await getDocs(query(collection(db, "products"), orderBy("name")));
@@ -107,24 +131,6 @@ function SalesPageContent() {
     return map;
   }
 
-  async function loadDraftIfAny() {
-    if (!draftId) return null;
-
-    const ref = doc(db, "sales", draftId);
-    const snap = await getDoc(ref);
-
-    if (!snap.exists()) {
-      alert("Satış kaydı bulunamadı.");
-      router.replace("/satissitok/admin/sales");
-      return null;
-    }
-
-    return {
-      id: snap.id,
-      ...snap.data(),
-    };
-  }
-
   async function handleSubmit(payload) {
     if (saving) return;
 
@@ -136,7 +142,7 @@ function SalesPageContent() {
       });
 
       if (!res?.saleId) {
-        throw new Error("Satış kaydı oluşturuldu ama ID alınamadı.");
+        throw new Error("Satis kaydi olusturuldu ama ID alinamadi.");
       }
 
       const nextStatus = payload?.status || "completed";
@@ -148,7 +154,7 @@ function SalesPageContent() {
       }
 
       if (nextStatus === "pending") {
-        alert(`Onay bekleyen kayıt kaydedildi. ID: ${res.saleId}`);
+        alert(`Onay bekleyen kayit kaydedildi. ID: ${res.saleId}`);
         router.replace(`/satissitok/admin/sales/new?draftId=${res.saleId}`);
         return;
       }
@@ -156,7 +162,7 @@ function SalesPageContent() {
       router.push(`/satissitok/admin/sales/${res.saleId}`);
     } catch (e) {
       console.error("SALE_CREATE_ERROR:", e);
-      alert(e?.message || "İşlem sırasında bir hata oluştu.");
+      alert(e?.message || "Islem sirasinda bir hata olustu.");
     } finally {
       setSaving(false);
     }
@@ -164,7 +170,7 @@ function SalesPageContent() {
 
   async function handleDeleteDraft({ saleId }) {
     if (!saleId) {
-      alert("Silinecek taslak bulunamadı.");
+      alert("Silinecek taslak bulunamadi.");
       return;
     }
 
@@ -175,111 +181,86 @@ function SalesPageContent() {
       router.replace("/satissitok/admin/sales");
     } catch (e) {
       console.error("SALE_DELETE_DRAFT_ERROR:", e);
-      alert(e?.message || "Taslak silinirken bir hata oluştu.");
+      alert(e?.message || "Taslak silinirken bir hata olustu.");
     } finally {
       setSaving(false);
     }
   }
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <LoadingIcon />
-        <p className="text-slate-500 text-sm font-medium animate-pulse">
-          Veriler hazırlanıyor...
-        </p>
-      </div>
-    );
+    return <ShellLoading label="Satis faturasi ekrani hazirlaniyor..." />;
   }
 
   return (
-    <main className="w-full px-4 py-6 space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
-          aria-label="Geri"
-          title="Geri"
-        >
-          <ArrowLeft size={18} />
-          <span className="text-sm font-semibold">Geri</span>
-        </button>
+    <main className="min-h-screen bg-[#f7f9fb]">
+      <div className="mx-auto max-w-[1760px] px-5 py-6 sm:px-6 lg:px-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex items-center gap-2 rounded-lg px-1 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500 transition hover:text-slate-900"
+              aria-label="Geri"
+              title="Geri"
+            >
+              <ArrowLeft size={17} />
+              <span>Geri</span>
+            </button>
 
-        <Link
-          href="/satissitok/admin"
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
-          aria-label="Satış/Stok Ana Sayfa"
-          title="Satış/Stok Ana Sayfa"
-        >
-          <Home size={18} />
-          <span className="text-sm font-semibold">Ana Sayfa</span>
-        </Link>
-      </div>
+            <Link
+              href="/satissitok/admin"
+              className="inline-flex items-center gap-2 rounded-lg px-1 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500 transition hover:text-slate-900"
+              aria-label="Satis Stok Ana Sayfa"
+              title="Satis Stok Ana Sayfa"
+            >
+              <Home size={17} />
+              <span>Ana Sayfa</span>
+            </Link>
+          </div>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-            {draftId ? "Satış Kaydını Düzenle" : "Yeni Satış Oluştur"}
-          </h1>
-          <p className="text-slate-500 text-sm">
-            Sistemdeki stok ve cari bilgilerini kullanarak satış işlemini başlatın.
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-2 text-xs">
-          <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">
-            Fatura Modülü
-          </span>
-          {saving && (
-            <span className="flex items-center gap-2 px-3 py-1 bg-amber-50 text-amber-700 rounded-full font-medium border border-amber-100">
-              <span className="w-2 h-2 bg-amber-500 rounded-full animate-ping"></span>
-              Kaydediliyor...
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full bg-slate-200 px-3 py-1 font-bold uppercase tracking-[0.16em] text-slate-600">
+              {draftId ? "Duzenleme Modu" : "Yeni Kayit"}
             </span>
-          )}
-        </div>
-      </div>
-
-      <div
-        className={`transition-all duration-300 ${
-          saving ? "opacity-60 pointer-events-none" : "opacity-100"
-        }`}
-      >
-        <div className="relative bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
-          <div className="p-1">
-            <SaleForm
-              products={products}
-              caris={caris}
-              balances={balances}
-              settings={settings}
-              onSubmit={handleSubmit}
-              onDeleteDraft={handleDeleteDraft}
-              initialData={initialData}
-              disabled={saving}
-            />
+            {saving && (
+              <span className="flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-700">
+                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+                Kaydediliyor
+              </span>
+            )}
           </div>
         </div>
-      </div>
 
-      <div className="rounded-lg bg-slate-50 p-4 border border-slate-200">
-        <p className="text-xs text-slate-500 leading-relaxed italic">
-          * Belge numarası, manuel bir giriş yapılmadığı sürece kayıt esnasında sistem tarafından otomatik atanır.
-          Draft/pending kayıtlar SD formatı, tamamlanan kayıtlar SR/SF formatı kullanır.
-        </p>
+        <div
+          className={`transition-all duration-300 ${
+            saving ? "pointer-events-none opacity-70" : "opacity-100"
+          }`}
+        >
+          <SaleForm
+            products={products}
+            caris={caris}
+            balances={balances}
+            settings={settings}
+            onSubmit={handleSubmit}
+            onDeleteDraft={handleDeleteDraft}
+            initialData={initialData}
+            disabled={saving}
+          />
+        </div>
+
+        <div className="mt-6 rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs leading-6 text-slate-500">
+            Belge numarasi manuel girilmediginde kayit aninda sistem tarafindan otomatik uretilir.
+            Draft ve pending kayitlar SD, tamamlanan kayitlar ise SR veya SF formatini kullanir.
+          </p>
+        </div>
       </div>
     </main>
   );
 }
 
 function SalesPageFallback() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-      <LoadingIcon />
-      <p className="text-slate-500 text-sm font-medium animate-pulse">
-        Sayfa hazırlanıyor...
-      </p>
-    </div>
-  );
+  return <ShellLoading label="Sayfa hazirlaniyor..." />;
 }
 
 export default function NewSalePage() {

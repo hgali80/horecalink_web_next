@@ -13,10 +13,42 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 const EMPTY_PERIODS = {
-  today: { label: "Bugun", uniqueVisitors: 0, totalVisits: 0 },
-  week: { label: "Bu hafta", uniqueVisitors: 0, totalVisits: 0 },
-  month: { label: "Bu ay", uniqueVisitors: 0, totalVisits: 0 },
-  year: { label: "Bu yil", uniqueVisitors: 0, totalVisits: 0 },
+  today: {
+    label: "Bugun",
+    uniqueVisitors: 0,
+    totalVisits: 0,
+    globalUniqueVisitors: 0,
+    globalTotalVisits: 0,
+    kazakhstanUniqueVisitors: 0,
+    kazakhstanTotalVisits: 0,
+  },
+  week: {
+    label: "Bu hafta",
+    uniqueVisitors: 0,
+    totalVisits: 0,
+    globalUniqueVisitors: 0,
+    globalTotalVisits: 0,
+    kazakhstanUniqueVisitors: 0,
+    kazakhstanTotalVisits: 0,
+  },
+  month: {
+    label: "Bu ay",
+    uniqueVisitors: 0,
+    totalVisits: 0,
+    globalUniqueVisitors: 0,
+    globalTotalVisits: 0,
+    kazakhstanUniqueVisitors: 0,
+    kazakhstanTotalVisits: 0,
+  },
+  year: {
+    label: "Bu yil",
+    uniqueVisitors: 0,
+    totalVisits: 0,
+    globalUniqueVisitors: 0,
+    globalTotalVisits: 0,
+    kazakhstanUniqueVisitors: 0,
+    kazakhstanTotalVisits: 0,
+  },
 };
 
 function formatNumber(value) {
@@ -125,6 +157,7 @@ export default function VisitorStatsPanel() {
         </h2>
         <p className="max-w-3xl text-sm leading-6 text-slate-600">
           Bu panel sadece public ziyaretleri sayar. Login olan yetkili ve personel hesaplari bu sayaca dahil edilmez.
+          Kazakhstan degerleri yesil, global toplamlar mavi gosterilir.
         </p>
       </div>
 
@@ -146,16 +179,34 @@ export default function VisitorStatsPanel() {
                 <div className="text-xs uppercase tracking-[0.2em] text-slate-500">
                   Tekil
                 </div>
-                <div className="mt-2 text-2xl font-bold text-slate-950">
-                  {loading ? "..." : formatNumber(card.uniqueVisitors)}
+                <div className="mt-2 flex items-baseline gap-2 text-2xl font-bold">
+                  <span className="text-emerald-600">
+                    {loading ? "..." : formatNumber(card.kazakhstanUniqueVisitors)}
+                  </span>
+                  <span className="text-slate-400">/</span>
+                  <span className="text-sky-600">
+                    {loading ? "..." : formatNumber(card.globalUniqueVisitors || card.uniqueVisitors)}
+                  </span>
+                </div>
+                <div className="mt-2 text-[11px] font-medium uppercase tracking-[0.2em] text-slate-400">
+                  KZ / Global
                 </div>
               </div>
               <div>
                 <div className="text-xs uppercase tracking-[0.2em] text-slate-500">
                   Toplam
                 </div>
-                <div className="mt-2 text-2xl font-bold text-slate-950">
-                  {loading ? "..." : formatNumber(card.totalVisits)}
+                <div className="mt-2 flex items-baseline gap-2 text-2xl font-bold">
+                  <span className="text-emerald-600">
+                    {loading ? "..." : formatNumber(card.kazakhstanTotalVisits)}
+                  </span>
+                  <span className="text-slate-400">/</span>
+                  <span className="text-sky-600">
+                    {loading ? "..." : formatNumber(card.globalTotalVisits || card.totalVisits)}
+                  </span>
+                </div>
+                <div className="mt-2 text-[11px] font-medium uppercase tracking-[0.2em] text-slate-400">
+                  KZ / Global
                 </div>
               </div>
             </div>

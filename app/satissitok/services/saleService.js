@@ -125,6 +125,26 @@ function createStatusPayload({
   return normalizeDocumentStatus(payloadStatus, { fallback });
 }
 
+function buildNegativeStockItems(stockErrors) {
+  if (!Array.isArray(stockErrors) || stockErrors.length === 0) return [];
+
+  return stockErrors.map((error) => ({
+    productId: error?.productId || null,
+    warehouseKey: error?.warehouseKey || "main",
+    bucket: error?.bucket || null,
+    requested: round2(
+      error?.requested ?? error?.need ?? error?.allocatedQty ?? 0
+    ),
+    available: round2(
+      error?.available ??
+        (Number(error?.availableActual || 0) + Number(error?.availableOfficial || 0))
+    ),
+    availableActual: round2(error?.availableActual ?? 0),
+    availableOfficial: round2(error?.availableOfficial ?? 0),
+    reason: error?.reason || "negative_stock",
+  }));
+}
+
 function buildSaleMovementRows(items) {
   return (items || []).flatMap((item) => {
     const parts = Array.isArray(item.costBreakdown)
@@ -252,10 +272,6 @@ export async function createSale(payload) {
           reason: "missing_finalized_lines",
         });
       }
-
-      if (stockErrors.length > 0) {
-        throw new Error("Stok yetersiz. Satis onaylanamadi.");
-      }
     } else if (prevWasConfirmed && Array.isArray(existingData?.items)) {
       finalizedItems = existingData.items;
     }
@@ -331,6 +347,8 @@ export async function createSale(payload) {
     );
     const saleVatRate =
       saleType === "official" && ratesUsed.length === 1 ? ratesUsed[0] : null;
+    const negativeStockItems = isConfirmed ? buildNegativeStockItems(stockErrors) : [];
+    const hasNegativeStock = negativeStockItems.length > 0;
 
     const saleData = {
       saleNo: invoiceNo || null,
@@ -365,8 +383,8 @@ export async function createSale(payload) {
       costTotalUsed: totals.costTotalUsed,
       profitTotal: totals.profitTotal,
       ...initializeSettlementFields({ invoiceAmount: totals.grossTotal }),
-      hasNegativeStock: false,
-      negativeStockItems: [],
+      hasNegativeStock,
+      negativeStockItems,
       status,
       isDraftLike: !isConfirmed,
       invoiceDate: toDateOrNull(invoiceDateISO),
