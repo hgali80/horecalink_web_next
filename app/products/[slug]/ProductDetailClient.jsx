@@ -178,13 +178,6 @@ function buildPackagingSummary(product, t) {
 
   const chips = [];
 
-  if (price) {
-    chips.push({
-      label: resolveText(t, "productDetail.packaging.casePrice", "Case price"),
-      value: `${formatPrice(price)} ₸`,
-    });
-  }
-
   if (caseQty) {
     chips.push({
       label: resolveText(t, "productDetail.packaging.caseQty", "Packs per case"),
@@ -584,3 +577,4 @@ export default function ProductDetailClient({ product, relatedProducts }) {
     </section>
   );
 }
+
