@@ -329,11 +329,8 @@ export default function ProductDetailClient({ product, relatedProducts }) {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                      <h3 className="text-lg font-bold text-[#1d3246]">
                         {packagingSummary.subtitle}
-                      </div>
-                      <h3 className="mt-1 text-lg font-bold text-[#1d3246]">
-                        {packagingSummary.title}
                       </h3>
                     </div>
                   </div>

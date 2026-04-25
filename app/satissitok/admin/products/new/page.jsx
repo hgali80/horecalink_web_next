@@ -722,7 +722,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Paket Adedi">
+          <Field label="Paket İçi Miktar">
             <input
               type="number"
               value={form.packQty}
@@ -731,7 +731,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Koli Adedi">
+          <Field label="Koli İçi Miktar">
             <input
               type="number"
               value={form.caseQty}
