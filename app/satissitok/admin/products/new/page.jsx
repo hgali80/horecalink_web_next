@@ -698,7 +698,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Capacity">
+          <Field label="Kapasite">
             <input
               value={form.capacity}
               onChange={(e) => setField("capacity", e.target.value)}
@@ -706,7 +706,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Dimensions">
+          <Field label="Ölçüler">
             <input
               value={form.dimensions}
               onChange={(e) => setField("dimensions", e.target.value)}
@@ -714,7 +714,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Material">
+          <Field label="Materyal">
             <input
               value={form.material}
               onChange={(e) => setField("material", e.target.value)}
@@ -722,7 +722,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Pack Qty">
+          <Field label="Paket Adedi">
             <input
               type="number"
               value={form.packQty}
@@ -731,7 +731,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Case Qty">
+          <Field label="Koli Adedi">
             <input
               type="number"
               value={form.caseQty}
@@ -743,7 +743,7 @@ export default function NewProductPage() {
           <Field
             label={
               t("admin.products.fields.unitType") === "admin.products.fields.unitType"
-                ? "Unit Type"
+                ? "Birim Tipi"
                 : t("admin.products.fields.unitType")
             }
           >
@@ -761,7 +761,7 @@ export default function NewProductPage() {
             </select>
           </Field>
 
-          <Field label="Fuel Type">
+          <Field label="Yakıt Tipi">
             <input
               value={form.fuelType}
               onChange={(e) => setField("fuelType", e.target.value)}
@@ -769,7 +769,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Power">
+          <Field label="Güç">
             <input
               value={form.power}
               onChange={(e) => setField("power", e.target.value)}
@@ -785,7 +785,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Warranty">
+          <Field label="Garanti">
             <input
               value={form.warranty}
               onChange={(e) => setField("warranty", e.target.value)}
@@ -793,7 +793,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Weight">
+          <Field label="Ağırlık">
             <input
               value={form.weight}
               onChange={(e) => setField("weight", e.target.value)}
@@ -801,7 +801,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Video URL">
+          <Field label="Video Bağlantısı">
             <input
               value={form.videoUrl}
               onChange={(e) => setField("videoUrl", e.target.value)}
@@ -809,7 +809,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Catalog PDF">
+          <Field label="Katalog PDF">
             <input
               value={form.catalogPdf}
               onChange={(e) => setField("catalogPdf", e.target.value)}
@@ -817,7 +817,7 @@ export default function NewProductPage() {
             />
           </Field>
 
-          <Field label="Technical PDF">
+          <Field label="Teknik PDF">
             <input
               value={form.technicalPdf}
               onChange={(e) => setField("technicalPdf", e.target.value)}

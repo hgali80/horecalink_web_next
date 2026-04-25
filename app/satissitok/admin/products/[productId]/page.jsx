@@ -809,7 +809,7 @@ export default function ProductDetailEditPage() {
                 />
               </Field>
 
-              <Field label="Pack Qty">
+              <Field label="Paket Adedi">
                 <input
                   type="number"
                   value={form.packQty}
@@ -818,7 +818,7 @@ export default function ProductDetailEditPage() {
                 />
               </Field>
 
-              <Field label="Case Qty">
+              <Field label="Koli Adedi">
                 <input
                   type="number"
                   value={form.caseQty}
@@ -830,7 +830,7 @@ export default function ProductDetailEditPage() {
               <Field
                 label={
                   t("admin.products.fields.unitType") === "admin.products.fields.unitType"
-                    ? "Unit Type"
+                    ? "Birim Tipi"
                     : t("admin.products.fields.unitType")
                 }
               >
@@ -892,7 +892,7 @@ export default function ProductDetailEditPage() {
                 />
               </Field>
 
-              <Field label="Video URL">
+              <Field label="Video Bağlantısı">
                 <input
                   value={form.videoUrl}
                   onChange={(e) => set("videoUrl", e.target.value)}
