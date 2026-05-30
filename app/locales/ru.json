@@ -2476,5 +2476,14 @@
   "who.text2.before": "Мы объединяем под одной крышей",
   "who.text2.highlight": "оптовые поставки, производство из нержавеющей стали и проектные процессы.",
   "who.text3": "Для нас продажа – это не конец, а начало долгосрочного делового партнерства.",
-  "who.title": "Кто мы?"
+  "who.title": "Кто мы?",
+  "usageAreas.cardCta": "Смотреть товары",
+  "usageAreas.empty": "Активные сферы применения не найдены.",
+  "usageAreas.loading": "Сферы применения загружаются...",
+  "usageAreas.noProducts": "Товары еще не добавлены",
+  "usageAreas.notFound": "Сфера применения не найдена.",
+  "usageAreas.productCount": "{count} товаров",
+  "usageAreas.section.description": "Быстро подберите товары по зоне применения вашего бизнеса.",
+  "usageAreas.section.title": "Покупка по сфере применения",
+  "usageAreas.section.viewAll": "Смотреть все сферы применения"
 }

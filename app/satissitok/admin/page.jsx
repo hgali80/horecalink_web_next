@@ -14,6 +14,7 @@ import {
   FileText,
   FileSpreadsheet,
   Mail,
+  LayoutTemplate,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import VisitorStatsPanel from "../../components/VisitorStatsPanel";
@@ -126,6 +127,14 @@ export default function SalesStockDashboard() {
             href="/satissitok/admin/products"
             color="purple"
             icon={<Package />}
+          />
+
+          <DashboardCard
+            title="Kullanim Alanlari"
+            desc="Alan olustur, gorsel ekle, urunleri ata"
+            href="/satissitok/admin/usage-areas"
+            color="orange"
+            icon={<LayoutTemplate />}
           />
 
           {canUseImport ? (

@@ -1,0 +1,197 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null &&
+             request.auth.uid == '8hV0aS1izsf7rIvbeeJ6JIPDh3I2';
+    }
+
+    function isSpecialUser() {
+      return request.auth != null && (
+        request.auth.token.phone_number in [
+          "+77004446911",
+          "+77023940182"
+        ] ||
+        request.auth.token.email in [
+          "hasanaligunay@outlook.com",
+          "+77004446911@temporary.com",
+          "+77023940182@temporary.com"
+        ]
+      );
+    }
+
+    function isManager() {
+      return isAdmin() || isSpecialUser();
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidQuoteCustomer() {
+      return request.resource.data.customer is map
+        && (!("name" in request.resource.data.customer) || request.resource.data.customer.name is string)
+        && (!("fullName" in request.resource.data.customer) || request.resource.data.customer.fullName is string)
+        && (!("phone" in request.resource.data.customer) || request.resource.data.customer.phone is string)
+        && (!("email" in request.resource.data.customer) || request.resource.data.customer.email is string)
+        && (!("company" in request.resource.data.customer) || request.resource.data.customer.company is string);
+    }
+
+    function isValidQuoteCreate() {
+      return request.resource.data.customer is map
+        && isValidQuoteCustomer()
+        && request.resource.data.items is list;
+    }
+
+    function canReadQuote() {
+      return isManager()
+        || (
+          isSignedIn()
+          && resource.data.userId is string
+          && request.auth.uid == resource.data.userId
+        );
+    }
+
+    match /sms_requests/{id} {
+      allow create: if request.resource.data.status == 'request';
+      allow read: if true;
+      allow update, delete: if isManager();
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isManager();
+    }
+
+    match /usage_areas/{usageAreaId} {
+      allow read: if true;
+      allow write: if isManager();
+    }
+
+    match /contact_messages/{messageId} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId} {
+      allow create: if isOwner(userId);
+      allow read: if isManager() || isOwner(userId);
+      allow update, delete: if isManager() || isOwner(userId);
+
+      match /addresses/{addressId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /basket/{productId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /favorites/{productId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    match /quote_threads/{threadId} {
+      allow read, write: if isManager();
+    }
+
+    match /quote_requests/{quoteId} {
+      allow create: if isValidQuoteCreate();
+      allow read: if canReadQuote();
+      allow update, delete: if isManager();
+    }
+
+    match /quote_requests/{quoteId}/events/{eventId} {
+      allow read, write: if isManager();
+    }
+
+    match /caris/{cariId} {
+      allow read, write: if isManager();
+    }
+
+    match /cari_transactions/{txId} {
+      allow read, write: if isManager();
+    }
+
+    match /cash_accounts/{id} {
+      allow read, write: if isManager();
+    }
+
+    match /cash_transactions/{id} {
+      allow read, write: if isManager();
+    }
+
+    match /receipt_counters/{id} {
+      allow read, write: if isManager();
+    }
+
+    match /stock/{id} {
+      allow read, write: if isManager();
+    }
+
+    match /stock_movements/{id} {
+      allow read, write: if isManager();
+    }
+
+    match /stock_balances/{id} {
+      allow read, write: if isManager();
+    }
+
+    match /counters/{counterId} {
+      allow read, write: if isManager();
+    }
+
+    match /invoice_counters/{docId} {
+      allow read, write: if isManager();
+    }
+
+    match /draft_counters/{docId} {
+      allow read, write: if isManager();
+    }
+
+    match /purchases/{purchaseId} {
+      allow read, create, update, delete: if isManager();
+
+      match /items/{itemId} {
+        allow read, create, update, delete: if isManager();
+      }
+    }
+
+    match /sales/{saleId} {
+      allow read, create, update, delete: if isManager();
+
+      match /items/{itemId} {
+        allow read, create, update, delete: if isManager();
+      }
+    }
+
+    match /sale_counters/{counterId} {
+      allow read, write: if isManager();
+    }
+
+    match /settings/{docId} {
+      allow read, write: if isManager();
+    }
+
+    match /visit_logs/{logId} {
+      allow create: if true;
+      allow read: if isManager();
+      allow update, delete: if false;
+    }
+
+    match /product_cost_entries/{id} {
+      allow read, write: if isManager();
+    }
+
+    match /document_settlements/{id} {
+      allow read, write: if isManager();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

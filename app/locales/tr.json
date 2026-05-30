@@ -2476,5 +2476,14 @@
   "who.text2.before": "Toptan ürün tedariki,",
   "who.text2.highlight": "paslanmaz üretim ve proje süreçlerini",
   "who.text3": "Bizim için satış bir son değil, uzun vadeli bir iş ortaklığının başlangıcıdır.",
-  "who.title": "Biz Kimiz?"
+  "who.title": "Biz Kimiz?",
+  "usageAreas.cardCta": "Urunleri Gor",
+  "usageAreas.empty": "Aktif kullanim alani bulunamadi.",
+  "usageAreas.loading": "Kullanim alanlari yukleniyor...",
+  "usageAreas.noProducts": "Henuz urun eklenmedi",
+  "usageAreas.notFound": "Kullanim alani bulunamadi.",
+  "usageAreas.productCount": "{count} urun",
+  "usageAreas.section.description": "Isletmenizin ihtiyacina gore urunleri daha hizli bulun.",
+  "usageAreas.section.title": "Kullanim Alanina Gore Alisveris",
+  "usageAreas.section.viewAll": "Tum Kullanim Alanlarini Gor"
 }

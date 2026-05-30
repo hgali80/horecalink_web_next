@@ -2476,5 +2476,14 @@
   "who.text2.before": "Кең топтамалы өнім жеткізу,",
   "who.text2.highlight": "Біз тот баспайтын жабдықтарды өндіруді және жоба үдерістерін жүзеге асырамыз.",
   "who.text3": "Біз үшін сатылым аяқталған нәрсе емес, ұзақ мерзімді серіктестіктің басталуы.",
-  "who.title": "Біз кімбіз?"
+  "who.title": "Біз кімбіз?",
+  "usageAreas.cardCta": "Өнімдерді көру",
+  "usageAreas.empty": "Белсенді қолдану салалары табылмады.",
+  "usageAreas.loading": "Қолдану салалары жүктелуде...",
+  "usageAreas.noProducts": "Әзірге өнім қосылмаған",
+  "usageAreas.notFound": "Қолдану саласы табылмады.",
+  "usageAreas.productCount": "{count} өнім",
+  "usageAreas.section.description": "Бизнесіңізге қажетті тауарларды қолдану саласына қарай тез табыңыз.",
+  "usageAreas.section.title": "Қолдану саласы бойынша сатып алу",
+  "usageAreas.section.viewAll": "Барлық қолдану салаларын көру"
 }

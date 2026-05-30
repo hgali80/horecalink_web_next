@@ -2494,5 +2494,14 @@
   "who.text2.before": "We bring together",
   "who.text2.highlight": "wholesale product supply, stainless steel manufacturing and project processes",
   "who.text3": "For us, a sale is not an end, but the beginning of a long-term business partnership.",
-  "who.title": "Who We Are?"
+  "who.title": "Who We Are?",
+  "usageAreas.cardCta": "View Products",
+  "usageAreas.empty": "No active usage areas were found.",
+  "usageAreas.loading": "Loading usage areas...",
+  "usageAreas.noProducts": "No products added yet",
+  "usageAreas.notFound": "Usage area not found.",
+  "usageAreas.productCount": "{count} products",
+  "usageAreas.section.description": "Find products faster based on your business needs.",
+  "usageAreas.section.title": "Shop by Usage Area",
+  "usageAreas.section.viewAll": "View All Usage Areas"
 }

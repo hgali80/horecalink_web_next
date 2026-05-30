@@ -1,7 +1,9 @@
 // app/lib/firestore/products.js
 import {
   collection,
+  doc,
   documentId,
+  getDoc,
   getDocs,
   limit,
   query,
@@ -271,4 +273,31 @@ export async function getRelatedProducts(product, maxItems = 8) {
     })
     .sort(sortProducts)
     .slice(0, maxItems);
+}
+
+export async function getProductsByIds(productIds = []) {
+  const ids = Array.from(
+    new Set(
+      (productIds || [])
+        .map((item) => cleanText(item))
+        .filter(Boolean)
+    )
+  );
+
+  if (!ids.length) return [];
+
+  const productMap = new Map();
+
+  const snapshots = await Promise.all(
+    ids.map((id) => getDoc(doc(db, "products", id)))
+  );
+
+  snapshots.forEach((snapshot) => {
+    if (!snapshot?.exists?.()) return;
+    const normalized = normalizeProduct(snapshot);
+    if (normalized.active !== true || normalized.webPublished !== true) return;
+    productMap.set(snapshot.id, normalized);
+  });
+
+  return ids.map((id) => productMap.get(id)).filter(Boolean).sort(sortProducts);
 }

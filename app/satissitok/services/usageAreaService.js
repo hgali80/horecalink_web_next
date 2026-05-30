@@ -1,0 +1,15 @@
+export {
+  createUsageArea,
+  deleteUsageArea,
+  ensureUniqueUsageAreaSlug,
+  getUsageAreaById,
+  getUsageAreaBySlug,
+  getUsageAreaDescription,
+  getUsageAreaName,
+  listUsageAreas,
+  listUsageAreasEnsured,
+  normalizeUsageArea,
+  slugifyUsageArea,
+  updateUsageArea,
+  uploadUsageAreaImage,
+} from "@/app/lib/usageAreas";
