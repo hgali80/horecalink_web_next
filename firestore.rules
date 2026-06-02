@@ -176,6 +176,10 @@ service cloud.firestore {
       allow read, write: if isManager();
     }
 
+    match /commercial_offers/{offerId} {
+      allow read, write: if isManager();
+    }
+
     match /visit_logs/{logId} {
       allow create: if true;
       allow read: if isManager();

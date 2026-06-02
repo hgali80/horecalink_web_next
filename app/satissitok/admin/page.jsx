@@ -98,6 +98,14 @@ export default function SalesStockDashboard() {
           />
 
           <DashboardCard
+            title="Teklif Olustur"
+            desc="Admin tarafinda yeni ticari teklif hazirla"
+            href="/satissitok/admin/commercial-offers"
+            color="blue"
+            icon={<FileText />}
+          />
+
+          <DashboardCard
             title="Mesajlar"
             desc="Iletisim formundan gelen mesajlari oku"
             href="/satissitok/admin/contact-messages"
