@@ -804,9 +804,10 @@ export default function OfferEditor({ offerId = null }) {
 
             <div className="mb-5 grid grid-cols-2 border border-[#d7dee6]">
               <div className="border-r border-[#d7dee6] p-3 text-[15px]">
-                <div className="mb-1 text-[18px]">Поставщик:</div>
+                <div className="mb-1 text-[18px]">Исполнитель:</div>
                 <div>{form.seller.brandName}</div>
-                <div>Официальный поставщик: {form.seller.companyName}</div>
+                <div>Производство и оформление:</div>
+                <div>{form.seller.companyName}</div>
                 <div>БИН: {form.seller.bin}</div>
                 <div>{form.seller.address}</div>
               </div>
@@ -873,9 +874,8 @@ export default function OfferEditor({ offerId = null }) {
                   <span>Итого:</span>
                   <span>{formatMoney(calculated.totals.grandTotal)}</span>
                 </div>
-                <div className="mt-1 flex items-center justify-between text-[15px]">
-                  <span>В том числе НДС {form.vatRate}%:</span>
-                  <span>{formatMoney(calculated.totals.vatAmount)}</span>
+                <div className="mt-1 text-right text-[15px]">
+                  <span>{`В том числе НДС ${form.vatRate}%: ${formatMoney(calculated.totals.vatAmount)}`}</span>
                 </div>
               </div>
             </div>

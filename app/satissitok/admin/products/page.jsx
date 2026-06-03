@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Home, PlusCircle, Search } from "lucide-react";
@@ -15,8 +16,52 @@ const STATUS_FILTERS = [
   { key: "not_web", label: "Webde degil" },
 ];
 
+const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
+const PLACEHOLDER_IMAGE = "/Placeholder.png";
+
 function toStr(x) {
   return (x ?? "").toString();
+}
+
+function cleanText(value) {
+  if (value === null || value === undefined) return "";
+  const text = String(value).trim();
+  if (!text || text.toLowerCase() === "null") return "";
+  return text;
+}
+
+function getProductImageUrl(product) {
+  const imageNames = Array.isArray(product?.image_names)
+    ? product.image_names.filter(Boolean)
+    : [];
+  const imageName =
+    imageNames[0] ||
+    cleanText(product?.imageBase ? `${product.imageBase}` : "");
+
+  if (!imageName) return null;
+
+  return `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/product_images%2F${encodeURIComponent(
+    /\.[a-z0-9]+$/i.test(imageName) ? imageName : `${imageName}.jpg`
+  )}?alt=media`;
+}
+
+function ProductThumb({ product, alt }) {
+  const [imageError, setImageError] = useState(false);
+  const imageUrl = getProductImageUrl(product);
+  const src = !imageError && imageUrl ? imageUrl : PLACEHOLDER_IMAGE;
+
+  return (
+    <div className="relative h-12 w-12 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        unoptimized
+        onError={() => setImageError(true)}
+        className="object-contain p-1"
+      />
+    </div>
+  );
 }
 
 export default function AdminProductsPage() {
@@ -177,8 +222,9 @@ export default function AdminProductsPage() {
       ) : (
         <div className="border rounded-xl overflow-hidden">
           <div className="grid grid-cols-12 bg-gray-50 text-xs font-semibold text-gray-700 px-3 py-2">
+            <div className="col-span-1">Foto</div>
             <div className="col-span-2">Stok Kodu</div>
-            <div className="col-span-5">Urun</div>
+            <div className="col-span-4">Urun</div>
             <div className="col-span-2">Kategori</div>
             <div className="col-span-1 text-center">Web</div>
             <div className="col-span-1 text-center">Aktif</div>
@@ -189,11 +235,15 @@ export default function AdminProductsPage() {
             <Link
               key={p.id}
               href={`/satissitok/admin/products/${p.id}`}
-              className="grid grid-cols-12 px-3 py-2 text-sm border-t hover:bg-gray-50"
+              className="grid grid-cols-12 items-center px-3 py-2 text-sm border-t hover:bg-gray-50"
             >
+              <div className="col-span-1">
+                <ProductThumb product={p} alt={toStr(p.name) || toStr(p.name_tr) || "Urun"} />
+              </div>
+
               <div className="col-span-2 font-mono">{toStr(p.stock_code)}</div>
 
-              <div className="col-span-5">
+              <div className="col-span-4">
                 <div className="font-medium text-gray-900">{toStr(p.name)}</div>
                 <div className="text-xs text-gray-500">{toStr(p.name_tr)}</div>
               </div>
