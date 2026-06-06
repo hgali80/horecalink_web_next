@@ -7,6 +7,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 
 import {
@@ -331,6 +332,59 @@ export async function updateProduct(productId, raw) {
   });
 
   return id;
+}
+
+export async function updateProductFlags(productId, patch = {}) {
+  const id = toStr(productId);
+  if (!id) throw new Error("productId zorunlu.");
+
+  const updates = {
+    updatedAt: serverTimestamp(),
+  };
+
+  if (Object.prototype.hasOwnProperty.call(patch, "active")) {
+    updates.active = patch.active === true;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(patch, "webPublished")) {
+    updates.webPublished = patch.webPublished === true;
+  }
+
+  const ref = doc(db, "products", id);
+  await updateDoc(ref, updates);
+  return id;
+}
+
+export async function updateProductsFlags(productIds = [], patch = {}) {
+  const ids = Array.from(new Set((productIds || []).map(toStr).filter(Boolean)));
+  if (!ids.length) return [];
+
+  const chunkSize = 400;
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const batch = writeBatch(db);
+    const chunk = ids.slice(i, i + chunkSize);
+
+    for (const id of chunk) {
+      const ref = doc(db, "products", id);
+      const updates = {
+        updatedAt: serverTimestamp(),
+      };
+
+      if (Object.prototype.hasOwnProperty.call(patch, "active")) {
+        updates.active = patch.active === true;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(patch, "webPublished")) {
+        updates.webPublished = patch.webPublished === true;
+      }
+
+      batch.update(ref, updates);
+    }
+
+    await batch.commit();
+  }
+
+  return ids;
 }
 
 export async function listProductsAdmin() {
