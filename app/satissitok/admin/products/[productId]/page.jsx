@@ -9,7 +9,7 @@ import {
   Save,
   UploadCloud,
 } from "lucide-react";
-import { ref, getDownloadURL } from "firebase/storage";
+import { ref, getDownloadURL, listAll } from "firebase/storage";
 
 import { storage } from "@/firebase";
 import { useLang } from "@/app/context/LanguageContext";
@@ -86,6 +86,65 @@ function stringifyMeta(value) {
   } catch {
     return "{}";
   }
+}
+
+function cleanText(value) {
+  return (value ?? "").toString().trim();
+}
+
+function ensureImageExtension(value) {
+  const text = cleanText(value);
+  if (!text) return "";
+  return /\.[a-z0-9]+$/i.test(text) ? text : `${text}.jpg`;
+}
+
+function toImageStem(value) {
+  return ensureImageExtension(value).replace(/\.[a-z0-9]+$/i, "");
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getImageSortOrder(filename, stem) {
+  const exactPattern = new RegExp(`^${escapeRegex(stem)}\\.[a-z0-9]+$`, "i");
+  if (exactPattern.test(filename)) return 0;
+
+  const numberedMatch = filename.match(
+    new RegExp(`^${escapeRegex(stem)}-(\\d+)\\.[a-z0-9]+$`, "i")
+  );
+
+  if (!numberedMatch) return Number.MAX_SAFE_INTEGER;
+  return Number(numberedMatch[1]);
+}
+
+function sortImageNamesByStem(names, stems) {
+  const preferredStem = stems.find(Boolean) || "";
+
+  return [...names].sort((a, b) => {
+    const aOrder = getImageSortOrder(a, preferredStem);
+    const bOrder = getImageSortOrder(b, preferredStem);
+
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return a.localeCompare(b, "tr");
+  });
+}
+
+function getCandidateImageStems(form, productId) {
+  return Array.from(
+    new Set(
+      [
+        productId,
+        form?.stock_code,
+        form?.sku,
+        form?.manufacturerCode,
+        form?.imageBase,
+        form?.id,
+      ]
+        .map((value) => toImageStem(value))
+        .filter(Boolean)
+    )
+  );
 }
 
 function buildInitialForm(product) {
@@ -166,6 +225,12 @@ export default function ProductDetailEditPage() {
   const [form, setForm] = useState(null);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const formId = form?.id;
+  const formImageBase = form?.imageBase;
+  const formImageNames = form?.image_names;
+  const formManufacturerCode = form?.manufacturerCode;
+  const formSku = form?.sku;
+  const formStockCode = form?.stock_code;
 
   function set(k, v) {
     setForm((s) => ({ ...s, [k]: v }));
@@ -204,18 +269,62 @@ export default function ProductDetailEditPage() {
     let alive = true;
 
     async function loadPreviewUrls() {
-      const names = Array.isArray(form?.image_names) ? form.image_names : [];
-
-      if (!names.length) {
-        setImagePreviews([]);
-        return;
-      }
+      const names = Array.isArray(formImageNames)
+        ? formImageNames.map((name) => ensureImageExtension(name)).filter(Boolean)
+        : [];
 
       try {
         setPreviewLoading(true);
 
+        const stems = getCandidateImageStems(
+          {
+            id: formId,
+            imageBase: formImageBase,
+            manufacturerCode: formManufacturerCode,
+            sku: formSku,
+            stock_code: formStockCode,
+          },
+          productId
+        );
+        let storageItems = { items: [] };
+        if (stems.length) {
+          try {
+            storageItems = await listAll(ref(storage, "product_images"));
+          } catch {
+            storageItems = { items: [] };
+          }
+        }
+        const discoveredGroups = stems.map((stem) => {
+          const pattern = new RegExp(
+            `^${escapeRegex(stem)}(?:-(\\d+))?\\.[a-z0-9]+$`,
+            "i"
+          );
+
+          return storageItems.items
+            .map((item) => item.name)
+            .filter((itemName) => pattern.test(itemName));
+        });
+
+        const mergedNames = sortImageNamesByStem(
+          Array.from(new Set([...names, ...discoveredGroups.flat()])),
+          stems
+        );
+
+        if (!mergedNames.length) {
+          if (!alive) return;
+          setImagePreviews([]);
+          return;
+        }
+
+        if (alive && (
+          mergedNames.length !== names.length ||
+          mergedNames.some((name, index) => name !== names[index])
+        )) {
+          set("image_names", mergedNames);
+        }
+
         const results = await Promise.all(
-          names.map(async (name) => {
+          mergedNames.map(async (name) => {
             try {
               const fileRef = ref(storage, `product_images/${name}`);
               const url = await getDownloadURL(fileRef);
@@ -243,7 +352,15 @@ export default function ProductDetailEditPage() {
     return () => {
       alive = false;
     };
-  }, [form?.image_names]);
+  }, [
+    formId,
+    formImageBase,
+    formImageNames,
+    formManufacturerCode,
+    formSku,
+    formStockCode,
+    productId,
+  ]);
 
   async function onUploadPhotos() {
     if (!form) return;

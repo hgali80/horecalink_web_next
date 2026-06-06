@@ -827,18 +827,16 @@ export default function OfferEditor({ offerId = null }) {
             <table className="mb-4 w-full border-collapse text-[13px]">
               <colgroup>
                 <col style={{ width: "28px" }} />
-                <col style={{ width: "96px" }} />
-                <col style={{ width: "155px" }} />
+                <col style={{ width: "132px" }} />
                 <col />
                 <col style={{ width: "56px" }} />
                 <col style={{ width: "96px" }} />
-                <col style={{ width: "116px" }} />
+                <col style={{ width: "110px" }} />
               </colgroup>
               <thead>
                 <tr className="bg-[#22364d] text-white">
                   <th className="border border-[#cfd7df] px-2 py-3">№</th>
                   <th className="border border-[#cfd7df] px-2 py-3">Фото</th>
-                  <th className="border border-[#cfd7df] px-2 py-3">Наименование</th>
                   <th className="border border-[#cfd7df] px-2 py-3">Характеристики</th>
                   <th className="border border-[#cfd7df] px-2 py-3">Кол-во</th>
                   <th className="border border-[#cfd7df] px-2 py-3">Цена</th>
@@ -851,12 +849,13 @@ export default function OfferEditor({ offerId = null }) {
                     <td className="border border-[#d7dee6] px-2 py-3 align-middle">{index + 1}</td>
                     <td className="border border-[#d7dee6] px-2 py-3 align-middle">
                       <div className="flex items-center justify-center">
-                        <ProductImage src={item.imageUrl} alt={item.name || "Product"} sizeClass="w-[74px]" />
+                        <ProductImage src={item.imageUrl} alt={item.name || "Product"} sizeClass="w-[102px]" />
                       </div>
                     </td>
-                    <td className="border border-[#d7dee6] px-2 py-3 align-middle text-[14px] leading-[1.2]">{item.name}</td>
                     <td className="border border-[#d7dee6] px-2 py-3 align-middle whitespace-pre-line text-[14px]">
-                      {item.description}
+                      <div className="mb-2 text-[16px] font-extrabold leading-[1.15] text-[#22364d]">{item.name}</div>
+                      {item.sku ? <div className="mb-2 text-[13px] font-semibold leading-[1.1] text-[#475569]">{item.sku}</div> : null}
+                      <div>{item.description}</div>
                     </td>
                     <td className="border border-[#d7dee6] px-2 py-3 align-middle whitespace-nowrap text-[14px]">
                       {item.quantity} {item.unit}

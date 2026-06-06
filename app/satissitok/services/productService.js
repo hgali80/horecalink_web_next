@@ -38,7 +38,7 @@ function csvToArr(x, { suffix = "" } = {}) {
   const s = toStr(x);
   if (!s) return [];
   return s
-    .split(",")
+    .split(/[\n,;]+/)
     .map((t) => t.trim())
     .filter(Boolean)
     .map((t) => {
@@ -126,7 +126,9 @@ function normalizeAdminProductRecord(id, raw = {}) {
     productType: toStr(raw.productType) || "sale_item",
     unit: toStr(raw.unit),
     brand: toStr(raw.brand),
-    image_names: Array.isArray(raw.image_names) ? raw.image_names.map(toStr).filter(Boolean) : [],
+    image_names: Array.isArray(raw.image_names)
+      ? raw.image_names.map(toStr).filter(Boolean)
+      : csvToArr(raw.image_names, { suffix: ".jpg" }),
     binding_codes: Array.isArray(raw.binding_codes)
       ? raw.binding_codes.map(toStr).filter(Boolean)
       : csvToArr(raw.binding_codes),
