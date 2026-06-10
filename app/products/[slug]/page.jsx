@@ -93,6 +93,14 @@ function buildProductJsonLd(product) {
   const category = [cleanText(product?.group), cleanText(product?.category), cleanText(product?.subcategory)]
     .filter(Boolean)
     .join(" > ");
+  const hasValidOffer = Number.isFinite(price) && price > 0;
+
+  // Only emit Product rich-result markup when we have the minimum data Google
+  // expects for eligible product snippets. Otherwise Search Console reports a
+  // critical schema error for pages that intentionally hide pricing.
+  if (!hasValidOffer) {
+    return null;
+  }
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -125,17 +133,14 @@ function buildProductJsonLd(product) {
         name,
         value,
       })),
-    offers:
-      Number.isFinite(price) && price > 0
-        ? {
-            "@type": "Offer",
-            url: getProductUrl(product),
-            priceCurrency: "KZT",
-            price: String(price),
-            availability: "https://schema.org/InStock",
-            itemCondition: "https://schema.org/NewCondition",
-          }
-        : undefined,
+    offers: {
+      "@type": "Offer",
+      url: getProductUrl(product),
+      priceCurrency: "KZT",
+      price: String(price),
+      availability: "https://schema.org/InStock",
+      itemCondition: "https://schema.org/NewCondition",
+    },
   };
 
   return jsonLd;
@@ -206,10 +211,12 @@ export default async function ProductDetailPage({ params }) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
-      />
+      {productJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        />
+      ) : null}
       <ProductDetailClient product={hydratedProduct} relatedProducts={relatedProducts} />
     </>
   );
