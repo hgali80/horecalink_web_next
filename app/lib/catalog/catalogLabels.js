@@ -206,10 +206,70 @@ const SUBCATEGORY_KEY_ALIASES = {
   "koli-bantlari": "packing_tapes",
 };
 
+function normalizeLookupValue(value) {
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("tr")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_\s]+/g, "-")
+    .replace(/-+/g, "-");
+}
+
 function prettifyKey(value) {
   return String(value || "")
     .replace(/[-_]+/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+const GROUP_KEY_ALTERNATIVES = new Map([
+  ["stainless", "paslanmaz"],
+  ["stainless-steel", "paslanmaz"],
+  ["stainless_steel", "paslanmaz"],
+  ["paslanmaz", "paslanmaz"],
+  ["paslanmaz-ekipmanlar", "paslanmaz"],
+  ["equipment", "equipment"],
+  ["ekipman", "equipment"],
+  ["institutional", "institutional"],
+  ["kurumsal", "institutional"],
+  ["kurumsal-urunler", "institutional"],
+]);
+
+const categoryKeyIndex = new Map();
+const subcategoryKeyIndex = new Map();
+
+for (const [subcategoryKey, item] of Object.entries(categoryMap)) {
+  const categoryKey = String(item?.categoryKey || "").trim();
+  const groupKey = String(item?.groupKey || "").trim();
+  const categoryLabel = String(item?.categoryLabel || "").trim();
+  const subLabel = String(item?.subLabel || "").trim();
+
+  if (categoryKey) {
+    categoryKeyIndex.set(normalizeLookupValue(categoryKey), categoryKey);
+  }
+
+  if (categoryLabel) {
+    categoryKeyIndex.set(normalizeLookupValue(categoryLabel), categoryKey);
+  }
+
+  if (subcategoryKey) {
+    subcategoryKeyIndex.set(normalizeLookupValue(subcategoryKey), subcategoryKey);
+  }
+
+  if (subLabel) {
+    subcategoryKeyIndex.set(normalizeLookupValue(subLabel), subcategoryKey);
+  }
+
+  if (groupKey) {
+    GROUP_KEY_ALTERNATIVES.set(normalizeLookupValue(groupKey), normalizeCatalogGroupKey(groupKey));
+  }
+
+  if (item?.groupLabel) {
+    GROUP_KEY_ALTERNATIVES.set(
+      normalizeLookupValue(item.groupLabel),
+      normalizeCatalogGroupKey(groupKey)
+    );
+  }
 }
 
 function translateKey(t, key) {
@@ -248,7 +308,10 @@ export function getMainCategoryLabel({ t, lang, categoryKey, fallback }) {
     if (aliased) return aliased;
   }
 
-  return getFallbackLabel(lang, categoryKey, fallback);
+  const mapFallback =
+    Object.values(categoryMap).find((item) => item?.categoryKey === categoryKey)?.categoryLabel || "";
+
+  return getFallbackLabel(lang, categoryKey, fallback || mapFallback);
 }
 
 export function getSubcategoryLabel({ t, lang, subcategoryKey, fallback }) {
@@ -265,7 +328,9 @@ export function getSubcategoryLabel({ t, lang, subcategoryKey, fallback }) {
     if (aliased) return aliased;
   }
 
-  return getFallbackLabel(lang, subcategoryKey, fallback);
+  const mapFallback = categoryMap[subcategoryKey]?.subLabel || "";
+
+  return getFallbackLabel(lang, subcategoryKey, fallback || mapFallback);
 }
 
 function readKnownKey(...values) {
@@ -280,13 +345,37 @@ function readKnownKey(...values) {
 }
 
 export function normalizeCatalogGroupKey(value) {
-  const key = String(value || "").trim();
-  if (key === "stainless_steel" || key === "stainless") return "paslanmaz";
-  return key;
+  const normalized = normalizeLookupValue(value);
+  return GROUP_KEY_ALTERNATIVES.get(normalized) || String(value || "").trim();
+}
+
+function resolveKnownCategoryKey(...values) {
+  for (const value of values) {
+    const exact = String(value || "").trim();
+    if (exact && categoryKeyIndex.has(normalizeLookupValue(exact))) {
+      return categoryKeyIndex.get(normalizeLookupValue(exact));
+    }
+  }
+
+  return "";
+}
+
+function resolveKnownSubcategoryKey(...values) {
+  const exactKey = readKnownKey(...values);
+  if (exactKey) return exactKey;
+
+  for (const value of values) {
+    const exact = String(value || "").trim();
+    if (exact && subcategoryKeyIndex.has(normalizeLookupValue(exact))) {
+      return subcategoryKeyIndex.get(normalizeLookupValue(exact));
+    }
+  }
+
+  return "";
 }
 
 export function resolveProductCategoryKeys(product) {
-  const subcategoryKey = readKnownKey(
+  const subcategoryKey = resolveKnownSubcategoryKey(
     product?.subcategoryKey,
     product?.sub_category,
     product?.subcategory
@@ -294,15 +383,36 @@ export function resolveProductCategoryKeys(product) {
 
   if (subcategoryKey) {
     const item = categoryMap[subcategoryKey];
-      return {
+    return {
       groupKey: normalizeCatalogGroupKey(item?.groupKey || product?.groupKey || product?.group),
       categoryKey: String(item?.categoryKey || product?.categoryKey || product?.main_category || "").trim(),
       subcategoryKey,
     };
   }
 
+  const categoryKey = resolveKnownCategoryKey(
+    product?.categoryKey,
+    product?.main_category,
+    product?.category
+  );
+  const groupKey = normalizeCatalogGroupKey(product?.groupKey || product?.group);
+
+  if (categoryKey) {
+    const inferredGroup =
+      groupKey ||
+      normalizeCatalogGroupKey(
+        Object.values(categoryMap).find((item) => item?.categoryKey === categoryKey)?.groupKey
+      );
+
+    return {
+      groupKey: inferredGroup,
+      categoryKey,
+      subcategoryKey: "",
+    };
+  }
+
   return {
-    groupKey: normalizeCatalogGroupKey(product?.groupKey || product?.group),
+    groupKey,
     categoryKey: String(product?.categoryKey || product?.main_category || product?.category || "").trim(),
     subcategoryKey: "",
   };

@@ -705,10 +705,6 @@ for (const [lang, table] of Object.entries(localeTables)) {
   }
 
   setValue(table, "category.group.stainless_steel", groupTranslations.paslanmaz[lang]);
-  setValue(table, "categoryGrid.main.accessories", groupTranslations.accessories[lang]);
-  setValue(table, "categoryTabs.accessories", groupTranslations.accessories[lang]);
-  setValue(table, "catalog.groupCards.accessories", extraCatalogCopy.accessories.groupCard[lang]);
-  setValue(table, "catalog.groupCardsCta.accessories", extraCatalogCopy.accessories.cta[lang]);
 
   for (const [mainKey, labels] of Object.entries(mainTranslations)) {
     setValue(table, `category.main.${mainKey}`, labels[lang]);

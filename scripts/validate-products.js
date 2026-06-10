@@ -15,7 +15,6 @@ const ALLOWED_GROUP_KEYS = new Set([
   "institutional",
   "equipment",
   "stainless",
-  "accessories",
 ]);
 
 const REQUIRED_FIELDS = [

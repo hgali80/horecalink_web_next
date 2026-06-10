@@ -10,7 +10,6 @@ const GROUPS = [
   { key: "institutional", fallback: "Temizlik & Hijyen" },
   { key: "equipment", fallback: "Mutfak Ekipmanları" },
   { key: "paslanmaz", fallback: "Paslanmaz Ekipmanlar" },
-  { key: "accessories", fallback: "Aksesuar" },
 ];
 
 export default function CategoryTabs({ selectedGroup, onSelectGroup }) {

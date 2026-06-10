@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BriefcaseBusiness, Building2, ChefHat, ChevronRight, Wrench } from "lucide-react";
+import { BriefcaseBusiness, Building2, ChefHat, ChevronRight } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
 import { getGroupLabel } from "../lib/catalog/catalogLabels";
 
@@ -29,14 +29,6 @@ const groups = [
     href: "/catalog/paslanmaz",
     icon: ChefHat,
     fallback: "Paslanmaz Ekipmanlar",
-  },
-  {
-    key: "accessories",
-    href: "/catalog/accessories",
-    icon: Wrench,
-    fallback: "Aksesuar",
-    fallbackDescription: "Yedek parca ve cihaz aksesuarlarini tek bir katalog altinda bulun.",
-    fallbackCta: "Urunleri Gor",
   },
 ];
 

@@ -1,8 +1,8 @@
 // app/data/categoryData.js
 
 export const categoryData = {
-  institutional: {
-    mainCategories: {
+  "institutional": {
+    "mainCategories": {
       "cleaning-chemicals": [
         "cam-temizlik-urunleri",
         "camasirhane-urunleri",
@@ -18,7 +18,7 @@ export const categoryData = {
         "yuzey-temizlik-bezleri",
         "zemin-temizlik-ekipmanlari"
       ],
-      dispensers: [
+      "dispensers": [
         "airfresh-dispenserleri",
         "kagit-havlu-dispenseri",
         "klozet-kapagi-kagidi-dispenserleri",
@@ -70,42 +70,127 @@ export const categoryData = {
       ]
     }
   },
-  equipment: {
-    mainCategories: {
-      "beverage-equipment": [
-        "tea-coffee-dispensers"
+  "equipment": {
+    "mainCategories": {
+      "hazirlik-ekipmanlari": [
+        "sebze-dograma-makineleri",
+        "et-kiyma-makineleri",
+        "et-kemik-testereleri",
+        "hamur-acma-makineleri",
+        "hamburger-kofte-presleri",
+        "patates-kesme-makineleri",
+        "el-blenderleri"
       ],
-      "cooking-equipment": [
-        "cookers-grills"
+      "hijyen-ve-sterilizasyon-ekipmanlari": [
+        "bicak-sterilizatorleri"
       ],
-      cookware: [
-        "pots-pans"
+      "pisirme-ekipmanlari": [
+        "doner-ocaklari",
+        "fritozler",
+        "kontakt-grill-tost-makineleri",
+        "pleyt-izgaralar",
+        "waffle-makineleri",
+        "krep-pankek-makineleri",
+        "sosisli-roller-grill",
+        "hot-dog-makineleri",
+        "makarna-haslama-makineleri",
+        "gazli-ocaklar",
+        "induksiyon-ocaklari",
+        "salamander-izgaralar"
       ],
-      "prep-equipment": [
-        "food-prep-machines"
+      "bicaklar-ve-kesici-el-aletleri": [
+        "doner-bicaklari",
+        "et-ve-kasap-bicaklari",
+        "sef-bicaklari",
+        "kasap-satirlari-ve-ozel-kesiciler",
+        "balik-bicaklari",
+        "mutfak-bicaklari",
+        "pasta-pizza-bicak-ve-spatulalari",
+        "bicak-bakim-ve-saklama"
       ],
-      "prep-stations": [
-        "worktables-stands"
+      "yedek-parca-ve-aksesuarlar": [
+        "doner-ocagi-yedek-parcalari",
+        "fritoz-yedek-parcalari",
+        "kontakt-grill-yedek-parcalari",
+        "izgara-pleyt-yedek-parcalari",
+        "cay-kazani-boiler-yedek-parcalari",
+        "patates-kesme-makinesi-bicaklari",
+        "et-isleme-makinesi-yedek-parcalari"
       ],
-      "prep-tools": [
-        "cutting-boards",
-        "knives",
-        "utensils"
+      "sicak-tutma-ve-servis-ekipmanlari": [
+        "patates-sicak-tutma-ekipmanlari",
+        "marmitler",
+        "corba-kazanlari"
       ],
-      refrigeration: [
-        "coolers-ice-machines"
+      "cay-kahve-ve-icecek-ekipmanlari": [
+        "cay-makineleri",
+        "su-boilerleri",
+        "kahve-ekipmanlari",
+        "slush-makineleri",
+        "meyve-suyu-sogutuculari",
+        "ayran-makineleri"
       ],
-      "service-tools": [
-        "dispensers-containers",
-        "gastronorm-pans"
+      "bakir-urunler-ve-sunum-ekipmanlari": [
+        "bakir-sunum-urunleri",
+        "bakir-tavalar",
+        "bakir-cezveler"
       ],
-      "washing-equipment": [
-        "dishwashers-sterilizers"
+      "bulasik-ve-bar-ekipmanlari": [
+        "bulasik-makineleri",
+        "on-yikama-duslari",
+        "bulasik-makinesi-sepetleri",
+        "bar-rinser-ekipmanlari",
+        "buz-makineleri"
+      ],
+      "servis-ve-mutfak-el-aletleri": [
+        "spatula-ve-kaziyicilar",
+        "et-dovme-ekipmanlari",
+        "et-ve-kebap-yardimci-ekipmanlari",
+        "sarimsak-eziciler",
+        "cirpicilar",
+        "kepceler",
+        "kevgir-kepceler",
+        "elek-ve-suzgecler",
+        "sut-urunleri-suzgecleri",
+        "servis-kasik-catal-spatulalari",
+        "servis-masalari",
+        "rendeler",
+        "kurek-ve-savaklar",
+        "buz-kaplari",
+        "olcu-kaplari"
+      ],
+      "gn-kaplar-ve-saklama-ekipmanlari": [
+        "paslanmaz-gn-kaplar",
+        "gn-kapaklari",
+        "polikarbon-gn-kaplar",
+        "gn-suzgec-kaplari"
+      ],
+      "kesim-levhalari-ve-tezgah-ustleri": [
+        "kesim-tahtalari-ve-aksesuarlari",
+        "polietilen-tablalar",
+        "mermer-tablalar"
+      ],
+      "sos-baharat-ve-servis-dispenserleri": [
+        "baharat-saklama-kaplari",
+        "sos-dispenserleri",
+        "sos-siseleri",
+        "yag-siseleri",
+        "tuzluk-ve-biberlikler"
+      ],
+      "tencere-tava-ve-pisirme-kaplari": [
+        "tencereler",
+        "silindirik-tencereler",
+        "suzgecler",
+        "mayonez-kaplari",
+        "tavalar",
+        "krep-tavalari",
+        "wok-tavalar",
+        "sos-tencereleri"
       ]
     }
   },
-  paslanmaz: {
-    mainCategories: {
+  "paslanmaz": {
+    "mainCategories": {
       "aspirator-ve-aydinlatma-sistemleri": [
         "ada-tipi-davlumbaz",
         "aspirator-aydinlatmasi",
@@ -122,7 +207,7 @@ export const categoryData = {
         "bulasik-makinesi-giris-tezgahlari",
         "bulasik-siyirma-tezgahlari"
       ],
-      dolaplar: [
+      "dolaplar": [
         "depolama-dolabi",
         "ekmek-dolabi"
       ],
@@ -177,7 +262,7 @@ export const categoryData = {
         "tabak-arabasi",
         "tepsi-arabalari"
       ],
-      tezgahlar: [
+      "tezgahlar": [
         "dolapli-tezgah-carpma-kapi",
         "dolapli-tezgah-surgulu-kapi",
         "duz-tezgahlar",
@@ -189,13 +274,6 @@ export const categoryData = {
         "tezgahlar-1-cekmeceli",
         "tezgahlar-cekmece-blogu",
         "tezgahlar-tekerlekli"
-      ]
-    }
-  },
-  accessories: {
-    mainCategories: {
-      "spare-parts": [
-        "equipment-accessories"
       ]
     }
   }
