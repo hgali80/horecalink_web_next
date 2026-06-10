@@ -1,6 +1,7 @@
 // app/lib/catalog/catalogLabels.js
 
 import { categoryMap } from "../../data/categoryMap";
+import { categoryTranslationOverrides } from "./catalogTranslationOverrides";
 
 const LABELS_BY_LANG = {
   accessories: {
@@ -282,7 +283,14 @@ function getFallbackLabel(lang, key, fallback) {
   return LABELS_BY_LANG[key]?.[lang] || fallback || prettifyKey(key);
 }
 
+function getOverrideLabel(scope, key, lang) {
+  return categoryTranslationOverrides?.[scope]?.[key]?.[lang] || "";
+}
+
 export function getGroupLabel({ t, lang, groupKey, fallback }) {
+  const override = getOverrideLabel("group", groupKey, lang);
+  if (override) return override;
+
   const direct = translateKey(t, `category.group.${groupKey}`);
   if (direct) return direct;
 
@@ -296,6 +304,9 @@ export function getGroupLabel({ t, lang, groupKey, fallback }) {
 }
 
 export function getMainCategoryLabel({ t, lang, categoryKey, fallback }) {
+  const override = getOverrideLabel("main", categoryKey, lang);
+  if (override) return override;
+
   const direct = translateKey(t, `category.main.${categoryKey}`);
   if (direct) return direct;
 
@@ -315,6 +326,9 @@ export function getMainCategoryLabel({ t, lang, categoryKey, fallback }) {
 }
 
 export function getSubcategoryLabel({ t, lang, subcategoryKey, fallback }) {
+  const override = getOverrideLabel("sub", subcategoryKey, lang);
+  if (override) return override;
+
   const direct =
     translateKey(t, `categories.sub.${subcategoryKey}`) ||
     translateKey(t, `category.sub.${subcategoryKey}`);
