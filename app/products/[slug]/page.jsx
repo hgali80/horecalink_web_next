@@ -35,6 +35,14 @@ function getProductDescription(product) {
   );
 }
 
+function getProductSeoTitle(product) {
+  return cleanText(product?.seoTitle) || getProductName(product);
+}
+
+function getProductMetaDescription(product) {
+  return cleanText(product?.metaDescription) || getProductDescription(product);
+}
+
 function getProductCode(product) {
   return (
     cleanText(product?.stock_code) ||
@@ -84,7 +92,7 @@ function getKeywordList(product) {
 
 function buildProductJsonLd(product) {
   const name = getProductName(product);
-  const description = getProductDescription(product);
+  const description = getProductMetaDescription(product);
   const image = getImageUrls(product);
   const sku = getProductCode(product);
   const price = Number(product?.price);
@@ -161,8 +169,8 @@ export async function generateMetadata({ params }) {
   }
 
   const hydratedProduct = await hydrateProductImageNames(product);
-  const title = getProductName(hydratedProduct);
-  const description = getProductDescription(hydratedProduct);
+  const title = getProductSeoTitle(hydratedProduct);
+  const description = getProductMetaDescription(hydratedProduct);
   const canonical = getProductUrl(hydratedProduct);
   const images = getImageUrls(hydratedProduct);
   const keywords = getKeywordList(hydratedProduct);

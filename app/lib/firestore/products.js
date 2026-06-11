@@ -157,6 +157,8 @@ function normalizeProduct(doc) {
     description: cleanText(data.description),
     specs: cleanText(data.specs),
     highlightLines: cleanText(data.highlightLines),
+    seoTitle: cleanText(data.seoTitle),
+    metaDescription: cleanText(data.metaDescription),
     material: cleanText(data.material),
     packQty: Number.isFinite(Number(data.packQty)) ? Number(data.packQty) : null,
     caseQty: Number.isFinite(Number(data.caseQty)) ? Number(data.caseQty) : null,
