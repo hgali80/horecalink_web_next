@@ -16,6 +16,7 @@ import {
 import ProductCard from "./ProductCard";
 import { buildCatalogTree } from "../lib/catalog/categoryTree";
 import { getCatalogLabels } from "../lib/catalog/categoryLabels";
+import { getCatalogSeoContent } from "../lib/catalog/catalogSeoContent";
 import { getCatalogProducts } from "../lib/firestore/products";
 import { useLang } from "../context/LanguageContext";
 import { normalizeCatalogGroupKey } from "../lib/catalog/catalogLabels";
@@ -110,6 +111,10 @@ export default function CatalogListingClient({
     () => getCatalogLabels({ group: normalizedGroup, category, subcategory, t, lang }),
     [category, lang, normalizedGroup, subcategory, t]
   );
+  const seoContent = useMemo(
+    () => getCatalogSeoContent({ lang, labels, category, subcategory }),
+    [lang, labels, category, subcategory]
+  );
 
   const searchValue = searchParams.get("q") || "";
   const sortValue = searchParams.get("sort") || "sort_order";
@@ -201,11 +206,7 @@ export default function CatalogListingClient({
       ? labels.categoryLabel
       : labels.groupLabel;
 
-  const pageDescription = subcategory
-    ? t("catalog.subcategoryDescription")
-    : category
-      ? t("catalog.categoryDescription")
-      : t("catalog.groupDescription");
+  const pageDescription = seoContent.intro;
 
   const sidebar = (
     <div className="space-y-6">
@@ -483,6 +484,34 @@ export default function CatalogListingClient({
                     </button>
                   </div>
                 ) : null}
+
+                <div className="mt-12 space-y-4">
+                  <details className="rounded-[28px] bg-white px-6 py-5 shadow-[0_18px_50px_rgba(29,50,70,0.06)]">
+                    <summary className="cursor-pointer list-none text-[15px] font-extrabold text-[#12263a]">
+                      {seoContent.detailsTitle}
+                    </summary>
+                    <p className="mt-4 max-w-[900px] text-[14px] leading-7 text-slate-600">
+                      {seoContent.detailsBody}
+                    </p>
+                  </details>
+
+                  <div className="rounded-[28px] bg-white px-6 py-5 shadow-[0_18px_50px_rgba(29,50,70,0.06)]">
+                    <h2 className="text-[15px] font-extrabold text-[#12263a]">{seoContent.faqTitle}</h2>
+                    <div className="mt-4 space-y-3">
+                      {seoContent.faqs.map((item) => (
+                        <details
+                          key={item.q}
+                          className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                        >
+                          <summary className="cursor-pointer list-none text-[14px] font-bold text-[#12263a]">
+                            {item.q}
+                          </summary>
+                          <p className="mt-3 text-[14px] leading-7 text-slate-600">{item.a}</p>
+                        </details>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </>
             ) : (
               <div className="rounded-[28px] bg-white px-8 py-16 text-center shadow-[0_18px_60px_rgba(29,50,70,0.06)]">
