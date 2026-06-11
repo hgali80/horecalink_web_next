@@ -1,43 +1,45 @@
-// app/layout.tsx
 import "./globals.css";
 import type { ReactNode } from "react";
 
 import Header from "./components/Header";
 import VisitorTracker from "./components/VisitorTracker";
-
 import { AuthProvider } from "./context/AuthContext";
 import { LanguageProvider } from "./context/LanguageContext";
+import { getBaseUrl, getGoogleSiteVerification } from "./lib/server/siteConfig";
+
+const baseUrl = getBaseUrl();
+const googleSiteVerification = getGoogleSiteVerification();
 
 export const metadata = {
-  metadataBase: new URL("https://horecalink.kz"),
+  metadataBase: new URL(baseUrl),
   title: {
     default: "HorecaLink",
     template: "%s | HorecaLink",
   },
   description:
-    "HorecaLink.kz - B2B платформа для гостиниц, ресторанов и кафе в Казахстане: профессиональное оборудование, проектные решения, расходные материалы и поставки для HoReCa.",
+    "HorecaLink.kz B2B HoReCa platformudur. Otel, restoran ve kafe ekipmanlari, proje cozumleri ve profesyonel tedarik hizmetleri sunar.",
   applicationName: "HorecaLink",
-  alternates: {
-    canonical: "/",
-  },
   robots: {
     index: true,
     follow: true,
   },
+  verification: {
+    google: googleSiteVerification || undefined,
+  },
   openGraph: {
     type: "website",
-    url: "https://horecalink.kz",
+    url: baseUrl,
     siteName: "HorecaLink",
     title: "HorecaLink",
     description:
-      "B2B платформа для гостиниц, ресторанов и кафе в Казахстане: оборудование, проектные решения и профессиональные поставки для HoReCa.",
+      "Kazakhstan genelinde HoReCa profesyonelleri icin ekipman, proje ve tedarik platformu.",
     locale: "ru_KZ",
   },
   twitter: {
     card: "summary_large_image",
     title: "HorecaLink",
     description:
-      "B2B платформа для гостиниц, ресторанов и кафе в Казахстане: оборудование, проектные решения и профессиональные поставки для HoReCa.",
+      "Kazakhstan genelinde HoReCa profesyonelleri icin ekipman, proje ve tedarik platformu.",
   },
   manifest: "/site.webmanifest",
   icons: {

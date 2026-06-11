@@ -2,8 +2,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "../../../firebase";
 import { getAdminServices } from "./firebaseAdmin";
-
-const BASE_URL = "https://horecalink.kz";
+import { getBaseUrl as getConfiguredBaseUrl } from "./siteConfig";
 
 function cleanText(value) {
   if (value === null || value === undefined) return "";
@@ -95,7 +94,7 @@ function xmlResponse(body) {
 }
 
 export function getBaseUrl() {
-  return BASE_URL;
+  return getConfiguredBaseUrl();
 }
 
 export function getTodayDate() {
