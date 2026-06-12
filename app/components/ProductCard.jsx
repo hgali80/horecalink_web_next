@@ -61,17 +61,27 @@ function getProductCode(product) {
   );
 }
 
+function ensureImageExtension(value) {
+  const text = cleanText(value);
+  if (!text) return "";
+  return /\.[a-z0-9]+$/i.test(text) ? text : `${text}.jpg`;
+}
+
 function getImageUrl(product) {
   const imageNames = Array.isArray(product?.image_names)
-    ? product.image_names.filter(Boolean)
+    ? product.image_names.map((item) => ensureImageExtension(item)).filter(Boolean)
     : [];
-  const imageName =
-    imageNames[0] ||
-    cleanText(product?.imageBase ? `${product.imageBase}` : "");
+  const fallbackImageName =
+    ensureImageExtension(product?.imageBase) ||
+    ensureImageExtension(product?.stock_code) ||
+    ensureImageExtension(product?.sku) ||
+    ensureImageExtension(product?.manufacturerCode) ||
+    ensureImageExtension(product?.id);
+  const imageName = imageNames[0] || fallbackImageName;
   if (!imageName) return null;
 
   return `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/product_images%2F${encodeURIComponent(
-    /\.[a-z0-9]+$/i.test(imageName) ? imageName : `${imageName}.jpg`
+    imageName
   )}?alt=media`;
 }
 

@@ -1,11 +1,15 @@
 
 > horecalink_web_next@0.1.0 dev
-> next dev --hostname 127.0.0.1 --port 3001
+> next dev
 
    ▲ Next.js 15.5.14
-   - Local:        http://127.0.0.1:3001
-   - Network:      http://127.0.0.1:3001
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.0.5:3000
    - Environments: .env.local
 
  ✓ Starting...
- ✓ Ready in 399.1s
+ ✓ Ready in 3.1s
+ ○ Compiling /products/[slug] ...
+ ✓ Compiled /products/[slug] in 5.5s (1098 modules)
+ GET /products/gubka-dlya-mytya-posudy-ay-zere-mega-max-6-sht 200 in 26420ms
+ GET /products/gubka-dlya-mytya-posudy-ay-zere-mega-max-6-sht 200 in 2722ms
