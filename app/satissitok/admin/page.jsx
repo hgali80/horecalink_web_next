@@ -2,14 +2,8 @@
 
 import Link from "next/link";
 import {
-  ShoppingCart,
-  PlusCircle,
+  Boxes,
   Package,
-  Settings,
-  ClipboardList,
-  Users,
-  Wallet,
-  BarChart3,
   ShieldCheck,
   FileText,
   FileSpreadsheet,
@@ -36,7 +30,7 @@ export default function SalesStockDashboard() {
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">Satis & Stok Yonetimi</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Yonetim Paneli</h1>
 
         {user ? (
           <div className="text-sm text-slate-600">
@@ -48,45 +42,15 @@ export default function SalesStockDashboard() {
       <VisitorStatsPanel />
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold text-gray-800">Hizli Islemler</h2>
-
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <DashboardCard
-            title="Yeni Satis"
-            desc="Yeni satis faturasi olustur"
-            href="/satissitok/admin/sales/new"
-            color="green"
-            icon={<PlusCircle />}
-          />
-
-          <DashboardCard
-            title="Yeni Satinalma"
-            desc="Yeni satinalma faturasi gir"
-            href="/satissitok/admin/purchases/new"
-            color="blue"
-            icon={<PlusCircle />}
-          />
-        </div>
-      </section>
-
-      <section>
         <h2 className="mb-3 text-lg font-semibold text-gray-800">Yonetim</h2>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-6">
           <DashboardCard
-            title="Satislar"
-            desc="Satis faturalarini listele"
-            href="/satissitok/admin/sales"
+            title="ERP Modulu"
+            desc="Yeni satis, satinalma, stok, cari, finans ve rapor yapisina tek yerden gir"
+            href="/satissitok/admin/erp"
             color="green"
-            icon={<ShoppingCart />}
-          />
-
-          <DashboardCard
-            title="Satinalmalar"
-            desc="Satinalma kayitlarini goruntule"
-            href="/satissitok/admin/purchases"
-            color="blue"
-            icon={<ClipboardList />}
+            icon={<Boxes />}
           />
 
           <DashboardCard
@@ -114,22 +78,6 @@ export default function SalesStockDashboard() {
           />
 
           <DashboardCard
-            title="Cariler"
-            desc="Musteri ve tedarikci kartlari"
-            href="/satissitok/admin/cari"
-            color="orange"
-            icon={<Users />}
-          />
-
-          <DashboardCard
-            title="Stok"
-            desc="Stok durumunu ve hareketleri izle"
-            href="/satissitok/admin/stock"
-            color="purple"
-            icon={<Package />}
-          />
-
-          <DashboardCard
             title="Urunler"
             desc="Urun listesi, yeni urun olustur, duzenle"
             href="/satissitok/admin/products"
@@ -154,30 +102,6 @@ export default function SalesStockDashboard() {
               icon={<FileSpreadsheet />}
             />
           ) : null}
-
-          <DashboardCard
-            title="Ayarlar"
-            desc="Birim, vergi ve sistem ayarlari"
-            href="/satissitok/admin/settings"
-            color="gray"
-            icon={<Settings />}
-          />
-
-          <DashboardCard
-            title="Finans"
-            desc="Tahsilat, odeme, kasa/banka"
-            href="/satissitok/admin/finance"
-            color="purple"
-            icon={<Wallet />}
-          />
-
-          <DashboardCard
-            title="Raporlar"
-            desc="Net kar, KDV, donem raporlari"
-            href="/satissitok/admin/reports"
-            color="gray"
-            icon={<BarChart3 />}
-          />
 
           {isSuperAdmin ? (
             <DashboardCard

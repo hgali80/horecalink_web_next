@@ -1,6 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function isAdmin() {
       return request.auth != null &&
              request.auth.uid == '8hV0aS1izsf7rIvbeeJ6JIPDh3I2';
@@ -11,7 +12,8 @@ service cloud.firestore {
         request.auth.token.phone_number in [
           "+77004446911",
           "+77023940182"
-        ] ||
+        ]
+        ||
         request.auth.token.email in [
           "hasanaligunay@outlook.com",
           "+77004446911@temporary.com",
@@ -32,13 +34,42 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function hasAdminRole() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
+    }
+
+    function canAccessErp() {
+      return isSignedIn() && (isManager() || hasAdminRole());
+    }
+
+    // =========================
+    // QUOTE VALIDATION
+    // =========================
+
     function isValidQuoteCustomer() {
       return request.resource.data.customer is map
-        && (!("name" in request.resource.data.customer) || request.resource.data.customer.name is string)
-        && (!("fullName" in request.resource.data.customer) || request.resource.data.customer.fullName is string)
-        && (!("phone" in request.resource.data.customer) || request.resource.data.customer.phone is string)
-        && (!("email" in request.resource.data.customer) || request.resource.data.customer.email is string)
-        && (!("company" in request.resource.data.customer) || request.resource.data.customer.company is string);
+        && (
+          !("name" in request.resource.data.customer) ||
+          request.resource.data.customer.name is string
+        )
+        && (
+          !("fullName" in request.resource.data.customer) ||
+          request.resource.data.customer.fullName is string
+        )
+        && (
+          !("phone" in request.resource.data.customer) ||
+          request.resource.data.customer.phone is string
+        )
+        && (
+          !("email" in request.resource.data.customer) ||
+          request.resource.data.customer.email is string
+        )
+        && (
+          !("company" in request.resource.data.customer) ||
+          request.resource.data.customer.company is string
+        );
     }
 
     function isValidQuoteCreate() {
@@ -56,26 +87,41 @@ service cloud.firestore {
         );
     }
 
+    // =========================
+    // SMS
+    // =========================
     match /sms_requests/{id} {
       allow create: if request.resource.data.status == 'request';
       allow read: if true;
       allow update, delete: if isManager();
     }
 
+    // =========================
+    // PRODUCTS
+    // =========================
     match /products/{productId} {
       allow read: if true;
       allow write: if isManager();
     }
 
+    // =========================
+    // USAGE AREAS
+    // =========================
     match /usage_areas/{usageAreaId} {
       allow read: if true;
       allow write: if isManager();
     }
 
+    // =========================
+    // CONTACT MESSAGES
+    // =========================
     match /contact_messages/{messageId} {
       allow read, write: if false;
     }
 
+    // =========================
+    // USERS
+    // =========================
     match /users/{userId} {
       allow create: if isOwner(userId);
       allow read: if isManager() || isOwner(userId);
@@ -94,6 +140,9 @@ service cloud.firestore {
       }
     }
 
+    // =========================
+    // QUOTES
+    // =========================
     match /quote_threads/{threadId} {
       allow read, write: if isManager();
     }
@@ -108,6 +157,16 @@ service cloud.firestore {
       allow read, write: if isManager();
     }
 
+    // =========================
+    // COMMERCIAL OFFERS
+    // =========================
+    match /commercial_offers/{offerId} {
+      allow read, write: if isManager();
+    }
+
+    // =========================
+    // LEGACY ERP / CARI
+    // =========================
     match /caris/{cariId} {
       allow read, write: if isManager();
     }
@@ -116,6 +175,9 @@ service cloud.firestore {
       allow read, write: if isManager();
     }
 
+    // =========================
+    // LEGACY ERP / FINANCE
+    // =========================
     match /cash_accounts/{id} {
       allow read, write: if isManager();
     }
@@ -128,6 +190,9 @@ service cloud.firestore {
       allow read, write: if isManager();
     }
 
+    // =========================
+    // LEGACY ERP / STOCK
+    // =========================
     match /stock/{id} {
       allow read, write: if isManager();
     }
@@ -140,6 +205,9 @@ service cloud.firestore {
       allow read, write: if isManager();
     }
 
+    // =========================
+    // LEGACY ERP / COUNTERS
+    // =========================
     match /counters/{counterId} {
       allow read, write: if isManager();
     }
@@ -152,6 +220,9 @@ service cloud.firestore {
       allow read, write: if isManager();
     }
 
+    // =========================
+    // LEGACY ERP / PURCHASES
+    // =========================
     match /purchases/{purchaseId} {
       allow read, create, update, delete: if isManager();
 
@@ -160,6 +231,9 @@ service cloud.firestore {
       }
     }
 
+    // =========================
+    // LEGACY ERP / SALES
+    // =========================
     match /sales/{saleId} {
       allow read, create, update, delete: if isManager();
 
@@ -172,14 +246,16 @@ service cloud.firestore {
       allow read, write: if isManager();
     }
 
+    // =========================
+    // SETTINGS
+    // =========================
     match /settings/{docId} {
       allow read, write: if isManager();
     }
 
-    match /commercial_offers/{offerId} {
-      allow read, write: if isManager();
-    }
-
+    // =========================
+    // VISIT LOGS
+    // =========================
     match /visit_logs/{logId} {
       allow create: if true;
       allow read: if isManager();
@@ -194,6 +270,68 @@ service cloud.firestore {
       allow read, write: if isManager();
     }
 
+    // =========================
+    // NEW ERP MODULE
+    // =========================
+    match /erp_settings/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_sales/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_purchases/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_caris/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_cari_movements/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_cash_accounts/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_cash_movements/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_stock_balances/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_stock_movements/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_document_settlements/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_draft_counters/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_invoice_counters/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_receipt_counters/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    match /erp_expenses/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
+    // =========================
+    // DEFAULT DENY
+    // =========================
     match /{document=**} {
       allow read, write: if false;
     }

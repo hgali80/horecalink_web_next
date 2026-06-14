@@ -1,0 +1,80 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import ErpDocumentListView from "../_components/ErpDocumentListView";
+import { listErpDocuments } from "../_services/erpDocumentsService";
+import { ERP_COLLECTIONS } from "../_services/erpCollections";
+
+export default function ErpPurchasesPage() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const nextRows = await listErpDocuments(ERP_COLLECTIONS.PURCHASES);
+        if (!alive) return;
+        setRows(nextRows);
+      } catch (err) {
+        if (!alive) return;
+        setError(err?.message || "Satinalma evraklari yuklenemedi.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (loading) {
+    return <LoadingShell label="Satinalma evraklari hazirlaniyor..." />;
+  }
+
+  if (error) {
+    return <ErrorShell message={error} />;
+  }
+
+  return (
+    <ErpDocumentListView
+      title="Satinalma Evraklari"
+      description="Bu alan tum satinalma belge ve fatura evraklarinin listelendigi ana ekran olacak. R/F kirilimi, ek maliyet dagitimi ve tedarikci odakli takip burada toplanacak."
+      rows={rows}
+      emptyTitle="Henuz ERP satinalma evraki yok"
+      emptyText="Ilk asamada erp_purchases koleksiyonu olusunca tum satinalma belge ve faturalarin burada toplu halde gorunmeye baslayacak. Bu ekran tum satinalma evrak listesinin ana merkezi olacak."
+      newHref="/satissitok/admin/erp/purchases/new"
+      newLabel="Yeni Satinalma Belgesi"
+      editHrefBase="/satissitok/admin/erp/purchases"
+    />
+  );
+}
+
+function LoadingShell({ label }) {
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-8 text-sm text-slate-500 shadow-sm">
+      {label}
+    </div>
+  );
+}
+
+function ErrorShell({ message }) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <div className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-slate-500">
+          ERP / Satinalmalar
+        </div>
+        <h2 className="text-3xl font-black tracking-[-0.03em] text-[#1d3246]">Satinalma Evraklari</h2>
+      </div>
+      <div className="rounded-[28px] border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700 shadow-sm">
+        {message}
+      </div>
+    </div>
+  );
+}
