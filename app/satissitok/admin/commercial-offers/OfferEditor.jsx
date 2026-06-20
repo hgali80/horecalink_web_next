@@ -21,10 +21,13 @@ import {
   createCommercialOffer,
   getCommercialOffer,
   getNextCommercialOfferMeta,
+  getOfferTypeConfig,
+  OFFER_TYPE_CONFIGS,
   saveCommercialOffer,
 } from "@/app/satissitok/services/commercialOfferService";
 
 const LOGO_SRC = "/horecalink_offer_logo.png";
+const OFFER_TYPE_OPTIONS = ["stainless", "industrial", "corporate"];
 
 function text(value) {
   return String(value ?? "");
@@ -143,6 +146,10 @@ export default function OfferEditor({ offerId = null }) {
               payment: existingOffer.terms?.payment || [],
               warranty: existingOffer.terms?.warranty || [],
             },
+            visibility: {
+              termsSection: existingOffer.visibility?.termsSection ?? true,
+              vatSummary: existingOffer.visibility?.vatSummary ?? true,
+            },
           });
         } else {
           setForm(
@@ -178,6 +185,11 @@ export default function OfferEditor({ offerId = null }) {
     if (!form) return { items: [], totals: { grandTotal: 0, vatAmount: 0, vatRate: 12 } };
     return calculateOfferTotals(form.items || [], form.vatRate || 12);
   }, [form]);
+
+  const offerTypeConfig = useMemo(
+    () => getOfferTypeConfig(form?.offerType || "stainless"),
+    [form?.offerType]
+  );
 
   const filteredProducts = useMemo(() => {
     const queryText = productQuery.trim().toLowerCase();
@@ -302,6 +314,34 @@ export default function OfferEditor({ offerId = null }) {
     }));
     setSelectedProductId("");
     setProductQuery("");
+  }
+
+  function applyOfferType(nextOfferType) {
+    const nextConfig = getOfferTypeConfig(nextOfferType);
+
+    setForm((prev) => {
+      if (!prev) return prev;
+
+      return {
+        ...prev,
+        offerType: nextOfferType,
+        seller: {
+          ...prev.seller,
+          tagline: nextConfig.sellerTagline,
+        },
+        introText: nextConfig.introText,
+        priceNote: nextConfig.priceNote,
+        terms: {
+          delivery: [...nextConfig.terms.delivery],
+          payment: [...nextConfig.terms.payment],
+          warranty: [...nextConfig.terms.warranty],
+        },
+        visibility: {
+          termsSection: prev.visibility?.termsSection ?? true,
+          vatSummary: prev.visibility?.vatSummary ?? true,
+        },
+      };
+    });
   }
 
   async function handleSave() {
@@ -496,6 +536,29 @@ export default function OfferEditor({ offerId = null }) {
                   <h2 className="text-lg font-bold text-slate-900">Teklif Bilgileri</h2>
                   <div className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
                     {form.offerNo}
+                  </div>
+                </div>
+
+                <div className="mb-5">
+                  <div className="mb-2 text-sm font-semibold text-slate-700">Teklif Tipi</div>
+                  <div className="flex flex-wrap gap-2">
+                    {OFFER_TYPE_OPTIONS.map((offerType) => {
+                      const active = (form.offerType || "stainless") === offerType;
+                      return (
+                        <button
+                          key={offerType}
+                          type="button"
+                          onClick={() => applyOfferType(offerType)}
+                          className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                            active
+                              ? "bg-[#1d3246] text-white shadow-sm"
+                              : "border border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                          }`}
+                        >
+                          {OFFER_TYPE_CONFIGS[offerType]?.label || offerType}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -790,6 +853,26 @@ export default function OfferEditor({ offerId = null }) {
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none"
                   />
                 </label>
+
+                <div className="mt-5 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="text-sm font-semibold text-slate-800">Gorunum Secenekleri</div>
+                  <label className="flex items-center gap-3 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={form.visibility?.termsSection ?? true}
+                      onChange={(event) => updateField("visibility.termsSection", event.target.checked)}
+                    />
+                    Sartlar blogu teklifte gorunsun
+                  </label>
+                  <label className="flex items-center gap-3 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={form.visibility?.vatSummary ?? true}
+                      onChange={(event) => updateField("visibility.vatSummary", event.target.checked)}
+                    />
+                    Vergi gostergesi teklifte gorunsun
+                  </label>
+                </div>
               </div>
 
               <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -799,10 +882,12 @@ export default function OfferEditor({ offerId = null }) {
                     <span className="text-sm text-slate-500">Genel Toplam</span>
                     <span className="text-lg font-bold text-slate-900">{formatMoney(calculated.totals.grandTotal)}</span>
                   </div>
-                  <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                    <span className="text-sm text-slate-500">KDV %{form.vatRate}</span>
-                    <span className="font-bold text-slate-900">{formatMoney(calculated.totals.vatAmount)}</span>
-                  </div>
+                  {form.visibility?.vatSummary ?? true ? (
+                    <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                      <span className="text-sm text-slate-500">KDV %{form.vatRate}</span>
+                      <span className="font-bold text-slate-900">{formatMoney(calculated.totals.vatAmount)}</span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </aside>
@@ -826,40 +911,40 @@ export default function OfferEditor({ offerId = null }) {
 
               <div className="mt-[16px] ml-auto w-[445px] border-[2px] border-[#6f8192]">
                 <div className="border-b border-[#cfd7df] bg-[#eef2f5] px-4 py-[9px] text-[17px] font-extrabold uppercase tracking-[0.015em] text-[#2f3337]">
-                  Коммерческое предложение
+                  {"\u041a\u041e\u041c\u041c\u0415\u0420\u0427\u0415\u0421\u041a\u041e\u0415 \u041f\u0420\u0415\u0414\u041b\u041e\u0416\u0415\u041d\u0418\u0415"}
                 </div>
                 <div className="flex min-h-[126px] flex-col items-end justify-between px-5 py-4 text-right">
-                  <div className="mb-3 text-right text-[20px] font-bold text-[#2f3337]">№ {form.offerNo}</div>
-                  <div className="mb-4 text-right text-[16px] text-[#2f3337]">от {formatDateLabel(form.issueDate)} г.</div>
-                  <div className="text-right text-[16px] text-[#2f3337]">Срок действия: {form.validDays} календарных дней</div>
+                  <div className="mb-3 text-right text-[20px] font-bold text-[#2f3337]">{"\u2116"} {form.offerNo}</div>
+                  <div className="mb-4 text-right text-[16px] text-[#2f3337]">{"\u043e\u0442"} {formatDateLabel(form.issueDate)} {"\u0433."}</div>
+                  <div className="text-right text-[16px] text-[#2f3337]">{"\u0421\u0440\u043e\u043a \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f:"} {form.validDays} {"\u043a\u0430\u043b\u0435\u043d\u0434\u0430\u0440\u043d\u044b\u0445 \u0434\u043d\u0435\u0439"}</div>
                 </div>
               </div>
             </div>
 
             <div className="mb-5 text-center text-[#22364d]">
-              <div className="text-[32px] font-extrabold uppercase">Коммерческое предложение</div>
-              <div className="text-[30px] font-extrabold">{"\u043d\u0430 \u0438\u0437\u0433\u043e\u0442\u043e\u0432\u043b\u0435\u043d\u0438\u0435 \u0438\u0437\u0434\u0435\u043b\u0438\u0439 \u0438\u0437 \u043d\u0435\u0440\u0436\u0430\u0432\u0435\u044e\u0449\u0435\u0439 \u0441\u0442\u0430\u043b\u0438"}</div>
+              <div className="text-[32px] font-extrabold uppercase">{"\u041a\u041e\u041c\u041c\u0415\u0420\u0427\u0415\u0421\u041a\u041e\u0415 \u041f\u0420\u0415\u0414\u041b\u041e\u0416\u0415\u041d\u0418\u0415"}</div>
+              <div className="text-[30px] font-extrabold">{offerTypeConfig.titleLine}</div>
             </div>
 
             <div className="mb-5 grid grid-cols-2 border border-[#d7dee6]">
               <div className="border-r border-[#d7dee6] p-3 text-[15px]">
-                <div className="mb-1 text-[18px]">Исполнитель:</div>
+                <div className="mb-1 text-[18px]">{offerTypeConfig.sellerRole}</div>
                 <div>{form.seller.brandName}</div>
-                <div>Производство и оформление:</div>
+                <div>{offerTypeConfig.sellerCaption}</div>
                 <div>{form.seller.companyName}</div>
-                <div>БИН: {form.seller.bin}</div>
+                <div>{"\u0411\u0418\u041d:"} {form.seller.bin}</div>
                 <div>{form.seller.address}</div>
               </div>
               <div className="p-3 text-[15px]">
-                <div className="mb-1 text-[18px]">Покупатель:</div>
+                <div className="mb-1 text-[18px]">{"\u041f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044c:"}</div>
                 <div>{form.buyer.companyName || "________________"}</div>
-                <div>БИН/ИИН: {form.buyer.bin || "________________"}</div>
+                <div>{"\u0411\u0418\u041d/\u0418\u0418\u041d:"} {form.buyer.bin || "________________"}</div>
                 <div>{form.buyer.address || "________________"}</div>
               </div>
             </div>
 
             <div className="mb-6 text-[14px]">
-              <div className="mb-1">Добрый день,</div>
+              <div className="mb-1">{"\u0414\u043e\u0431\u0440\u044b\u0439 \u0434\u0435\u043d\u044c,"}</div>
               <div>{form.introText}</div>
             </div>
 
@@ -874,12 +959,12 @@ export default function OfferEditor({ offerId = null }) {
               </colgroup>
               <thead>
                 <tr className="bg-[#22364d] text-white">
-                  <th className="border border-[#cfd7df] px-2 py-3">№</th>
-                  <th className="border border-[#cfd7df] px-2 py-3">Фото</th>
-                  <th className="border border-[#cfd7df] px-2 py-3">Характеристики</th>
-                  <th className="border border-[#cfd7df] px-2 py-3">Кол-во</th>
-                  <th className="border border-[#cfd7df] px-2 py-3">Цена</th>
-                  <th className="border border-[#cfd7df] px-2 py-3">Сумма</th>
+                  <th className="border border-[#cfd7df] px-2 py-3">{"\u2116"}</th>
+                  <th className="border border-[#cfd7df] px-2 py-3">{"\u0424\u043e\u0442\u043e"}</th>
+                  <th className="border border-[#cfd7df] px-2 py-3">{"\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438"}</th>
+                  <th className="border border-[#cfd7df] px-2 py-3">{"\u041a\u043e\u043b-\u0432\u043e"}</th>
+                  <th className="border border-[#cfd7df] px-2 py-3">{"\u0426\u0435\u043d\u0430"}</th>
+                  <th className="border border-[#cfd7df] px-2 py-3">{"\u0421\u0443\u043c\u043c\u0430"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -909,57 +994,61 @@ export default function OfferEditor({ offerId = null }) {
             <div className="mb-10 flex justify-end">
               <div className="w-[440px]">
                 <div className="flex items-center justify-between text-[20px] font-bold">
-                  <span>Итого:</span>
+                  <span>{"\u0418\u0442\u043e\u0433\u043e:"}</span>
                   <span>{formatMoney(calculated.totals.grandTotal)}</span>
                 </div>
-                <div className="mt-1 text-right text-[15px]">
-                  <span>{`В том числе НДС ${form.vatRate}%: ${formatMoney(calculated.totals.vatAmount)}`}</span>
-                </div>
+                {form.visibility?.vatSummary ?? true ? (
+                  <div className="mt-1 text-right text-[15px]">
+                    <span>{`\u0412 \u0442\u043e\u043c \u0447\u0438\u0441\u043b\u0435 \u041d\u0414\u0421 ${form.vatRate}%: ${formatMoney(calculated.totals.vatAmount)}`}</span>
+                  </div>
+                ) : null}
               </div>
             </div>
 
-            <div className="avoid-break mb-6 grid grid-cols-3 border border-[#d7dee6]">
-              <div className="border-r border-[#d7dee6]">
-                <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-3 py-2 text-[18px] font-bold text-[#22364d]">Условия поставки</div>
-                <div className="px-3 py-2 text-[14px]">
-                  {form.terms.delivery.map((line) => (
-                    <div key={line}>- {line}</div>
-                  ))}
+            {form.visibility?.termsSection ?? true ? (
+              <div className="avoid-break mb-6 grid grid-cols-3 border border-[#d7dee6]">
+                <div className="border-r border-[#d7dee6]">
+                  <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-3 py-2 text-[18px] font-bold text-[#22364d]">{"\u0423\u0441\u043b\u043e\u0432\u0438\u044f \u043f\u043e\u0441\u0442\u0430\u0432\u043a\u0438"}</div>
+                  <div className="px-3 py-2 text-[14px]">
+                    {form.terms.delivery.map((line) => (
+                      <div key={line}>- {line}</div>
+                    ))}
+                  </div>
+                </div>
+                <div className="border-r border-[#d7dee6]">
+                  <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-3 py-2 text-[18px] font-bold text-[#22364d]">{"\u0423\u0441\u043b\u043e\u0432\u0438\u044f \u043e\u043f\u043b\u0430\u0442\u044b"}</div>
+                  <div className="px-3 py-2 text-[14px]">
+                    {form.terms.payment.map((line) => (
+                      <div key={line}>- {line}</div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-3 py-2 text-[18px] font-bold text-[#22364d]">{"\u0413\u0430\u0440\u0430\u043d\u0442\u0438\u044f"}</div>
+                  <div className="px-3 py-2 text-[14px]">
+                    {form.terms.warranty.map((line) => (
+                      <div key={line}>- {line}</div>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div className="border-r border-[#d7dee6]">
-                <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-3 py-2 text-[18px] font-bold text-[#22364d]">Условия оплаты</div>
-                <div className="px-3 py-2 text-[14px]">
-                  {form.terms.payment.map((line) => (
-                    <div key={line}>- {line}</div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-3 py-2 text-[18px] font-bold text-[#22364d]">Гарантия</div>
-                <div className="px-3 py-2 text-[14px]">
-                  {form.terms.warranty.map((line) => (
-                    <div key={line}>- {line}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            ) : null}
 
             <div className="mb-10 text-[14px] text-[#64748b]">{form.seller.bankDetails}</div>
 
             <div className="mb-20 flex items-end justify-between">
               <div className="text-[14px] text-[#64748b]">
-                <div>С уважением,</div>
+                <div>{"\u0421 \u0443\u0432\u0430\u0436\u0435\u043d\u0438\u0435\u043c,"}</div>
                 <div>{form.seller.signatureName}</div>
                 <div>{form.seller.signatureSubtitle}</div>
               </div>
 
-              <div className="text-[14px] text-[#334155]">Подпись: _______________________</div>
+              <div className="text-[14px] text-[#334155]">{"\u041f\u043e\u0434\u043f\u0438\u0441\u044c: _______________________"}</div>
             </div>
 
             <div className="flex items-center justify-between border-t border-[#d7dee6] pt-1 text-[12px] text-[#64748b]">
-              <div>HorecaLink - коммерческое предложение</div>
-              <div>стр. 1</div>
+              <div>{"HorecaLink - \u043a\u043e\u043c\u043c\u0435\u0440\u0447\u0435\u0441\u043a\u043e\u0435 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0435\u043d\u0438\u0435"}</div>
+              <div>{"\u0441\u0442\u0440. 1"}</div>
             </div>
           </div>
         </div>
