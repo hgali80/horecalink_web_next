@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getErpCari, saveErpCari } from "../_services/erpCarisService";
+import { getErpCari, getNextErpCariCodePreview, saveErpCari } from "../_services/erpCarisService";
 
 function emptyBankAccount() {
   return {
@@ -24,6 +24,7 @@ export default function ErpCariEditor({ cariId = "" }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [codePreview, setCodePreview] = useState("");
   const [form, setForm] = useState({
     code: "",
     name: "",
@@ -91,6 +92,27 @@ export default function ErpCariEditor({ cariId = "" }) {
       alive = false;
     };
   }, [cariId, isEdit]);
+
+  useEffect(() => {
+    let alive = true;
+    if (isEdit) return undefined;
+
+    (async () => {
+      try {
+        const nextCode = await getNextErpCariCodePreview();
+        if (!alive) return;
+        setCodePreview(nextCode);
+        setForm((current) => ({
+          ...current,
+          code: current.code || nextCode,
+        }));
+      } catch {}
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [isEdit]);
 
   const typeLabel = useMemo(() => {
     if (form.isCustomer && form.isSupplier) return "Musteri + Tedarikci";
@@ -195,7 +217,12 @@ export default function ErpCariEditor({ cariId = "" }) {
             text="Resmi evrakta gorunecek unvan ve vergi kimlik bilgilerini bu alanda topla."
           />
           <div className="grid gap-4 md:grid-cols-2">
-            <InputField label="Cari Kodu" value={form.code} onChange={(value) => setField("code", value)} />
+            <InputField
+              label="Cari Kodu"
+              value={form.code}
+              onChange={(value) => setField("code", value)}
+              hint={!isEdit ? `Bos birakirsan otomatik kod verilir. Siradaki kod: ${codePreview || "hazirlaniyor"}` : ""}
+            />
             <InputField label="Resmi Unvan" value={form.name} onChange={(value) => setField("name", value)} />
             <InputField label="Kisa Ad / Marka" value={form.shortName} onChange={(value) => setField("shortName", value)} />
             <InputField label="BIN / Vergi No" value={form.bin} onChange={(value) => setField("bin", value)} />
@@ -330,6 +357,7 @@ export default function ErpCariEditor({ cariId = "" }) {
             <InfoRow label="Rol" value={typeLabel} />
             <InfoRow label="Durum" value={form.active ? "Aktif" : "Pasif"} />
             <InfoRow label="Resmi Unvan" value={form.name || "-"} />
+            <InfoRow label="Cari Kodu" value={form.code || codePreview || "-"} />
             <InfoRow label="BIN / Vergi No" value={form.bin || form.taxNo || "-"} />
             <InfoRow label="KBE" value={form.kbe || "-"} />
             <InfoRow label="Para Birimi" value={form.currency || "KZT"} />
@@ -367,7 +395,7 @@ function SectionTitle({ title, text }) {
   );
 }
 
-function InputField({ label, value, onChange, type = "text" }) {
+function InputField({ label, value, onChange, type = "text", hint = "" }) {
   return (
     <label className="block space-y-2">
       <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</span>
@@ -377,6 +405,7 @@ function InputField({ label, value, onChange, type = "text" }) {
         onChange={(event) => onChange(event.target.value)}
         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none"
       />
+      {hint ? <span className="block text-xs text-slate-500">{hint}</span> : null}
     </label>
   );
 }

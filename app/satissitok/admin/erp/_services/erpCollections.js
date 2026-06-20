@@ -3,6 +3,7 @@ export const ERP_COLLECTIONS = {
   SALES: "erp_sales",
   PURCHASES: "erp_purchases",
   CARIS: "erp_caris",
+  CARI_COUNTERS: "erp_cari_counters",
   CARI_MOVEMENTS: "erp_cari_movements",
   CASH_ACCOUNTS: "erp_cash_accounts",
   CASH_MOVEMENTS: "erp_cash_movements",

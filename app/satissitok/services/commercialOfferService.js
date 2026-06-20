@@ -30,17 +30,42 @@ function array(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function ensureImageExtension(value) {
+  const fileName = text(value);
+  if (!fileName) return "";
+  return /\.[a-z0-9]+$/i.test(fileName) ? fileName : `${fileName}.jpg`;
+}
+
+function resolveProductImageName(product = {}) {
+  const candidates = [
+    ...array(product.image_names),
+    product.imageBase,
+    product.stock_code,
+    product.sku,
+    product.id,
+  ];
+
+  for (const candidate of candidates) {
+    const fileName = ensureImageExtension(candidate);
+    if (fileName) return fileName;
+  }
+
+  return "";
+}
+
 export function getStorageImageUrl(imageName) {
-  const fileName = text(imageName);
+  const fileName = ensureImageExtension(imageName);
   if (!fileName) return "";
   return `https://firebasestorage.googleapis.com/v0/b/horecakatalog-e2d10.firebasestorage.app/o/product_images%2F${encodeURIComponent(fileName)}?alt=media`;
 }
 
 export function buildOfferItemFromProduct(product = {}, defaultUnit = "шт") {
-  const imageName = array(product.image_names).find(Boolean) || "";
-  const featureLines = [text(product.dimensions), text(product.material), text(product.description)]
+  const imageName = resolveProductImageName(product);
+  const specsDescription = text(product.specs);
+  const fallbackDescription = [text(product.dimensions), text(product.material), text(product.description)]
     .filter(Boolean)
-    .slice(0, 3);
+    .slice(0, 3)
+    .join("\n");
 
   return {
     rowId: `${text(product.id || product.stock_code || Date.now())}_${Math.random().toString(36).slice(2, 8)}`,
@@ -50,7 +75,7 @@ export function buildOfferItemFromProduct(product = {}, defaultUnit = "шт") {
     imageUrl: getStorageImageUrl(imageName),
     imageName,
     name: text(product.name || product.name_ru || product.name_tr || "Товар"),
-    description: text(featureLines.join("\n")),
+    description: specsDescription || fallbackDescription,
     quantity: 1,
     unit: text(product.unit || defaultUnit || "шт"),
     unitPrice: number(product.price),

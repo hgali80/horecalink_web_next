@@ -191,6 +191,45 @@ export default function OfferEditor({ offerId = null }) {
       .slice(0, 60);
   }, [productQuery, products]);
 
+  useEffect(() => {
+    if (!form?.items?.length || !products.length) return;
+
+    setForm((prev) => {
+      if (!prev?.items?.length) return prev;
+
+      let changed = false;
+      const nextItems = prev.items.map((item) => {
+        if (item.imageUrl && item.description) return item;
+
+        const product = products.find((entry) =>
+          [entry.id, entry.stock_code, entry.sku].filter(Boolean).includes(item.productId || item.sku)
+        );
+
+        if (!product) return item;
+
+        const productDefaults = buildOfferItemFromProduct(product, item.unit || defaultUnit);
+        const nextItem = {
+          ...item,
+          imageUrl: item.imageUrl || productDefaults.imageUrl,
+          imageName: item.imageName || productDefaults.imageName,
+          description: item.description || productDefaults.description,
+        };
+
+        if (
+          nextItem.imageUrl !== item.imageUrl ||
+          nextItem.imageName !== item.imageName ||
+          nextItem.description !== item.description
+        ) {
+          changed = true;
+        }
+
+        return nextItem;
+      });
+
+      return changed ? { ...prev, items: nextItems } : prev;
+    });
+  }, [defaultUnit, form?.items, products]);
+
   function updateField(path, value) {
     setForm((prev) => {
       if (!prev) return prev;

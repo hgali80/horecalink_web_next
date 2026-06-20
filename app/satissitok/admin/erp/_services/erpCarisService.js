@@ -5,8 +5,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  runTransaction,
   serverTimestamp,
-  setDoc,
 } from "firebase/firestore";
 import { db } from "@/firebase";
 import { ERP_COLLECTIONS } from "./erpCollections";
@@ -81,6 +81,10 @@ function normalizeBankAccounts(value) {
     .filter((item) => item.bankName || item.bik || item.iban || item.notes);
 }
 
+function formatCariCode(seq) {
+  return `CAR${String(Number(seq) || 0).padStart(6, "0")}`;
+}
+
 export async function listErpCaris() {
   const snap = await getDocs(collection(db, ERP_COLLECTIONS.CARIS));
   const rows = snap.docs.map((item) => {
@@ -137,46 +141,74 @@ export async function getErpCari(cariId) {
   return normalizeCariDetail({ id: snap.id, ...(snap.data() || {}) });
 }
 
+export async function getNextErpCariCodePreview() {
+  const counterRef = doc(db, ERP_COLLECTIONS.CARI_COUNTERS, "main");
+  const snap = await getDoc(counterRef);
+  const current = snap.exists() ? Number(snap.data()?.lastSeq || 0) : 0;
+  return formatCariCode(current + 1);
+}
+
 export async function saveErpCari(payload = {}) {
   const normalized = normalizeCariPayload(payload);
   const ref = normalized.id
     ? doc(db, ERP_COLLECTIONS.CARIS, normalized.id)
     : doc(collection(db, ERP_COLLECTIONS.CARIS));
+  const counterRef = doc(db, ERP_COLLECTIONS.CARI_COUNTERS, "main");
 
-  await setDoc(
-    ref,
-    {
-      code: normalized.code,
-      name: normalized.name,
-      shortName: normalized.shortName,
-      bin: normalized.bin,
-      kbe: normalized.kbe,
-      phone: normalized.phone,
-      email: normalized.email,
-      taxNo: normalized.taxNo,
-      taxOffice: normalized.taxOffice,
-      address: normalized.address,
-      legalAddress: normalized.legalAddress,
-      directorName: normalized.directorName,
-      bankAccounts: normalized.bankAccounts,
-      notes: normalized.notes,
-      active: normalized.active,
-      isCustomer: normalized.isCustomer,
-      isSupplier: normalized.isSupplier,
-      currency: normalized.currency,
-      balanceSummary: {
-        receivable: normalized.openingReceivable,
-        payable: normalized.openingPayable,
+  await runTransaction(db, async (transaction) => {
+    let finalCode = normalized.code;
+
+    if (!text(finalCode)) {
+      const counterSnap = await transaction.get(counterRef);
+      const current = counterSnap.exists() ? Number(counterSnap.data()?.lastSeq || 0) : 0;
+      const nextSeq = current + 1;
+      finalCode = formatCariCode(nextSeq);
+      transaction.set(
+        counterRef,
+        {
+          lastSeq: nextSeq,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    transaction.set(
+      ref,
+      {
+        code: finalCode,
+        name: normalized.name,
+        shortName: normalized.shortName,
+        bin: normalized.bin,
+        kbe: normalized.kbe,
+        phone: normalized.phone,
+        email: normalized.email,
+        taxNo: normalized.taxNo,
+        taxOffice: normalized.taxOffice,
+        address: normalized.address,
+        legalAddress: normalized.legalAddress,
+        directorName: normalized.directorName,
+        bankAccounts: normalized.bankAccounts,
+        notes: normalized.notes,
+        active: normalized.active,
+        isCustomer: normalized.isCustomer,
+        isSupplier: normalized.isSupplier,
+        currency: normalized.currency,
+        balanceSummary: {
+          receivable: normalized.openingReceivable,
+          payable: normalized.openingPayable,
+        },
+        updatedAt: serverTimestamp(),
+        createdAt: normalized.createdAt || serverTimestamp(),
       },
-      updatedAt: serverTimestamp(),
-      createdAt: normalized.createdAt || serverTimestamp(),
-    },
-    { merge: true }
-  );
+      { merge: true }
+    );
+  });
 
   return {
     id: ref.id,
     ...normalized,
+    code: normalized.code || (await getDoc(ref)).data()?.code || "",
   };
 }
 
