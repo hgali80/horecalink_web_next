@@ -28,6 +28,7 @@ import {
   normalizeCatalogGroupKey,
   resolveProductCategoryKeys,
 } from "../lib/catalog/catalogLabels";
+import { compareProductsByCategoryOrder } from "../lib/catalog/productSort";
 
 const ITEMS_PER_PAGE = 18;
 function CategoriesContent() {
@@ -119,7 +120,7 @@ function CategoriesContent() {
 
         return true;
       })
-      .sort((a, b) => a.order - b.order);
+      .sort(compareProductsByCategoryOrder);
   }, [allProducts, selectedGroup, selectedMainCategories, mainCategories, searchQuery]);
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
@@ -1068,4 +1069,3 @@ export default function CategoriesPage() {
     </Suspense>
   );
 }
-

@@ -4,9 +4,6 @@ function toFiniteNumber(value) {
 }
 
 export function getProductOrderValue(product) {
-  const order = toFiniteNumber(product?.order);
-  if (order !== null) return order;
-
   const sortOrder = toFiniteNumber(product?.sortOrder);
   if (sortOrder !== null) return sortOrder;
 
