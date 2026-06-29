@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -98,6 +98,7 @@ export default function OfferEditor({ offerId = null }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingPdf, setSavingPdf] = useState(false);
   const [form, setForm] = useState(null);
   const [products, setProducts] = useState([]);
   const [caris, setCaris] = useState([]);
@@ -105,6 +106,7 @@ export default function OfferEditor({ offerId = null }) {
   const [productQuery, setProductQuery] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
   const [message, setMessage] = useState("");
+  const pdfContentRef = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -400,6 +402,8 @@ export default function OfferEditor({ offerId = null }) {
       const html2pdf = html2pdfModule.default || html2pdfModule;
 
       const clone = pdfContentRef.current.cloneNode(true);
+      clone.classList.remove("hidden");
+      clone.style.display = "block";
       wrapper = document.createElement("div");
       wrapper.style.position = "fixed";
       wrapper.style.left = "-100000px";
@@ -505,7 +509,8 @@ export default function OfferEditor({ offerId = null }) {
               </button>
               <button
                 type="button"
-                onClick={handlePrint}
+                onClick={handleSavePdf}
+                disabled={savingPdf}
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm"
               >
                 <FileDown size={16} />
@@ -894,7 +899,7 @@ export default function OfferEditor({ offerId = null }) {
           </div>
         </div>
 
-        <div className="offer-print hidden bg-white text-[#2b2f33]">
+        <div ref={pdfContentRef} className="offer-print hidden bg-white text-[#2b2f33]">
           <div className="mx-auto w-[1000px] px-3 py-4 text-[13px] leading-[1.35]">
             <div className="mb-5 ml-[28px] mr-[18px] h-[22px] bg-[linear-gradient(to_right,#f6a400_0,#f6a400_16%,#24384d_16%,#24384d_100%)]" />
 
@@ -939,6 +944,9 @@ export default function OfferEditor({ offerId = null }) {
                 <div className="mb-1 text-[18px]">{"\u041f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044c:"}</div>
                 <div>{form.buyer.companyName || "________________"}</div>
                 <div>{"\u0411\u0418\u041d/\u0418\u0418\u041d:"} {form.buyer.bin || "________________"}</div>
+                <div>{"\u041a\u043e\u043d\u0442\u0430\u043a\u0442:"} {form.buyer.contactName || "________________"}</div>
+                <div>{"\u0422\u0435\u043b.:"} {form.buyer.phone || "________________"}</div>
+                <div>{"E-mail:"} {form.buyer.email || "________________"}</div>
                 <div>{form.buyer.address || "________________"}</div>
               </div>
             </div>
