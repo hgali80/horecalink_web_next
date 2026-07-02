@@ -18,9 +18,13 @@ export default function Header() {
       { href: "/catalog", label: t("header.menu.products") },
       { href: "/teklifler", label: t("header.menu.quotes") },
       { href: "/contact", label: t("header.menu.contact") },
-      { href: "/about", label: t("header.menu.about"), icon: Info },
     ],
     [t]
+  );
+
+  const mobileNavItems = useMemo(
+    () => [...navItems, { href: "/about", label: t("header.menu.about"), icon: Info }],
+    [navItems, t]
   );
 
   useEffect(() => {
@@ -42,6 +46,10 @@ export default function Header() {
         <div className="mx-auto hidden max-w-7xl items-center justify-between px-4 py-2 text-xs text-slate-600 md:flex sm:px-6 lg:px-8">
           <div className="font-semibold text-[#1d3246]">Viroo Trade | HorecaLink</div>
           <div className="flex items-center gap-5">
+            <Link href="/about" className="inline-flex items-center gap-2 transition hover:text-[#1d3246]">
+              <Info size={14} />
+              {t("header.menu.about")}
+            </Link>
             <a href="tel:+77004446911" className="inline-flex items-center gap-2 transition hover:text-[#1d3246]">
               <Phone size={14} />
               +7 700 444 69 11
@@ -54,20 +62,20 @@ export default function Header() {
         </div>
       </div>
 
-      <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex min-w-0 max-w-[220px] items-center py-2 lg:max-w-[280px] xl:max-w-[320px]">
+      <div className="mx-auto flex min-h-[84px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <Link href="/" className="flex min-w-0 max-w-[300px] items-center self-center py-3 lg:max-w-[360px] xl:max-w-[420px]">
           <Image
             src="/horecalink_logoapp.png"
             alt={t("header.alt.logo")}
-            width={420}
-            height={105}
-            className="h-10 w-full object-contain sm:h-12 lg:h-14"
+            width={2640}
+            height={767}
+            className="block h-12 w-full object-contain sm:h-14 lg:h-[60px]"
             priority
           />
         </Link>
 
-        <div className="hidden min-w-0 flex-1 items-center justify-end gap-2 md:flex lg:gap-4">
-          <nav className="flex items-center gap-1 text-sm font-semibold text-gray-700">
+        <div className="hidden min-w-0 flex-1 items-center justify-end gap-3 pl-6 md:flex lg:gap-5 lg:pl-10">
+          <nav className="flex items-center gap-1 text-sm font-semibold text-gray-700 lg:gap-2">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -135,8 +143,8 @@ export default function Header() {
               <Image
                 src="/horecalink_logoapp.png"
                 alt={t("header.alt.logo")}
-                width={280}
-                height={70}
+                width={2640}
+                height={767}
                 className="h-11 w-auto object-contain"
               />
               <button
@@ -161,7 +169,7 @@ export default function Header() {
             </div>
 
             <nav className="mt-6 flex flex-col gap-2 border-t border-slate-100 pt-5 text-base font-semibold text-slate-700">
-              {navItems.map((item) => {
+              {mobileNavItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <Link
