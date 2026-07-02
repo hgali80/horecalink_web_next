@@ -52,7 +52,7 @@ export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
 
       <Link href="/teklif-talep" onClick={onNavigate} className={primaryLinkClass}>
         <PackageSearch size={18} />
-        {t("quoteDraft.add")}
+        {t("header.menu.createQuote")}
         {itemKinds > 0 ? (
           <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-[#ef7d32] px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
             {itemKinds}
