@@ -54,27 +54,27 @@ export default function Header() {
         </div>
       </div>
 
-      <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex min-w-0 items-center py-2">
+      <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <Link href="/" className="flex min-w-0 max-w-[220px] items-center py-2 lg:max-w-[280px] xl:max-w-[320px]">
           <Image
             src="/horecalink_logoapp.png"
             alt={t("header.alt.logo")}
             width={420}
             height={105}
-            className="h-12 w-auto object-contain sm:h-14 lg:h-16"
+            className="h-10 w-full object-contain sm:h-12 lg:h-14"
             priority
           />
         </Link>
 
-        <div className="hidden min-w-0 flex-1 items-center justify-end gap-3 md:flex lg:gap-5">
-          <nav className="flex items-center gap-1 text-sm font-semibold text-gray-700 lg:gap-2">
+        <div className="hidden min-w-0 flex-1 items-center justify-end gap-2 md:flex lg:gap-4">
+          <nav className="flex items-center gap-1 text-sm font-semibold text-gray-700">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100 hover:text-[#1d3246]"
+                  className="inline-flex items-center gap-2 rounded-xl px-2.5 py-2 transition hover:bg-slate-100 hover:text-[#1d3246] lg:px-3"
                 >
                   {Icon ? <Icon size={16} /> : null}
                   {item.label}
