@@ -14,7 +14,7 @@ export default function RelatedProducts({ products = [] }) {
         {t("productDetail.related")}
       </h2>
 
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-8">
         {products.slice(0, 3).map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}

@@ -445,17 +445,17 @@ export default function CatalogListingClient({
             {mobileFilterOpen ? <div className="mb-6 lg:hidden">{sidebar}</div> : null}
 
             {loading ? (
-              <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 md:gap-8 xl:grid-cols-3">
                 {Array.from({ length: 8 }).map((_, index) => (
                   <div
                     key={index}
-                    className="h-[470px] animate-pulse rounded-[28px] bg-white shadow-[0_20px_50px_rgba(29,50,70,0.06)]"
+                    className="h-[320px] animate-pulse rounded-[22px] bg-white shadow-[0_20px_50px_rgba(29,50,70,0.06)] sm:h-[470px] sm:rounded-[28px]"
                   />
                 ))}
               </div>
             ) : paginatedProducts.length ? (
               <>
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-2 gap-3 md:gap-8 xl:grid-cols-3">
                   {paginatedProducts.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}

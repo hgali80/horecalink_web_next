@@ -183,8 +183,8 @@ export default function Home() {
               <Image
                 src="/horecalink_logo_footer.png"
                 alt="HorecaLink Logo"
-                width={190}
-                height={70}
+                width={260}
+                height={47}
                 className="object-contain"
                 priority
               />

@@ -228,7 +228,7 @@ export default function ProductList({
         {filtered.length === 0 ? (
           <div>Urun bulunamadi.</div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 2xl:gap-8">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-3 2xl:grid-cols-4 2xl:gap-8">
             {filtered.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
