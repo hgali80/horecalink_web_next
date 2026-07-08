@@ -16,7 +16,6 @@ export default function Header() {
   const navItems = useMemo(
     () => [
       { href: "/catalog", label: t("header.menu.products") },
-      { href: "/teklifler", label: t("header.menu.quotes") },
       { href: "/contact", label: t("header.menu.contact") },
     ],
     [t]
