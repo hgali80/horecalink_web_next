@@ -27,6 +27,18 @@ const groupTranslations = {
 };
 
 const mainTranslations = {
+  aspiratorler: {
+    tr: "Aspiratörler",
+    ru: "Вытяжные системы",
+    kz: "Сорғыштар",
+    en: "Hoods",
+  },
+  stantlar: {
+    tr: "Stantlar",
+    ru: "Подставки",
+    kz: "Тұғырлар",
+    en: "Stands",
+  },
   "beverage-equipment": {
     tr: "İçecek Hazırlama",
     ru: "Приготовление напитков",
@@ -162,6 +174,42 @@ const mainTranslations = {
 };
 
 const subTranslations = {
+  "bulasik-makinesi-basketi-rafi": {
+    tr: "Bulaşık Makinesi Basketi Rafı",
+    ru: "Полка для корзин посудомоечной машины",
+    kz: "Ыдыс жуғыш машина кәрзеңке сөресі",
+    en: "Dishwasher Basket Shelf",
+  },
+  "bulasik-siyirma-tezgahi": {
+    tr: "Bulaşık Sıyırma Tezgahı",
+    ru: "Стол для соскребания посуды",
+    kz: "Ыдыс қырнау үстелі",
+    en: "Dish Scrapping Table",
+  },
+  "depo-istif-tablasi": {
+    tr: "Depo İstif Tablası",
+    ru: "Складская штабелируемая платформа",
+    kz: "Қойма жинақтау платформасы",
+    en: "Storage Stacking Platform",
+  },
+  "grill-master-standi": {
+    tr: "Grill Master Standı",
+    ru: "Подставка Grill Master",
+    kz: "Grill Master тұғыры",
+    en: "Grill Master Stand",
+  },
+  "mop-evye-tazgahi": {
+    tr: "Mop Evye Tezgahı",
+    ru: "Стол-мойка для мопов",
+    kz: "Моп жуу үстелі",
+    en: "Mop Sink Table",
+  },
+  "premix-tezgahi": {
+    tr: "Premix Tezgahı",
+    ru: "Премикс-стол",
+    kz: "Premix үстелі",
+    en: "Premix Counter",
+  },
   "1-evyeli-tezgahlar": {
     tr: "1 Evyeli Tezgahlar",
     ru: "Односекционные моечные столы",

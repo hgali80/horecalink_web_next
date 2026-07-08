@@ -191,21 +191,17 @@ export const categoryData = {
   },
   "paslanmaz": {
     "mainCategories": {
-      "aspirator-ve-aydinlatma-sistemleri": [
+      "aspiratorler": [
         "ada-tipi-davlumbaz",
         "aspirator-aydinlatmasi",
         "aspirator-rafi",
         "duvar-tipi-davlumbuz"
       ],
-      "bar-tezgahlari": [
-        "kahve-hazirlama-tezgahi",
-        "kokteyl-hazirlama-tezgahi",
-        "premix-hazirlik-unitesi"
-      ],
       "bulasik-makinesi-tezgahlari": [
+        "bulasik-makinesi-basketi-rafi",
         "bulasik-makinesi-cikis-tezgahlari",
         "bulasik-makinesi-giris-tezgahlari",
-        "bulasik-siyirma-tezgahlari"
+        "bulasik-siyirma-tezgahi"
       ],
       "dolaplar": [
         "depolama-dolabi",
@@ -218,15 +214,9 @@ export const categoryData = {
         "3-evyeli-tezgahlar",
         "diz-kontrollu-el-yikama-unitesi",
         "evyeli-tezgah-dolapli",
-        "temizlik-evyesi"
-      ],
-      "firin-stantlari": [
-        "ekipman-standi",
-        "firin-standi",
-        "pizza-firini-standi"
+        "mop-evye-tazgahi"
       ],
       "kazan-ve-sebze-yikama-tezgahlari": [
-        "balik-isleme-tezgahi",
         "kazan-yikama-servis-masasi",
         "kazan-yikama-tezgahi",
         "sebze-yikama-tezgahi"
@@ -235,7 +225,6 @@ export const categoryData = {
         "duvar-dolap-kapakli",
         "duvar-rafi",
         "endustriyel-raf-sistemleri",
-        "istif-raflari",
         "kazan-raflari",
         "raf-kesme-tahtasi-icin",
         "tabak-kurutma-raflari"
@@ -253,7 +242,14 @@ export const categoryData = {
         "cift-katli-servis-rafi",
         "tek-katli-servis-rafi"
       ],
+      "stantlar": [
+        "ekipman-standi",
+        "firin-standi",
+        "grill-master-standi",
+        "pizza-firini-standi"
+      ],
       "tabla-ve-tepsi-arabalari": [
+        "depo-istif-tablasi",
         "gastro-kap-tepsili-arabalar",
         "kazan-arabasi",
         "platform-arabasi",
@@ -263,12 +259,16 @@ export const categoryData = {
         "tepsi-arabalari"
       ],
       "tezgahlar": [
+        "balik-isleme-tezgahi",
         "dolapli-tezgah-carpma-kapi",
         "dolapli-tezgah-surgulu-kapi",
         "duz-tezgahlar",
         "isitmali-dolapli-tezgah",
+        "kahve-hazirlama-tezgahi",
+        "kokteyl-hazirlama-tezgahi",
         "mermer-tablali-tezgahlar",
         "pe-polietilen-tablali-tezgahlar",
+        "premix-tezgahi",
         "taban-ara-rafli-tezgahlar",
         "taban-rafli-tezgahlar",
         "tezgahlar-1-cekmeceli",

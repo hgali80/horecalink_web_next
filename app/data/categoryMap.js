@@ -31,9 +31,9 @@ export const categoryMap = {
   },
   "ada-tipi-davlumbaz": {
     "groupKey": "paslanmaz",
-    "categoryKey": "aspirator-ve-aydinlatma-sistemleri",
+    "categoryKey": "aspiratorler",
     "groupLabel": "Paslanmaz Ekipmanlar",
-    "categoryLabel": "Aspirator Ve Aydinlatma Sistemleri",
+    "categoryLabel": "Aspiratorler",
     "subLabel": "Ada Tipi Davlumbaz"
   },
   "airfresh-dispenserleri": {
@@ -59,24 +59,31 @@ export const categoryMap = {
   },
   "aspirator-aydinlatmasi": {
     "groupKey": "paslanmaz",
-    "categoryKey": "aspirator-ve-aydinlatma-sistemleri",
+    "categoryKey": "aspiratorler",
     "groupLabel": "Paslanmaz Ekipmanlar",
-    "categoryLabel": "Aspirator Ve Aydinlatma Sistemleri",
+    "categoryLabel": "Aspiratorler",
     "subLabel": "Aspirator Aydinlatmasi"
   },
   "aspirator-rafi": {
     "groupKey": "paslanmaz",
-    "categoryKey": "aspirator-ve-aydinlatma-sistemleri",
+    "categoryKey": "aspiratorler",
     "groupLabel": "Paslanmaz Ekipmanlar",
-    "categoryLabel": "Aspirator Ve Aydinlatma Sistemleri",
+    "categoryLabel": "Aspiratorler",
     "subLabel": "Aspirator Rafi"
   },
   "balik-isleme-tezgahi": {
     "groupKey": "paslanmaz",
-    "categoryKey": "kazan-ve-sebze-yikama-tezgahlari",
+    "categoryKey": "tezgahlar",
     "groupLabel": "Paslanmaz Ekipmanlar",
-    "categoryLabel": "Kazan Ve Sebze Yikama Tezgahlari",
+    "categoryLabel": "Tezgahlar",
     "subLabel": "Balik Isleme Tezgahi"
+  },
+  "bulasik-makinesi-basketi-rafi": {
+    "groupKey": "paslanmaz",
+    "categoryKey": "bulasik-makinesi-tezgahlari",
+    "groupLabel": "Paslanmaz Ekipmanlar",
+    "categoryLabel": "Bulasik Makinesi Tezgahlari",
+    "subLabel": "Bulasik Makinesi Basketi Rafi"
   },
   "bardaklar": {
     "groupKey": "institutional",
@@ -111,7 +118,14 @@ export const categoryMap = {
     "categoryKey": "bulasik-makinesi-tezgahlari",
     "groupLabel": "Paslanmaz Ekipmanlar",
     "categoryLabel": "Bulasik Makinesi Tezgahlari",
-    "subLabel": "Bulasik Siyirma Tezgahlari"
+    "subLabel": "Bulasik Siyirma Tezgahi"
+  },
+  "bulasik-siyirma-tezgahi": {
+    "groupKey": "paslanmaz",
+    "categoryKey": "bulasik-makinesi-tezgahlari",
+    "groupLabel": "Paslanmaz Ekipmanlar",
+    "categoryLabel": "Bulasik Makinesi Tezgahlari",
+    "subLabel": "Bulasik Siyirma Tezgahi"
   },
   "cam-temizlik-ekipmanlari": {
     "groupKey": "institutional",
@@ -176,6 +190,13 @@ export const categoryMap = {
     "categoryLabel": "Dolaplar",
     "subLabel": "Depolama Dolabi"
   },
+  "depo-istif-tablasi": {
+    "groupKey": "paslanmaz",
+    "categoryKey": "tabla-ve-tepsi-arabalari",
+    "groupLabel": "Paslanmaz Ekipmanlar",
+    "categoryLabel": "Tabla Ve Tepsi Arabalari",
+    "subLabel": "Depo Istif Tablasi"
+  },
   "dezenfektanlar": {
     "groupKey": "institutional",
     "categoryKey": "personal-care-hygiene",
@@ -220,9 +241,9 @@ export const categoryMap = {
   },
   "duvar-tipi-davlumbuz": {
     "groupKey": "paslanmaz",
-    "categoryKey": "aspirator-ve-aydinlatma-sistemleri",
+    "categoryKey": "aspiratorler",
     "groupLabel": "Paslanmaz Ekipmanlar",
-    "categoryLabel": "Aspirator Ve Aydinlatma Sistemleri",
+    "categoryLabel": "Aspiratorler",
     "subLabel": "Duvar Tipi Davlumbuz"
   },
   "duz-tezgahlar": {
@@ -234,9 +255,9 @@ export const categoryMap = {
   },
   "ekipman-standi": {
     "groupKey": "paslanmaz",
-    "categoryKey": "firin-stantlari",
+    "categoryKey": "stantlar",
     "groupLabel": "Paslanmaz Ekipmanlar",
-    "categoryLabel": "Firin Stantlari",
+    "categoryLabel": "Stantlar",
     "subLabel": "Ekipman Standi"
   },
   "ekmek-dolabi": {
@@ -269,9 +290,9 @@ export const categoryMap = {
   },
   "firin-standi": {
     "groupKey": "paslanmaz",
-    "categoryKey": "firin-stantlari",
+    "categoryKey": "stantlar",
     "groupLabel": "Paslanmaz Ekipmanlar",
-    "categoryLabel": "Firin Stantlari",
+    "categoryLabel": "Stantlar",
     "subLabel": "Firin Standi"
   },
   "galoslar": {
@@ -287,6 +308,13 @@ export const categoryMap = {
     "groupLabel": "Paslanmaz Ekipmanlar",
     "categoryLabel": "Tabla Ve Tepsi Arabalari",
     "subLabel": "Gastro Kap Tepsili Arabalar"
+  },
+  "grill-master-standi": {
+    "groupKey": "paslanmaz",
+    "categoryKey": "stantlar",
+    "groupLabel": "Paslanmaz Ekipmanlar",
+    "categoryLabel": "Stantlar",
+    "subLabel": "Grill Master Standi"
   },
   "havuz-urunleri": {
     "groupKey": "institutional",
@@ -339,9 +367,9 @@ export const categoryMap = {
   },
   "kahve-hazirlama-tezgahi": {
     "groupKey": "paslanmaz",
-    "categoryKey": "bar-tezgahlari",
+    "categoryKey": "tezgahlar",
     "groupLabel": "Paslanmaz Ekipmanlar",
-    "categoryLabel": "Bar Tezgahlari",
+    "categoryLabel": "Tezgahlar",
     "subLabel": "Kahve Hazirlama Tezgahi"
   },
   "kasa-unitesi": {
@@ -395,10 +423,17 @@ export const categoryMap = {
   },
   "kokteyl-hazirlama-tezgahi": {
     "groupKey": "paslanmaz",
-    "categoryKey": "bar-tezgahlari",
+    "categoryKey": "tezgahlar",
     "groupLabel": "Paslanmaz Ekipmanlar",
-    "categoryLabel": "Bar Tezgahlari",
+    "categoryLabel": "Tezgahlar",
     "subLabel": "Kokteyl Hazirlama Tezgahi"
+  },
+  "mop-evye-tazgahi": {
+    "groupKey": "paslanmaz",
+    "categoryKey": "evyeli-tezgahlar",
+    "groupLabel": "Paslanmaz Ekipmanlar",
+    "categoryLabel": "Evyeli Tezgahlar",
+    "subLabel": "Mop Evye Tazgahi"
   },
   "koli-bantlari": {
     "groupKey": "institutional",
@@ -521,9 +556,9 @@ export const categoryMap = {
   },
   "pizza-firini-standi": {
     "groupKey": "paslanmaz",
-    "categoryKey": "firin-stantlari",
+    "categoryKey": "stantlar",
     "groupLabel": "Paslanmaz Ekipmanlar",
-    "categoryLabel": "Firin Stantlari",
+    "categoryLabel": "Stantlar",
     "subLabel": "Pizza Firini Standi"
   },
   "platform-arabasi": {
@@ -535,10 +570,17 @@ export const categoryMap = {
   },
   "premix-hazirlik-unitesi": {
     "groupKey": "paslanmaz",
-    "categoryKey": "bar-tezgahlari",
+    "categoryKey": "tezgahlar",
     "groupLabel": "Paslanmaz Ekipmanlar",
-    "categoryLabel": "Bar Tezgahlari",
-    "subLabel": "Premix Hazirlik Unitesi"
+    "categoryLabel": "Tezgahlar",
+    "subLabel": "Premix Tezgahi"
+  },
+  "premix-tezgahi": {
+    "groupKey": "paslanmaz",
+    "categoryKey": "tezgahlar",
+    "groupLabel": "Paslanmaz Ekipmanlar",
+    "categoryLabel": "Tezgahlar",
+    "subLabel": "Premix Tezgahi"
   },
   "raf-kesme-tahtasi-icin": {
     "groupKey": "paslanmaz",
@@ -657,7 +699,7 @@ export const categoryMap = {
     "categoryKey": "evyeli-tezgahlar",
     "groupLabel": "Paslanmaz Ekipmanlar",
     "categoryLabel": "Evyeli Tezgahlar",
-    "subLabel": "Temizlik Evyesi"
+    "subLabel": "Mop Evye Tazgahi"
   },
   "tepsi-arabalari": {
     "groupKey": "paslanmaz",

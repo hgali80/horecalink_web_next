@@ -589,7 +589,7 @@ export default function UsageAreaDetailPage() {
 
           <Section
             title="Kart Gorseli"
-            description="Tiklayip bilgisayardan gorsel secebilir, yukledikten sonra kartta hemen gorebilirsin."
+            description="Ana sayfa ve kullanim alanlari kartlari icin yatay gorsel kullan. Onerilen oran 8:5 (orn. 1600x1000 px veya 2400x1500 px)."
           >
             <input
               ref={fileRef}
@@ -605,7 +605,7 @@ export default function UsageAreaDetailPage() {
               disabled={uploading}
               className="group relative block w-full overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100"
             >
-              <div className="relative h-[260px] w-full">
+              <div className="relative aspect-[8/5] w-full">
                 <Image
                   src={form.imagePreviewUrl || "/Placeholder.png"}
                   alt={form.name_tr || form.name_ru || "Usage area image"}
@@ -634,6 +634,12 @@ export default function UsageAreaDetailPage() {
                 </div>
               </div>
             </button>
+
+            <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+              Not: En iyi sonuc icin 8:5 oraninda yatay gorsel yukleyin. Sistem gorseli kartta
+              <span className="font-semibold"> object-cover </span>
+              ile kullandigi icin farkli oranlar kenarlardan kirpilabilir.
+            </div>
           </Section>
         </div>
       </div>

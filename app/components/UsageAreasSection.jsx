@@ -98,7 +98,7 @@ export default function UsageAreasSection() {
               <Link
                 key={item.id}
                 href={`/usage-areas/${item.slug}`}
-                className="group relative min-h-[240px] overflow-hidden rounded-[28px] border border-slate-200 bg-slate-900 shadow-[0_18px_40px_rgba(29,50,70,0.12)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_55px_rgba(29,50,70,0.18)]"
+                className="group relative aspect-[8/5] overflow-hidden rounded-[28px] border border-slate-200 bg-slate-900 shadow-[0_18px_40px_rgba(29,50,70,0.12)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_55px_rgba(29,50,70,0.18)]"
               >
                 <Image
                   src={item.imagePreviewUrl}

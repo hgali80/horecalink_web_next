@@ -81,7 +81,7 @@ export default function UsageAreasPage() {
                   href={`/usage-areas/${item.slug}`}
                   className="group overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
-                  <div className="relative h-[250px] overflow-hidden bg-slate-200">
+                  <div className="relative aspect-[8/5] overflow-hidden bg-slate-200">
                     <Image
                       src={item.imagePreviewUrl}
                       alt={title}
