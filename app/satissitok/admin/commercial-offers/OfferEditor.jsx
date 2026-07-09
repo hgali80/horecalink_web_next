@@ -1004,32 +1004,38 @@ export default function OfferEditor({ offerId = null }) {
               <div className="w-[140px]" />
             </div>
 
-            <div className="mb-10 grid grid-cols-[minmax(0,1.04fr)_minmax(0,0.96fr)] items-start gap-10">
+            <div className="mb-8 grid grid-cols-[minmax(0,1fr)_minmax(0,0.86fr)] items-start gap-8">
               <div className="pt-0">
-                <div className="mb-2 h-[122px] w-full max-w-[370px] overflow-hidden">
+                <div className="h-[92px] w-full max-w-[320px] overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={LOGO_SRC} alt="HorecaLink" className="ml-[-6px] mt-[-44px] h-[228px] w-full object-cover object-center" />
+                  <img src={LOGO_SRC} alt="HorecaLink" className="ml-[-8px] mt-[-52px] h-[208px] w-full object-cover object-center" />
                 </div>
-                <div className="text-[20px] font-extrabold italic leading-none text-[#22364d]">{form.seller.brandName}</div>
-                <div className="mt-1 max-w-[360px] text-[14px] leading-[1.2] text-[#2f3a47]">{form.seller.tagline}</div>
-                <div className="mt-1 text-[13px] font-semibold text-[#22364d]">www.horecalink.kz</div>
               </div>
 
-              <div className="ml-auto mt-[8px] w-full max-w-[410px] border-[2px] border-[#8f99a4]">
-                <div className="border-b border-[#d8dde3] bg-white px-4 py-[10px] text-[14px] font-extrabold italic uppercase tracking-[0.01em] text-[#2f3337]">
-                  {"\u041a\u041e\u041c\u041c\u0415\u0420\u0427\u0415\u0421\u041a\u041e\u0415 \u041f\u0420\u0415\u0414\u041b\u041e\u0416\u0415\u041d\u0418\u0415"}
+              <div className="ml-auto mt-[2px] w-full max-w-[350px] rounded-[22px] border border-[#d7dee6] bg-[#f8fafc] px-5 py-5">
+                <div className="mb-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[#64748b]">
+                  {"\u041a\u043e\u043c\u043c\u0435\u0440\u0447\u0435\u0441\u043a\u043e\u0435 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0435\u043d\u0438\u0435"}
                 </div>
-                <div className="flex min-h-[108px] flex-col items-end justify-end px-5 py-4 text-right">
-                  <div className="mb-3 text-right text-[18px] font-bold text-[#2f3337]">{"\u2116"} {form.offerNo}</div>
-                  <div className="mb-3 text-right text-[14px] text-[#2f3337]">{"\u043e\u0442"} {formatDateLabel(form.issueDate)} {"\u0433."}</div>
-                  <div className="text-right text-[14px] text-[#2f3337]">{"\u0421\u0440\u043e\u043a \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f:"} {form.validDays} {"\u043a\u0430\u043b\u0435\u043d\u0434\u0430\u0440\u043d\u044b\u0445 \u0434\u043d\u0435\u0439"}</div>
+                <div className="flex items-end justify-between gap-4 border-b border-[#d7dee6] pb-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#94a3b8]">{"\u041d\u043e\u043c\u0435\u0440"}</div>
+                    <div className="mt-1 text-[24px] font-extrabold text-[#22364d]">{form.offerNo}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#94a3b8]">{"\u0414\u0430\u0442\u0430"}</div>
+                    <div className="mt-1 text-[14px] font-semibold text-[#334155]">{formatDateLabel(form.issueDate)}</div>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-[13px] text-[#475569]">
+                  <span className="font-semibold">{"\u0421\u0440\u043e\u043a \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f"}</span>
+                  <span>{form.validDays} {"\u0434\u043d\u0435\u0439"}</span>
                 </div>
               </div>
             </div>
 
-            <div className="mb-6 text-center text-[#22364d]">
-              <div className="text-[31px] font-extrabold italic uppercase leading-none">{"\u041a\u041e\u041c\u041c\u0415\u0420\u0427\u0415\u0421\u041a\u041e\u0415 \u041f\u0420\u0415\u0414\u041b\u041e\u0416\u0415\u041d\u0418\u0415"}</div>
-              <div className="mt-1 text-[24px] font-extrabold italic leading-[1.15]">{offerTypeConfig.titleLine}</div>
+            <div className="mb-5 border-b border-[#d7dee6] pb-4 text-center text-[#22364d]">
+              <div className="text-[28px] font-extrabold italic uppercase leading-none">{"\u041a\u041e\u041c\u041c\u0415\u0420\u0427\u0415\u0421\u041a\u041e\u0415 \u041f\u0420\u0415\u0414\u041b\u041e\u0416\u0415\u041d\u0418\u0415"}</div>
+              <div className="mt-2 text-[15px] font-semibold uppercase tracking-[0.08em] text-[#64748b]">{offerTypeConfig.titleLine}</div>
             </div>
 
             <div className="mb-5 grid grid-cols-2 gap-4">
@@ -1050,17 +1056,6 @@ export default function OfferEditor({ offerId = null }) {
                 <div>{"E-mail:"} {form.buyer.email || "________________"}</div>
                 <div>{form.buyer.address || "________________"}</div>
               </div>
-            </div>
-
-            <div className="mb-6 rounded-[20px] border border-[#d7dee6] bg-white px-5 py-4 text-[14px]">
-              <div className="mb-1 text-[12px] font-bold uppercase tracking-[0.14em] text-[#64748b]">{"\u0412\u0432\u043e\u0434\u043d\u0430\u044f \u0447\u0430\u0441\u0442\u044c"}</div>
-              <div className="mb-2">{"\u0414\u043e\u0431\u0440\u044b\u0439 \u0434\u0435\u043d\u044c,"}</div>
-              <div className="offer-pdf-note whitespace-pre-line">{form.introText}</div>
-              {form.priceNote ? (
-                <div className="mt-3 rounded-2xl bg-[#f8fafc] px-4 py-3 text-[13px] text-[#475569]">
-                  {form.priceNote}
-                </div>
-              ) : null}
             </div>
 
             <div className="mb-4 rounded-[24px] border border-[#d7dee6] bg-white p-3">
