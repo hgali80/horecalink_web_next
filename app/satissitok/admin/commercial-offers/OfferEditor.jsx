@@ -408,7 +408,7 @@ export default function OfferEditor({ offerId = null }) {
       wrapper.style.position = "fixed";
       wrapper.style.left = "-100000px";
       wrapper.style.top = "0";
-      wrapper.style.width = "1000px";
+      wrapper.style.width = "794px";
       wrapper.style.background = "#ffffff";
       wrapper.style.zIndex = "-1";
       wrapper.appendChild(clone);
@@ -455,6 +455,10 @@ export default function OfferEditor({ offerId = null }) {
             background: #ffffff !important;
           }
 
+          * {
+            box-sizing: border-box;
+          }
+
           header,
           nav,
           footer {
@@ -467,6 +471,13 @@ export default function OfferEditor({ offerId = null }) {
 
           .offer-print {
             display: block !important;
+          }
+
+          .offer-print-sheet {
+            width: 186mm !important;
+            max-width: 186mm !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
           }
 
           .avoid-break {
@@ -900,21 +911,21 @@ export default function OfferEditor({ offerId = null }) {
         </div>
 
         <div ref={pdfContentRef} className="offer-print hidden bg-white text-[#2b2f33]">
-          <div className="mx-auto w-[1000px] px-3 py-4 text-[13px] leading-[1.35]">
+          <div className="offer-print-sheet mx-auto w-full max-w-[794px] px-3 py-4 text-[13px] leading-[1.35]">
             <div className="mb-5 ml-[28px] mr-[18px] h-[22px] bg-[linear-gradient(to_right,#f6a400_0,#f6a400_16%,#24384d_16%,#24384d_100%)]" />
 
-            <div className="mb-6 grid grid-cols-[1.06fr_0.94fr] items-start gap-8">
+            <div className="mb-6 grid grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)] items-start gap-6">
               <div className="pt-0">
-                <div className="mb-1 h-[165px] w-[520px] overflow-hidden">
+                <div className="mb-1 h-[165px] w-full max-w-[520px] overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={LOGO_SRC} alt="HorecaLink" className="ml-[-18px] mt-[-56px] h-[310px] w-[520px] max-w-none object-cover object-center" />
+                  <img src={LOGO_SRC} alt="HorecaLink" className="ml-[-18px] mt-[-56px] h-[310px] w-full object-cover object-center" />
                 </div>
                 <div className="text-[22px] font-extrabold leading-none text-[#22364d]">{form.seller.brandName}</div>
                 <div className="mt-2 max-w-[430px] text-[16px] leading-[1.18] text-[#64748b]">{form.seller.tagline}</div>
                 <div className="mt-3 text-[14px] font-semibold text-[#22364d]">www.horecalink.kz</div>
               </div>
 
-              <div className="mt-[16px] ml-auto w-[445px] border-[2px] border-[#6f8192]">
+              <div className="mt-[16px] ml-auto w-full max-w-[445px] border-[2px] border-[#6f8192]">
                 <div className="border-b border-[#cfd7df] bg-[#eef2f5] px-4 py-[9px] text-[17px] font-extrabold uppercase tracking-[0.015em] text-[#2f3337]">
                   {"\u041a\u041e\u041c\u041c\u0415\u0420\u0427\u0415\u0421\u041a\u041e\u0415 \u041f\u0420\u0415\u0414\u041b\u041e\u0416\u0415\u041d\u0418\u0415"}
                 </div>
@@ -1000,7 +1011,7 @@ export default function OfferEditor({ offerId = null }) {
             </table>
 
             <div className="mb-10 flex justify-end">
-              <div className="w-[440px]">
+              <div className="w-full max-w-[440px]">
                 <div className="flex items-center justify-between text-[20px] font-bold">
                   <span>{"\u0418\u0442\u043e\u0433\u043e:"}</span>
                   <span>{formatMoney(calculated.totals.grandTotal)}</span>
