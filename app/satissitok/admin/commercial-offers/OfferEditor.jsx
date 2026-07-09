@@ -55,6 +55,20 @@ function formatDateLabel(value) {
   }).format(date);
 }
 
+function formatDateTimeStamp(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 function splitLines(value) {
   return text(value)
     .split(/\r?\n/)
@@ -108,6 +122,7 @@ export default function OfferEditor({ offerId = null }) {
   const [selectedProductId, setSelectedProductId] = useState("");
   const [message, setMessage] = useState("");
   const pdfContentRef = useRef(null);
+  const generatedAt = useMemo(() => new Date(), []);
 
   useEffect(() => {
     let alive = true;
@@ -422,7 +437,7 @@ export default function OfferEditor({ offerId = null }) {
       wrapper.appendChild(clone);
       document.body.appendChild(wrapper);
 
-      await html2pdf()
+      const worker = html2pdf()
         .set({
           margin: 0,
           filename: `${form.offerNo || "HorecaLink-teklif"}.pdf`,
@@ -440,11 +455,29 @@ export default function OfferEditor({ offerId = null }) {
             orientation: "portrait",
           },
           pagebreak: {
-            mode: ["css", "legacy"],
+            mode: ["avoid-all", "css", "legacy"],
+            avoid: [".offer-item-row", ".offer-summary-block", ".offer-terms-block", "tr"],
           },
         })
         .from(clone)
-        .save();
+        .toPdf();
+
+      const pdf = await worker.get("pdf");
+      const pageCount = pdf.internal.getNumberOfPages();
+      const topStamp = formatDateTimeStamp(generatedAt);
+      const offerNoLabel = form.offerNo || "HorecaLink";
+
+      for (let pageIndex = 1; pageIndex <= pageCount; pageIndex += 1) {
+        pdf.setPage(pageIndex);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(11);
+        pdf.setTextColor(44, 44, 44);
+        pdf.text(topStamp, 8, 8);
+        pdf.text(offerNoLabel, 105, 8, { align: "center" });
+        pdf.text(`${pageIndex}/${pageCount}`, 202, 292, { align: "right" });
+      }
+
+      await worker.save();
     } catch (error) {
       console.error("Commercial offer pdf error:", error);
       setMessage("PDF oluşturulamadı.");
@@ -501,6 +534,16 @@ export default function OfferEditor({ offerId = null }) {
 
           .offer-print-table {
             table-layout: fixed !important;
+          }
+
+          .offer-print-table thead {
+            display: table-header-group;
+          }
+
+          .offer-print-table tr,
+          .offer-item-row {
+            break-inside: avoid-page;
+            page-break-inside: avoid;
           }
 
           .offer-print-table td,
@@ -940,39 +983,43 @@ export default function OfferEditor({ offerId = null }) {
         </div>
 
         <div ref={pdfContentRef} className="offer-print offer-print-root hidden bg-white text-[#2b2f33]">
-          <div className="offer-print-sheet mx-auto w-[794px] max-w-[794px] px-3 py-4 text-[13px] leading-[1.35]">
-            <div className="mb-5 ml-[28px] mr-[18px] h-[22px] bg-[linear-gradient(to_right,#f6a400_0,#f6a400_16%,#24384d_16%,#24384d_100%)]" />
+          <div className="offer-print-sheet mx-auto w-[794px] max-w-[794px] px-6 pb-4 pt-12 text-[13px] leading-[1.35]">
+            <div className="mb-10 flex items-start justify-between gap-8">
+              <div className="w-[140px] text-[12px] text-[#2b2f33]">{formatDateTimeStamp(generatedAt)}</div>
+              <div className="flex-1 text-center text-[12px] text-[#2b2f33]">{form.offerNo || "HorecaLink"}</div>
+              <div className="w-[140px]" />
+            </div>
 
-            <div className="mb-6 grid grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)] items-start gap-6">
+            <div className="mb-10 grid grid-cols-[minmax(0,1.04fr)_minmax(0,0.96fr)] items-start gap-10">
               <div className="pt-0">
-                <div className="mb-1 h-[165px] w-full max-w-[520px] overflow-hidden">
+                <div className="mb-2 h-[122px] w-full max-w-[370px] overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={LOGO_SRC} alt="HorecaLink" className="ml-[-18px] mt-[-56px] h-[310px] w-full object-cover object-center" />
+                  <img src={LOGO_SRC} alt="HorecaLink" className="ml-[-6px] mt-[-44px] h-[228px] w-full object-cover object-center" />
                 </div>
-                <div className="text-[22px] font-extrabold leading-none text-[#22364d]">{form.seller.brandName}</div>
-                <div className="mt-2 max-w-[430px] text-[16px] leading-[1.18] text-[#64748b]">{form.seller.tagline}</div>
-                <div className="mt-3 text-[14px] font-semibold text-[#22364d]">www.horecalink.kz</div>
+                <div className="text-[20px] font-extrabold italic leading-none text-[#22364d]">{form.seller.brandName}</div>
+                <div className="mt-1 max-w-[360px] text-[14px] leading-[1.2] text-[#2f3a47]">{form.seller.tagline}</div>
+                <div className="mt-1 text-[13px] font-semibold text-[#22364d]">www.horecalink.kz</div>
               </div>
 
-              <div className="mt-[16px] ml-auto w-full max-w-[445px] border-[2px] border-[#6f8192]">
-                <div className="border-b border-[#cfd7df] bg-[#eef2f5] px-4 py-[9px] text-[17px] font-extrabold uppercase tracking-[0.015em] text-[#2f3337]">
+              <div className="ml-auto mt-[8px] w-full max-w-[410px] border-[2px] border-[#8f99a4]">
+                <div className="border-b border-[#d8dde3] bg-white px-4 py-[10px] text-[14px] font-extrabold italic uppercase tracking-[0.01em] text-[#2f3337]">
                   {"\u041a\u041e\u041c\u041c\u0415\u0420\u0427\u0415\u0421\u041a\u041e\u0415 \u041f\u0420\u0415\u0414\u041b\u041e\u0416\u0415\u041d\u0418\u0415"}
                 </div>
-                <div className="flex min-h-[126px] flex-col items-end justify-between px-5 py-4 text-right">
-                  <div className="mb-3 text-right text-[20px] font-bold text-[#2f3337]">{"\u2116"} {form.offerNo}</div>
-                  <div className="mb-4 text-right text-[16px] text-[#2f3337]">{"\u043e\u0442"} {formatDateLabel(form.issueDate)} {"\u0433."}</div>
-                  <div className="text-right text-[16px] text-[#2f3337]">{"\u0421\u0440\u043e\u043a \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f:"} {form.validDays} {"\u043a\u0430\u043b\u0435\u043d\u0434\u0430\u0440\u043d\u044b\u0445 \u0434\u043d\u0435\u0439"}</div>
+                <div className="flex min-h-[108px] flex-col items-end justify-end px-5 py-4 text-right">
+                  <div className="mb-3 text-right text-[18px] font-bold text-[#2f3337]">{"\u2116"} {form.offerNo}</div>
+                  <div className="mb-3 text-right text-[14px] text-[#2f3337]">{"\u043e\u0442"} {formatDateLabel(form.issueDate)} {"\u0433."}</div>
+                  <div className="text-right text-[14px] text-[#2f3337]">{"\u0421\u0440\u043e\u043a \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f:"} {form.validDays} {"\u043a\u0430\u043b\u0435\u043d\u0434\u0430\u0440\u043d\u044b\u0445 \u0434\u043d\u0435\u0439"}</div>
                 </div>
               </div>
             </div>
 
-            <div className="mb-5 text-center text-[#22364d]">
-              <div className="text-[32px] font-extrabold uppercase">{"\u041a\u041e\u041c\u041c\u0415\u0420\u0427\u0415\u0421\u041a\u041e\u0415 \u041f\u0420\u0415\u0414\u041b\u041e\u0416\u0415\u041d\u0418\u0415"}</div>
-              <div className="text-[30px] font-extrabold">{offerTypeConfig.titleLine}</div>
+            <div className="mb-6 text-center text-[#22364d]">
+              <div className="text-[31px] font-extrabold italic uppercase leading-none">{"\u041a\u041e\u041c\u041c\u0415\u0420\u0427\u0415\u0421\u041a\u041e\u0415 \u041f\u0420\u0415\u0414\u041b\u041e\u0416\u0415\u041d\u0418\u0415"}</div>
+              <div className="mt-1 text-[24px] font-extrabold italic leading-[1.15]">{offerTypeConfig.titleLine}</div>
             </div>
 
             <div className="mb-5 grid grid-cols-2 border border-[#d7dee6]">
-              <div className="border-r border-[#d7dee6] p-3 text-[15px]">
+              <div className="border-r border-[#d7dee6] p-3 text-[14px]">
                 <div className="mb-1 text-[18px]">{offerTypeConfig.sellerRole}</div>
                 <div>{form.seller.brandName}</div>
                 <div>{offerTypeConfig.sellerCaption}</div>
@@ -980,7 +1027,7 @@ export default function OfferEditor({ offerId = null }) {
                 <div>{"\u0411\u0418\u041d:"} {form.seller.bin}</div>
                 <div>{form.seller.address}</div>
               </div>
-              <div className="p-3 text-[15px]">
+              <div className="p-3 text-[14px]">
                 <div className="mb-1 text-[18px]">{"\u041f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044c:"}</div>
                 <div>{form.buyer.companyName || "________________"}</div>
                 <div>{"\u0411\u0418\u041d/\u0418\u0418\u041d:"} {form.buyer.bin || "________________"}</div>
@@ -998,35 +1045,35 @@ export default function OfferEditor({ offerId = null }) {
 
             <table className="offer-print-table mb-4 w-full border-collapse text-[13px]">
               <colgroup>
-                <col style={{ width: "28px" }} />
-                <col style={{ width: "132px" }} />
-                <col />
-                <col style={{ width: "56px" }} />
-                <col style={{ width: "96px" }} />
+                <col style={{ width: "36px" }} />
                 <col style={{ width: "110px" }} />
+                <col />
+                <col style={{ width: "64px" }} />
+                <col style={{ width: "92px" }} />
+                <col style={{ width: "104px" }} />
               </colgroup>
               <thead>
-                <tr className="bg-[#22364d] text-white">
-                  <th className="border border-[#cfd7df] px-2 py-3">{"\u2116"}</th>
-                  <th className="border border-[#cfd7df] px-2 py-3">{"\u0424\u043e\u0442\u043e"}</th>
-                  <th className="border border-[#cfd7df] px-2 py-3">{"\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438"}</th>
-                  <th className="border border-[#cfd7df] px-2 py-3">{"\u041a\u043e\u043b-\u0432\u043e"}</th>
-                  <th className="border border-[#cfd7df] px-2 py-3">{"\u0426\u0435\u043d\u0430"}</th>
-                  <th className="border border-[#cfd7df] px-2 py-3">{"\u0421\u0443\u043c\u043c\u0430"}</th>
+                <tr className="text-[#9aa3ad]">
+                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u2116"}</th>
+                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u0424\u043e\u0442\u043e"}</th>
+                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438"}</th>
+                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u041a\u043e\u043b-\u0432\u043e"}</th>
+                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u0426\u0435\u043d\u0430"}</th>
+                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u0421\u0443\u043c\u043c\u0430"}</th>
                 </tr>
               </thead>
               <tbody>
                 {calculated.items.map((item, index) => (
-                  <tr key={item.rowId}>
+                  <tr key={item.rowId} className="offer-item-row">
                     <td className="border border-[#d7dee6] px-2 py-3 align-middle">{index + 1}</td>
                     <td className="border border-[#d7dee6] px-2 py-3 align-middle">
                       <div className="flex items-center justify-center">
-                        <ProductImage src={item.imageUrl} alt={item.name || "Product"} sizeClass="w-[102px]" />
+                        <ProductImage src={item.imageUrl} alt={item.name || "Product"} sizeClass="w-[84px]" />
                       </div>
                     </td>
                     <td className="border border-[#d7dee6] px-2 py-3 align-middle whitespace-pre-line break-words text-[14px]">
-                      <div className="mb-2 text-[16px] font-extrabold leading-[1.15] text-[#22364d]">{item.name}</div>
-                      {item.sku ? <div className="mb-2 text-[13px] font-semibold leading-[1.1] text-[#475569]">{item.sku}</div> : null}
+                      <div className="mb-2 text-[15px] font-extrabold italic leading-[1.15] text-[#22364d]">{item.name}</div>
+                      {item.sku ? <div className="mb-2 text-[12px] font-semibold leading-[1.1] text-[#475569]">{item.sku}</div> : null}
                       <div>{item.description}</div>
                     </td>
                     <td className="border border-[#d7dee6] px-2 py-3 align-middle whitespace-nowrap text-[14px]">
@@ -1039,8 +1086,8 @@ export default function OfferEditor({ offerId = null }) {
               </tbody>
             </table>
 
-            <div className="mb-10 flex justify-end">
-              <div className="w-full max-w-[440px]">
+            <div className="offer-summary-block mb-10 flex justify-end">
+              <div className="w-full max-w-[420px]">
                 <div className="flex items-center justify-between text-[20px] font-bold">
                   <span>{"\u0418\u0442\u043e\u0433\u043e:"}</span>
                   <span>{formatMoney(calculated.totals.grandTotal)}</span>
@@ -1054,7 +1101,7 @@ export default function OfferEditor({ offerId = null }) {
             </div>
 
             {form.visibility?.termsSection ?? true ? (
-              <div className="avoid-break mb-6 grid grid-cols-3 border border-[#d7dee6]">
+              <div className="offer-terms-block avoid-break mb-6 grid grid-cols-3 border border-[#d7dee6]">
                 <div className="border-r border-[#d7dee6]">
                   <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-3 py-2 text-[18px] font-bold text-[#22364d]">{"\u0423\u0441\u043b\u043e\u0432\u0438\u044f \u043f\u043e\u0441\u0442\u0430\u0432\u043a\u0438"}</div>
                   <div className="px-3 py-2 text-[14px]">
@@ -1096,7 +1143,7 @@ export default function OfferEditor({ offerId = null }) {
 
             <div className="flex items-center justify-between border-t border-[#d7dee6] pt-1 text-[12px] text-[#64748b]">
               <div>{"HorecaLink - \u043a\u043e\u043c\u043c\u0435\u0440\u0447\u0435\u0441\u043a\u043e\u0435 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0435\u043d\u0438\u0435"}</div>
-              <div>{"\u0441\u0442\u0440. 1"}</div>
+              <div />
             </div>
           </div>
         </div>
