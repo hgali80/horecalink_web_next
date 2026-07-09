@@ -69,6 +69,16 @@ function formatDateTimeStamp(value) {
   }).format(date);
 }
 
+function formatItemMeta(item) {
+  return [text(item.sku), text(item.brand)].filter(Boolean).join("  •  ");
+}
+
+function formatItemQuantity(item) {
+  const quantity = number(item.quantity);
+  const unit = text(item.unit);
+  return `${quantity.toLocaleString("ru-RU")} ${unit}`.trim();
+}
+
 function splitLines(value) {
   return text(value)
     .split(/\r?\n/)
@@ -455,8 +465,8 @@ export default function OfferEditor({ offerId = null }) {
             orientation: "portrait",
           },
           pagebreak: {
-            mode: ["avoid-all", "css", "legacy"],
-            avoid: [".offer-item-row", ".offer-summary-block", ".offer-terms-block", "tr"],
+            mode: ["css", "legacy"],
+            avoid: [".offer-pdf-item", ".offer-summary-block", ".offer-terms-block", ".offer-bank-block", ".offer-signature-block"],
           },
         })
         .from(clone)
@@ -532,22 +542,26 @@ export default function OfferEditor({ offerId = null }) {
             overflow: hidden !important;
           }
 
-          .offer-print-table {
-            table-layout: fixed !important;
-          }
-
-          .offer-print-table thead {
-            display: table-header-group;
-          }
-
-          .offer-print-table tr,
-          .offer-item-row {
-            break-inside: avoid-page;
+          .offer-pdf-item,
+          .offer-summary-block,
+          .offer-terms-block,
+          .offer-bank-block,
+          .offer-signature-block {
+            break-inside: avoid;
             page-break-inside: avoid;
           }
 
-          .offer-print-table td,
-          .offer-print-table th {
+          .offer-pdf-grid {
+            grid-template-columns: 30px 88px minmax(0, 1fr) 82px 96px 108px !important;
+          }
+
+          .offer-pdf-desc {
+            min-width: 0;
+          }
+
+          .offer-pdf-desc,
+          .offer-pdf-note,
+          .offer-pdf-meta {
             overflow-wrap: anywhere;
             word-break: break-word;
           }
@@ -1018,18 +1032,18 @@ export default function OfferEditor({ offerId = null }) {
               <div className="mt-1 text-[24px] font-extrabold italic leading-[1.15]">{offerTypeConfig.titleLine}</div>
             </div>
 
-            <div className="mb-5 grid grid-cols-2 border border-[#d7dee6]">
-              <div className="border-r border-[#d7dee6] p-3 text-[14px]">
-                <div className="mb-1 text-[18px]">{offerTypeConfig.sellerRole}</div>
+            <div className="mb-5 grid grid-cols-2 gap-4">
+              <div className="rounded-[20px] border border-[#d7dee6] bg-[#f8fafc] p-4 text-[14px]">
+                <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#64748b]">{offerTypeConfig.sellerRole}</div>
+                <div className="mb-1 text-[18px] font-bold text-[#22364d]">{form.seller.companyName}</div>
                 <div>{form.seller.brandName}</div>
                 <div>{offerTypeConfig.sellerCaption}</div>
-                <div>{form.seller.companyName}</div>
                 <div>{"\u0411\u0418\u041d:"} {form.seller.bin}</div>
                 <div>{form.seller.address}</div>
               </div>
-              <div className="p-3 text-[14px]">
-                <div className="mb-1 text-[18px]">{"\u041f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044c:"}</div>
-                <div>{form.buyer.companyName || "________________"}</div>
+              <div className="rounded-[20px] border border-[#d7dee6] bg-white p-4 text-[14px]">
+                <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#64748b]">{"\u041f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044c"}</div>
+                <div className="mb-1 text-[18px] font-bold text-[#22364d]">{form.buyer.companyName || "________________"}</div>
                 <div>{"\u0411\u0418\u041d/\u0418\u0418\u041d:"} {form.buyer.bin || "________________"}</div>
                 <div>{"\u041a\u043e\u043d\u0442\u0430\u043a\u0442:"} {form.buyer.contactName || "________________"}</div>
                 <div>{"\u0422\u0435\u043b.:"} {form.buyer.phone || "________________"}</div>
@@ -1038,100 +1052,122 @@ export default function OfferEditor({ offerId = null }) {
               </div>
             </div>
 
-            <div className="mb-6 text-[14px]">
-              <div className="mb-1">{"\u0414\u043e\u0431\u0440\u044b\u0439 \u0434\u0435\u043d\u044c,"}</div>
-              <div>{form.introText}</div>
+            <div className="mb-6 rounded-[20px] border border-[#d7dee6] bg-white px-5 py-4 text-[14px]">
+              <div className="mb-1 text-[12px] font-bold uppercase tracking-[0.14em] text-[#64748b]">{"\u0412\u0432\u043e\u0434\u043d\u0430\u044f \u0447\u0430\u0441\u0442\u044c"}</div>
+              <div className="mb-2">{"\u0414\u043e\u0431\u0440\u044b\u0439 \u0434\u0435\u043d\u044c,"}</div>
+              <div className="offer-pdf-note whitespace-pre-line">{form.introText}</div>
+              {form.priceNote ? (
+                <div className="mt-3 rounded-2xl bg-[#f8fafc] px-4 py-3 text-[13px] text-[#475569]">
+                  {form.priceNote}
+                </div>
+              ) : null}
             </div>
 
-            <table className="offer-print-table mb-4 w-full border-collapse text-[13px]">
-              <colgroup>
-                <col style={{ width: "36px" }} />
-                <col style={{ width: "110px" }} />
-                <col />
-                <col style={{ width: "64px" }} />
-                <col style={{ width: "92px" }} />
-                <col style={{ width: "104px" }} />
-              </colgroup>
-              <thead>
-                <tr className="text-[#9aa3ad]">
-                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u2116"}</th>
-                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u0424\u043e\u0442\u043e"}</th>
-                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438"}</th>
-                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u041a\u043e\u043b-\u0432\u043e"}</th>
-                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u0426\u0435\u043d\u0430"}</th>
-                  <th className="border border-[#d7dee6] px-2 py-3 font-semibold">{"\u0421\u0443\u043c\u043c\u0430"}</th>
-                </tr>
-              </thead>
-              <tbody>
+            <div className="mb-4 rounded-[24px] border border-[#d7dee6] bg-white p-3">
+              <div className="offer-pdf-grid mb-3 grid items-center gap-3 rounded-[18px] bg-[#22364d] px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-white">
+                <div className="text-center">{"\u2116"}</div>
+                <div className="text-center">{"\u0424\u043e\u0442\u043e"}</div>
+                <div>{"\u0422\u043e\u0432\u0430\u0440 / \u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438"}</div>
+                <div className="text-right">{"\u041a\u043e\u043b-\u0432\u043e"}</div>
+                <div className="text-right">{"\u0426\u0435\u043d\u0430"}</div>
+                <div className="text-right">{"\u0421\u0443\u043c\u043c\u0430"}</div>
+              </div>
+
+              <div className="space-y-3">
                 {calculated.items.map((item, index) => (
-                  <tr key={item.rowId} className="offer-item-row">
-                    <td className="border border-[#d7dee6] px-2 py-3 align-middle">{index + 1}</td>
-                    <td className="border border-[#d7dee6] px-2 py-3 align-middle">
-                      <div className="flex items-center justify-center">
+                  <div key={item.rowId} className="offer-pdf-item rounded-[18px] border border-[#d7dee6] bg-[#fcfdff] px-4 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+                    <div className="offer-pdf-grid grid items-start gap-3">
+                      <div className="pt-2 text-center text-[15px] font-bold text-[#22364d]">{index + 1}</div>
+                      <div className="flex justify-center">
                         <ProductImage src={item.imageUrl} alt={item.name || "Product"} sizeClass="w-[84px]" />
                       </div>
-                    </td>
-                    <td className="border border-[#d7dee6] px-2 py-3 align-middle whitespace-pre-line break-words text-[14px]">
-                      <div className="mb-2 text-[15px] font-extrabold italic leading-[1.15] text-[#22364d]">{item.name}</div>
-                      {item.sku ? <div className="mb-2 text-[12px] font-semibold leading-[1.1] text-[#475569]">{item.sku}</div> : null}
-                      <div>{item.description}</div>
-                    </td>
-                    <td className="border border-[#d7dee6] px-2 py-3 align-middle whitespace-nowrap text-[14px]">
-                      {item.quantity} {item.unit}
-                    </td>
-                    <td className="border border-[#d7dee6] px-2 py-3 align-middle whitespace-nowrap text-[14px]">{formatMoney(item.unitPrice)}</td>
-                    <td className="border border-[#d7dee6] px-2 py-3 align-middle whitespace-nowrap text-[16px] font-bold">{formatMoney(item.lineTotal)}</td>
-                  </tr>
+                      <div className="offer-pdf-desc min-w-0">
+                        <div className="text-[15px] font-extrabold italic leading-[1.2] text-[#22364d]">{item.name || "\u0422\u043e\u0432\u0430\u0440"}</div>
+                        {formatItemMeta(item) ? (
+                          <div className="offer-pdf-meta mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#64748b]">
+                            {formatItemMeta(item)}
+                          </div>
+                        ) : null}
+                        {item.description ? (
+                          <div className="offer-pdf-note mt-3 whitespace-pre-line text-[13px] leading-[1.5] text-[#334155]">
+                            {item.description}
+                          </div>
+                        ) : (
+                          <div className="mt-3 text-[13px] text-[#94a3b8]">{"\u041e\u043f\u0438\u0441\u0430\u043d\u0438\u0435 \u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d\u043e"}</div>
+                        )}
+                      </div>
+                      <div className="pt-2 text-right text-[14px] font-semibold text-[#22364d]">{formatItemQuantity(item)}</div>
+                      <div className="pt-2 text-right text-[14px] font-semibold text-[#22364d]">{formatMoney(item.unitPrice)}</div>
+                      <div className="rounded-2xl bg-white px-3 py-3 text-right">
+                        <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#94a3b8]">{"\u0418\u0442\u043e\u0433\u043e"}</div>
+                        <div className="text-[17px] font-extrabold text-[#22364d]">{formatMoney(item.lineTotal)}</div>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
 
             <div className="offer-summary-block mb-10 flex justify-end">
-              <div className="w-full max-w-[420px]">
-                <div className="flex items-center justify-between text-[20px] font-bold">
+              <div className="w-full max-w-[420px] rounded-[24px] border border-[#d7dee6] bg-[#22364d] px-5 py-5 text-white shadow-[0_16px_40px_rgba(15,23,42,0.16)]">
+                <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.16em] text-white/70">{"\u0421\u0432\u043e\u0434\u043a\u0430 \u043f\u043e \u0442\u0435\u043a\u043b\u0438\u0444\u0443"}</div>
+                <div className="flex items-center justify-between text-[22px] font-bold">
                   <span>{"\u0418\u0442\u043e\u0433\u043e:"}</span>
                   <span>{formatMoney(calculated.totals.grandTotal)}</span>
                 </div>
                 {form.visibility?.vatSummary ?? true ? (
-                  <div className="mt-1 text-right text-[15px]">
+                  <div className="mt-2 text-right text-[15px] text-white/80">
                     <span>{`\u0412 \u0442\u043e\u043c \u0447\u0438\u0441\u043b\u0435 \u041d\u0414\u0421 ${form.vatRate}%: ${formatMoney(calculated.totals.vatAmount)}`}</span>
                   </div>
                 ) : null}
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl bg-white/10 px-4 py-3">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/65">{"\u041f\u043e\u0437\u0438\u0446\u0438\u0439"}</div>
+                    <div className="mt-1 text-[18px] font-bold">{calculated.items.length}</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/10 px-4 py-3">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/65">{"\u0421\u0440\u043e\u043a \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f"}</div>
+                    <div className="mt-1 text-[18px] font-bold">{form.validDays} {"\u0434\u043d."}</div>
+                  </div>
+                </div>
               </div>
             </div>
 
             {form.visibility?.termsSection ?? true ? (
-              <div className="offer-terms-block avoid-break mb-6 grid grid-cols-3 border border-[#d7dee6]">
-                <div className="border-r border-[#d7dee6]">
-                  <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-3 py-2 text-[18px] font-bold text-[#22364d]">{"\u0423\u0441\u043b\u043e\u0432\u0438\u044f \u043f\u043e\u0441\u0442\u0430\u0432\u043a\u0438"}</div>
-                  <div className="px-3 py-2 text-[14px]">
+              <div className="offer-terms-block avoid-break mb-6 grid grid-cols-3 gap-4">
+                <div className="rounded-[20px] border border-[#d7dee6] bg-white">
+                  <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-4 py-3 text-[16px] font-bold text-[#22364d]">{"\u0423\u0441\u043b\u043e\u0432\u0438\u044f \u043f\u043e\u0441\u0442\u0430\u0432\u043a\u0438"}</div>
+                  <div className="px-4 py-3 text-[14px]">
                     {form.terms.delivery.map((line) => (
-                      <div key={line}>- {line}</div>
+                      <div key={line} className="mb-2 last:mb-0">- {line}</div>
                     ))}
                   </div>
                 </div>
-                <div className="border-r border-[#d7dee6]">
-                  <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-3 py-2 text-[18px] font-bold text-[#22364d]">{"\u0423\u0441\u043b\u043e\u0432\u0438\u044f \u043e\u043f\u043b\u0430\u0442\u044b"}</div>
-                  <div className="px-3 py-2 text-[14px]">
+                <div className="rounded-[20px] border border-[#d7dee6] bg-white">
+                  <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-4 py-3 text-[16px] font-bold text-[#22364d]">{"\u0423\u0441\u043b\u043e\u0432\u0438\u044f \u043e\u043f\u043b\u0430\u0442\u044b"}</div>
+                  <div className="px-4 py-3 text-[14px]">
                     {form.terms.payment.map((line) => (
-                      <div key={line}>- {line}</div>
+                      <div key={line} className="mb-2 last:mb-0">- {line}</div>
                     ))}
                   </div>
                 </div>
-                <div>
-                  <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-3 py-2 text-[18px] font-bold text-[#22364d]">{"\u0413\u0430\u0440\u0430\u043d\u0442\u0438\u044f"}</div>
-                  <div className="px-3 py-2 text-[14px]">
+                <div className="rounded-[20px] border border-[#d7dee6] bg-white">
+                  <div className="border-b border-[#d7dee6] bg-[#f8fafc] px-4 py-3 text-[16px] font-bold text-[#22364d]">{"\u0413\u0430\u0440\u0430\u043d\u0442\u0438\u044f"}</div>
+                  <div className="px-4 py-3 text-[14px]">
                     {form.terms.warranty.map((line) => (
-                      <div key={line}>- {line}</div>
+                      <div key={line} className="mb-2 last:mb-0">- {line}</div>
                     ))}
                   </div>
                 </div>
               </div>
             ) : null}
 
-            <div className="mb-10 text-[14px] text-[#64748b]">{form.seller.bankDetails}</div>
+            <div className="offer-bank-block mb-10 rounded-[20px] border border-[#d7dee6] bg-[#f8fafc] px-5 py-4 text-[14px] text-[#475569]">
+              <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#64748b]">{"\u0411\u0430\u043d\u043a\u043e\u0432\u0441\u043a\u0438\u0435 \u0440\u0435\u043a\u0432\u0438\u0437\u0438\u0442\u044b"}</div>
+              <div className="offer-pdf-note whitespace-pre-line">{form.seller.bankDetails}</div>
+            </div>
 
-            <div className="mb-20 flex items-end justify-between">
+            <div className="offer-signature-block mb-20 flex items-end justify-between">
               <div className="text-[14px] text-[#64748b]">
                 <div>{"\u0421 \u0443\u0432\u0430\u0436\u0435\u043d\u0438\u0435\u043c,"}</div>
                 <div>{form.seller.signatureName}</div>
