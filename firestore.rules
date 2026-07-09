@@ -293,6 +293,10 @@ service cloud.firestore {
       allow read, write: if canAccessErp();
     }
 
+    match /erp_cari_counters/{docId} {
+      allow read, write: if canAccessErp();
+    }
+
     match /erp_cash_accounts/{docId} {
       allow read, write: if canAccessErp();
     }

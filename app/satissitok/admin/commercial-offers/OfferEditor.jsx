@@ -1097,24 +1097,27 @@ export default function OfferEditor({ offerId = null }) {
             </div>
 
             <div className="offer-summary-block mb-10 flex justify-end">
-              <div className="w-full max-w-[420px] rounded-[24px] border border-[#d7dee6] bg-[#22364d] px-5 py-5 text-white shadow-[0_16px_40px_rgba(15,23,42,0.16)]">
-                <div className="flex items-center justify-between text-[22px] font-bold">
-                  <span>{"\u0418\u0442\u043e\u0433\u043e:"}</span>
-                  <span>{formatMoney(calculated.totals.grandTotal)}</span>
+              <div className="w-full max-w-[440px] rounded-[28px] border border-[#c7d3e0] bg-[linear-gradient(135deg,#22364d_0%,#304a66_100%)] px-6 py-6 text-white shadow-[0_18px_44px_rgba(15,23,42,0.2)]">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-white/70">{"\u041e\u0431\u0449\u0438\u0439 \u0438\u0442\u043e\u0433"}</div>
+                    <div className="mt-2 text-[24px] font-extrabold leading-none">{"\u0418\u0442\u043e\u0433\u043e:"}</div>
+                  </div>
+                  <span className="text-[34px] font-extrabold leading-none">{formatMoney(calculated.totals.grandTotal)}</span>
                 </div>
                 {form.visibility?.vatSummary ?? true ? (
-                  <div className="mt-2 text-right text-[15px] text-white/80">
+                  <div className="mt-3 rounded-2xl bg-white/10 px-4 py-3 text-right text-[15px] text-white/88">
                     <span>{`\u0412 \u0442\u043e\u043c \u0447\u0438\u0441\u043b\u0435 \u041d\u0414\u0421 ${form.vatRate}%: ${formatMoney(calculated.totals.vatAmount)}`}</span>
                   </div>
                 ) : null}
                 <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-2xl bg-white/10 px-4 py-3">
-                    <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/65">{"\u041f\u043e\u0437\u0438\u0446\u0438\u0439"}</div>
-                    <div className="mt-1 text-[18px] font-bold">{calculated.items.length}</div>
+                  <div className="rounded-[20px] border border-white/10 bg-white/12 px-4 py-4">
+                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/70">{"\u041f\u043e\u0437\u0438\u0446\u0438\u0439"}</div>
+                    <div className="mt-2 text-[24px] font-extrabold leading-none">{calculated.items.length}</div>
                   </div>
-                  <div className="rounded-2xl bg-white/10 px-4 py-3">
-                    <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/65">{"\u0421\u0440\u043e\u043a \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f"}</div>
-                    <div className="mt-1 text-[18px] font-bold">{form.validDays} {"\u0434\u043d."}</div>
+                  <div className="rounded-[20px] border border-white/10 bg-white/12 px-4 py-4">
+                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/70">{"\u0421\u0440\u043e\u043a \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f"}</div>
+                    <div className="mt-2 text-[24px] font-extrabold leading-none">{form.validDays} {"\u0434\u043d."}</div>
                   </div>
                 </div>
               </div>

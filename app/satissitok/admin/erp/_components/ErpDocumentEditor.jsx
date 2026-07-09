@@ -1,9 +1,10 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, CopyPlus, PlusCircle, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, CopyPlus, PlusCircle, Search, Trash2, X } from "lucide-react";
 import { listErpCariOptions } from "../_services/erpCarisService";
 import { getCounterPreview } from "../_services/erpCounterService";
 import { getErpDocument } from "../_services/erpDocumentsService";
@@ -53,6 +54,21 @@ function fmtQty(value) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
   });
+}
+
+function normalizeSearchText(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/ı/g, "i")
+    .replace(/İ/g, "i")
+    .replace(/ş/g, "s")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 }
 
 function defaultDate() {
@@ -161,6 +177,30 @@ function buildProductSeed(product, docType) {
   };
 }
 
+function filterProducts(products = [], query, isSales) {
+  const needle = normalizeSearchText(query);
+  return (Array.isArray(products) ? products : [])
+    .filter((item) => {
+      if (isSales && item.saleEnabled === false) return false;
+      if (!isSales && item.purchaseEnabled === false) return false;
+      if (!needle) return true;
+
+      const haystack = normalizeSearchText(
+        [
+          item.name,
+          item.nameTr,
+          item.nameRu,
+          item.sku,
+          item.brand,
+          item.barcode,
+          item.searchText,
+        ].join(" ")
+      );
+      return haystack.includes(needle);
+    })
+    .slice(0, 80);
+}
+
 export default function ErpDocumentEditor({ kind, documentId = "" }) {
   const router = useRouter();
   const isSales = kind === "sales";
@@ -189,6 +229,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
   const [selectedProductId, setSelectedProductId] = useState("");
   const [separateLineMode, setSeparateLineMode] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
+  const [pickerState, setPickerState] = useState({ rowId: "", query: "" });
   const [previews, setPreviews] = useState({ draft: "", document: "", invoice: "" });
   const [loadedStatus, setLoadedStatus] = useState("");
   const [form, setForm] = useState({
@@ -218,18 +259,19 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
     () => productOptions.find((item) => item.id === selectedProductId) || null,
     [productOptions, selectedProductId]
   );
+  const pickerRow = useMemo(
+    () => (pickerState.rowId ? (form.items || []).find((item) => item.rowId === pickerState.rowId) || null : null),
+    [form.items, pickerState.rowId]
+  );
 
-  const filteredProducts = useMemo(() => {
-    const needle = productQuery.trim().toLowerCase();
-    return productOptions
-      .filter((item) => {
-        if (isSales && item.saleEnabled === false) return false;
-        if (!isSales && item.purchaseEnabled === false) return false;
-        if (!needle) return true;
-        return [item.name, item.sku, item.brand].join(" ").toLowerCase().includes(needle);
-      })
-      .slice(0, 80);
-  }, [isSales, productOptions, productQuery]);
+  const filteredProducts = useMemo(
+    () => filterProducts(productOptions, productQuery, isSales),
+    [isSales, productOptions, productQuery]
+  );
+  const pickerProducts = useMemo(
+    () => filterProducts(productOptions, pickerState.query, isSales),
+    [isSales, pickerState.query, productOptions]
+  );
 
   const calculatedItems = useMemo(() => {
     return (form.items || []).map((item) => {
@@ -424,6 +466,47 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
     };
   }, [form.docType, form.documentDate, kind, settings]);
 
+  function getProductPurchaseHints(productId) {
+    return resolveErpPurchasePriceHints({
+      rows: priceMemory.purchases,
+      productId,
+      cariId: form.cariId,
+      docType: form.docType,
+    });
+  }
+
+  function getProductSalesHints(productId) {
+    return resolveErpSalesPriceHints({
+      rows: priceMemory.sales,
+      productId,
+      cariId: form.cariId,
+      docType: form.docType,
+    });
+  }
+
+  function resolveInitialUnitPrice(product) {
+    if (!product?.id) return 0;
+    if (isSales) {
+      const salesHints = getProductSalesHints(product.id);
+      return round2(salesHints.lastSaleByCari?.value ?? salesHints.lastSale?.value ?? num(product.price, 0));
+    }
+
+    const purchaseHints = getProductPurchaseHints(product.id);
+    return round2(
+      purchaseHints.lastPurchaseByCari?.value ??
+        purchaseHints.lastPurchase?.value ??
+        purchaseHints.lastPurchaseByDocType?.value ??
+        0
+    );
+  }
+
+  function createSeedFromProduct(product) {
+    return {
+      ...buildProductSeed(product, form.docType),
+      unitPrice: resolveInitialUnitPrice(product),
+    };
+  }
+
   function setField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
   }
@@ -433,6 +516,18 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       ...current,
       items: (current.items || []).map((item) => (item.rowId === rowId ? { ...item, [field]: value } : item)),
     }));
+  }
+
+  function openProductPicker(rowId) {
+    const row = (form.items || []).find((item) => item.rowId === rowId);
+    setPickerState({
+      rowId,
+      query: text(row?.productName || row?.productSku || ""),
+    });
+  }
+
+  function closeProductPicker() {
+    setPickerState({ rowId: "", query: "" });
   }
 
   function toggleRow(rowId) {
@@ -461,10 +556,12 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
   }
 
   function addManualItem() {
+    const nextItem = emptyItem(form.docType);
     setForm((current) => ({
       ...current,
-      items: [...(current.items || []), emptyItem(current.docType)],
+      items: [...(current.items || []), nextItem],
     }));
+    setExpandedRows((current) => ({ ...current, [nextItem.rowId]: true }));
   }
 
   function handleCariChange(value) {
@@ -480,7 +577,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
     const product = productOptions.find((item) => item.id === selectedProductId);
     if (!product) return;
 
-    const productSeed = buildProductSeed(product, form.docType);
+    const productSeed = createSeedFromProduct(product);
     setForm((current) => {
       const currentItems = [...(current.items || [])];
       const mergeKey = mergeableKey(productSeed);
@@ -502,6 +599,30 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
     setExpandedRows((current) => ({ ...current, [productSeed.rowId]: true }));
     setSelectedProductId("");
     setProductQuery("");
+  }
+
+  function assignProductToRow(rowId, product) {
+    if (!rowId || !product) return;
+    const productSeed = createSeedFromProduct(product);
+    setForm((current) => ({
+      ...current,
+      items: (current.items || []).map((item) =>
+        item.rowId === rowId
+          ? {
+              ...item,
+              productId: productSeed.productId,
+              productSku: productSeed.productSku,
+              productName: productSeed.productName,
+              unit: productSeed.unit,
+              unitPrice: productSeed.unitPrice,
+              stockTracked: productSeed.stockTracked,
+              webPublished: productSeed.webPublished,
+            }
+          : item
+      ),
+    }));
+    setExpandedRows((current) => ({ ...current, [rowId]: true }));
+    closeProductPicker();
   }
 
   async function handleSaveDraft() {
@@ -653,7 +774,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
           <div className="space-y-2">
             <div className="text-xl font-black tracking-[-0.03em] text-[#1d3246]">Urun Kalemleri</div>
             <div className="text-sm text-slate-600">
-              Urunu arayip ekledikce satirlar olusur. Ayni urun varsayilan olarak akilli sekilde mevcut satira eklenir.
+              Ana akis satir bazli calisir. Satir ekleyip urunu satirin icinden sec, detaylari ihtiyac oldugunda ac.
             </div>
           </div>
 
@@ -664,7 +785,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                 checked={separateLineMode}
                 onChange={(event) => setSeparateLineMode(event.target.checked)}
               />
-              Ayri satir ekle
+              Hizli eklemede ayri satir kullan
             </label>
             <button
               type="button"
@@ -672,23 +793,27 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
             >
               <PlusCircle size={14} />
-              Manuel Satir
+              Satir Ekle
             </button>
           </div>
         </div>
 
         <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+          <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+            <Search size={14} />
+            Hizli Ekle
+          </div>
           <div className="grid gap-3 xl:grid-cols-[1.15fr_1fr_auto]">
             <InputShell
               value={productQuery}
               onChange={(event) => setProductQuery(event.target.value)}
-              placeholder="Urun, stok kodu veya marka ara"
+              placeholder="Turkce, Rusca, SKU, barkod veya marka ara"
             />
             <SelectShell value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}>
               <option value="">Urun sec</option>
               {filteredProducts.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name} {item.sku ? `(${item.sku})` : ""}
+                  {item.name} {item.nameRu ? ` / ${item.nameRu}` : ""} {item.sku ? `(${item.sku})` : ""}
                 </option>
               ))}
             </SelectShell>
@@ -706,10 +831,10 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
             <div>{filteredProducts.length} urun listeleniyor</div>
             {selectedProduct ? (
               <div className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700">
-                Secili: {selectedProduct.name} {selectedProduct.sku ? `• ${selectedProduct.sku}` : ""}
+                Secili: {selectedProduct.name} {selectedProduct.sku ? ` - ${selectedProduct.sku}` : ""}
               </div>
             ) : (
-              <div>Urun secildiginde buradan hizli kontrol goreceksin.</div>
+              <div>Bu alan opsiyonel hizli ekleme icin duruyor; ana kullanim satir icinden urun secmek.</div>
             )}
           </div>
         </div>
@@ -734,22 +859,51 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
               {costedItems.length ? (
                 costedItems.map((item) => {
                 const rowExpanded = expandedRows[item.rowId] === true;
-                const purchaseHintPrimary = item.purchaseHints.lastPurchaseByCari || item.purchaseHints.lastPurchase || null;
+                const purchaseHintPrimary =
+                  item.purchaseHints.lastPurchaseByCari ||
+                  item.purchaseHints.lastPurchase ||
+                  item.purchaseHints.lastPurchaseByDocType ||
+                  null;
 
                 return (
                   <Fragment key={item.rowId}>
                     <tr className="border-b border-slate-100 align-top bg-white">
                       <td className="px-3 py-3">
-                        <div className="space-y-2">
-                          <input
-                            value={item.productName}
-                            onChange={(event) => updateItem(item.rowId, "productName", event.target.value)}
-                            className={inputClassName("w-full")}
-                            placeholder="Urun adi"
-                          />
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleRow(item.rowId)}
+                              className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100"
+                              aria-label={rowExpanded ? "Satiri kapat" : "Satiri ac"}
+                            >
+                              {rowExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openProductPicker(item.rowId)}
+                              className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm text-slate-800 transition hover:border-slate-300 hover:bg-white"
+                            >
+                              <div className="font-semibold">{item.productName || "Urun secmek icin tikla"}</div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                {item.productId
+                                  ? `${item.productSku || "-"} - ${item.unit || "adet"}`
+                                  : "Rusca/Turkce arama, SKU ve barkod ile secim yapabilirsin"}
+                              </div>
+                            </button>
+                          </div>
+                          {!item.productId ? (
+                            <input
+                              value={item.productName}
+                              onChange={(event) => updateItem(item.rowId, "productName", event.target.value)}
+                              className={inputClassName("w-full")}
+                              placeholder="Manuel satirsa urun adini yaz"
+                            />
+                          ) : null}
                           <div className="flex flex-wrap gap-2">
                             {item.webPublished ? <Tag tone="blue" label="Webde yayinda" /> : <Tag tone="slate" label="Web disi" />}
                             {item.stockTracked === false ? <Tag tone="amber" label="Stok takipsiz" /> : null}
+                            {item.productId ? <Tag tone="green" label="Listeden secildi" /> : <Tag tone="amber" label="Manuel satir" />}
                             {isSales && item.manualUnitCost ? <Tag tone="amber" label="Manuel maliyet" /> : null}
                             {isSales && item.usedFallback ? <Tag tone="red" label="Fallback" /> : null}
                           </div>
@@ -820,14 +974,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => toggleRow(item.rowId)}
-                            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"
-                          >
-                            {rowExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            Detay
-                          </button>
                           <button
                             type="button"
                             onClick={() => duplicateItem(item.rowId)}
@@ -938,7 +1084,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
               ) : (
                 <tr className="bg-white">
                   <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">
-                    Henuz urun eklenmedi. Ustteki arama kutusundan urun sec veya manuel satir ekle.
+                    Henuz urun eklenmedi. Satir ekleyip urunu satirin icinden sec veya ustteki hizli ekleyi kullan.
                   </td>
                 </tr>
               )}
@@ -1087,6 +1233,16 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
           ) : null}
         </div>
       </section>
+
+      <ProductPickerDialog
+        open={Boolean(pickerState.rowId)}
+        title={pickerRow?.productName || "Satir icin urun sec"}
+        query={pickerState.query}
+        products={pickerProducts}
+        onClose={closeProductPicker}
+        onQueryChange={(value) => setPickerState((current) => ({ ...current, query: value }))}
+        onPick={(product) => assignProductToRow(pickerState.rowId, product)}
+      />
     </div>
   );
 }
@@ -1104,6 +1260,78 @@ function CardShell({ text }) {
   return (
     <div className="rounded-[28px] border border-slate-200 bg-white p-8 text-sm text-slate-500 shadow-sm">
       {text}
+    </div>
+  );
+}
+
+function ProductThumb({ product }) {
+  const src = text(product?.imageUrl) || "/Placeholder.png";
+
+  return (
+    <div className="relative h-14 w-14 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+      <Image src={src} alt={product?.name || "Urun"} fill unoptimized className="object-contain p-1" />
+    </div>
+  );
+}
+
+function ProductPickerDialog({ open, title, query, products, onClose, onQueryChange, onPick }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+      <div className="w-full max-w-3xl rounded-[28px] border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Urun Secimi</div>
+            <div className="mt-1 text-lg font-black text-[#1d3246]">{title}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100"
+            aria-label="Kapat"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          <InputField
+            label="Arama"
+            value={query}
+            onChange={onQueryChange}
+            placeholder="Turkce, Rusca, SKU, barkod veya marka ara"
+          />
+
+          <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+            {products.length ? (
+              products.map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => onPick(product)}
+                  className="flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <ProductThumb product={product} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-bold text-slate-900">{product.name || "-"}</div>
+                    {product.nameRu ? <div className="truncate text-xs text-slate-500">{product.nameRu}</div> : null}
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
+                      <span>{product.sku || "-"}</span>
+                      <span>{product.brand || "-"}</span>
+                      <span>{product.unit || "adet"}</span>
+                    </div>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                Sonuc bulunamadi.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
