@@ -28,6 +28,7 @@ import {
 
 const LOGO_SRC = "/horecalink_offer_logo.png";
 const OFFER_TYPE_OPTIONS = ["stainless", "industrial", "corporate"];
+const PDF_PAGE_WIDTH_PX = 794;
 
 function text(value) {
   return String(value ?? "");
@@ -404,13 +405,20 @@ export default function OfferEditor({ offerId = null }) {
       const clone = pdfContentRef.current.cloneNode(true);
       clone.classList.remove("hidden");
       clone.style.display = "block";
+      clone.style.width = `${PDF_PAGE_WIDTH_PX}px`;
+      clone.style.minWidth = `${PDF_PAGE_WIDTH_PX}px`;
+      clone.style.maxWidth = `${PDF_PAGE_WIDTH_PX}px`;
+      clone.style.overflow = "hidden";
       wrapper = document.createElement("div");
       wrapper.style.position = "fixed";
       wrapper.style.left = "-100000px";
       wrapper.style.top = "0";
-      wrapper.style.width = "794px";
+      wrapper.style.width = `${PDF_PAGE_WIDTH_PX}px`;
+      wrapper.style.minWidth = `${PDF_PAGE_WIDTH_PX}px`;
+      wrapper.style.maxWidth = `${PDF_PAGE_WIDTH_PX}px`;
       wrapper.style.background = "#ffffff";
       wrapper.style.zIndex = "-1";
+      wrapper.style.overflow = "hidden";
       wrapper.appendChild(clone);
       document.body.appendChild(wrapper);
 
@@ -420,6 +428,8 @@ export default function OfferEditor({ offerId = null }) {
           filename: `${form.offerNo || "HorecaLink-teklif"}.pdf`,
           image: { type: "jpeg", quality: 0.98 },
           html2canvas: {
+            width: PDF_PAGE_WIDTH_PX,
+            windowWidth: PDF_PAGE_WIDTH_PX,
             scale: 2,
             useCORS: true,
             backgroundColor: "#ffffff",
@@ -428,6 +438,9 @@ export default function OfferEditor({ offerId = null }) {
             unit: "mm",
             format: "a4",
             orientation: "portrait",
+          },
+          pagebreak: {
+            mode: ["css", "legacy"],
           },
         })
         .from(clone)
@@ -478,6 +491,22 @@ export default function OfferEditor({ offerId = null }) {
             max-width: 186mm !important;
             margin: 0 auto !important;
             padding: 0 !important;
+          }
+
+          .offer-print-root {
+            width: 186mm !important;
+            max-width: 186mm !important;
+            overflow: hidden !important;
+          }
+
+          .offer-print-table {
+            table-layout: fixed !important;
+          }
+
+          .offer-print-table td,
+          .offer-print-table th {
+            overflow-wrap: anywhere;
+            word-break: break-word;
           }
 
           .avoid-break {
@@ -910,8 +939,8 @@ export default function OfferEditor({ offerId = null }) {
           </div>
         </div>
 
-        <div ref={pdfContentRef} className="offer-print hidden bg-white text-[#2b2f33]">
-          <div className="offer-print-sheet mx-auto w-full max-w-[794px] px-3 py-4 text-[13px] leading-[1.35]">
+        <div ref={pdfContentRef} className="offer-print offer-print-root hidden bg-white text-[#2b2f33]">
+          <div className="offer-print-sheet mx-auto w-[794px] max-w-[794px] px-3 py-4 text-[13px] leading-[1.35]">
             <div className="mb-5 ml-[28px] mr-[18px] h-[22px] bg-[linear-gradient(to_right,#f6a400_0,#f6a400_16%,#24384d_16%,#24384d_100%)]" />
 
             <div className="mb-6 grid grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)] items-start gap-6">
@@ -967,7 +996,7 @@ export default function OfferEditor({ offerId = null }) {
               <div>{form.introText}</div>
             </div>
 
-            <table className="mb-4 w-full border-collapse text-[13px]">
+            <table className="offer-print-table mb-4 w-full border-collapse text-[13px]">
               <colgroup>
                 <col style={{ width: "28px" }} />
                 <col style={{ width: "132px" }} />
@@ -995,7 +1024,7 @@ export default function OfferEditor({ offerId = null }) {
                         <ProductImage src={item.imageUrl} alt={item.name || "Product"} sizeClass="w-[102px]" />
                       </div>
                     </td>
-                    <td className="border border-[#d7dee6] px-2 py-3 align-middle whitespace-pre-line text-[14px]">
+                    <td className="border border-[#d7dee6] px-2 py-3 align-middle whitespace-pre-line break-words text-[14px]">
                       <div className="mb-2 text-[16px] font-extrabold leading-[1.15] text-[#22364d]">{item.name}</div>
                       {item.sku ? <div className="mb-2 text-[13px] font-semibold leading-[1.1] text-[#475569]">{item.sku}</div> : null}
                       <div>{item.description}</div>
