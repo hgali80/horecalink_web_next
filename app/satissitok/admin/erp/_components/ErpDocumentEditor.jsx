@@ -561,7 +561,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       ...current,
       items: [...(current.items || []), nextItem],
     }));
-    setExpandedRows((current) => ({ ...current, [nextItem.rowId]: true }));
   }
 
   function handleCariChange(value) {
@@ -596,7 +595,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       return { ...current, items: [...currentItems, productSeed] };
     });
 
-    setExpandedRows((current) => ({ ...current, [productSeed.rowId]: true }));
     setSelectedProductId("");
     setProductQuery("");
   }
@@ -621,7 +619,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
           : item
       ),
     }));
-    setExpandedRows((current) => ({ ...current, [rowId]: true }));
     closeProductPicker();
   }
 
@@ -841,11 +838,10 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
 
         <div className="mt-5 overflow-hidden rounded-[24px] border border-slate-200">
           <div className="overflow-x-auto">
-            <table className="min-w-[1180px] w-full text-sm">
+            <table className="min-w-[1080px] w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500">
-                <th className="px-3 py-3 font-semibold min-w-[260px]">Urun</th>
-                <th className="px-3 py-3 font-semibold min-w-[130px]">SKU</th>
+                <th className="px-3 py-3 font-semibold min-w-[360px]">Urun</th>
                 <th className="px-3 py-3 font-semibold min-w-[110px]">Miktar</th>
                 <th className="px-3 py-3 font-semibold min-w-[100px]">Birim</th>
                 <th className="px-3 py-3 font-semibold min-w-[140px]">{isSales ? "Satis Fiyati" : "Alis Fiyati"}</th>
@@ -908,14 +904,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                             {isSales && item.usedFallback ? <Tag tone="red" label="Fallback" /> : null}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-3 py-3">
-                        <input
-                          value={item.productSku}
-                          onChange={(event) => updateItem(item.rowId, "productSku", event.target.value)}
-                          className={inputClassName("w-[120px]")}
-                          placeholder="SKU"
-                        />
                       </td>
                       <td className="px-3 py-3">
                         <input
@@ -994,8 +982,8 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                       </td>
                     </tr>
                     {rowExpanded ? (
-                      <tr className="border-b border-slate-100 bg-slate-50/70">
-                        <td colSpan={9} className="px-4 py-4">
+                      <tr className="border-b border-slate-200 bg-[#eef4ff]">
+                        <td colSpan={8} className="px-4 py-4">
                           <div className="grid gap-4 xl:grid-cols-3">
                             <DetailBox title={isSales ? "Fiyat Hafizasi" : "Son Alis Hafizasi"}>
                               {isSales ? (
@@ -1083,7 +1071,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
               })
               ) : (
                 <tr className="bg-white">
-                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">
+                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">
                     Henuz urun eklenmedi. Satir ekleyip urunu satirin icinden sec veya ustteki hizli ekleyi kullan.
                   </td>
                 </tr>
