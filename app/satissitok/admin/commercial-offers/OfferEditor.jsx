@@ -474,16 +474,12 @@ export default function OfferEditor({ offerId = null }) {
 
       const pdf = await worker.get("pdf");
       const pageCount = pdf.internal.getNumberOfPages();
-      const topStamp = formatDateTimeStamp(generatedAt);
-      const offerNoLabel = form.offerNo || "HorecaLink";
 
       for (let pageIndex = 1; pageIndex <= pageCount; pageIndex += 1) {
         pdf.setPage(pageIndex);
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(11);
         pdf.setTextColor(44, 44, 44);
-        pdf.text(topStamp, 8, 8);
-        pdf.text(offerNoLabel, 105, 8, { align: "center" });
         pdf.text(`${pageIndex}/${pageCount}`, 202, 292, { align: "right" });
       }
 
@@ -1093,10 +1089,7 @@ export default function OfferEditor({ offerId = null }) {
                       </div>
                       <div className="pt-2 text-right text-[14px] font-semibold text-[#22364d]">{formatItemQuantity(item)}</div>
                       <div className="pt-2 text-right text-[14px] font-semibold text-[#22364d]">{formatMoney(item.unitPrice)}</div>
-                      <div className="rounded-2xl bg-white px-3 py-3 text-right">
-                        <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#94a3b8]">{"\u0418\u0442\u043e\u0433\u043e"}</div>
-                        <div className="text-[17px] font-extrabold text-[#22364d]">{formatMoney(item.lineTotal)}</div>
-                      </div>
+                      <div className="pt-2 text-right text-[14px] font-extrabold text-[#22364d]">{formatMoney(item.lineTotal)}</div>
                     </div>
                   </div>
                 ))}
@@ -1105,7 +1098,6 @@ export default function OfferEditor({ offerId = null }) {
 
             <div className="offer-summary-block mb-10 flex justify-end">
               <div className="w-full max-w-[420px] rounded-[24px] border border-[#d7dee6] bg-[#22364d] px-5 py-5 text-white shadow-[0_16px_40px_rgba(15,23,42,0.16)]">
-                <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.16em] text-white/70">{"\u0421\u0432\u043e\u0434\u043a\u0430 \u043f\u043e \u0442\u0435\u043a\u043b\u0438\u0444\u0443"}</div>
                 <div className="flex items-center justify-between text-[22px] font-bold">
                   <span>{"\u0418\u0442\u043e\u0433\u043e:"}</span>
                   <span>{formatMoney(calculated.totals.grandTotal)}</span>
