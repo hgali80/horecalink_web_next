@@ -54,7 +54,7 @@ export default function ErpLayout({ children }) {
           </Link>
 
           <Link
-            href="/satissitok/admin"
+            href="/satissitok/admin/erp"
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
           >
             <Home size={16} />

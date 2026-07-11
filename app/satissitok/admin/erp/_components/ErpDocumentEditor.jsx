@@ -1140,7 +1140,17 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
             <input
               type="checkbox"
               checked={form.instantPaymentEnabled === true}
-              onChange={(event) => setField("instantPaymentEnabled", event.target.checked)}
+              onChange={(event) => {
+                const enabled = event.target.checked;
+                setForm((current) => ({
+                  ...current,
+                  instantPaymentEnabled: enabled,
+                  paidAmount:
+                    enabled && num(current.paidAmount, 0) <= 0
+                      ? String(documentTotal)
+                      : current.paidAmount,
+                }));
+              }}
             />
             Bu belge ile birlikte aninda {actionLabel.toLowerCase()} isle
           </label>

@@ -483,6 +483,12 @@ export async function confirmErpDocument({ kind, payload, settings }) {
   const normalized = normalizePayload(kind, { ...payload, status: "confirmed" });
   const currentId = text(payload.id);
 
+  if (normalized.payment?.enabled === true && num(normalized.payment?.paidAmount, 0) <= 0) {
+    throw new Error(
+      `${kind === "sales" ? "Tahsilat" : "Odeme"} tutari sifirdan buyuk olmali. Finans hareketi olusturmayacaksan aninda ${kind === "sales" ? "tahsilat" : "odeme"} secimini kaldir.`
+    );
+  }
+
   if (normalized.documentNoManual && normalized.documentNo) {
     await ensureUniqueField(collectionName, "documentNo", normalized.documentNo, currentId);
   }
