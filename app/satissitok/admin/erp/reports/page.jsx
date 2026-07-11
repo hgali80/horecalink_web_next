@@ -37,9 +37,9 @@ function StatCard({ label, value, hint, tone = "slate" }) {
   };
 
   return (
-    <div className={`rounded-[24px] border p-5 shadow-sm ${toneMap[tone] || toneMap.slate}`}>
+    <div className={`min-w-0 rounded-[24px] border p-5 shadow-sm ${toneMap[tone] || toneMap.slate}`}>
       <div className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-slate-500">{label}</div>
-      <div className="mt-3 text-3xl font-black tracking-[-0.03em]">{value}</div>
+      <div className="mt-3 break-words text-2xl font-black leading-tight tracking-[-0.03em] tabular-nums 2xl:text-3xl">{value}</div>
       {hint ? <div className="mt-2 text-sm text-slate-600">{hint}</div> : null}
     </div>
   );
@@ -55,9 +55,9 @@ function MiniMetric({ label, value, tone = "slate" }) {
   };
 
   return (
-    <div className={`rounded-[20px] p-4 ${toneMap[tone] || toneMap.slate}`}>
+    <div className={`min-w-0 rounded-[20px] p-4 ${toneMap[tone] || toneMap.slate}`}>
       <div className="text-xs font-bold uppercase tracking-[0.18em] opacity-70">{label}</div>
-      <div className="mt-2 text-2xl font-black">{value}</div>
+      <div className="mt-2 break-words text-xl font-black leading-tight tabular-nums 2xl:text-2xl">{value}</div>
     </div>
   );
 }
@@ -65,7 +65,7 @@ function MiniMetric({ label, value, tone = "slate" }) {
 function SummaryCard({ title, summary, href, accentClass }) {
   return (
     <div className={`rounded-[28px] border bg-white p-6 shadow-sm ${accentClass}`}>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-black tracking-[-0.03em] text-[#1d3246]">{title}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -80,7 +80,7 @@ function SummaryCard({ title, summary, href, accentClass }) {
         </Link>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-4">
         <MiniMetric label="Onayli Toplam" value={`${formatMoney(summary.confirmedTotal)} KZT`} tone="slate" />
         <MiniMetric label="R Belge" value={`${formatMoney(summary.rTotal)} KZT`} tone="green" />
         <MiniMetric label="F Belge" value={`${formatMoney(summary.fTotal)} KZT`} tone="blue" />
@@ -100,7 +100,7 @@ function ProfitSummaryCard({ summary }) {
         </p>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-4">
         <MiniMetric label="Ciro" value={`${formatMoney(summary.totalRevenue)} KZT`} tone="green" />
         <MiniMetric label="Gerceklesen Maliyet" value={`${formatMoney(summary.totalCost)} KZT`} tone="red" />
         <MiniMetric label="Brut Kar" value={`${formatMoney(summary.totalGrossProfit)} KZT`} tone="blue" />
@@ -127,7 +127,7 @@ function PurchaseCostSummaryCard({ summary }) {
         </p>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-4">
         <MiniMetric label="Mal Bedeli" value={`${formatMoney(summary.totalGoods)} KZT`} tone="blue" />
         <MiniMetric label="Ek Masraf" value={`${formatMoney(summary.totalAdditional)} KZT`} tone="amber" />
         <MiniMetric label="Toplam Maliyet" value={`${formatMoney(summary.totalLanded)} KZT`} tone="red" />
@@ -152,7 +152,7 @@ function ProductProfitSummaryCard({ summary }) {
         </p>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-4">
         <MiniMetric label="Urun Sayisi" value={summary.productCount} tone="amber" />
         <MiniMetric label="Satilan Miktar" value={formatMoney(summary.totalSoldQty)} tone="blue" />
         <MiniMetric label="Toplam Kar" value={`${formatMoney(summary.totalGrossProfit)} KZT`} tone="green" />
@@ -168,9 +168,9 @@ function ProductProfitSummaryCard({ summary }) {
 
 function TableCard({ title, description, children, action, note }) {
   return (
-    <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <div className="min-w-0 rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <h2 className="text-xl font-black tracking-[-0.03em] text-[#1d3246]">{title}</h2>
           {description ? <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p> : null}
           {note ? <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-400">{note}</p> : null}
@@ -255,7 +255,7 @@ function PlatformTable({ rows }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="min-w-[680px] text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-slate-500">
             <th className="px-3 py-3 font-semibold">Platform</th>
@@ -286,7 +286,7 @@ function OpenDocumentTable({ rows, settlementLabel, returnTo }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="min-w-[720px] text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-slate-500">
             <th className="px-3 py-3 font-semibold">Tarih</th>
@@ -329,7 +329,7 @@ function StockTable({ rows, emptyMessage, qtyTone = "text-slate-900" }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="min-w-[620px] text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-slate-500">
             <th className="px-3 py-3 font-semibold">Urun</th>
@@ -360,7 +360,7 @@ function FinanceTable({ rows }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="min-w-[560px] text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-slate-500">
             <th className="px-3 py-3 font-semibold">Hesap</th>
@@ -389,7 +389,7 @@ function MovementTable({ rows }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="min-w-[720px] text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-slate-500">
             <th className="px-3 py-3 font-semibold">Tarih</th>
@@ -422,7 +422,7 @@ function ProfitabilityTable({ rows, emptyMessage }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="min-w-[820px] text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-slate-500">
             <th className="px-3 py-3 font-semibold">Belge</th>
@@ -462,7 +462,7 @@ function PlatformProfitTable({ rows }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="min-w-[760px] text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-slate-500">
             <th className="px-3 py-3 font-semibold">Platform</th>
@@ -497,7 +497,7 @@ function PurchaseCostTable({ rows, emptyMessage }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="min-w-[760px] text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-slate-500">
             <th className="px-3 py-3 font-semibold">Belge</th>
@@ -533,7 +533,7 @@ function SupplierCostTable({ rows }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="min-w-[760px] text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-slate-500">
             <th className="px-3 py-3 font-semibold">Cari</th>
@@ -566,7 +566,7 @@ function ProductProfitTable({ rows, emptyMessage }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="min-w-[980px] text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-slate-500">
             <th className="px-3 py-3 font-semibold">Urun</th>
