@@ -146,6 +146,7 @@ async function ensureUniqueField(collectionName, field, value, currentId = "") {
 
 async function reserveCounterNumber({
   transaction,
+  deferredWrites,
   settings,
   kind,
   docType,
@@ -161,17 +162,15 @@ async function reserveCounterNumber({
   const current = snap.exists() ? Number(snap.data()?.lastSeq || 0) : 0;
   const nextSeq = current + 1;
 
-  transaction.set(
-    ref,
-    {
+  deferredWrites.push(() =>
+    transaction.set(ref, {
       kind,
       docType,
       counterType,
       yy,
       lastSeq: nextSeq,
       updatedAt: serverTimestamp(),
-    },
-    { merge: true }
+    }, { merge: true })
   );
 
   return {
@@ -185,21 +184,19 @@ async function reserveCounterNumber({
   };
 }
 
-async function reserveReceiptNumber({ transaction, dateISO }) {
+async function reserveReceiptNumber({ transaction, deferredWrites, dateISO }) {
   const yy = getYear2(dateISO);
   const ref = doc(db, ERP_COLLECTIONS.RECEIPT_COUNTERS, yy);
   const snap = await transaction.get(ref);
   const current = snap.exists() ? Number(snap.data()?.lastSeq || 0) : 0;
   const nextSeq = current + 1;
 
-  transaction.set(
-    ref,
-    {
+  deferredWrites.push(() =>
+    transaction.set(ref, {
       yy,
       lastSeq: nextSeq,
       updatedAt: serverTimestamp(),
-    },
-    { merge: true }
+    }, { merge: true })
   );
 
   return `TH-${yy}-${String(nextSeq).padStart(5, "0")}`;
@@ -296,6 +293,7 @@ function resolveOutgoingCost(balanceData = {}, bucket = "R") {
 
 async function applyStockEffects({
   transaction,
+  deferredWrites,
   ref,
   collectionName,
   kind,
@@ -376,9 +374,8 @@ async function applyStockEffects({
       }
     }
 
-    transaction.set(
-      balanceRef,
-      {
+    deferredWrites.push(() =>
+      transaction.set(balanceRef, {
         productId: item.productId,
         productSku: item.productSku,
         productName: item.productName,
@@ -389,12 +386,11 @@ async function applyStockEffects({
         rAvgCost: round2(nextRAvg),
         fAvgCost: round2(nextFAvg),
         updatedAt: serverTimestamp(),
-      },
-      { merge: true }
+      }, { merge: true })
     );
 
     const movementRef = doc(collection(db, ERP_COLLECTIONS.STOCK_MOVEMENTS));
-    transaction.set(movementRef, {
+    deferredWrites.push(() => transaction.set(movementRef, {
       productId: item.productId,
       productSku: item.productSku,
       productName: item.productName,
@@ -422,7 +418,7 @@ async function applyStockEffects({
       cariName: normalized.cariName,
       movementDate: normalized.documentDate,
       createdAt: serverTimestamp(),
-    });
+    }));
   }
 
   return realizedCostTotal;
@@ -434,6 +430,7 @@ export async function saveErpDraftDocument({ kind, payload, settings }) {
   const currentId = text(payload.id);
 
   return runTransaction(db, async (transaction) => {
+    const deferredWrites = [];
     const ref = currentId ? doc(db, collectionName, currentId) : doc(collection(db, collectionName));
     const existingSnap = currentId ? await transaction.get(ref) : null;
     const existing = existingSnap?.exists() ? existingSnap.data() : null;
@@ -451,6 +448,7 @@ export async function saveErpDraftDocument({ kind, payload, settings }) {
     if (!draftNo) {
       const reserved = await reserveCounterNumber({
         transaction,
+        deferredWrites,
         settings,
         kind,
         docType: normalized.docType,
@@ -461,6 +459,8 @@ export async function saveErpDraftDocument({ kind, payload, settings }) {
     }
 
     await ensureUniqueField(collectionName, "draftNo", draftNo, ref.id);
+
+    deferredWrites.forEach((write) => write());
 
     transaction.set(
       ref,
@@ -492,6 +492,7 @@ export async function confirmErpDocument({ kind, payload, settings }) {
   }
 
   return runTransaction(db, async (transaction) => {
+    const deferredWrites = [];
     const ref = currentId ? doc(db, collectionName, currentId) : doc(collection(db, collectionName));
     const existingSnap = currentId ? await transaction.get(ref) : null;
     const existing = existingSnap?.exists() ? existingSnap.data() : null;
@@ -504,6 +505,7 @@ export async function confirmErpDocument({ kind, payload, settings }) {
     if (!draftNo && normalized.status === "draft") {
       const reservedDraft = await reserveCounterNumber({
         transaction,
+        deferredWrites,
         settings,
         kind,
         docType: normalized.docType,
@@ -517,6 +519,7 @@ export async function confirmErpDocument({ kind, payload, settings }) {
     if (!documentNo) {
       const reserved = await reserveCounterNumber({
         transaction,
+        deferredWrites,
         settings,
         kind,
         docType: normalized.docType,
@@ -530,6 +533,7 @@ export async function confirmErpDocument({ kind, payload, settings }) {
     if (!invoiceNo) {
       const reserved = await reserveCounterNumber({
         transaction,
+        deferredWrites,
         settings,
         kind,
         docType: normalized.docType,
@@ -561,17 +565,16 @@ export async function confirmErpDocument({ kind, payload, settings }) {
       const nextBalance =
         direction === "in" ? currentBalance + paidAmount : currentBalance - paidAmount;
 
-      transaction.set(
-        accountRef,
-        {
+      deferredWrites.push(() =>
+        transaction.set(accountRef, {
           currentBalance: nextBalance,
           updatedAt: serverTimestamp(),
-        },
-        { merge: true }
+        }, { merge: true })
       );
 
       receiptNo = receiptNo || (await reserveReceiptNumber({
         transaction,
+        deferredWrites,
         dateISO: normalized.payment.paidDate || normalized.documentDate,
       }));
 
@@ -582,9 +585,8 @@ export async function confirmErpDocument({ kind, payload, settings }) {
 
       settlementId = settlementRef.id;
 
-      transaction.set(
-        settlementRef,
-        {
+      deferredWrites.push(() =>
+        transaction.set(settlementRef, {
           documentId: ref.id,
           documentCollection: collectionName,
           documentKind: kind,
@@ -602,11 +604,10 @@ export async function confirmErpDocument({ kind, payload, settings }) {
           movementDate: normalized.payment.paidDate || normalized.documentDate,
           createdAt: existing?.createdAt || serverTimestamp(),
           updatedAt: serverTimestamp(),
-        },
-        { merge: true }
+        }, { merge: true })
       );
 
-      transaction.set(movementRef, {
+      deferredWrites.push(() => transaction.set(movementRef, {
         settlementId,
         documentId: ref.id,
         documentCollection: collectionName,
@@ -632,10 +633,10 @@ export async function confirmErpDocument({ kind, payload, settings }) {
         cariSnapshot: normalized.cariSnapshot,
         notes: normalized.notes,
         createdAt: serverTimestamp(),
-      });
+      }));
 
       const cariMovementRef = doc(collection(db, ERP_COLLECTIONS.CARI_MOVEMENTS));
-      transaction.set(cariMovementRef, {
+      deferredWrites.push(() => transaction.set(cariMovementRef, {
         cariId: normalized.cariId,
         cariName: normalized.cariName,
         documentId: ref.id,
@@ -654,17 +655,20 @@ export async function confirmErpDocument({ kind, payload, settings }) {
         movementDate: normalized.payment.paidDate || normalized.documentDate,
         notes: normalized.notes,
         createdAt: serverTimestamp(),
-      });
+      }));
     }
 
     const realizedCostTotal = await applyStockEffects({
       transaction,
+      deferredWrites,
       ref,
       collectionName,
       kind,
       normalized,
       documentNo,
     });
+
+    deferredWrites.forEach((write) => write());
 
     transaction.set(
       ref,
