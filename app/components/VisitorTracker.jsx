@@ -8,6 +8,8 @@ import { useAuth } from "../context/AuthContext";
 const VISITOR_ID_KEY = "horecalink_visitor_id";
 const SESSION_ID_KEY = "horecalink_visit_session_id";
 const SESSION_TRACKED_KEY = "horecalink_visit_logged";
+const LAST_PAGE_VIEW_KEY = "horecalink_last_page_view";
+const DUPLICATE_VIEW_WINDOW_MS = 30 * 1000;
 const EXCLUDED_PATH_PREFIXES = ["/satissitok", "/login", "/api"];
 
 function shouldSkipPath(pathname) {
@@ -51,14 +53,22 @@ export default function VisitorTracker() {
       return;
     }
 
-    if (window.sessionStorage.getItem(SESSION_TRACKED_KEY) === "1") {
+    const visitorId = getOrCreateStorageValue(window.localStorage, VISITOR_ID_KEY, "visitor");
+    const sessionId = getOrCreateStorageValue(window.sessionStorage, SESSION_ID_KEY, "session");
+    const isSessionStart = window.sessionStorage.getItem(SESSION_TRACKED_KEY) !== "1";
+    const now = Date.now();
+    const lastPageView = window.sessionStorage.getItem(LAST_PAGE_VIEW_KEY) || "";
+    const [lastPathname, lastTimestamp] = lastPageView.split("|");
+
+    if (
+      lastPathname === pathname &&
+      now - Number(lastTimestamp || 0) < DUPLICATE_VIEW_WINDOW_MS
+    ) {
       return;
     }
 
-    const visitorId = getOrCreateStorageValue(window.localStorage, VISITOR_ID_KEY, "visitor");
-    const sessionId = getOrCreateStorageValue(window.sessionStorage, SESSION_ID_KEY, "session");
-
     window.sessionStorage.setItem(SESSION_TRACKED_KEY, "1");
+    window.sessionStorage.setItem(LAST_PAGE_VIEW_KEY, `${pathname}|${now}`);
 
     fetch("/api/analytics/visit", {
       method: "POST",
@@ -68,13 +78,17 @@ export default function VisitorTracker() {
       body: JSON.stringify({
         visitorId,
         sessionId,
+        isSessionStart,
         pathname,
         referrer: document.referrer || "",
       }),
       keepalive: true,
       cache: "no-store",
     }).catch(() => {
-      window.sessionStorage.removeItem(SESSION_TRACKED_KEY);
+      window.sessionStorage.removeItem(LAST_PAGE_VIEW_KEY);
+      if (isSessionStart) {
+        window.sessionStorage.removeItem(SESSION_TRACKED_KEY);
+      }
     });
   }, [loading, pathname, user]);
 

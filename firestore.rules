@@ -262,6 +262,12 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /page_view_logs/{logId} {
+      allow create: if true;
+      allow read: if isManager();
+      allow update, delete: if false;
+    }
+
     match /product_cost_entries/{id} {
       allow read, write: if isManager();
     }
