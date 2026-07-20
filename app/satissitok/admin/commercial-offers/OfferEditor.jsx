@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -28,7 +28,6 @@ import {
 
 const LOGO_SRC = "/horecalink_offer_logo.png";
 const OFFER_TYPE_OPTIONS = ["stainless", "industrial", "corporate"];
-const PDF_PAGE_WIDTH_PX = 794;
 const PDF_IMAGE_TIMEOUT_MS = 15000;
 
 function text(value) {
@@ -159,10 +158,6 @@ async function preparePrintableImages(container) {
       image.style.visibility = visibility;
     });
   };
-}
-
-function removeHtml2PdfOverlays() {
-  document.querySelectorAll(".html2pdf__overlay").forEach((overlay) => overlay.remove());
 }
 
 function emptyItem(unit = "шт") {
@@ -502,87 +497,46 @@ export default function OfferEditor({ offerId = null }) {
   }
 
   async function handleSavePdf() {
-    if (!form || !pdfContentRef.current) return;
-
-    let wrapper = null;
+    if (!form) return;
 
     try {
       setSavingPdf(true);
       setMessage("");
-      removeHtml2PdfOverlays();
-
-      const html2pdfModule = await import("html2pdf.js");
-      const html2pdf = html2pdfModule.default || html2pdfModule;
-
-      const clone = pdfContentRef.current.cloneNode(true);
-      clone.classList.remove("hidden");
-      clone.style.display = "block";
-      clone.style.width = `${PDF_PAGE_WIDTH_PX}px`;
-      clone.style.minWidth = `${PDF_PAGE_WIDTH_PX}px`;
-      clone.style.maxWidth = `${PDF_PAGE_WIDTH_PX}px`;
-      clone.style.overflow = "hidden";
-      wrapper = document.createElement("div");
-      wrapper.style.position = "fixed";
-      wrapper.style.left = "-100000px";
-      wrapper.style.top = "0";
-      wrapper.style.width = `${PDF_PAGE_WIDTH_PX}px`;
-      wrapper.style.minWidth = `${PDF_PAGE_WIDTH_PX}px`;
-      wrapper.style.maxWidth = `${PDF_PAGE_WIDTH_PX}px`;
-      wrapper.style.background = "#ffffff";
-      wrapper.style.zIndex = "-1";
-      wrapper.style.overflow = "hidden";
-      wrapper.appendChild(clone);
-      document.body.appendChild(wrapper);
-
-      await preparePrintableImages(clone);
-      await document.fonts?.ready;
-
-      const worker = html2pdf()
-        .set({
-          margin: 0,
-          filename: `${form.offerNo || "HorecaLink-teklif"}.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: {
-            width: PDF_PAGE_WIDTH_PX,
-            windowWidth: PDF_PAGE_WIDTH_PX,
-            scale: 2,
-            useCORS: true,
-            imageTimeout: PDF_IMAGE_TIMEOUT_MS,
-            backgroundColor: "#ffffff",
-          },
-          jsPDF: {
-            unit: "mm",
-            format: "a4",
-            orientation: "portrait",
-          },
-          pagebreak: {
-            mode: ["css", "legacy"],
-            avoid: [".offer-pdf-item", ".offer-summary-block", ".offer-terms-block", ".offer-bank-block", ".offer-signature-block"],
-          },
-        })
-        .from(clone)
-        .toPdf();
-
-      const pdf = await worker.get("pdf");
-      const pageCount = pdf.internal.getNumberOfPages();
-
-      for (let pageIndex = 1; pageIndex <= pageCount; pageIndex += 1) {
-        pdf.setPage(pageIndex);
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(11);
-        pdf.setTextColor(44, 44, 44);
-        pdf.text(`${pageIndex}/${pageCount}`, 202, 292, { align: "right" });
-      }
-
-      await worker.save();
+      const [{ pdf }, { default: CommercialOfferPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("./CommercialOfferPdf"),
+      ]);
+      const origin = window.location.origin;
+      const offerForPdf = {
+        ...form,
+        items: calculated.items.map((item) => {
+          const printableSrc = getPrintableImageSrc(item.imageUrl);
+          return {
+            ...item,
+            pdfImageUrl: printableSrc ? new URL(printableSrc, origin).href : "",
+          };
+        }),
+      };
+      const documentElement = createElement(CommercialOfferPdf, {
+        offer: offerForPdf,
+        totals: calculated.totals,
+        typeConfig: offerTypeConfig,
+        logoUrl: new URL("/pdf/horecalink_logo.png", origin).href,
+        fontUrl: new URL("/pdf/NotoSans.ttf", origin).href,
+      });
+      const blob = await pdf(documentElement).toBlob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${form.offerNo || "HorecaLink-teklif"}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
     } catch (error) {
       console.error("Commercial offer pdf error:", error);
       setMessage("PDF oluşturulamadı.");
     } finally {
-      removeHtml2PdfOverlays();
-      if (wrapper?.parentNode) {
-        wrapper.parentNode.removeChild(wrapper);
-      }
       setSavingPdf(false);
     }
   }
