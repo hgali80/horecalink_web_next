@@ -161,6 +161,10 @@ async function preparePrintableImages(container) {
   };
 }
 
+function removeHtml2PdfOverlays() {
+  document.querySelectorAll(".html2pdf__overlay").forEach((overlay) => overlay.remove());
+}
+
 function emptyItem(unit = "шт") {
   return {
     rowId: `manual_${Math.random().toString(36).slice(2, 8)}`,
@@ -505,6 +509,7 @@ export default function OfferEditor({ offerId = null }) {
     try {
       setSavingPdf(true);
       setMessage("");
+      removeHtml2PdfOverlays();
 
       const html2pdfModule = await import("html2pdf.js");
       const html2pdf = html2pdfModule.default || html2pdfModule;
@@ -574,6 +579,7 @@ export default function OfferEditor({ offerId = null }) {
       console.error("Commercial offer pdf error:", error);
       setMessage("PDF oluşturulamadı.");
     } finally {
+      removeHtml2PdfOverlays();
       if (wrapper?.parentNode) {
         wrapper.parentNode.removeChild(wrapper);
       }
@@ -1186,23 +1192,23 @@ export default function OfferEditor({ offerId = null }) {
               <div className="w-full max-w-[440px] rounded-[28px] border border-[#c7d3e0] bg-[linear-gradient(135deg,#22364d_0%,#304a66_100%)] px-6 py-6 text-white shadow-[0_18px_44px_rgba(15,23,42,0.2)]">
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-white/70">{"\u041e\u0431\u0449\u0438\u0439 \u0438\u0442\u043e\u0433"}</div>
+                    <div className="text-[12px] font-bold uppercase tracking-[0.14em] text-[rgba(255,255,255,0.7)]">{"\u041e\u0431\u0449\u0438\u0439 \u0438\u0442\u043e\u0433"}</div>
                     <div className="mt-2 text-[24px] font-extrabold leading-none">{"\u0418\u0442\u043e\u0433\u043e:"}</div>
                   </div>
                   <span className="text-[34px] font-extrabold leading-none">{formatMoney(calculated.totals.grandTotal)}</span>
                 </div>
                 {form.visibility?.vatSummary ?? true ? (
-                  <div className="mt-3 rounded-2xl bg-white/10 px-4 py-3 text-right text-[15px] text-white/88">
+                  <div className="mt-3 rounded-2xl bg-[rgba(255,255,255,0.1)] px-4 py-3 text-right text-[15px] text-[rgba(255,255,255,0.88)]">
                     <span>{`\u0412 \u0442\u043e\u043c \u0447\u0438\u0441\u043b\u0435 \u041d\u0414\u0421 ${form.vatRate}%: ${formatMoney(calculated.totals.vatAmount)}`}</span>
                   </div>
                 ) : null}
                 <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-[20px] border border-white/10 bg-white/12 px-4 py-4">
-                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/70">{"\u041f\u043e\u0437\u0438\u0446\u0438\u0439"}</div>
+                  <div className="rounded-[20px] border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.12)] px-4 py-4">
+                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-[rgba(255,255,255,0.7)]">{"\u041f\u043e\u0437\u0438\u0446\u0438\u0439"}</div>
                     <div className="mt-2 text-[24px] font-extrabold leading-none">{calculated.items.length}</div>
                   </div>
-                  <div className="rounded-[20px] border border-white/10 bg-white/12 px-4 py-4">
-                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/70">{"\u0421\u0440\u043e\u043a \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f"}</div>
+                  <div className="rounded-[20px] border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.12)] px-4 py-4">
+                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-[rgba(255,255,255,0.7)]">{"\u0421\u0440\u043e\u043a \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f"}</div>
                     <div className="mt-2 text-[24px] font-extrabold leading-none">{form.validDays} {"\u0434\u043d."}</div>
                   </div>
                 </div>
