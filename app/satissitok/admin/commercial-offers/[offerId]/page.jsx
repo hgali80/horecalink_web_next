@@ -1,5 +1,6 @@
 import OfferEditor from "../OfferEditor";
 
-export default function CommercialOfferDetailPage({ params }) {
-  return <OfferEditor offerId={params?.offerId || null} />;
+export default async function CommercialOfferDetailPage({ params }) {
+  const { offerId } = await params;
+  return <OfferEditor offerId={offerId || null} />;
 }

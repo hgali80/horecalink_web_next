@@ -29,6 +29,7 @@ import {
 const LOGO_SRC = "/horecalink_offer_logo.png";
 const OFFER_TYPE_OPTIONS = ["stainless", "industrial", "corporate"];
 const PDF_PAGE_WIDTH_PX = 794;
+const PDF_IMAGE_TIMEOUT_MS = 15000;
 
 function text(value) {
   return String(value ?? "");
@@ -88,6 +89,76 @@ function splitLines(value) {
 
 function joinLines(value) {
   return Array.isArray(value) ? value.join("\n") : "";
+}
+
+function getPrintableImageSrc(value) {
+  const src = text(value).trim();
+  if (!src || typeof window === "undefined") return src;
+
+  try {
+    const url = new URL(src, window.location.origin);
+    if (url.origin === window.location.origin) return url.href;
+
+    if (url.hostname === "firebasestorage.googleapis.com") {
+      return `/api/pdf-image?url=${encodeURIComponent(url.href)}`;
+    }
+  } catch {
+    return src;
+  }
+
+  return src;
+}
+
+function waitForImage(image) {
+  if (image.complete && image.naturalWidth > 0) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const finish = (loaded) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      image.removeEventListener("load", handleLoad);
+      image.removeEventListener("error", handleError);
+      resolve(loaded);
+    };
+    const handleLoad = () => finish(true);
+    const handleError = () => finish(false);
+    const timeoutId = window.setTimeout(() => finish(false), PDF_IMAGE_TIMEOUT_MS);
+
+    image.addEventListener("load", handleLoad, { once: true });
+    image.addEventListener("error", handleError, { once: true });
+  });
+}
+
+async function preparePrintableImages(container) {
+  const images = Array.from(container.querySelectorAll("img"));
+  const originals = images.map((image) => ({
+    image,
+    src: image.getAttribute("src"),
+    visibility: image.style.visibility,
+  }));
+
+  await Promise.all(
+    images.map(async (image) => {
+      const printableSrc = getPrintableImageSrc(image.getAttribute("src"));
+      if (printableSrc && image.src !== printableSrc) {
+        image.src = printableSrc;
+      }
+
+      const loaded = await waitForImage(image);
+      if (!loaded) image.style.visibility = "hidden";
+    })
+  );
+
+  return () => {
+    originals.forEach(({ image, src, visibility }) => {
+      if (src === null) image.removeAttribute("src");
+      else image.setAttribute("src", src);
+      image.style.visibility = visibility;
+    });
+  };
 }
 
 function emptyItem(unit = "шт") {
@@ -405,14 +476,25 @@ export default function OfferEditor({ offerId = null }) {
     }
   }
 
-  function handlePrint() {
+  async function handlePrint() {
     if (!form) return;
+
     const previousTitle = document.title;
-    document.title = form.offerNo || "HorecaLink";
-    window.print();
-    window.setTimeout(() => {
+    let restoreImages = null;
+
+    try {
+      setMessage("");
+      restoreImages = await preparePrintableImages(pdfContentRef.current);
+      await document.fonts?.ready;
+      document.title = form.offerNo || "HorecaLink";
+      window.print();
+    } catch (error) {
+      console.error("Commercial offer print error:", error);
+      setMessage("Yazdırma penceresi açılamadı.");
+    } finally {
       document.title = previousTitle;
-    }, 300);
+      restoreImages?.();
+    }
   }
 
   async function handleSavePdf() {
@@ -447,6 +529,9 @@ export default function OfferEditor({ offerId = null }) {
       wrapper.appendChild(clone);
       document.body.appendChild(wrapper);
 
+      await preparePrintableImages(clone);
+      await document.fonts?.ready;
+
       const worker = html2pdf()
         .set({
           margin: 0,
@@ -457,6 +542,7 @@ export default function OfferEditor({ offerId = null }) {
             windowWidth: PDF_PAGE_WIDTH_PX,
             scale: 2,
             useCORS: true,
+            imageTimeout: PDF_IMAGE_TIMEOUT_MS,
             backgroundColor: "#ffffff",
           },
           jsPDF: {
