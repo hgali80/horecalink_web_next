@@ -1386,5 +1386,12 @@ export const categoryMap = {
     "groupLabel": "ekipman",
     "categoryLabel": "tencere-tava-ve-pisirme-kaplari",
     "subLabel": "sos-tencereleri"
+  },
+  "dry-ingredient-bins": {
+    "groupKey": "equipment",
+    "categoryKey": "storage-and-transport",
+    "groupLabel": "ekipman",
+    "categoryLabel": "depolama-ve-tasima",
+    "subLabel": "kuru-gida-saklama-arabalari"
   }
 };

@@ -165,6 +165,9 @@ export const categoryData = {
         "polikarbon-gn-kaplar",
         "gn-suzgec-kaplari"
       ],
+      "storage-and-transport": [
+        "dry-ingredient-bins"
+      ],
       "kesim-levhalari-ve-tezgah-ustleri": [
         "kesim-tahtalari-ve-aksesuarlari",
         "polietilen-tablalar",
