@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { ref, getDownloadURL, listAll } from "firebase/storage";
 
-import { storage } from "@/firebase";
+import { auth, storage } from "@/firebase";
 import { useLang } from "@/app/context/LanguageContext";
 import {
   getProduct,
@@ -225,6 +225,8 @@ export default function ProductDetailEditPage() {
   const [form, setForm] = useState(null);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [pendingImageDeletions, setPendingImageDeletions] = useState([]);
+  const [saveInfo, setSaveInfo] = useState("");
   const formId = form?.id;
   const formImageBase = form?.imageBase;
   const formImageNames = form?.image_names;
@@ -252,6 +254,7 @@ export default function ProductDetailEditPage() {
         }
 
         setForm(buildInitialForm(product));
+        setPendingImageDeletions([]);
       } catch (e) {
         if (!alive) return;
         setErr(e?.message || "Yükleme hatası.");
@@ -398,24 +401,83 @@ export default function ProductDetailEditPage() {
     const cleanName = (name || "").toString().trim();
     if (!cleanName) return;
 
-    set(
-      "image_names",
-      (form.image_names || []).filter((x) => x !== cleanName)
+    setPendingImageDeletions((current) =>
+      current.includes(cleanName) ? current : [...current, cleanName]
     );
+    setSaveInfo("");
+  }
+
+  function restoreImageName(name) {
+    setPendingImageDeletions((current) =>
+      current.filter((item) => item !== name)
+    );
+    setSaveInfo("");
+  }
+
+  async function deletePendingImages(imageNames) {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error("Oturum bulunamadı. Lütfen tekrar giriş yapın.");
+    }
+
+    const idToken = await currentUser.getIdToken();
+    const response = await fetch(
+      `/api/admin/products/${encodeURIComponent(productId)}/images`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ imageNames }),
+      }
+    );
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(result?.error || "Fotoğraflar Storage alanından silinemedi.");
+    }
+
+    return result;
   }
 
   async function onSave() {
     if (!form) return;
 
     setErr("");
+    setSaveInfo("");
+
+    const imagesToDelete = [...pendingImageDeletions];
+    const nextImageNames = (form.image_names || []).filter(
+      (name) => !imagesToDelete.includes(name)
+    );
+
+    if (imagesToDelete.length > 0) {
+      const confirmed = window.confirm(
+        `${imagesToDelete.length} fotoğraf hem üründen hem de Storage alanından kalıcı olarak silinecek. Devam edilsin mi?`
+      );
+      if (!confirmed) return;
+    }
 
     try {
       setWorking(true);
 
       await updateProduct(productId, {
         ...form,
-        image_names: form.image_names || [],
+        image_names: nextImageNames,
       });
+
+      if (imagesToDelete.length > 0) {
+        await deletePendingImages(imagesToDelete);
+      }
+
+      setForm((current) => ({ ...current, image_names: nextImageNames }));
+      setPendingImageDeletions([]);
+      setSaveInfo(
+        imagesToDelete.length > 0
+          ? `Ürün kaydedildi ve ${imagesToDelete.length} fotoğraf kalıcı olarak silindi.`
+          : "Ürün başarıyla kaydedildi."
+      );
 
       router.refresh?.();
     } catch (e) {
@@ -457,10 +519,16 @@ export default function ProductDetailEditPage() {
 
       {loading ? (
         <div className="text-sm text-gray-600">Yükleniyor...</div>
-      ) : err ? (
+      ) : err && !form ? (
         <div className="text-sm text-red-600">{err}</div>
       ) : (
         <>
+          {err ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {err}
+            </div>
+          ) : null}
+
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
@@ -496,48 +564,76 @@ export default function ProductDetailEditPage() {
                 <div className="text-sm font-semibold text-gray-800">Mevcut Fotoğraflar</div>
 
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                  {imagePreviews.map((img) => (
-                    <div key={img.name} className="overflow-hidden rounded-xl border bg-white">
-                      <div className="flex aspect-square items-center justify-center overflow-hidden bg-gray-100">
-                        {img.ok && img.url ? (
-                          <img src={img.url} alt={img.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="p-4 text-center text-xs text-red-600">Görsel yüklenemedi</div>
-                        )}
-                      </div>
+                  {imagePreviews.map((img) => {
+                    const pendingDeletion = pendingImageDeletions.includes(img.name);
 
-                      <div className="space-y-2 p-3">
-                        <div className="break-all text-[11px] font-mono text-gray-700">{img.name}</div>
-
-                        <div className="flex items-center justify-between gap-2">
+                    return (
+                      <div
+                        key={img.name}
+                        className={`overflow-hidden rounded-xl border ${
+                          pendingDeletion ? "border-red-300 bg-red-50" : "bg-white"
+                        }`}
+                      >
+                        <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-gray-100">
                           {img.ok && img.url ? (
-                            <a
-                              href={img.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs text-blue-600 hover:underline"
-                            >
-                              büyüt
-                            </a>
+                            <img
+                              src={img.url}
+                              alt={img.name}
+                              className={`h-full w-full object-cover ${pendingDeletion ? "opacity-35" : ""}`}
+                            />
                           ) : (
-                            <span className="text-[11px] text-red-500">URL alınamadı</span>
+                            <div className="p-4 text-center text-xs text-red-600">Görsel yüklenemedi</div>
                           )}
+                          {pendingDeletion ? (
+                            <div className="absolute inset-0 flex items-center justify-center p-3 text-center text-xs font-bold text-red-700">
+                              Kaydedildiğinde kalıcı olarak silinecek
+                            </div>
+                          ) : null}
+                        </div>
 
-                          <button
-                            type="button"
-                            onClick={() => removeImageName(img.name)}
-                            className="text-xs text-red-600 hover:underline"
-                          >
-                            kaldır
-                          </button>
+                        <div className="space-y-2 p-3">
+                          <div className="break-all text-[11px] font-mono text-gray-700">{img.name}</div>
+
+                          <div className="flex items-center justify-between gap-2">
+                            {img.ok && img.url ? (
+                              <a
+                                href={img.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-blue-600 hover:underline"
+                              >
+                                büyüt
+                              </a>
+                            ) : (
+                              <span className="text-[11px] text-red-500">URL alınamadı</span>
+                            )}
+
+                            {pendingDeletion ? (
+                              <button
+                                type="button"
+                                onClick={() => restoreImageName(img.name)}
+                                className="text-xs font-semibold text-blue-700 hover:underline"
+                              >
+                                Geri al
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => removeImageName(img.name)}
+                                className="text-xs text-red-600 hover:underline"
+                              >
+                                kaldır
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="text-[11px] text-gray-500">
-                  “kaldır” işlemi sadece `image_names` listesinden çıkarır, Storage dosyasını silmez.
+                  Kaldırılan fotoğraflar Kaydet düğmesine basıldığında Storage alanından kalıcı olarak silinir.
                 </div>
               </div>
             ) : (
@@ -557,6 +653,12 @@ export default function ProductDetailEditPage() {
                   {uploadInfo.stage === "uploading" ? "Yükleniyor" : "Tamamlandı"}:{" "}
                   <b>{uploadInfo.filename}</b> ({uploadInfo.index + 1}/{uploadInfo.total})
                 </div>
+              </div>
+            ) : null}
+
+            {saveInfo ? (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-800">
+                {saveInfo}
               </div>
             ) : null}
 
