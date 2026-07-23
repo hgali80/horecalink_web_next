@@ -31,7 +31,7 @@ function titleFromPath(pathname) {
     .join(" / ") || "Bilinmeyen sayfa";
 }
 
-function getPageLabel(item, productNames = {}) {
+export function getPageLabel(item, productNames = {}) {
   const productSlug = cleanText(item?.productSlug);
   if (item?.pageType === "product" && productSlug) {
     return productNames[productSlug] || titleFromPath(`/products/${productSlug}`).replace("products / ", "");
@@ -56,6 +56,9 @@ export function buildVisitorDetails(pageViewRows, productNames = {}, maxVisitors
           visitorId,
           country: cleanText(item.country) || null,
           lastVisitedAt: item.normalizedVisitedAt,
+          firstVisitedAt: item.normalizedVisitedAt,
+          userAgent: cleanText(item.userAgent),
+          referrer: cleanText(item.referrer),
           pageViewCount: 0,
           sessionIds: new Set(),
           pages: new Map(),
@@ -63,9 +66,12 @@ export function buildVisitorDetails(pageViewRows, productNames = {}, maxVisitors
         visitorMap.set(visitorId, visitor);
       }
 
+      visitor.firstVisitedAt = item.normalizedVisitedAt;
       visitor.pageViewCount += 1;
       if (item.sessionId) visitor.sessionIds.add(cleanText(item.sessionId));
       if (!visitor.country && item.country) visitor.country = cleanText(item.country);
+      if (!visitor.userAgent && item.userAgent) visitor.userAgent = cleanText(item.userAgent);
+      if (!visitor.referrer && item.referrer) visitor.referrer = cleanText(item.referrer);
 
       const pathname = cleanText(item.pathname);
       const existingPage = visitor.pages.get(pathname);
@@ -87,8 +93,12 @@ export function buildVisitorDetails(pageViewRows, productNames = {}, maxVisitors
     .slice(0, maxVisitors)
     .map((visitor) => ({
       visitorId: visitor.visitorId,
+      displayId: visitor.visitorId.slice(-6).toUpperCase(),
       country: visitor.country,
       lastVisitedAt: visitor.lastVisitedAt.toISOString(),
+      firstVisitedAt: visitor.firstVisitedAt.toISOString(),
+      userAgent: visitor.userAgent,
+      referrer: visitor.referrer,
       pageViewCount: visitor.pageViewCount,
       sessionCount: visitor.sessionIds.size,
       uniquePageCount: visitor.pages.size,

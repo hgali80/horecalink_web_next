@@ -5,23 +5,21 @@ import {
   authorizeAdminRequest,
 } from "@/app/lib/server/firebaseAdmin";
 import {
-  buildVisitorPeriods,
-  DASHBOARD_TIMEZONE,
-  getRangeStarts,
-} from "@/app/lib/analytics/visitorPeriods";
-import { buildVisitorDetails } from "@/app/lib/analytics/visitorDetails";
+  buildAnalyticsOverview,
+  getAnalyticsRange,
+} from "@/app/lib/analytics/analyticsOverview";
 
 export const runtime = "nodejs";
 
-const DETAIL_LOOKBACK_DAYS = 30;
-const MAX_PAGE_VIEW_ROWS = 1000;
+const MAX_PAGE_VIEW_ROWS = 5000;
+const MAX_VISITOR_ROWS = 100;
 
 function cleanText(value) {
   return String(value || "").trim();
 }
 
 function getProductName(data = {}) {
-  return cleanText(data.name) || cleanText(data.name_tr) || cleanText(data.name_ru) || "Urun";
+  return cleanText(data.name) || cleanText(data.name_tr) || cleanText(data.name_ru) || "Ürün";
 }
 
 async function resolveProductNames(adminDb, pageViewRows) {
@@ -62,40 +60,49 @@ export async function GET(request) {
     }
 
     const { adminDb } = authResult;
-    const ranges = getRangeStarts();
-    const detailStart = new Date(
-      ranges.now.getTime() - DETAIL_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
-    );
-    const [snapshot, pageViewSnapshot] = await Promise.all([
+    const url = new URL(request.url);
+    const rangeKey = url.searchParams.get("range") || "30d";
+    const includeDetails = url.searchParams.get("details") !== "0";
+    const now = new Date();
+    const range = getAnalyticsRange(rangeKey, now);
+
+    const [visitSnapshot, pageViewSnapshot] = await Promise.all([
       adminDb
         .collection("visit_logs")
-        .where("visitedAt", ">=", ranges.startOfYear)
-        .where("visitedAt", "<=", ranges.now)
+        .where("visitedAt", ">=", range.start)
+        .where("visitedAt", "<=", range.end)
         .get(),
       adminDb
         .collection("page_view_logs")
-        .where("visitedAt", ">=", detailStart)
+        .where("visitedAt", ">=", range.start)
+        .where("visitedAt", "<=", range.end)
         .orderBy("visitedAt", "desc")
         .limit(MAX_PAGE_VIEW_ROWS)
         .get(),
     ]);
 
-    const responsePeriods = buildVisitorPeriods(
-      snapshot.docs.map((doc) => doc.data() || {}),
-      ranges
-    );
+    const visitRows = visitSnapshot.docs.map((doc) => doc.data() || {});
     const pageViewRows = pageViewSnapshot.docs.map((doc) => doc.data() || {});
     const productNames = await resolveProductNames(adminDb, pageViewRows);
-    const visitorDetails = buildVisitorDetails(pageViewRows, productNames);
+    const overview = buildAnalyticsOverview({
+      visitRows,
+      pageViewRows,
+      productNames,
+      rangeKey: range.key,
+      now,
+      maxVisitors: includeDetails ? MAX_VISITOR_ROWS : 0,
+    });
+
+    if (!includeDetails) {
+      overview.visitorDetails = [];
+    }
 
     return NextResponse.json({
       ok: true,
-      timezone: DASHBOARD_TIMEZONE,
-      generatedAt: ranges.now.toISOString(),
-      periods: responsePeriods,
-      visitorDetails,
-      detailPeriodDays: DETAIL_LOOKBACK_DAYS,
+      generatedAt: now.toISOString(),
+      ...overview,
       detailRowsLimited: pageViewSnapshot.size >= MAX_PAGE_VIEW_ROWS,
+      visitorRowsLimited: overview.visitorDetails.length >= MAX_VISITOR_ROWS,
     });
   } catch (error) {
     console.error("Visit analytics overview error:", error);
@@ -103,7 +110,7 @@ export async function GET(request) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Ziyaretci istatistikleri alinamadi.",
+        error: error?.message || "Ziyaretçi istatistikleri alınamadı.",
       },
       { status: 500 }
     );

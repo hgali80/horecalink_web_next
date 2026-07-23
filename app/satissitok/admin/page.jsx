@@ -11,7 +11,7 @@ import {
   LayoutTemplate,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import VisitorStatsPanel from "../../components/VisitorStatsPanel";
+import VisitorAnalyticsCard from "../../components/VisitorAnalyticsCard";
 
 export default function SalesStockDashboard() {
   const { user, loading } = useAuth();
@@ -39,12 +39,12 @@ export default function SalesStockDashboard() {
         ) : null}
       </div>
 
-      <VisitorStatsPanel />
-
       <section>
         <h2 className="mb-3 text-lg font-semibold text-gray-800">Yonetim</h2>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-6">
+          <VisitorAnalyticsCard />
+
           <DashboardCard
             title="ERP Modulu"
             desc="Yeni satis, satinalma, stok, cari, finans ve rapor yapisina tek yerden gir"
