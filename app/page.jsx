@@ -235,7 +235,7 @@ export default function Home() {
               <li>
                 <Link
                   className="transition-colors hover:text-white"
-                  href="/iade-politikasi"
+                  href="/return-policy"
                 >
                   {t("returns.linkLabel")}
                 </Link>
