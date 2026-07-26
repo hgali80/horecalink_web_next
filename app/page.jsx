@@ -233,6 +233,14 @@ export default function Home() {
                 </Link>
               </li>
               <li>
+                <Link
+                  className="transition-colors hover:text-white"
+                  href="/iade-politikasi"
+                >
+                  {t("returns.linkLabel")}
+                </Link>
+              </li>
+              <li>
                 <Link className="transition-colors hover:text-white" href="/payment">
                   {t("home.footer.payment") || "Odeme Secenekleri"}
                 </Link>

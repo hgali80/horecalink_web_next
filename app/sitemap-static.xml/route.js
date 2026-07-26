@@ -16,6 +16,7 @@ const STATIC_PAGES = [
   { path: "/contact", changefreq: "monthly", priority: 0.5 },
   { path: "/privacy", changefreq: "yearly", priority: 0.3 },
   { path: "/shipping", changefreq: "yearly", priority: 0.3 },
+  { path: "/iade-politikasi", changefreq: "yearly", priority: 0.3 },
   { path: "/payment", changefreq: "yearly", priority: 0.3 },
   { path: "/teklif-talep", changefreq: "weekly", priority: 0.7 },
 ];

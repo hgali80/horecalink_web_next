@@ -2684,5 +2684,84 @@
   "who.text2.before": "Toptan ürün tedariki,",
   "who.text2.highlight": "paslanmaz üretim ve proje süreçlerini",
   "who.text3": "Bizim için satış bir son değil, uzun vadeli bir iş ortaklığının başlangıcıdır.",
-  "who.title": "Biz Kimiz?"
+  "who.title": "Biz Kimiz?",
+  "returns": {
+    "linkLabel": "İade ve Değişim Politikası",
+    "title": "İade ve Değişim Politikası",
+    "lastUpdate": "Son güncelleme: 26.07.2026",
+    "intro": "HorecaLink olarak müşterilerimize doğru, eksiksiz ve sipariş koşullarına uygun ürünler teslim etmeyi amaçlıyoruz. İade ve değişim talepleri aşağıdaki koşullar ve Kazakistan Cumhuriyeti'nin yürürlükteki mevzuatı çerçevesinde değerlendirilir.",
+    "sections": {
+      "period": {
+        "title": "İade ve değişim süresi",
+        "paragraph1": "Kullanılmamış ve yeniden satılabilir durumdaki ürünler için iade veya değişim talebi, ürünün teslim alındığı tarihten itibaren 14 takvim günü içinde yapılmalıdır.",
+        "paragraph2": "Talebin süresi içinde yazılı olarak iletilmesi yeterlidir. Ürünün HorecaLink'e ulaştırılması veya teslim alınması için gerekli yönlendirme müşteriyle ayrıca paylaşılır."
+      },
+      "condition": {
+        "title": "İade edilecek ürünün durumu",
+        "intro": "İade veya değişim talebinin kabul edilebilmesi için ürünün:",
+        "item1": "Kullanılmamış ve kurulumu yapılmamış olması,",
+        "item2": "Hasar görmemiş ve yeniden satılabilir durumda bulunması,",
+        "item3": "Varsa mühür, etiket, seri numarası ve koruyucu parçalarının korunmuş olması,",
+        "item4": "Ürünün parçası niteliğindeki orijinal ambalajı, aksesuarları, kullanım belgeleri ve garanti belgesiyle birlikte teslim edilmesi,",
+        "item5": "HorecaLink'ten satın alındığının sipariş, teklif, fatura, ödeme kaydı veya başka bir belgeyle doğrulanabilmesi gerekir.",
+        "outro": "Satış belgesinin kaybolmuş olması, satın alma işlemi başka bir yöntemle doğrulanabiliyorsa tek başına ret nedeni değildir."
+      },
+      "exchange": {
+        "title": "Değişim işlemleri",
+        "paragraph1": "Şartları karşılayan ürünler, stok durumuna bağlı olarak aynı ürünün farklı model, ölçü, renk veya özellikteki bir çeşidiyle değiştirilebilir.",
+        "paragraph2": "Yeni ürün ile iade edilen ürün arasında fiyat farkı bulunması halinde gerekli fiyat düzenlemesi yapılır. Talep edilen ürünün stokta bulunmaması durumunda müşteri başka bir ürün seçebilir veya ödediği ürün bedelinin iadesini talep edebilir."
+      },
+      "damaged": {
+        "title": "Hasarlı, ayıplı veya yanlış ürünler",
+        "paragraph1": "Ürünün hasarlı, eksik, ayıplı ya da sipariş edilenden farklı teslim edilmesi durumunda müşteri, durumu mümkünse teslimat sırasında kontrol ederek HorecaLink'e bildirmelidir.",
+        "paragraph2": "Başvurunun hızlı değerlendirilebilmesi için aşağıdaki bilgiler istenebilir:",
+        "item1": "Sipariş veya fatura numarası,",
+        "item2": "Ürünün ve ambalajın fotoğrafları,",
+        "item3": "Hasar veya ayıbın açıklaması,",
+        "item4": "Teslimat tutanağı veya kargo belgesi.",
+        "closing1": "İnceleme sonucunda talebin haklı bulunması halinde, müşterinin tercihi ve mevzuatın tanıdığı haklar doğrultusunda ürün onarılabilir, yenisiyle değiştirilebilir, ürün bedelinde indirim uygulanabilir veya ürün bedeli iade edilebilir.",
+        "closing2": "Ayıplı veya yanlış gönderilmiş ürünlerin makul iade taşıma giderleri HorecaLink tarafından karşılanır."
+      },
+      "exceptions": {
+        "title": "İade ve değişim kapsamı dışında kalan ürünler",
+        "intro": "Aşağıdaki ürünler, ayıplı veya siparişten farklı teslim edilmiş olmadıkları sürece iade ya da değişim kapsamı dışında değerlendirilebilir:",
+        "item1": "Müşterinin talebine göre özel olarak üretilmiş, ölçülendirilmiş veya kişiselleştirilmiş ürünler,",
+        "item2": "Müşteriye özel olarak ithal veya tedarik edilmiş ve bu niteliği teklif ya da sözleşmede açıkça belirtilmiş ürünler,",
+        "item3": "Kurulumu, montajı veya devreye alınması tamamlandıktan sonra kullanılmış ürünler,",
+        "item4": "Hijyen veya sağlık nedeniyle yeniden satışı uygun olmayan ve koruyucu ambalajı açılmış ürünler,",
+        "item5": "Mevzuat gereğince iadesi veya değişimi mümkün olmayan diğer ürünler.",
+        "outro": "Bu istisnalar, ürünün ayıplı, hasarlı, eksik veya siparişe aykırı teslim edilmesi halinde müşterinin sahip olduğu zorunlu yasal hakları ortadan kaldırmaz."
+      },
+      "shippingCosts": {
+        "title": "Nakliye ve iade masrafları",
+        "paragraph1": "Ürünün ayıplı, hasarlı, eksik veya yanlış gönderilmiş olması halinde onaylanan iade nakliye masrafları HorecaLink tarafından karşılanır.",
+        "paragraph2": "Ürünün sağlam olmasına rağmen müşterinin tercih değişikliği nedeniyle yapılan iadelerde nakliye, söküm, yeniden paketleme ve benzeri masraflar, yürürlükteki mevzuat veya taraflar arasındaki sözleşmede aksi belirtilmediği sürece müşteriye ait olabilir.",
+        "paragraph3": "Ürün, HorecaLink'in yönlendirmesi alınmadan karşı ödemeli olarak gönderilmemelidir."
+      },
+      "refund": {
+        "title": "Ücret iadesi",
+        "paragraph1": "İade edilen ürün teslim alındıktan sonra ürünün durumu, aksesuarları ve belgeleri kontrol edilir. İadenin kabul edilmesi halinde ürün bedeli, yürürlükteki mevzuatın öngördüğü süreyi aşmayacak şekilde mümkün olan en kısa sürede iade edilir.",
+        "paragraph2": "Ücret iadesi mümkün olduğunda ödemenin yapıldığı yöntemle gerçekleştirilir. Banka veya ödeme kuruluşlarından kaynaklanan hesaba yansıma süreleri HorecaLink'in kontrolü dışında olabilir.",
+        "paragraph3": "Teslimat ve benzeri ek hizmet bedellerinin iade edilip edilmeyeceği, iade gerekçesine ve satış sözleşmesindeki koşullara göre belirlenir."
+      },
+      "b2b": {
+        "title": "Kurumsal ve B2B siparişler",
+        "paragraph1": "Ticari veya mesleki amaçlarla şirketler ve işletmeler adına yapılan satın almalarda ilgili teklif, sipariş formu, fatura, tedarik sözleşmesi veya taraflar arasında yazılı olarak kararlaştırılan özel koşullar öncelikle uygulanır.",
+        "paragraph2": "Bununla birlikte, emredici mevzuat hükümleri ve ayıplı ürünlerden doğan zorunlu haklar saklıdır."
+      },
+      "application": {
+        "title": "İade başvurusu",
+        "intro": "İade veya değişim talebinde bulunmak için aşağıdaki iletişim kanallarından bize ulaşabilirsiniz. Başvuruda şu bilgiler belirtilmelidir:",
+        "item1": "Ad-soyad veya şirket unvanı,",
+        "item2": "İletişim bilgileri,",
+        "item3": "Sipariş veya fatura numarası ve ürün bilgisi,",
+        "item4": "İade ya da değişim talebinin gerekçesi."
+      },
+      "legalRights": {
+        "title": "Yasal haklar",
+        "paragraph1": "Bu politika, müşterilerin Kazakistan Cumhuriyeti mevzuatından doğan zorunlu haklarını sınırlandırmaz.",
+        "paragraph2": "Politika ile yürürlükteki emredici mevzuat arasında farklılık bulunması halinde mevzuat hükümleri uygulanır."
+      }
+    }
+  }
 }

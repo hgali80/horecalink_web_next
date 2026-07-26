@@ -2704,5 +2704,84 @@
   "who.text2.before": "We bring together",
   "who.text2.highlight": "wholesale product supply, stainless steel manufacturing and project processes",
   "who.text3": "For us, a sale is not an end, but the beginning of a long-term business partnership.",
-  "who.title": "Who We Are?"
+  "who.title": "Who We Are?",
+  "returns": {
+    "linkLabel": "Return and Exchange Policy",
+    "title": "Return and Exchange Policy",
+    "lastUpdate": "Last updated: 26 July 2026",
+    "intro": "At HorecaLink, we aim to deliver products that are correct, complete and compliant with the agreed order conditions. Return and exchange requests are assessed under the conditions below and the applicable legislation of the Republic of Kazakhstan.",
+    "sections": {
+      "period": {
+        "title": "Return and exchange period",
+        "paragraph1": "A return or exchange request for an unused product in resalable condition must be submitted within 14 calendar days of the date on which the product was received.",
+        "paragraph2": "It is sufficient to submit the request in writing within this period. Instructions for sending the product to HorecaLink or arranging its collection will be provided separately."
+      },
+      "condition": {
+        "title": "Condition of returned products",
+        "intro": "For a return or exchange request to be accepted, the product must:",
+        "item1": "Be unused and not installed,",
+        "item2": "Be undamaged and in resalable condition,",
+        "item3": "Retain its seals, labels, serial number and protective parts, where applicable,",
+        "item4": "Be returned with any original packaging that forms part of the product, accessories, user documents and warranty certificate,",
+        "item5": "Be verifiably purchased from HorecaLink by an order, quotation, invoice, payment record or other evidence.",
+        "outro": "The loss of a sales document is not, by itself, grounds for refusal if the purchase can be verified by another method."
+      },
+      "exchange": {
+        "title": "Exchanges",
+        "paragraph1": "Subject to stock availability, eligible products may be exchanged for a different model, size, colour or specification of the same product.",
+        "paragraph2": "Any price difference between the returned and replacement product will be adjusted accordingly. If the requested product is unavailable, the customer may select another product or request a refund of the amount paid for the product."
+      },
+      "damaged": {
+        "title": "Damaged, defective or incorrect products",
+        "paragraph1": "If a product is delivered damaged, incomplete, defective or different from the order, the customer should, where possible, inspect it at delivery and notify HorecaLink.",
+        "paragraph2": "The following information may be requested to assess the application promptly:",
+        "item1": "Order or invoice number,",
+        "item2": "Photographs of the product and its packaging,",
+        "item3": "A description of the damage or defect,",
+        "item4": "Delivery report or shipping document.",
+        "closing1": "If the request is found to be justified after inspection, the product may be repaired, replaced, discounted or refunded in accordance with the customer's choice and the rights provided by applicable law.",
+        "closing2": "Reasonable return transport costs for defective or incorrectly supplied products will be covered by HorecaLink."
+      },
+      "exceptions": {
+        "title": "Products excluded from return or exchange",
+        "intro": "Unless defective or supplied contrary to the order, the following products may be excluded from return or exchange:",
+        "item1": "Products manufactured, sized or personalised specifically at the customer's request,",
+        "item2": "Products specially imported or procured for the customer where this was clearly stated in the quotation or contract,",
+        "item3": "Products used after installation, assembly or commissioning,",
+        "item4": "Products unsuitable for resale for hygiene or health reasons where the protective packaging has been opened,",
+        "item5": "Other products that cannot be returned or exchanged under applicable law.",
+        "outro": "These exclusions do not remove any mandatory legal rights where a product is defective, damaged, incomplete or delivered contrary to the order."
+      },
+      "shippingCosts": {
+        "title": "Transport and return costs",
+        "paragraph1": "HorecaLink will cover approved return transport costs where a product was supplied defective, damaged, incomplete or incorrect.",
+        "paragraph2": "Where an undamaged product is returned because the customer has changed their preference, transport, dismantling, repackaging and similar costs may be borne by the customer unless applicable law or the agreement between the parties provides otherwise.",
+        "paragraph3": "Products must not be sent on a collect-on-delivery basis without prior instructions from HorecaLink."
+      },
+      "refund": {
+        "title": "Refunds",
+        "paragraph1": "After a returned product is received, its condition, accessories and documents will be inspected. If the return is accepted, the product price will be refunded as soon as reasonably possible and within the period required by applicable law.",
+        "paragraph2": "Where possible, refunds will be made using the original payment method. The time taken by a bank or payment provider to credit an account may be outside HorecaLink's control.",
+        "paragraph3": "Whether delivery and other additional service charges are refundable is determined by the reason for the return and the terms of the sales agreement."
+      },
+      "b2b": {
+        "title": "Corporate and B2B orders",
+        "paragraph1": "For purchases made by companies and businesses for commercial or professional purposes, the relevant quotation, order form, invoice, supply agreement or special written terms agreed between the parties will apply first.",
+        "paragraph2": "Mandatory provisions of applicable law and mandatory rights arising from defective products remain reserved."
+      },
+      "application": {
+        "title": "How to request a return",
+        "intro": "You can contact us through the channels below to request a return or exchange. Please include:",
+        "item1": "Your full name or company name,",
+        "item2": "Your contact details,",
+        "item3": "The order or invoice number and product details,",
+        "item4": "The reason for the return or exchange request."
+      },
+      "legalRights": {
+        "title": "Legal rights",
+        "paragraph1": "This policy does not limit customers' mandatory rights under the legislation of the Republic of Kazakhstan.",
+        "paragraph2": "If this policy conflicts with mandatory applicable law, the provisions of the applicable law will prevail."
+      }
+    }
+  }
 }
