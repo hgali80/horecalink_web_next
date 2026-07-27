@@ -251,7 +251,9 @@ export default function CommercialOfferPdf({ offer, totals, typeConfig, logoUrl,
           </View>
         ) : null}
 
-        <Text style={styles.bank}>{seller.bankDetails || ""}</Text>
+        {visibility.requisitesSection !== false ? (
+          <Text style={styles.bank}>{seller.bankDetails || ""}</Text>
+        ) : null}
         <View style={styles.signature} wrap={false}>
           <View style={styles.signatureLeft}>
             <Text style={styles.signatureText}>С уважением,</Text>

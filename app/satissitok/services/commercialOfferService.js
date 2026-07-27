@@ -268,6 +268,7 @@ export function buildDefaultOfferPayload({
     visibility: {
       termsSection: true,
       vatSummary: true,
+      requisitesSection: true,
     },
     items: [
       {

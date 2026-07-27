@@ -247,6 +247,7 @@ export default function OfferEditor({ offerId = null }) {
             visibility: {
               termsSection: existingOffer.visibility?.termsSection ?? true,
               vatSummary: existingOffer.visibility?.vatSummary ?? true,
+              requisitesSection: existingOffer.visibility?.requisitesSection ?? true,
             },
           });
         } else {
@@ -437,6 +438,7 @@ export default function OfferEditor({ offerId = null }) {
         visibility: {
           termsSection: prev.visibility?.termsSection ?? true,
           vatSummary: prev.visibility?.vatSummary ?? true,
+          requisitesSection: prev.visibility?.requisitesSection ?? true,
         },
       };
     });
@@ -1016,6 +1018,14 @@ export default function OfferEditor({ offerId = null }) {
                     />
                     Vergi gostergesi teklifte gorunsun
                   </label>
+                  <label className="flex items-center gap-3 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={form.visibility?.requisitesSection ?? true}
+                      onChange={(event) => updateField("visibility.requisitesSection", event.target.checked)}
+                    />
+                    Rekvizitler PDF&apos;de gorunsun
+                  </label>
                 </div>
               </div>
 
@@ -1198,10 +1208,12 @@ export default function OfferEditor({ offerId = null }) {
               </div>
             ) : null}
 
-            <div className="offer-bank-block mb-10 rounded-[20px] border border-[#d7dee6] bg-[#f8fafc] px-5 py-4 text-[14px] text-[#475569]">
-              <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#64748b]">{"\u0411\u0430\u043d\u043a\u043e\u0432\u0441\u043a\u0438\u0435 \u0440\u0435\u043a\u0432\u0438\u0437\u0438\u0442\u044b"}</div>
-              <div className="offer-pdf-note whitespace-pre-line">{form.seller.bankDetails}</div>
-            </div>
+            {form.visibility?.requisitesSection ?? true ? (
+              <div className="offer-bank-block mb-10 rounded-[20px] border border-[#d7dee6] bg-[#f8fafc] px-5 py-4 text-[14px] text-[#475569]">
+                <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#64748b]">{"\u0411\u0430\u043d\u043a\u043e\u0432\u0441\u043a\u0438\u0435 \u0440\u0435\u043a\u0432\u0438\u0437\u0438\u0442\u044b"}</div>
+                <div className="offer-pdf-note whitespace-pre-line">{form.seller.bankDetails}</div>
+              </div>
+            ) : null}
 
             <div className="offer-signature-block mb-20 flex items-end justify-between">
               <div className="text-[14px] text-[#64748b]">
