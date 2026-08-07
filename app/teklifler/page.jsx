@@ -131,7 +131,7 @@ export default function QuoteHistoryPage() {
           </div>
         ) : null}
 
-        {!items.length ? (
+        {!error && !items.length ? (
           <div className="rounded-xl bg-white p-10 text-center shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
             <FileText className="mx-auto text-slate-300" size={40} />
             <h2 className="mt-4 text-2xl font-extrabold tracking-[-0.02em] text-[#1d3246]">
@@ -139,7 +139,7 @@ export default function QuoteHistoryPage() {
             </h2>
             <p className="mt-2 text-sm text-slate-600">{t("quoteHistory.emptyText")}</p>
           </div>
-        ) : (
+        ) : !error ? (
           <div className="grid gap-4">
             {items.map((item) => {
               const rawStatusKey = item.status || "new";
@@ -191,7 +191,7 @@ export default function QuoteHistoryPage() {
               );
             })}
           </div>
-        )}
+        ) : null}
       </div>
     </main>
   );

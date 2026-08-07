@@ -19,7 +19,7 @@ import {
   canViewQuote,
   getQuoteStatusLabelKey,
   getGuestQuoteAccess,
-  getOrCreateVisitorIdentity,
+  getGuestQuoteRequestById,
   getQuoteRequestById,
   normalizeQuoteStatus,
   saveGuestQuoteAccess,
@@ -89,8 +89,6 @@ export default function QuoteDetailPage() {
     [t]
   );
 
-  const visitorId = useMemo(() => getOrCreateVisitorIdentity()?.visitorId || "", []);
-
   const accessKey = useMemo(() => {
     const fromUrl = searchParams.get("access");
     if (fromUrl) return fromUrl;
@@ -107,16 +105,18 @@ export default function QuoteDetailPage() {
   }, [id, searchParams]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || authLoading) return;
 
     const run = async () => {
       try {
         setLoading(true);
         setError("");
-        const data = await getQuoteRequestById(id);
+        const data = user?.uid
+          ? await getQuoteRequestById(id)
+          : await getGuestQuoteRequestById(id, accessKey);
         if (!data) {
-          setError(t("quoteDetail.notFound"));
           setItem(null);
+          if (user?.uid) setError(t("quoteDetail.notFound"));
           return;
         }
         setItem(data);
@@ -129,13 +129,14 @@ export default function QuoteDetailPage() {
     };
 
     run();
-  }, [id, t]);
+  }, [accessKey, authLoading, id, t, user?.uid]);
 
   const isAllowed = useMemo(() => {
     if (!item) return false;
+    if (!user) return true;
     if (user?.role === "admin") return true;
-    return canViewQuote(item, { userId: user?.uid, accessKey, visitorId });
-  }, [accessKey, item, user?.role, user?.uid, visitorId]);
+    return canViewQuote(item, { userId: user?.uid });
+  }, [item, user]);
 
   if (authLoading || loading) {
     return (

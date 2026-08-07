@@ -373,52 +373,33 @@ export async function getUserQuoteRequests(userId) {
   return sortQuotesDesc(rows);
 }
 
-async function getLegacyGuestQuoteRequests() {
-  const entries = getGuestQuoteEntries();
+async function fetchGuestQuotes(entries) {
   if (!entries.length) return [];
 
-  const docs = await Promise.all(
-    entries.map(async (entry) => {
-      const item = await getQuoteRequestById(entry.id);
-      if (!item) return null;
-      if (item.accessKey !== entry.accessKey) return null;
-      return item;
-    })
-  );
+  const response = await fetch("/api/quotes/guest", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify({ entries: entries.slice(0, 50) }),
+  });
 
-  return docs.filter(Boolean);
+  if (!response.ok) {
+    throw new Error("GUEST_QUOTES_LOAD_FAILED");
+  }
+
+  const payload = await response.json();
+  return Array.isArray(payload?.items) ? payload.items : [];
 }
 
 export async function getGuestQuoteRequests() {
-  const visitorIdentity = getOrCreateVisitorIdentity();
-  const visitorId = visitorIdentity?.visitorId || "";
+  const rows = await fetchGuestQuotes(getGuestQuoteEntries());
+  return sortQuotesDesc(rows);
+}
 
-  let visitorRows = [];
-
-  if (visitorId) {
-    const q = query(
-      collection(db, COLLECTION_NAME),
-      where("visitorId", "==", visitorId),
-      limit(50)
-    );
-
-    const snap = await getDocs(q);
-    visitorRows = snap.docs.map((docItem) => ({
-      id: docItem.id,
-      ...docItem.data(),
-    }));
-  }
-
-  const legacyRows = await getLegacyGuestQuoteRequests();
-
-  const mergedMap = new Map();
-
-  [...visitorRows, ...legacyRows].forEach((item) => {
-    if (!item?.id) return;
-    mergedMap.set(item.id, item);
-  });
-
-  return sortQuotesDesc(Array.from(mergedMap.values()));
+export async function getGuestQuoteRequestById(id, accessKey) {
+  if (!id || !accessKey) return null;
+  const rows = await fetchGuestQuotes([{ id, accessKey }]);
+  return rows[0] || null;
 }
 
 export async function updateQuoteRequestStatus(id, status) {
