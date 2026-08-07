@@ -281,6 +281,7 @@ export async function createQuoteRequest({ user, form, items }) {
 
   const visitorIdentity = getOrCreateVisitorIdentity();
   const accessKey = buildAccessKey();
+  const quoteNo = buildQuoteNo();
 
   const listAmount = normalizedItems.reduce(
     (sum, item) => sum + (item.lineListTotal || 0),
@@ -288,7 +289,7 @@ export async function createQuoteRequest({ user, form, items }) {
   );
 
   const payload = {
-    quoteNo: buildQuoteNo(),
+    quoteNo,
     status: "new",
     userId: user?.uid || null,
     visitorId: visitorIdentity?.visitorId || null,
@@ -337,6 +338,7 @@ export async function createQuoteRequest({ user, form, items }) {
 
   return {
     id: ref.id,
+    quoteNo,
     accessKey,
     visitorId: visitorIdentity?.visitorId || "",
   };

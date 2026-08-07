@@ -303,7 +303,6 @@ export default function QuoteRequestClient() {
     if (!items.length) return setError(t("quoteRequest.validation.noItems"));
     if (!form.fullName.trim()) return setError(t("quoteRequest.validation.fullName"));
     if (!form.phone.trim()) return setError(t("quoteRequest.validation.phone"));
-    if (!form.address.trim()) return setError(t("quoteRequest.validation.address"));
 
     try {
       setSubmitting(true);
@@ -329,7 +328,7 @@ export default function QuoteRequestClient() {
       clearQuoteDraft();
       const detailHref = user?.uid
         ? `/teklifler/${quoteResult.id}`
-        : `/teklifler/${quoteResult.id}?access=${encodeURIComponent(quoteResult.accessKey || "")}`;
+        : `/teklif-talep/basarili?no=${encodeURIComponent(quoteResult.quoteNo || quoteResult.id)}`;
       router.push(detailHref);
     } catch (err) {
       console.error(err);
@@ -503,11 +502,11 @@ export default function QuoteRequestClient() {
 
               <form className="space-y-4" onSubmit={handleSubmit}>
                 <FormField label={t("quoteRequest.form.companyName")} name="companyName" value={form.companyName} onChange={handleChange} placeholder={t("quoteRequest.form.companyPlaceholder")} />
-                <FormField label={t("quoteRequest.form.fullName")} name="fullName" value={form.fullName} onChange={handleChange} placeholder={t("quoteRequest.form.fullNamePlaceholder")} required />
+                <FormField label={t("quoteRequest.form.fullName")} helperText={t("quoteRequest.form.requiredNote")} name="fullName" value={form.fullName} onChange={handleChange} placeholder={t("quoteRequest.form.fullNamePlaceholder")} required />
                 <FormField label={t("quoteRequest.form.email")} name="email" type="email" value={form.email} onChange={handleChange} placeholder="ornek@firma.com" />
-                <FormField label={t("quoteRequest.form.phone")} name="phone" value={form.phone} onChange={handleChange} placeholder="+7 ..." required />
+                <FormField label={t("quoteRequest.form.phone")} helperText={t("quoteRequest.form.requiredNote")} name="phone" value={form.phone} onChange={handleChange} placeholder="+7 ..." required />
                 <FormField label={t("quoteRequest.form.city")} name="city" value={form.city} onChange={handleChange} placeholder="Almaty" />
-                <FormTextarea label={t("quoteRequest.form.address")} name="address" value={form.address} onChange={handleChange} placeholder={t("quoteRequest.form.addressPlaceholder")} rows={4} required />
+                <FormTextarea label={t("quoteRequest.form.address")} name="address" value={form.address} onChange={handleChange} placeholder={t("quoteRequest.form.addressPlaceholder")} rows={4} />
                 <FormTextarea label={t("quoteRequest.form.note")} name="note" value={form.note} onChange={handleChange} placeholder={t("quoteRequest.form.notePlaceholder")} rows={4} />
 
                 <div className="rounded-2xl bg-[#eef1f4] p-6 shadow-sm">
@@ -574,11 +573,12 @@ export default function QuoteRequestClient() {
   );
 }
 
-function FormField({ label, required, className = "", ...props }) {
+function FormField({ label, helperText, required, className = "", ...props }) {
   return (
     <label className="block">
       <span className="mb-2 ml-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</span>
       <input {...props} required={required} className={`w-full rounded-xl border-0 bg-[#f2f4f6] px-4 py-3 text-sm text-slate-900 outline-none ring-1 ring-transparent transition placeholder:text-slate-400 focus:bg-white focus:ring-[#cbd5e1] ${className}`} />
+      {helperText ? <span className="mt-1.5 ml-1 block text-[11px] font-semibold text-amber-700">{helperText}</span> : null}
     </label>
   );
 }
