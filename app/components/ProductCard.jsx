@@ -62,6 +62,13 @@ function getProductCode(product) {
   );
 }
 
+function isStainlessProduct(product) {
+  const groupKey = cleanText(product?.groupKey).toLowerCase();
+  return ["paslanmaz", "stainless", "stainless-steel", "stainless_steel"].includes(
+    groupKey
+  );
+}
+
 function ensureImageExtension(value) {
   const text = cleanText(value);
   if (!text) return "";
@@ -94,6 +101,9 @@ export default function ProductCard({ product }) {
   const title = getProductName(product);
   const description = getProductDescription(product);
   const code = getProductCode(product);
+  const dimensions = isStainlessProduct(product)
+    ? cleanText(product?.dimensions)
+    : "";
   const imageUrl = getImageUrl(product);
   const displayImageUrl = !imageError && imageUrl ? imageUrl : PLACEHOLDER_IMAGE;
   const formattedPrice = formatPrice(product?.price);
@@ -122,6 +132,12 @@ export default function ProductCard({ product }) {
         <h3 className="line-clamp-2 min-h-[44px] text-[14px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#12263a] sm:min-h-[64px] sm:text-[18px] sm:tracking-[-0.04em]">
           <Link href={href}>{title}</Link>
         </h3>
+
+        {dimensions ? (
+          <p className="mt-1 truncate text-[10px] leading-4 text-slate-400 sm:text-[12px] sm:leading-5">
+            {dimensions}
+          </p>
+        ) : null}
 
         {description ? (
           <p className="mt-2 line-clamp-2 min-h-[36px] text-[12px] leading-5 text-slate-500 sm:mt-3 sm:min-h-[48px] sm:text-[14px] sm:leading-6">
