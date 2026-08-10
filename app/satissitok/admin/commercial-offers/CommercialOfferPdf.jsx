@@ -111,9 +111,8 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "long", year: "numeric" }).format(safeDate);
 }
 
-function placeholder(value) {
-  const result = String(value ?? "").trim();
-  return result || "________________";
+function filledText(value) {
+  return String(value ?? "").trim();
 }
 
 function TableCell({ style, last = false, children }) {
@@ -186,6 +185,12 @@ export default function CommercialOfferPdf({ offer, totals, typeConfig, logoUrl,
   const visibility = offer.visibility || {};
   const terms = offer.terms || {};
   const items = Array.isArray(offer.items) ? offer.items : [];
+  const buyerCompanyName = filledText(buyer.companyName);
+  const buyerBin = filledText(buyer.bin);
+  const buyerContactName = filledText(buyer.contactName);
+  const buyerPhone = filledText(buyer.phone);
+  const buyerEmail = filledText(buyer.email);
+  const buyerAddress = filledText(buyer.address);
 
   return (
     <Document title={offer.offerNo || "HorecaLink"} author="HorecaLink">
@@ -223,9 +228,12 @@ export default function CommercialOfferPdf({ offer, totals, typeConfig, logoUrl,
           </View>
           <View style={styles.party}>
             <Text style={styles.partyRole}>Покупатель:</Text>
-            <Text style={styles.bodyText}>{placeholder(buyer.companyName)}</Text>
-            <Text style={styles.bodyText}>БИН/ИИН: {placeholder(buyer.bin)}</Text>
-            <Text style={styles.bodyText}>{placeholder(buyer.address)}</Text>
+            {buyerCompanyName ? <Text style={styles.bodyText}>Компания: {buyerCompanyName}</Text> : null}
+            {buyerBin ? <Text style={styles.bodyText}>БИН/ИИН: {buyerBin}</Text> : null}
+            {buyerContactName ? <Text style={styles.bodyText}>Контактное лицо: {buyerContactName}</Text> : null}
+            {buyerPhone ? <Text style={styles.bodyText}>Телефон: {buyerPhone}</Text> : null}
+            {buyerEmail ? <Text style={styles.bodyText}>E-mail: {buyerEmail}</Text> : null}
+            {buyerAddress ? <Text style={styles.bodyText}>Адрес: {buyerAddress}</Text> : null}
           </View>
         </View>
 

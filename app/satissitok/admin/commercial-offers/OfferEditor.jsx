@@ -1215,12 +1215,12 @@ export default function OfferEditor({ offerId = null, sourceRequestId = null }) 
               </div>
               <div className="rounded-[20px] border border-[#d7dee6] bg-white p-4 text-[14px]">
                 <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#64748b]">{"\u041f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044c"}</div>
-                <div className="mb-1 text-[18px] font-bold text-[#22364d]">{form.buyer.companyName || "________________"}</div>
-                <div>{"\u0411\u0418\u041d/\u0418\u0418\u041d:"} {form.buyer.bin || "________________"}</div>
-                <div>{"\u041a\u043e\u043d\u0442\u0430\u043a\u0442:"} {form.buyer.contactName || "________________"}</div>
-                <div>{"\u0422\u0435\u043b.:"} {form.buyer.phone || "________________"}</div>
-                <div>{"E-mail:"} {form.buyer.email || "________________"}</div>
-                <div>{form.buyer.address || "________________"}</div>
+                {text(form.buyer.companyName).trim() ? <div>{"\u041a\u043e\u043c\u043f\u0430\u043d\u0438\u044f:"} {form.buyer.companyName}</div> : null}
+                {text(form.buyer.bin).trim() ? <div>{"\u0411\u0418\u041d/\u0418\u0418\u041d:"} {form.buyer.bin}</div> : null}
+                {text(form.buyer.contactName).trim() ? <div>{"\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u043d\u043e\u0435 \u043b\u0438\u0446\u043e:"} {form.buyer.contactName}</div> : null}
+                {text(form.buyer.phone).trim() ? <div>{"\u0422\u0435\u043b\u0435\u0444\u043e\u043d:"} {form.buyer.phone}</div> : null}
+                {text(form.buyer.email).trim() ? <div>E-mail: {form.buyer.email}</div> : null}
+                {text(form.buyer.address).trim() ? <div>{"\u0410\u0434\u0440\u0435\u0441:"} {form.buyer.address}</div> : null}
               </div>
             </div>
 
