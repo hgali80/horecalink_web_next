@@ -29,9 +29,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "flex-start" },
   brand: { flexGrow: 1, flexBasis: 0 },
   logo: { width: 240, height: 88, objectFit: "contain", objectPosition: "left center" },
-  brandName: { marginTop: 6, fontSize: 22, fontWeight: 700, color: colors.primary },
-  tagline: { marginTop: 6, maxWidth: 280, fontSize: 13, color: colors.muted },
-  website: { marginTop: 8, fontSize: 11, fontWeight: 700, color: colors.primary },
+  tagline: { marginTop: 6, maxWidth: 280, fontSize: 10.5, color: colors.muted },
+  website: { marginTop: 8, fontSize: 9.5, fontWeight: 700, color: colors.primary },
   metaBox: { width: 250, marginLeft: 18, borderWidth: 1.5, borderColor: colors.muted },
   metaTitle: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.panel, fontSize: 13, fontWeight: 700, color: colors.textDark },
   metaBody: { padding: 14, alignItems: "flex-end" },
@@ -195,7 +194,6 @@ export default function CommercialOfferPdf({ offer, totals, typeConfig, logoUrl,
         <View style={styles.header} wrap={false}>
           <View style={styles.brand}>
             <Image src={logoUrl} style={styles.logo} alt="HorecaLink" />
-            <Text style={styles.brandName}>{seller.brandName || "HorecaLink"}</Text>
             <Text style={styles.tagline}>{seller.tagline || ""}</Text>
             <Text style={styles.website}>www.horecalink.kz</Text>
           </View>
