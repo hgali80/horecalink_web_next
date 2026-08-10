@@ -216,6 +216,7 @@ export function buildAnalyticsOverview({
   rangeKey = "30d",
   now = new Date(),
   maxVisitors = 100,
+  visitorDetailsStart = null,
 }) {
   const range = getAnalyticsRange(rangeKey, now);
   const visitorIds = new Set();
@@ -252,6 +253,15 @@ export function buildAnalyticsOverview({
     topPages: buildTopPages(pageViewRows, productNames),
     topProducts: buildTopProducts(pageViewRows, productNames),
     countries: buildCountries(visitRows),
-    visitorDetails: buildVisitorDetails(pageViewRows, productNames, maxVisitors),
+    visitorDetails: buildVisitorDetails(
+      visitorDetailsStart
+        ? pageViewRows.filter((row) => {
+            const visitedAt = normalizeVisitDate(row?.visitedAt);
+            return visitedAt && visitedAt >= visitorDetailsStart;
+          })
+        : pageViewRows,
+      productNames,
+      maxVisitors
+    ),
   };
 }

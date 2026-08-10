@@ -443,7 +443,7 @@ export default function VisitorAnalyticsDashboard() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900"><Clock3 size={19} className="text-cyan-600" /> Ziyaretçi hareketleri</h2>
-              <p className="mt-1 text-sm text-slate-500">Bir ziyaretçiyi açarak incelediği sayfa ve ürünleri görebilirsiniz.</p>
+              <p className="mt-1 text-sm text-slate-500">Son 2 gündeki hareketler gösterilir. Bir ziyaretçiyi açarak incelediği sayfa ve ürünleri görebilirsiniz.</p>
             </div>
             <div className="text-xs font-medium uppercase tracking-wider text-slate-400">
               {formatNumber(filteredVisitors.length)} ziyaretçi

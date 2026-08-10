@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 
 const MAX_PAGE_VIEW_ROWS = 5000;
 const MAX_VISITOR_ROWS = 100;
+const VISITOR_DETAILS_DAYS = 2;
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -65,6 +66,8 @@ export async function GET(request) {
     const includeDetails = url.searchParams.get("details") !== "0";
     const now = new Date();
     const range = getAnalyticsRange(rangeKey, now);
+    const visitorDetailsStart = new Date(now);
+    visitorDetailsStart.setDate(visitorDetailsStart.getDate() - VISITOR_DETAILS_DAYS);
 
     const [visitSnapshot, pageViewSnapshot] = await Promise.all([
       adminDb
@@ -91,6 +94,7 @@ export async function GET(request) {
       rangeKey: range.key,
       now,
       maxVisitors: includeDetails ? MAX_VISITOR_ROWS : 0,
+      visitorDetailsStart,
     });
 
     if (!includeDetails) {

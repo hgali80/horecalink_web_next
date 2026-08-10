@@ -14,10 +14,13 @@ import {
 } from "../lib/analytics/analyticsOverview";
 
 const MAX_PAGE_VIEW_ROWS = 5000;
+const VISITOR_DETAILS_DAYS = 2;
 
 async function loadFromFirestore(rangeKey, includeDetails) {
   const now = new Date();
   const range = getAnalyticsRange(rangeKey, now);
+  const visitorDetailsStart = new Date(now);
+  visitorDetailsStart.setDate(visitorDetailsStart.getDate() - VISITOR_DETAILS_DAYS);
   const [visitSnapshot, pageViewSnapshot] = await Promise.all([
     getDocs(
       query(
@@ -43,6 +46,7 @@ async function loadFromFirestore(rangeKey, includeDetails) {
     rangeKey,
     now,
     maxVisitors: includeDetails ? 100 : 0,
+    visitorDetailsStart,
   });
 
   return {
