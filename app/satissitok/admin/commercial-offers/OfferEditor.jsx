@@ -29,7 +29,7 @@ import {
   saveCommercialOffer,
 } from "@/app/satissitok/services/commercialOfferService";
 
-const LOGO_SRC = "/horecalink_offer_logo.png";
+const LOGO_SRC = "/horecalink_offer_logo_white_v2.png";
 const OFFER_TYPE_OPTIONS = ["stainless", "industrial", "corporate"];
 const PDF_IMAGE_TIMEOUT_MS = 15000;
 
@@ -637,7 +637,7 @@ export default function OfferEditor({ offerId = null, sourceRequestId = null }) 
         offer: offerForPdf,
         totals: calculated.totals,
         typeConfig: offerTypeConfig,
-        logoUrl: new URL("/pdf/horecalink_logo.png", origin).href,
+        logoUrl: new URL("/pdf/horecalink_logo_white_v2.png", origin).href,
         fontUrl: new URL("/pdf/NotoSans.ttf", origin).href,
       });
       const blob = await pdf(documentElement).toBlob();
