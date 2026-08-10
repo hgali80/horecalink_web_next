@@ -1172,9 +1172,9 @@ export default function OfferEditor({ offerId = null, sourceRequestId = null }) 
 
             <div className="mb-8 grid grid-cols-[minmax(0,1fr)_minmax(0,0.86fr)] items-start gap-8">
               <div className="pt-0">
-                <div className="h-[92px] w-full max-w-[320px] overflow-hidden">
+                <div className="h-[92px] w-full max-w-[350px] overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={LOGO_SRC} alt="HorecaLink" className="ml-[-8px] mt-[-52px] h-[208px] w-full object-cover object-center" />
+                  <img src={LOGO_SRC} alt="HorecaLink" className="h-full w-full object-contain object-left" />
                 </div>
               </div>
 

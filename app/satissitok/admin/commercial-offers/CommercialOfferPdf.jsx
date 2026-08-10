@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
   topBarMain: { width: "84%", backgroundColor: colors.primarySoft },
   header: { flexDirection: "row", alignItems: "flex-start" },
   brand: { flexGrow: 1, flexBasis: 0 },
-  logo: { width: 240, height: 88, objectFit: "contain", objectPosition: "left center" },
+  logo: { width: 265, height: 88, objectFit: "contain", objectPosition: "left center" },
   tagline: { marginTop: 6, maxWidth: 280, fontSize: 10.5, color: colors.muted },
   website: { marginTop: 8, fontSize: 9.5, fontWeight: 700, color: colors.primary },
   metaBox: { width: 250, marginLeft: 18, borderWidth: 1.5, borderColor: colors.muted },
