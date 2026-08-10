@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { db } from "@/firebase";
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, FileDown, Printer, Save } from "lucide-react";
+import { ArrowLeft, FileDown, FilePlus2, Printer, Save } from "lucide-react";
 
 import { useLang } from "@/app/context/LanguageContext";
 
@@ -495,6 +495,22 @@ export default function RequestDetailPage() {
               >
                 <FileDown size={16} />
                 {t("adminQuoteDetail.savePdf")}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    data.commercialOfferId
+                      ? `/satissitok/admin/commercial-offers/${data.commercialOfferId}`
+                      : `/satissitok/admin/commercial-offers/new?sourceRequestId=${encodeURIComponent(requestId)}`
+                  )
+                }
+                className="inline-flex items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800"
+              >
+                <FilePlus2 size={16} />
+                {data.commercialOfferId
+                  ? t("adminQuoteDetail.openCommercialOffer")
+                  : t("adminQuoteDetail.createCommercialOffer")}
               </button>
               <button
                 type="button"

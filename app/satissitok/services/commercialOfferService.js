@@ -11,6 +11,8 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  where,
+  writeBatch,
 } from "firebase/firestore";
 
 import { db } from "@/firebase";
@@ -326,6 +328,32 @@ export async function getCommercialOffer(offerId) {
   };
 }
 
+export async function getQuoteRequest(requestId) {
+  if (!requestId) return null;
+  const ref = doc(db, "quote_requests", requestId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() };
+}
+
+export async function getCommercialOfferByQuoteRequest(requestId) {
+  if (!requestId) return null;
+
+  const linkedRef = doc(db, COLLECTION_NAME, `quote_request_${requestId}`);
+  const linkedSnap = await getDoc(linkedRef);
+  if (linkedSnap.exists()) return { id: linkedSnap.id, ...linkedSnap.data() };
+
+  const snap = await getDocs(
+    query(
+      collection(db, COLLECTION_NAME),
+      where("sourceQuoteRequestId", "==", requestId),
+      limit(1)
+    )
+  );
+  const existing = snap.docs[0];
+  return existing ? { id: existing.id, ...existing.data() } : null;
+}
+
 export async function createCommercialOffer(payload) {
   const ref = await addDoc(collection(db, COLLECTION_NAME), {
     ...payload,
@@ -334,6 +362,27 @@ export async function createCommercialOffer(payload) {
   });
 
   return ref.id;
+}
+
+export async function createCommercialOfferFromQuoteRequest(payload, requestId) {
+  const offerRef = doc(db, COLLECTION_NAME, `quote_request_${requestId}`);
+  const requestRef = doc(db, "quote_requests", requestId);
+  const batch = writeBatch(db);
+
+  batch.set(offerRef, {
+    ...payload,
+    sourceQuoteRequestId: requestId,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  batch.update(requestRef, {
+    commercialOfferId: offerRef.id,
+    status: "preparing",
+    updatedAt: serverTimestamp(),
+  });
+  await batch.commit();
+
+  return offerRef.id;
 }
 
 export async function saveCommercialOffer(offerId, payload) {

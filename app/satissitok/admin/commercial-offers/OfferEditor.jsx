@@ -19,7 +19,10 @@ import {
   buildOfferItemFromProduct,
   calculateOfferTotals,
   createCommercialOffer,
+  createCommercialOfferFromQuoteRequest,
   getCommercialOffer,
+  getCommercialOfferByQuoteRequest,
+  getQuoteRequest,
   getNextCommercialOfferMeta,
   getOfferTypeConfig,
   OFFER_TYPE_CONFIGS,
@@ -176,6 +179,87 @@ function emptyItem(unit = "шт") {
   };
 }
 
+function firstValue(...values) {
+  return values.find((value) => value !== undefined && value !== null && value !== "");
+}
+
+function buildFormFromQuoteRequest(baseForm, request, products, defaultUnit) {
+  const customer = request?.customer || {};
+  const requestItems = Array.isArray(request?.items) ? request.items : [];
+  const importedItems = requestItems.map((item, index) => {
+    const identifiers = [
+      item?.fulfilledProduct?.productId,
+      item?.requestedProduct?.productId,
+      item?.productId,
+      item?.sku,
+    ]
+      .filter(Boolean)
+      .map(String);
+    const product = products.find((entry) =>
+      [entry.id, entry.stock_code, entry.sku]
+        .filter(Boolean)
+        .some((value) => identifiers.includes(String(value)))
+    );
+    const productDefaults = product
+      ? buildOfferItemFromProduct(product, defaultUnit)
+      : emptyItem(defaultUnit);
+    const requestedUnitPrice = number(
+      firstValue(
+        item?.specialPrice,
+        item?.requestedPrice,
+        item?.pricing?.offeredUnitPrice,
+        item?.listPrice,
+        item?.pricing?.listUnitPrice,
+        item?.price
+      )
+    );
+
+    return {
+      ...productDefaults,
+      rowId: `quote_${index + 1}_${identifiers[0] || "item"}`,
+      productId: text(product?.id || identifiers[0]),
+      sku: text(item?.sku || product?.sku || product?.stock_code || identifiers[0]),
+      brand: text(item?.brand || productDefaults.brand),
+      name: text(
+        item?.fulfilledProduct?.name ||
+          item?.requestedProduct?.name ||
+          item?.name ||
+          productDefaults.name
+      ),
+      description: text(item?.description || productDefaults.description),
+      quantity: number(
+        firstValue(item?.qtyOffered, item?.qtyRequested, item?.quantity),
+        1
+      ),
+      unit: text(item?.unit || productDefaults.unit || defaultUnit),
+      unitPrice: requestedUnitPrice || number(productDefaults.unitPrice),
+    };
+  });
+  const requestNo = text(
+    request?.quoteNo || request?.requestNo || request?.quoteId || request?.id
+  );
+
+  return {
+    ...baseForm,
+    sourceQuoteRequestId: request.id,
+    source: {
+      type: "quote_request",
+      quoteRequestId: request.id,
+      requestNo,
+    },
+    buyer: {
+      ...baseForm.buyer,
+      companyName: text(customer.company || customer.companyName),
+      bin: text(customer.bin || customer.iin),
+      address: text(customer.address || request?.requestMeta?.deliveryAddress),
+      contactName: text(customer.name || customer.fullName),
+      phone: text(customer.phone),
+      email: text(customer.email),
+    },
+    items: importedItems.length ? importedItems : baseForm.items,
+  };
+}
+
 function ProductImage({ src, alt, sizeClass = "w-24" }) {
   if (!src) {
     return (
@@ -189,7 +273,7 @@ function ProductImage({ src, alt, sizeClass = "w-24" }) {
   return <img src={src} alt={alt} className={`aspect-square ${sizeClass} rounded-xl border border-[#e2e8f0] object-cover`} />;
 }
 
-export default function OfferEditor({ offerId = null }) {
+export default function OfferEditor({ offerId = null, sourceRequestId = null }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -210,15 +294,24 @@ export default function OfferEditor({ offerId = null }) {
     async function load() {
       try {
         setLoading(true);
-        const [settings, productList, cariList, existingOffer, nextMeta] = await Promise.all([
+        const [settings, productList, cariList, existingOffer, nextMeta, sourceRequest, linkedOffer] = await Promise.all([
           getSettings(),
           listProductsAdmin(),
           listCaris(),
           offerId ? getCommercialOffer(offerId) : Promise.resolve(null),
           offerId ? Promise.resolve(null) : getNextCommercialOfferMeta(),
+          !offerId && sourceRequestId ? getQuoteRequest(sourceRequestId) : Promise.resolve(null),
+          !offerId && sourceRequestId
+            ? getCommercialOfferByQuoteRequest(sourceRequestId)
+            : Promise.resolve(null),
         ]);
 
         if (!alive) return;
+
+        if (linkedOffer) {
+          router.replace(`/satissitok/admin/commercial-offers/${linkedOffer.id}`);
+          return;
+        }
 
         setProducts(productList.filter((item) => item.active !== false));
         setCaris(cariList);
@@ -251,14 +344,26 @@ export default function OfferEditor({ offerId = null }) {
             },
           });
         } else {
+          const baseForm = buildDefaultOfferPayload({
+            offerNo: nextMeta?.offerNo || "",
+            sequence: nextMeta?.sequence || 0,
+            units: settings.units || [],
+            vatRate: defaultVatRate,
+          });
+          const importUnit =
+            settings.units?.find((item) => item.default)?.label ||
+            settings.units?.[0]?.label ||
+            "шт";
           setForm(
-            buildDefaultOfferPayload({
-              offerNo: nextMeta?.offerNo || "",
-              sequence: nextMeta?.sequence || 0,
-              units: settings.units || [],
-              vatRate: defaultVatRate,
-            })
+            sourceRequest
+              ? buildFormFromQuoteRequest(baseForm, sourceRequest, productList, importUnit)
+              : baseForm
           );
+          if (sourceRequest) {
+            setMessage("Web teklif talebindeki müşteri ve ürünler otomatik aktarıldı.");
+          } else if (sourceRequestId) {
+            setMessage("Kaynak web teklif talebi bulunamadı.");
+          }
         }
       } catch (error) {
         console.error("Commercial offer editor load error:", error);
@@ -273,7 +378,7 @@ export default function OfferEditor({ offerId = null }) {
     return () => {
       alive = false;
     };
-  }, [offerId]);
+  }, [offerId, router, sourceRequestId]);
 
   const defaultUnit = useMemo(
     () => units.find((item) => item.default)?.label || units[0]?.label || "шт",
@@ -465,7 +570,16 @@ export default function OfferEditor({ offerId = null }) {
         await saveCommercialOffer(offerId, payload);
         setMessage("Teklif güncellendi.");
       } else {
-        const newId = await createCommercialOffer(payload);
+        if (sourceRequestId) {
+          const existing = await getCommercialOfferByQuoteRequest(sourceRequestId);
+          if (existing) {
+            router.replace(`/satissitok/admin/commercial-offers/${existing.id}`);
+            return;
+          }
+        }
+        const newId = sourceRequestId
+          ? await createCommercialOfferFromQuoteRequest(payload, sourceRequestId)
+          : await createCommercialOffer(payload);
         setMessage("Teklif oluşturuldu.");
         router.replace(`/satissitok/admin/commercial-offers/${newId}`);
       }

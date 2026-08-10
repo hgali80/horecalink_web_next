@@ -1,5 +1,9 @@
 import OfferEditor from "../OfferEditor";
 
-export default function NewCommercialOfferPage() {
-  return <OfferEditor />;
+export default async function NewCommercialOfferPage({ searchParams }) {
+  const params = await searchParams;
+  const sourceRequestId =
+    typeof params?.sourceRequestId === "string" ? params.sourceRequestId : null;
+
+  return <OfferEditor sourceRequestId={sourceRequestId} />;
 }
