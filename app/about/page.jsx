@@ -159,9 +159,9 @@ export default function AboutPage() {
           </div>
 
           <div className="relative">
-            <div className="relative w-full h-[520px] rounded-3xl overflow-hidden shadow-2xl shadow-black/30">
+            <div className="relative aspect-[3/2] w-full overflow-hidden rounded-3xl shadow-2xl shadow-black/30">
               <Image
-                src="/images/about-hero-horecalink.jpg"
+                src="/images/about-hero-horecalink-v2.jpg"
                 alt={t("hero.imageAlt")}
                 fill
                 priority
