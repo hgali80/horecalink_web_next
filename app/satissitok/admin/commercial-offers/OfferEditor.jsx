@@ -320,10 +320,10 @@ export default function OfferEditor({ offerId = null, sourceRequestId = null }) 
         const defaultVatRate =
           settings.taxes?.vat?.find((item) => item.default)?.rate ||
           settings.taxes?.vat?.[0]?.rate ||
-          12;
+          16;
 
         if (existingOffer) {
-          const normalized = calculateOfferTotals(existingOffer.items || [], existingOffer.vatRate || 12);
+          const normalized = calculateOfferTotals(existingOffer.items || [], existingOffer.vatRate || 16);
           setForm({
             ...buildDefaultOfferPayload({
               units: settings.units || [],
@@ -386,8 +386,8 @@ export default function OfferEditor({ offerId = null, sourceRequestId = null }) 
   );
 
   const calculated = useMemo(() => {
-    if (!form) return { items: [], totals: { grandTotal: 0, vatAmount: 0, vatRate: 12 } };
-    return calculateOfferTotals(form.items || [], form.vatRate || 12);
+    if (!form) return { items: [], totals: { grandTotal: 0, vatAmount: 0, vatRate: 16 } };
+    return calculateOfferTotals(form.items || [], form.vatRate || 16);
   }, [form]);
 
   const offerTypeConfig = useMemo(
