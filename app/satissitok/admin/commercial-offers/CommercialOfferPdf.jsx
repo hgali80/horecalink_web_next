@@ -71,8 +71,9 @@ const styles = StyleSheet.create({
   description: { fontSize: 8.5, lineHeight: 1.25 },
   missingDescription: { fontSize: 8.5, lineHeight: 1.25, color: colors.muted },
   totals: { width: 300, marginTop: 14, marginLeft: "auto", alignItems: "stretch" },
-  totalRow: { flexDirection: "row", justifyContent: "space-between" },
+  totalRow: { flexDirection: "row", justifyContent: "flex-end", alignItems: "baseline" },
   totalText: { fontSize: 16, fontWeight: 700 },
+  totalLabel: { marginRight: 16 },
   vatText: { marginTop: 4, fontSize: 11, textAlign: "right" },
   terms: { marginTop: 18, flexDirection: "row", borderWidth: 1, borderColor: colors.border },
   termColumn: { width: "33.333%" },
@@ -245,7 +246,7 @@ export default function CommercialOfferPdf({ offer, totals, typeConfig, logoUrl,
         <ItemsTable items={items} />
 
         <View style={styles.totals} wrap={false}>
-          <View style={styles.totalRow}><Text style={styles.totalText}>Итого:</Text><Text style={styles.totalText}>{formatMoney(totals.grandTotal)}</Text></View>
+          <View style={styles.totalRow}><Text style={[styles.totalText, styles.totalLabel]}>Итого:</Text><Text style={styles.totalText}>{formatMoney(totals.grandTotal)}</Text></View>
           {visibility.vatSummary !== false ? <Text style={styles.vatText}>В том числе НДС {offer.vatRate}%: {formatMoney(totals.vatAmount)}</Text> : null}
         </View>
 
