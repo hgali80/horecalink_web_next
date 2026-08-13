@@ -23,6 +23,7 @@ import {
 import { db } from "../../firebase";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LanguageContext";
+import QuotePageGuide from "./QuotePageGuide";
 import {
   clearQuoteDraft,
   getQuoteDraft,
@@ -371,11 +372,13 @@ export default function QuoteRequestClient() {
           </div>
         </header>
 
+        <QuotePageGuide t={t} />
+
         {error ? <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">{error}</div> : null}
 
         <div className="flex flex-col gap-8 lg:flex-row">
           <section className="lg:w-[68%]">
-            <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-sm">
+            <div data-quote-tour="products" className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[860px] border-collapse">
                   <thead>
@@ -495,7 +498,7 @@ export default function QuoteRequestClient() {
 
           <aside className="space-y-6 lg:w-[32%]">
             <div className="rounded-2xl border border-[#e5e7eb] bg-white p-6 shadow-sm">
-              <div className="mb-6 flex items-center gap-2">
+              <div data-quote-tour="contact" className="mb-6 flex items-center gap-2">
                 <ContactRound className="h-5 w-5 text-[#1d3246]" />
                 <h2 className="text-[28px] font-bold tracking-[-0.04em] text-[#1d3246]">{t("quoteRequest.contactInfo")}</h2>
               </div>
@@ -509,7 +512,7 @@ export default function QuoteRequestClient() {
                 <FormTextarea label={t("quoteRequest.form.address")} name="address" value={form.address} onChange={handleChange} placeholder={t("quoteRequest.form.addressPlaceholder")} rows={4} />
                 <FormTextarea label={t("quoteRequest.form.note")} name="note" value={form.note} onChange={handleChange} placeholder={t("quoteRequest.form.notePlaceholder")} rows={4} />
 
-                <div className="rounded-2xl bg-[#eef1f4] p-6 shadow-sm">
+                <div data-quote-tour="submit" className="rounded-2xl bg-[#eef1f4] p-6 shadow-sm">
                   <h3 className="mb-6 text-[13px] font-extrabold uppercase tracking-[0.18em] text-[#1d3246]">{t("quoteRequest.summaryTitle")}</h3>
 
                   <div className="space-y-4">
@@ -548,7 +551,7 @@ export default function QuoteRequestClient() {
           </aside>
         </div>
 
-        <section className="mt-20">
+        <section data-quote-tour="history" className="mt-20">
           <div className="mb-8 flex items-center gap-3">
             <History className="h-7 w-7 text-[#1d3246]" />
             <h2 className="text-[34px] font-extrabold tracking-[-0.04em] text-[#1d3246]">{t("quoteRequest.historyTitle")}</h2>
