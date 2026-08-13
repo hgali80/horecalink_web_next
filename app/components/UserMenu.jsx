@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   LogOut,
   PackageSearch,
-  ReceiptText,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LanguageContext";
@@ -45,11 +44,6 @@ export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
 
   return (
     <div className={wrapperClass}>
-      <Link href="/teklifler" onClick={onNavigate} className={baseLinkClass}>
-        <ReceiptText size={18} />
-        {t("header.menu.quotes")}
-      </Link>
-
       <Link href="/teklif-talep" onClick={onNavigate} className={primaryLinkClass}>
         <PackageSearch size={18} />
         {t("header.menu.createQuote")}

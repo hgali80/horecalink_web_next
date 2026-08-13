@@ -179,7 +179,7 @@ export default function QuoteDetailPage() {
       <div className="mx-auto max-w-7xl print:max-w-none">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-3 print:hidden">
           <div className="flex items-center gap-4">
-            <Link href="/teklifler" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-[#1d3246]">
+            <Link href="/teklif-talep" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-[#1d3246]">
               <ArrowLeft size={18} />
               {t("quoteDetail.back")}
             </Link>
