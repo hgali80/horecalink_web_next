@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { listProductsAdmin } from "@/app/satissitok/services/productService";
 import { getSettings } from "@/app/satissitok/services/settingsService";
+import { compareProductsByCategoryOrder } from "@/app/lib/catalog/productSort";
 import {
   buildDefaultPresentation,
   buildPresentationItemFromProduct,
@@ -89,14 +90,16 @@ function ProductPicker({ open, products, existingProductIds, onClose, onAdd }) {
   const categories = useMemo(() => Array.from(new Set(products.map(productCategory))).sort((a, b) => a.localeCompare(b, "tr")), [products]);
   const filtered = useMemo(() => {
     const needle = normalize(deferredQuery);
-    return products.filter((product) => {
-      const id = text(product.id || product.stock_code);
-      if (showSelected && !selected.has(id)) return false;
-      if (brand && text(product.brand) !== brand) return false;
-      if (category && productCategory(product) !== category) return false;
-      if (!needle) return true;
-      return normalize([product.name, product.name_tr, product.name_ru, product.brand, product.sku, product.stock_code, product.description].join(" ")).includes(needle);
-    });
+    return products
+      .filter((product) => {
+        const id = text(product.id || product.stock_code);
+        if (showSelected && !selected.has(id)) return false;
+        if (brand && text(product.brand) !== brand) return false;
+        if (category && productCategory(product) !== category) return false;
+        if (!needle) return true;
+        return normalize([product.name, product.name_tr, product.name_ru, product.brand, product.sku, product.stock_code, product.description].join(" ")).includes(needle);
+      })
+      .sort(compareProductsByCategoryOrder);
   }, [brand, category, deferredQuery, products, selected, showSelected]);
 
   useEffect(() => {
