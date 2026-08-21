@@ -48,10 +48,18 @@ export function getPresentationProductImageUrl(product = {}) {
 export function buildPresentationItemFromProduct(product = {}) {
   const imageName = imageNameOf(product);
   const description =
-    text(product.shortDescription) ||
-    text(product.description) ||
     text(product.specs) ||
-    [text(product.dimensions), text(product.material)].filter(Boolean).join(" · ");
+    text(product.technicalDetails) ||
+    text(product.highlightLines) ||
+    [
+      product.dimensions ? `Ölçüler: ${text(product.dimensions)}` : "",
+      product.capacity ? `Kapasite: ${text(product.capacity)}` : "",
+      product.power ? `Güç: ${text(product.power)}` : "",
+      product.voltage ? `Voltaj: ${text(product.voltage)}` : "",
+      product.material ? `Malzeme: ${text(product.material)}` : "",
+    ].filter(Boolean).join("\n") ||
+    text(product.description) ||
+    text(product.shortDescription);
 
   return {
     rowId: `${text(product.id || product.stock_code || Date.now())}_${Math.random().toString(36).slice(2, 8)}`,
