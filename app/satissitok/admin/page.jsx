@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   Mail,
   LayoutTemplate,
+  Images,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import VisitorAnalyticsCard from "../../components/VisitorAnalyticsCard";
@@ -67,6 +68,14 @@ export default function SalesStockDashboard() {
             href="/satissitok/admin/commercial-offers"
             color="blue"
             icon={<FileText />}
+          />
+
+          <DashboardCard
+            title="Urun Fiyat Sunumlari"
+            desc="Fotografli ve sade urun fiyat listeleri hazirla"
+            href="/satissitok/admin/product-presentations"
+            color="purple"
+            icon={<Images />}
           />
 
           <DashboardCard
