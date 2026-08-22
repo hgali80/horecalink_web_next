@@ -47,7 +47,7 @@ export default function ProductPresentationsPage() {
       {error ? <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error}</div> : null}
       {loading ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Yükleniyor...</div>
-      ) : items.length === 0 ? (
+      ) : error ? null : items.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
           <Images className="mx-auto mb-3 text-slate-400" />
           <div className="text-lg font-bold text-slate-800">Henüz ürün fiyat sunumu yok</div>
