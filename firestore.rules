@@ -172,6 +172,13 @@ service cloud.firestore {
     }
 
     // =========================
+    // INFORMAL PRODUCT LISTS
+    // =========================
+    match /informal_product_lists/{listId} {
+      allow read, write: if canAccessErp();
+    }
+
+    // =========================
     // LEGACY ERP / CARI
     // =========================
     match /caris/{cariId} {

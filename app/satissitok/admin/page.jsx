@@ -10,6 +10,7 @@ import {
   Mail,
   LayoutTemplate,
   Images,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import VisitorAnalyticsCard from "../../components/VisitorAnalyticsCard";
@@ -71,11 +72,19 @@ export default function SalesStockDashboard() {
           />
 
           <DashboardCard
-            title="Urun Listeleri"
-            desc="Musteriye ozel, fotografli ve sade urun listeleri hazirla"
+            title="Urun Fiyat Sunumlari"
+            desc="Fotografli ve sade urun fiyat listeleri hazirla"
             href="/satissitok/admin/product-presentations"
             color="purple"
             icon={<Images />}
+          />
+
+          <DashboardCard
+            title="Spisok Tovar"
+            desc="Musteriye ozel miktarli ve toplamli urun listesi hazirla"
+            href="/satissitok/admin/product-lists"
+            color="green"
+            icon={<ClipboardList />}
           />
 
           <DashboardCard

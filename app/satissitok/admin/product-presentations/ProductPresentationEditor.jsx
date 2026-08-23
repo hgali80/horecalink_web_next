@@ -23,11 +23,9 @@ import { compareProductsByCategoryOrder } from "@/app/lib/catalog/productSort";
 import {
   buildDefaultPresentation,
   buildPresentationItemFromProduct,
-  calculatePresentationTotal,
   createProductPresentation,
   getProductPresentation,
   getPresentationProductImageUrl,
-  normalizeProductPresentation,
   saveProductPresentation,
 } from "@/app/satissitok/services/productPresentationService";
 
@@ -240,7 +238,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
         }
         setProducts(catalog);
         setUnits((settings.units || []).filter((item) => item.active !== false));
-        setForm(normalizeProductPresentation(saved || buildDefaultPresentation()));
+        setForm(saved || buildDefaultPresentation());
       } catch (error) {
         console.error("Product presentation load error:", error);
         if (alive) setMessage("Sunum bilgileri yüklenemedi.");
@@ -252,7 +250,6 @@ export default function ProductPresentationEditor({ presentationId = null }) {
   }, [presentationId]);
 
   const existingProductIds = useMemo(() => new Set((form?.items || []).map((item) => text(item.productId)).filter(Boolean)), [form?.items]);
-  const grandTotal = useMemo(() => calculatePresentationTotal(form?.items), [form?.items]);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -286,7 +283,6 @@ export default function ProductPresentationEditor({ presentationId = null }) {
   async function handleSave() {
     if (!form) return;
     if (!form.title.trim()) return setMessage("Admin tarafında ayırt etmek için sunum adı gir.");
-    if (!form.customerName.trim()) return setMessage("Müşteri adı zorunludur.");
     if (!form.items.length) return setMessage("Kaydetmeden önce en az bir ürün ekle.");
     try {
       setSaving(true);
@@ -308,7 +304,6 @@ export default function ProductPresentationEditor({ presentationId = null }) {
 
   async function handlePdf() {
     if (!form?.items?.length) return setMessage("PDF oluşturmadan önce ürün ekle.");
-    if (!form.customerName.trim()) return setMessage("PDF oluşturmadan önce müşteri adını gir.");
     try {
       setSavingPdf(true);
       setMessage("");
@@ -333,7 +328,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${form.title || "urun-listesi"}.pdf`.replace(/[\\/:*?"<>|]+/g, "-");
+      link.download = `${form.title || "urun-fiyat-sunumu"}.pdf`.replace(/[\\/:*?"<>|]+/g, "-");
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -353,7 +348,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link href="/satissitok/admin/product-presentations" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm"><ArrowLeft size={16} /> Sunumlar</Link>
-          <div><h1 className="text-2xl font-extrabold text-slate-900">{presentationId ? "Ürün Listesini Düzenle" : "Yeni Ürün Listesi"}</h1><p className="text-sm text-slate-500">Müşteriye özel fotoğraflı ürün listesi.</p></div>
+          <div><h1 className="text-2xl font-extrabold text-slate-900">{presentationId ? "Ürün Fiyat Sunumunu Düzenle" : "Yeni Ürün Fiyat Sunumu"}</h1><p className="text-sm text-slate-500">Sunum adını müşteri görmez; yalnızca admin listesinde kullanılır.</p></div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={handlePdf} disabled={savingPdf} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50"><FileDown size={17} /> {savingPdf ? "PDF hazırlanıyor..." : "PDF İndir"}</button>
@@ -363,12 +358,10 @@ export default function ProductPresentationEditor({ presentationId = null }) {
 
       {message ? <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">{message}</div> : null}
 
-      <section className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_180px_150px]">
+      <section className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[minmax(0,1fr)_180px_150px]">
         <label className="space-y-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Sunum adı (sadece admin)</span><input value={form.title} onChange={(event) => updateField("title", event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#1d3246]" /></label>
-        <label className="space-y-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Müşteri adı</span><input value={form.customerName} onChange={(event) => updateField("customerName", event.target.value)} placeholder="Müşteri veya firma adı" className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#1d3246]" /></label>
         <label className="space-y-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Durum</span><select value={form.status} onChange={(event) => updateField("status", event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"><option value="draft">Taslak</option><option value="ready">Hazır</option></select></label>
         <label className="space-y-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Para birimi</span><select value={form.currency} onChange={(event) => updateField("currency", event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"><option value="KZT">KZT (₸)</option><option value="TRY">TRY (TL)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option></select></label>
-        <label className="space-y-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Tarih</span><input type="date" value={form.issueDate} onChange={(event) => updateField("issueDate", event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#1d3246]" /></label>
       </section>
 
       <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
@@ -377,13 +370,12 @@ export default function ProductPresentationEditor({ presentationId = null }) {
         {form.items.length ? (
           <div className="space-y-3">
             {form.items.map((item, index) => (
-              <div key={item.rowId} className="grid gap-4 rounded-2xl border border-slate-200 p-4 xl:grid-cols-[120px_minmax(0,1.1fr)_minmax(0,1.3fr)_90px_115px_160px_92px]">
+              <div key={item.rowId} className="grid gap-4 rounded-2xl border border-slate-200 p-4 lg:grid-cols-[120px_minmax(0,1.2fr)_minmax(0,1.5fr)_130px_160px_92px]">
                 <ProductImage src={item.imageUrl} alt={item.name || "Ürün"} className="h-28 w-full rounded-xl border border-slate-100" />
                 <div className="space-y-3"><label className="block text-xs font-bold text-slate-500">Ürün adı<input value={item.name} onChange={(event) => updateItem(item.rowId, "name", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold" /></label><label className="block text-xs font-bold text-slate-500">Marka<input value={item.brand} onChange={(event) => updateItem(item.rowId, "brand", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label></div>
                 <label className="block text-xs font-bold text-slate-500">Teknik özellikler<textarea value={item.description} onChange={(event) => updateItem(item.rowId, "description", event.target.value)} rows={5} className="mt-1 w-full resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label>
-                <label className="block text-xs font-bold text-slate-500">Miktar<input type="number" min="0" step="0.01" value={item.quantity} onChange={(event) => updateItem(item.rowId, "quantity", Math.max(0, number(event.target.value)))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold" /></label>
                 <label className="block text-xs font-bold text-slate-500">Birim<select value={item.unit} onChange={(event) => updateItem(item.rowId, "unit", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value={item.unit}>{item.unit || "Seç"}</option>{units.filter((unit) => unit.label !== item.unit).map((unit) => <option key={unit.key} value={unit.label}>{unit.label}</option>)}</select></label>
-                <div><label className="block text-xs font-bold text-slate-500">Birim fiyat<div className="mt-1 flex overflow-hidden rounded-lg border border-slate-300"><input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateItem(item.rowId, "unitPrice", Math.max(0, number(event.target.value)))} className="min-w-0 flex-1 px-3 py-2 text-sm font-bold outline-none" /><span className="border-l border-slate-300 bg-slate-50 px-2 py-2 text-xs font-bold text-slate-500">{form.currency}</span></div></label><div className="mt-3 rounded-lg bg-slate-100 px-3 py-2"><div className="text-[10px] font-bold uppercase text-slate-500">Satır toplamı</div><div className="mt-1 text-sm font-extrabold text-[#1d3246]">{money(number(item.quantity, 1) * number(item.unitPrice), form.currency)}</div></div></div>
+                <label className="block text-xs font-bold text-slate-500">Birim fiyat<div className="mt-1 flex overflow-hidden rounded-lg border border-slate-300"><input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateItem(item.rowId, "unitPrice", number(event.target.value))} className="min-w-0 flex-1 px-3 py-2 text-sm font-bold outline-none" /><span className="border-l border-slate-300 bg-slate-50 px-2 py-2 text-xs font-bold text-slate-500">{form.currency}</span></div></label>
                 <div className="flex items-start justify-end gap-1 lg:flex-col"><button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Yukarı taşı"><ArrowUp size={17} /></button><button type="button" onClick={() => moveItem(index, 1)} disabled={index === form.items.length - 1} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Aşağı taşı"><ArrowDown size={17} /></button><button type="button" onClick={() => removeItem(item.rowId)} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label="Ürünü kaldır"><Trash2 size={17} /></button></div>
               </div>
             ))}
@@ -391,15 +383,9 @@ export default function ProductPresentationEditor({ presentationId = null }) {
         ) : <button type="button" onClick={() => setPickerOpen(true)} className="flex min-h-44 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 text-slate-500 transition hover:border-[#e87524] hover:text-[#e87524]"><PlusCircle size={30} /><strong className="mt-3">Fotoğraflı katalogdan ürün seç</strong><span className="mt-1 text-sm">Arama ve filtrelerle binlerce ürün içinden hızlıca bul.</span></button>}
       </section>
 
-      <section className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[minmax(0,1fr)_320px]">
-        <label className="space-y-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Not (isteğe bağlı)</span><textarea value={form.note} onChange={(event) => updateField("note", event.target.value)} rows={4} placeholder="Teslimat veya ürünlerle ilgili kısa not..." className="w-full resize-y rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#1d3246]" /></label>
-        <div className="flex flex-col justify-center rounded-2xl bg-[#1d3246] p-5 text-white"><span className="text-xs font-bold uppercase tracking-[0.16em] text-white/65">Genel toplam</span><strong className="mt-2 text-2xl">{money(grandTotal, form.currency)}</strong></div>
-      </section>
-
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
         <div className="flex flex-col items-center bg-[#1d3246] px-6 py-7 text-white"><Image src={LOGO_SRC} alt="HorecaLink" width={220} height={60} unoptimized className="h-14 w-auto object-contain" /><div className="mt-2 text-sm font-semibold">{form.contact?.phone}</div><div className="mt-1 text-sm">{form.contact?.website}</div></div>
-        <div className="border-b border-slate-200 px-6 py-5"><div className="text-center text-xl font-black tracking-[0.14em] text-[#1d3246]">СПИСОК ТОВАРОВ</div><div className="mt-4 flex flex-wrap justify-between gap-3 text-sm"><span><strong>Müşteri:</strong> {form.customerName || "—"}</span><span><strong>Tarih:</strong> {form.issueDate ? new Date(`${form.issueDate}T00:00:00`).toLocaleDateString("tr-TR") : "—"}</span></div></div>
-        <div className="overflow-x-auto p-4 md:p-6"><table className="w-full min-w-[980px] border-collapse overflow-hidden text-left"><thead><tr className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600"><th className="w-32 border border-slate-200 p-3">Fotoğraf</th><th className="border border-slate-200 p-3">Ürün</th><th className="w-24 border border-slate-200 p-3 text-center">Miktar</th><th className="w-24 border border-slate-200 p-3 text-center">Birim</th><th className="w-36 border border-slate-200 p-3 text-right">Birim Fiyat</th><th className="w-40 border border-slate-200 p-3 text-right">Toplam</th></tr></thead><tbody>{form.items.map((item) => <tr key={`preview_${item.rowId}`}><td className="border border-slate-200 p-3"><ProductImage src={item.imageUrl} alt={item.name} className="mx-auto h-24 w-28" /></td><td className="border border-slate-200 p-4 align-top"><div className="font-extrabold text-[#1d3246]">{item.name}</div>{item.brand ? <div className="mt-1 text-sm font-bold text-[#e87524]">{item.brand}</div> : null}{item.description ? <div className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{item.description}</div> : null}</td><td className="border border-slate-200 p-3 text-center text-sm font-semibold">{number(item.quantity, 1).toLocaleString("tr-TR")}</td><td className="border border-slate-200 p-3 text-center text-sm font-semibold">{item.unit}</td><td className="border border-slate-200 p-3 text-right text-sm font-bold">{money(item.unitPrice, form.currency)}</td><td className="border border-slate-200 p-3 text-right text-sm font-extrabold text-[#1d3246]">{money(number(item.quantity, 1) * number(item.unitPrice), form.currency)}</td></tr>)}</tbody></table>{!form.items.length ? <div className="py-12 text-center text-sm text-slate-400">Önizlemek için ürün ekle.</div> : null}<div className="ml-auto mt-4 w-full max-w-sm rounded-2xl bg-[#1d3246] p-5 text-white"><div className="text-xs font-bold uppercase tracking-wider text-white/65">Genel toplam</div><div className="mt-2 text-2xl font-black">{money(grandTotal, form.currency)}</div></div>{form.note ? <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4"><div className="text-xs font-bold uppercase text-slate-500">Not</div><div className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-700">{form.note}</div></div> : null}</div>
+        <div className="overflow-x-auto p-4 md:p-6"><table className="w-full min-w-[760px] border-collapse overflow-hidden text-left"><thead><tr className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600"><th className="w-36 border border-slate-200 p-3">Fotoğraf</th><th className="border border-slate-200 p-3">Ürün</th><th className="w-32 border border-slate-200 p-3 text-center">Birim</th><th className="w-44 border border-slate-200 p-3 text-right">Birim Fiyat</th></tr></thead><tbody>{form.items.map((item) => <tr key={`preview_${item.rowId}`}><td className="border border-slate-200 p-3"><ProductImage src={item.imageUrl} alt={item.name} className="mx-auto h-24 w-28" /></td><td className="border border-slate-200 p-4 align-top"><div className="font-extrabold text-[#1d3246]">{item.name}</div>{item.brand ? <div className="mt-1 text-sm font-bold text-[#e87524]">{item.brand}</div> : null}{item.description ? <div className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{item.description}</div> : null}</td><td className="border border-slate-200 p-3 text-center text-sm font-semibold">{item.unit}</td><td className="border border-slate-200 p-3 text-right text-sm font-extrabold text-[#1d3246]">{money(item.unitPrice, form.currency)}</td></tr>)}</tbody></table>{!form.items.length ? <div className="py-12 text-center text-sm text-slate-400">Önizlemek için ürün ekle.</div> : null}</div>
       </section>
 
       <ProductPicker open={pickerOpen} products={products} existingProductIds={existingProductIds} onClose={() => setPickerOpen(false)} onAdd={addProducts} />
