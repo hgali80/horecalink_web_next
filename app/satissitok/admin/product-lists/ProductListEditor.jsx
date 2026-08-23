@@ -4,12 +4,13 @@ import { createElement, useDeferredValue, useEffect, useMemo, useState } from "r
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, FileDown, ImageOff, PlusCircle, Save, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, FileDown, ImageOff, ImagePlus, LoaderCircle, PlusCircle, Save, Search, Trash2, X } from "lucide-react";
 import { listProductsAdmin } from "@/app/satissitok/services/productService";
 import { getSettings } from "@/app/satissitok/services/settingsService";
 import { compareProductsByCategoryOrder } from "@/app/lib/catalog/productSort";
 import {
   buildDefaultProductList,
+  buildEmptyProductListItem,
   buildProductListItem,
   calculateProductListTotal,
   createProductList,
@@ -17,6 +18,7 @@ import {
   getProductListImageUrl,
   normalizeProductList,
   saveProductList,
+  uploadProductListImage,
 } from "@/app/satissitok/services/productListService";
 
 const PAGE_SIZE = 60;
@@ -103,6 +105,7 @@ export default function ProductListEditor({ listId = null }) {
   const [saving, setSaving] = useState(false);
   const [savingPdf, setSavingPdf] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [uploadingRows, setUploadingRows] = useState(() => new Set());
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -128,6 +131,34 @@ export default function ProductListEditor({ listId = null }) {
   function updateField(field, value) { setForm((current) => ({ ...current, [field]: value })); }
   function updateItem(rowId, field, value) { setForm((current) => ({ ...current, items: current.items.map((item) => item.rowId === rowId ? { ...item, [field]: value } : item) })); }
   function addProducts(chosen) { const additions = chosen.filter((product) => !existingIds.has(text(product.id || product.stock_code))).map(buildProductListItem); setForm((current) => ({ ...current, items: [...current.items, ...additions] })); setPickerOpen(false); setMessage(`${additions.length} ürün eklendi.`); }
+  function addEmptyProduct() {
+    const defaultUnit = units.find((unit) => unit.default)?.label || units[0]?.label || "шт";
+    setForm((current) => ({ ...current, items: [...current.items, buildEmptyProductListItem(defaultUnit)] }));
+    setMessage("Boş ürün kartı eklendi. Bilgileri ve görseli bu listeye özel doldurabilirsin.");
+  }
+  async function handleItemImage(rowId, file) {
+    if (!file) return;
+    const previousUrl = form.items.find((item) => item.rowId === rowId)?.imageUrl || "";
+    const previewUrl = URL.createObjectURL(file);
+    updateItem(rowId, "imageUrl", previewUrl);
+    setUploadingRows((current) => new Set(current).add(rowId));
+    setMessage("");
+    try {
+      const uploaded = await uploadProductListImage({ storageKey: form.storageKey, rowId, file });
+      setForm((current) => ({
+        ...current,
+        items: current.items.map((item) => item.rowId === rowId ? { ...item, ...uploaded } : item),
+      }));
+      setMessage("Ürün görseli yüklendi.");
+    } catch (error) {
+      console.error("Product list image upload error:", error);
+      updateItem(rowId, "imageUrl", previousUrl);
+      setMessage(error?.message || "Görsel yüklenemedi.");
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+      setUploadingRows((current) => { const next = new Set(current); next.delete(rowId); return next; });
+    }
+  }
   function removeItem(rowId) { setForm((current) => ({ ...current, items: current.items.filter((item) => item.rowId !== rowId) })); }
   function moveItem(index, direction) { setForm((current) => { const items = [...current.items]; const target = index + direction; if (target < 0 || target >= items.length) return current; [items[index], items[target]] = [items[target], items[index]]; return { ...current, items }; }); }
 
@@ -135,6 +166,8 @@ export default function ProductListEditor({ listId = null }) {
     if (!form.title.trim()) return "Admin listesi için bir kayıt adı gir.";
     if (!form.customerName.trim()) return "Müşteri adı zorunludur.";
     if (!form.items.length) return "En az bir ürün ekle.";
+    if (form.items.some((item) => !text(item.name).trim())) return "Tüm ürün kartlarına ürün adı gir.";
+    if (uploadingRows.size) return "Görsel yüklemesinin tamamlanmasını bekle.";
     return "";
   }
 
@@ -179,8 +212,8 @@ export default function ProductListEditor({ listId = null }) {
         <label className="space-y-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Tarih</span><input type="date" value={form.issueDate} onChange={(event) => updateField("issueDate", event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none" /></label>
       </section>
 
-      <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-extrabold text-slate-900">Ürünler ({form.items.length})</h2><p className="text-sm text-slate-500">Buradaki değişiklikler ürün kataloğunu etkilemez.</p></div><button type="button" onClick={() => setPickerOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#e87524] px-4 py-2.5 text-sm font-bold text-white"><PlusCircle size={18} /> Ürün Ekle</button></div>
-        {form.items.length ? <div className="space-y-3">{form.items.map((item, index) => <div key={item.rowId} className="grid gap-4 rounded-2xl border border-slate-200 p-4 xl:grid-cols-[120px_minmax(0,1.1fr)_minmax(0,1.3fr)_90px_115px_160px_92px]"><ProductImage src={item.imageUrl} alt={item.name || "Ürün"} className="h-28 w-full rounded-xl border border-slate-100" /><div className="space-y-3"><label className="block text-xs font-bold text-slate-500">Ürün adı<input value={item.name} onChange={(event) => updateItem(item.rowId, "name", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold" /></label><label className="block text-xs font-bold text-slate-500">Marka<input value={item.brand} onChange={(event) => updateItem(item.rowId, "brand", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label></div><label className="block text-xs font-bold text-slate-500">Açıklama<textarea value={item.description} onChange={(event) => updateItem(item.rowId, "description", event.target.value)} rows={5} className="mt-1 w-full resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label><label className="block text-xs font-bold text-slate-500">Miktar<input type="number" min="0" step="0.01" value={item.quantity} onChange={(event) => updateItem(item.rowId, "quantity", Math.max(0, number(event.target.value)))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold" /></label><label className="block text-xs font-bold text-slate-500">Birim<select value={item.unit} onChange={(event) => updateItem(item.rowId, "unit", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value={item.unit}>{item.unit || "Seç"}</option>{units.filter((unit) => unit.label !== item.unit).map((unit) => <option key={unit.key} value={unit.label}>{unit.label}</option>)}</select></label><div><label className="block text-xs font-bold text-slate-500">Birim fiyat<div className="mt-1 flex overflow-hidden rounded-lg border border-slate-300"><input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateItem(item.rowId, "unitPrice", Math.max(0, number(event.target.value)))} className="min-w-0 flex-1 px-3 py-2 text-sm font-bold outline-none" /><span className="border-l border-slate-300 bg-slate-50 px-2 py-2 text-xs font-bold text-slate-500">{form.currency}</span></div></label><div className="mt-3 rounded-lg bg-slate-100 px-3 py-2"><div className="text-[10px] font-bold uppercase text-slate-500">Toplam</div><div className="mt-1 text-sm font-extrabold text-[#1d3246]">{money(number(item.quantity) * number(item.unitPrice), form.currency)}</div></div></div><div className="flex items-start justify-end gap-1 xl:flex-col"><button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Yukarı taşı"><ArrowUp size={17} /></button><button type="button" onClick={() => moveItem(index, 1)} disabled={index === form.items.length - 1} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Aşağı taşı"><ArrowDown size={17} /></button><button type="button" onClick={() => removeItem(item.rowId)} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label="Kaldır"><Trash2 size={17} /></button></div></div>)}</div> : <button type="button" onClick={() => setPickerOpen(true)} className="flex min-h-44 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-[#e87524] hover:text-[#e87524]"><PlusCircle size={30} /><strong className="mt-3">Katalogdan ürün seç</strong></button>}
+      <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-extrabold text-slate-900">Ürünler ({form.items.length})</h2><p className="text-sm text-slate-500">Katalogdan seçebilir veya web sitesinde olmayan bir ürün için boş kart açabilirsin.</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={addEmptyProduct} className="inline-flex items-center gap-2 rounded-xl border border-[#1d3246] bg-white px-4 py-2.5 text-sm font-bold text-[#1d3246]"><ImagePlus size={18} /> Boş Ürün Kartı</button><button type="button" onClick={() => setPickerOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#e87524] px-4 py-2.5 text-sm font-bold text-white"><PlusCircle size={18} /> Katalogdan Ürün</button></div></div>
+        {form.items.length ? <div className="space-y-3">{form.items.map((item, index) => <div key={item.rowId} className="grid gap-4 rounded-2xl border border-slate-200 p-4 xl:grid-cols-[120px_minmax(0,1.1fr)_minmax(0,1.3fr)_90px_115px_160px_92px]"><div className="space-y-2"><ProductImage src={item.imageUrl} alt={item.name || "Ürün"} className="h-28 w-full rounded-xl border border-slate-100" /><label className={`flex cursor-pointer items-center justify-center gap-1 rounded-lg border px-2 py-2 text-center text-xs font-bold transition ${uploadingRows.has(item.rowId) ? "cursor-wait border-slate-200 bg-slate-100 text-slate-400" : "border-slate-300 bg-white text-slate-700 hover:border-[#e87524] hover:text-[#e87524]"}`}>{uploadingRows.has(item.rowId) ? <LoaderCircle size={14} className="animate-spin" /> : <ImagePlus size={14} />}{uploadingRows.has(item.rowId) ? "Yükleniyor" : item.imageUrl ? "Görseli Değiştir" : "Görsel Seç"}<input type="file" accept="image/*" disabled={uploadingRows.has(item.rowId)} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; handleItemImage(item.rowId, file); }} className="sr-only" /></label></div><div className="space-y-3"><label className="block text-xs font-bold text-slate-500">Ürün adı<input value={item.name} onChange={(event) => updateItem(item.rowId, "name", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold" /></label><label className="block text-xs font-bold text-slate-500">Marka<input value={item.brand} onChange={(event) => updateItem(item.rowId, "brand", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label></div><label className="block text-xs font-bold text-slate-500">Açıklama<textarea value={item.description} onChange={(event) => updateItem(item.rowId, "description", event.target.value)} rows={5} className="mt-1 w-full resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label><label className="block text-xs font-bold text-slate-500">Miktar<input type="number" min="0" step="0.01" value={item.quantity} onChange={(event) => updateItem(item.rowId, "quantity", Math.max(0, number(event.target.value)))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold" /></label><label className="block text-xs font-bold text-slate-500">Birim<select value={item.unit} onChange={(event) => updateItem(item.rowId, "unit", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value={item.unit}>{item.unit || "Seç"}</option>{units.filter((unit) => unit.label !== item.unit).map((unit) => <option key={unit.key} value={unit.label}>{unit.label}</option>)}</select></label><div><label className="block text-xs font-bold text-slate-500">Birim fiyat<div className="mt-1 flex overflow-hidden rounded-lg border border-slate-300"><input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateItem(item.rowId, "unitPrice", Math.max(0, number(event.target.value)))} className="min-w-0 flex-1 px-3 py-2 text-sm font-bold outline-none" /><span className="border-l border-slate-300 bg-slate-50 px-2 py-2 text-xs font-bold text-slate-500">{form.currency}</span></div></label><div className="mt-3 rounded-lg bg-slate-100 px-3 py-2"><div className="text-[10px] font-bold uppercase text-slate-500">Toplam</div><div className="mt-1 text-sm font-extrabold text-[#1d3246]">{money(number(item.quantity) * number(item.unitPrice), form.currency)}</div></div></div><div className="flex items-start justify-end gap-1 xl:flex-col"><button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Yukarı taşı"><ArrowUp size={17} /></button><button type="button" onClick={() => moveItem(index, 1)} disabled={index === form.items.length - 1} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Aşağı taşı"><ArrowDown size={17} /></button><button type="button" onClick={() => removeItem(item.rowId)} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label="Kaldır"><Trash2 size={17} /></button></div></div>)}</div> : <div className="grid gap-3 sm:grid-cols-2"><button type="button" onClick={addEmptyProduct} className="flex min-h-44 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-[#1d3246] hover:text-[#1d3246]"><ImagePlus size={30} /><strong className="mt-3">Boş ürün kartı ekle</strong><span className="mt-1 text-xs">Web sitesinde olmayan ürün için</span></button><button type="button" onClick={() => setPickerOpen(true)} className="flex min-h-44 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-[#e87524] hover:text-[#e87524]"><PlusCircle size={30} /><strong className="mt-3">Katalogdan ürün seç</strong></button></div>}
       </section>
 
       <section className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[minmax(0,1fr)_320px]"><label className="space-y-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Not (isteğe bağlı)</span><textarea value={form.note} onChange={(event) => updateField("note", event.target.value)} rows={4} placeholder="Ürünlerle ilgili kısa not..." className="w-full resize-y rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none" /></label><div className="flex flex-col justify-center rounded-2xl bg-[#1d3246] p-5 text-white"><span className="text-xs font-bold uppercase tracking-[0.16em] text-white/65">Genel toplam</span><strong className="mt-2 text-2xl">{money(grandTotal, form.currency)}</strong></div></section>

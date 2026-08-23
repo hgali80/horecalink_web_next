@@ -11,7 +11,8 @@ import {
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
-import { db } from "@/firebase";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import { db, storage } from "@/firebase";
 
 const COLLECTION_NAME = "informal_product_lists";
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
@@ -23,6 +24,14 @@ function text(value) {
 function number(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function uniqueId(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function safePathPart(value, fallback) {
+  return text(value).replace(/[^a-z0-9_-]+/gi, "_").slice(0, 120) || fallback;
 }
 
 function imageNameOf(product = {}) {
@@ -73,6 +82,38 @@ export function buildProductListItem(product = {}) {
   };
 }
 
+export function buildEmptyProductListItem(defaultUnit = "шт") {
+  return {
+    rowId: uniqueId("manual"),
+    productId: "",
+    sku: "",
+    imageName: "",
+    imageUrl: "",
+    name: "",
+    brand: "",
+    description: "",
+    quantity: 1,
+    unit: text(defaultUnit) || "шт",
+    unitPrice: 0,
+    manual: true,
+  };
+}
+
+export async function uploadProductListImage({ storageKey, rowId, file }) {
+  if (!file || !String(file.type || "").startsWith("image/")) {
+    throw new Error("Lütfen geçerli bir görsel dosyası seç.");
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("Görsel dosyası en fazla 10 MB olabilir.");
+  }
+  const listPart = safePathPart(storageKey, uniqueId("list"));
+  const rowPart = safePathPart(rowId, uniqueId("row"));
+  const path = `informal_product_list_images/${listPart}/${rowPart}`;
+  const ref = storageRef(storage, path);
+  await uploadBytes(ref, file, { contentType: file.type || "image/jpeg" });
+  return { imageUrl: await getDownloadURL(ref), imageName: text(file.name), imagePath: path };
+}
+
 export function buildDefaultProductList() {
   return {
     title: `Spisok Tovar - ${new Date().toLocaleDateString("tr-TR")}`,
@@ -80,6 +121,7 @@ export function buildDefaultProductList() {
     customerName: "",
     issueDate: new Date().toISOString().slice(0, 10),
     currency: "KZT",
+    storageKey: uniqueId("list"),
     note: "",
     contact: { phone: "+7 700 444 69 11", website: "www.horecalink.kz" },
     items: [],
@@ -94,6 +136,7 @@ export function normalizeProductList(value = {}) {
     customerName: text(value.customerName),
     issueDate: text(value.issueDate) || defaults.issueDate,
     note: text(value.note),
+    storageKey: text(value.storageKey) || defaults.storageKey,
     contact: { ...defaults.contact, ...(value.contact || {}) },
     items: (Array.isArray(value.items) ? value.items : []).map((item, index) => ({
       ...item,
