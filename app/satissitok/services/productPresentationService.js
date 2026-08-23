@@ -70,16 +70,47 @@ export function buildPresentationItemFromProduct(product = {}) {
     name: text(product.name || product.name_tr || product.name_ru || "Ürün"),
     brand: text(product.brand),
     description,
+    quantity: 1,
     unit: text(product.unit || product.unitType || "Adet"),
     unitPrice: number(product.price),
   };
 }
 
+export function normalizeProductPresentation(presentation = {}) {
+  return {
+    ...buildDefaultPresentation(),
+    ...presentation,
+    customerName: text(presentation.customerName),
+    issueDate: text(presentation.issueDate) || new Date().toISOString().slice(0, 10),
+    note: text(presentation.note),
+    contact: {
+      ...buildDefaultPresentation().contact,
+      ...(presentation.contact || {}),
+    },
+    items: (Array.isArray(presentation.items) ? presentation.items : []).map((item, index) => ({
+      ...item,
+      rowId: text(item.rowId || item.productId || `row_${index + 1}`),
+      quantity: Math.max(0, number(item.quantity, 1)),
+      unitPrice: Math.max(0, number(item.unitPrice)),
+    })),
+  };
+}
+
+export function calculatePresentationTotal(items = []) {
+  return (Array.isArray(items) ? items : []).reduce(
+    (sum, item) => sum + Math.max(0, number(item.quantity, 1)) * Math.max(0, number(item.unitPrice)),
+    0
+  );
+}
+
 export function buildDefaultPresentation() {
   return {
-    title: `Ürün fiyat sunumu - ${new Date().toLocaleDateString("tr-TR")}`,
+    title: `Ürün listesi - ${new Date().toLocaleDateString("tr-TR")}`,
     status: "draft",
     currency: "KZT",
+    customerName: "",
+    issueDate: new Date().toISOString().slice(0, 10),
+    note: "",
     contact: {
       phone: "+7 700 444 69 11",
       website: "www.horecalink.kz",

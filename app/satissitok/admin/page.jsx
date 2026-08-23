@@ -71,8 +71,8 @@ export default function SalesStockDashboard() {
           />
 
           <DashboardCard
-            title="Urun Fiyat Sunumlari"
-            desc="Fotografli ve sade urun fiyat listeleri hazirla"
+            title="Urun Listeleri"
+            desc="Musteriye ozel, fotografli ve sade urun listeleri hazirla"
             href="/satissitok/admin/product-presentations"
             color="purple"
             icon={<Images />}
