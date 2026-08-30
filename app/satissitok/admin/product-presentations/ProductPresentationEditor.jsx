@@ -1,6 +1,6 @@
 "use client";
 
-import { createElement, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { createElement, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -10,6 +10,7 @@ import {
   ArrowUp,
   Check,
   FileDown,
+  GripVertical,
   ImageOff,
   PlusCircle,
   Save,
@@ -221,6 +222,9 @@ export default function ProductPresentationEditor({ presentationId = null }) {
   const [savingPdf, setSavingPdf] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [draggedRowId, setDraggedRowId] = useState(null);
+  const draggedRowIdRef = useRef(null);
+  const lastDragTargetRowIdRef = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -278,6 +282,44 @@ export default function ProductPresentationEditor({ presentationId = null }) {
       [next[index], next[target]] = [next[target], next[index]];
       return { ...current, items: next };
     });
+  }
+
+  function moveItemToRow(sourceRowId, targetRowId) {
+    if (!sourceRowId || sourceRowId === targetRowId) return;
+    setForm((current) => {
+      const sourceIndex = current.items.findIndex((item) => item.rowId === sourceRowId);
+      const targetIndex = current.items.findIndex((item) => item.rowId === targetRowId);
+      if (sourceIndex < 0 || targetIndex < 0) return current;
+      const next = [...current.items];
+      const [movedItem] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, movedItem);
+      return { ...current, items: next };
+    });
+  }
+
+  function handleDragStart(event, rowId) {
+    if (event.target.closest("input, textarea, select, button, a")) {
+      event.preventDefault();
+      return;
+    }
+    draggedRowIdRef.current = rowId;
+    lastDragTargetRowIdRef.current = rowId;
+    setDraggedRowId(rowId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", rowId);
+  }
+
+  function handleDragEnter(targetRowId) {
+    const sourceRowId = draggedRowIdRef.current;
+    if (!sourceRowId || lastDragTargetRowIdRef.current === targetRowId) return;
+    lastDragTargetRowIdRef.current = targetRowId;
+    moveItemToRow(sourceRowId, targetRowId);
+  }
+
+  function handleDragEnd() {
+    draggedRowIdRef.current = null;
+    lastDragTargetRowIdRef.current = null;
+    setDraggedRowId(null);
   }
 
   async function handleSave() {
@@ -365,18 +407,32 @@ export default function ProductPresentationEditor({ presentationId = null }) {
       </section>
 
       <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-extrabold text-slate-900">Ürünler ({form.items.length})</h2><p className="text-sm text-slate-500">Bilgiler bu sunuma özel değiştirilebilir; ürün kataloğu etkilenmez.</p></div><button type="button" onClick={() => setPickerOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#e87524] px-4 py-2.5 text-sm font-bold text-white"><PlusCircle size={18} /> Ürün Ekle</button></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-extrabold text-slate-900">Ürünler ({form.items.length})</h2><p className="text-sm text-slate-500">Bilgiler bu sunuma özel değiştirilebilir; ürün kataloğu etkilenmez. Kartı tutup sürükleyerek sıralayabilirsin.</p></div><button type="button" onClick={() => setPickerOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#e87524] px-4 py-2.5 text-sm font-bold text-white"><PlusCircle size={18} /> Ürün Ekle</button></div>
 
         {form.items.length ? (
           <div className="space-y-3">
             {form.items.map((item, index) => (
-              <div key={item.rowId} className="grid gap-4 rounded-2xl border border-slate-200 p-4 lg:grid-cols-[120px_minmax(0,1.2fr)_minmax(0,1.5fr)_130px_160px_92px]">
+              <div
+                key={item.rowId}
+                draggable
+                onDragStart={(event) => handleDragStart(event, item.rowId)}
+                onDragOver={(event) => {
+                  if (!draggedRowId) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }}
+                onDragEnter={() => handleDragEnter(item.rowId)}
+                onDrop={(event) => event.preventDefault()}
+                onDragEnd={handleDragEnd}
+                aria-grabbed={draggedRowId === item.rowId}
+                className={`grid cursor-grab gap-4 rounded-2xl border p-4 transition active:cursor-grabbing lg:grid-cols-[120px_minmax(0,1.2fr)_minmax(0,1.5fr)_130px_160px_92px] ${draggedRowId === item.rowId ? "border-[#e87524] bg-orange-50/50 opacity-60 shadow-lg" : "border-slate-200"}`}
+              >
                 <ProductImage src={item.imageUrl} alt={item.name || "Ürün"} className="h-28 w-full rounded-xl border border-slate-100" />
                 <div className="space-y-3"><label className="block text-xs font-bold text-slate-500">Ürün adı<input value={item.name} onChange={(event) => updateItem(item.rowId, "name", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold" /></label><label className="block text-xs font-bold text-slate-500">Marka<input value={item.brand} onChange={(event) => updateItem(item.rowId, "brand", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label></div>
                 <label className="block text-xs font-bold text-slate-500">Teknik özellikler<textarea value={item.description} onChange={(event) => updateItem(item.rowId, "description", event.target.value)} rows={5} className="mt-1 w-full resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label>
                 <label className="block text-xs font-bold text-slate-500">Birim<select value={item.unit} onChange={(event) => updateItem(item.rowId, "unit", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value={item.unit}>{item.unit || "Seç"}</option>{units.filter((unit) => unit.label !== item.unit).map((unit) => <option key={unit.key} value={unit.label}>{unit.label}</option>)}</select></label>
                 <label className="block text-xs font-bold text-slate-500">Birim fiyat<div className="mt-1 flex overflow-hidden rounded-lg border border-slate-300"><input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateItem(item.rowId, "unitPrice", number(event.target.value))} className="min-w-0 flex-1 px-3 py-2 text-sm font-bold outline-none" /><span className="border-l border-slate-300 bg-slate-50 px-2 py-2 text-xs font-bold text-slate-500">{form.currency}</span></div></label>
-                <div className="flex items-start justify-end gap-1 lg:flex-col"><button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Yukarı taşı"><ArrowUp size={17} /></button><button type="button" onClick={() => moveItem(index, 1)} disabled={index === form.items.length - 1} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Aşağı taşı"><ArrowDown size={17} /></button><button type="button" onClick={() => removeItem(item.rowId)} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label="Ürünü kaldır"><Trash2 size={17} /></button></div>
+                <div className="flex items-start justify-end gap-1 lg:flex-col"><span className="flex items-center justify-center rounded-lg border border-dashed border-slate-300 p-2 text-slate-400" title="Kartı tutup sürükleyerek sırala" aria-hidden="true"><GripVertical size={17} /></span><button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Yukarı taşı"><ArrowUp size={17} /></button><button type="button" onClick={() => moveItem(index, 1)} disabled={index === form.items.length - 1} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Aşağı taşı"><ArrowDown size={17} /></button><button type="button" onClick={() => removeItem(item.rowId)} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label="Ürünü kaldır"><Trash2 size={17} /></button></div>
               </div>
             ))}
           </div>
