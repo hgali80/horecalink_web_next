@@ -85,7 +85,7 @@ export default function ErpSalesPdf({ record, seller = {}, fontUrl, language = "
         h(Text, { style: s.title }, official ? t.saleTitle : t.dispatchTitle),
         line(`№: ${number}`),
         line(`${t.date}: ${record.dateLabel || record.documentDate || "-"}`),
-        line(`${official ? t.official : t.actual}  |  ${status}`),
+        official ? line(`${t.official}  |  ${status}`) : null,
       ),
       official ? h(View, { style: s.block },
         line(`${t.seller}: ${text(seller.companyName) || "HorecaLink"}`),
