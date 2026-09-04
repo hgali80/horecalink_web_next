@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
+import ErpSalesPdfButton from "./ErpSalesPdfButton";
 
 function fmtMoney(value) {
   return `${Number(value || 0).toLocaleString("tr-TR", {
@@ -26,6 +27,7 @@ export default function ErpDocumentListView({
   newHref = null,
   newLabel = "Yeni Belge",
   editHrefBase = "",
+  salesPdfEnabled = false,
 }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
@@ -147,6 +149,7 @@ export default function ErpDocumentListView({
                     <Td align="right">{fmtMoney(row.totalAmount)}</Td>
                     <Td>{row.paymentStatus || "-"}</Td>
                     <Td>
+                      {salesPdfEnabled ? <div className="mb-2"><ErpSalesPdfButton documentId={row.id} /></div> : null}
                       {editHrefBase ? (
                         <Link
                           href={`${editHrefBase}/${row.id}`}

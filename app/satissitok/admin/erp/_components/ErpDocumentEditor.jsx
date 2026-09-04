@@ -21,6 +21,7 @@ import {
 import { listErpProductOptions } from "../_services/erpProductsService";
 import { getErpSettings } from "../_services/erpSettingsService";
 import { listErpStockBalances } from "../_services/erpStockService";
+import ErpSalesPdfButton from "./ErpSalesPdfButton";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -683,6 +684,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       </div>
 
       {notice ? <Banner tone="green" text={notice} /> : null}
+      {isSales && isEditMode ? <div className="flex flex-wrap items-center gap-3"><ErpSalesPdfButton documentId={documentId} /><span className="text-xs text-slate-500">PDF son kaydedilen belgeyi içerir.</span></div> : null}
       {error ? <Banner tone="red" text={error} /> : null}
 
       <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">

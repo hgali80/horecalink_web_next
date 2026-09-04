@@ -43,6 +43,7 @@ export default function ErpSalesPage() {
 
   return (
     <ErpDocumentListView
+      salesPdfEnabled
       title="Satis Evraklari"
       description="Bu alan tum satis belge ve fatura evraklarinin listelendigi ana ekran olacak. V1'de R/F filtreleri, draft-onayli-iptal kirilimlari ve platform bazli arama burada yer alacak."
       rows={rows}
