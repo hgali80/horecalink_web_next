@@ -46,6 +46,13 @@ export default function SalesStockDashboard() {
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-6">
           <VisitorAnalyticsCard />
+          <DashboardCard
+            title="Ana Sayfa Görsel Şeridi"
+            desc="Görselleri, sıralamayı ve otomatik geçiş süresini düzenle"
+            href="/satissitok/admin/home-banner"
+            color="blue"
+            icon={<Images />}
+          />
 
           <DashboardCard
             title="ERP Modulu"

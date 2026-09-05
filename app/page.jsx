@@ -9,6 +9,7 @@ import { ArrowRight, Grid3X3, Phone, Star } from "lucide-react";
 
 import { db } from "../firebase";
 import HeroSection from "./components/HeroSection";
+import HomeBanner from "./components/HomeBanner";
 import ProductCard from "./components/ProductCard";
 import UsageAreasSection from "./components/UsageAreasSection";
 import { useLang } from "./context/LanguageContext";
@@ -87,6 +88,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#F8F9FA] text-gray-900">
       <HeroSection />
+      <HomeBanner />
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <h2 className="mb-8 flex items-center gap-2 text-2xl font-bold text-[#003366]">
