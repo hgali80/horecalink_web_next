@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ErpSectionHeader from "../_components/ErpSectionHeader";
+import ErpCashAccountsSettings from "../_components/ErpCashAccountsSettings";
 import { getErpSettings, saveErpSettings } from "../_services/erpSettingsService";
 
 export default function ErpSettingsPage() {
@@ -188,6 +189,7 @@ export default function ErpSettingsPage() {
       ) : null}
 
       <div className="grid gap-6">
+        <ErpCashAccountsSettings />
         <ChoiceSection
           title="Depolar"
           description="ERP icinde kullanilacak depo listesi."

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getErpCashAccount, saveErpCashAccount } from "../_services/erpFinanceService";
 
-export default function ErpCashAccountEditor({ accountId = "" }) {
+export default function ErpCashAccountEditor({ accountId = "", onSaved, onCancel }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo") || "/satissitok/admin/erp/finance";
@@ -75,7 +75,8 @@ export default function ErpCashAccountEditor({ accountId = "" }) {
         ...form,
       });
 
-      router.push(returnTo);
+      if (onSaved) await onSaved();
+      else router.push(returnTo);
     } catch (err) {
       setError(err?.message || "Finans hesabi kaydedilemedi.");
     } finally {
@@ -99,12 +100,12 @@ export default function ErpCashAccountEditor({ accountId = "" }) {
           </h2>
         </div>
 
-        <Link
+        {onCancel ? <button type="button" onClick={onCancel} disabled={saving} className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold">Vazgec</button> : <Link
           href={returnTo}
           className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
         >
-          Finansa Don
-        </Link>
+          Geri Don
+        </Link>}
       </div>
 
       {error ? <Shell tone="error" text={error} /> : null}
@@ -123,17 +124,19 @@ export default function ErpCashAccountEditor({ accountId = "" }) {
                 { value: "bank", label: "Banka" },
               ]}
             />
-            <InputField label="Para Birimi" value={form.currency} onChange={(value) => setField("currency", value)} />
+            <InputField label="Para Birimi" value={form.currency} readOnly />
             <InputField
               label="Acilis Bakiyesi"
+              readOnly={isEdit}
               type="number"
               value={form.openingBalance}
               onChange={(value) => setField("openingBalance", value)}
             />
             <InputField
               label="Guncel Bakiye"
+              readOnly
               type="number"
-              value={form.currentBalance}
+              value={isEdit ? form.currentBalance : form.openingBalance || "0"}
               onChange={(value) => setField("currentBalance", value)}
             />
           </div>
@@ -160,8 +163,9 @@ export default function ErpCashAccountEditor({ accountId = "" }) {
           </label>
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-            Bu fazda hesap kartlarini ayiriyoruz. Bir sonraki asamada manuel tahsilat, odeme ve virman
-            islemlerini bu hesaplara baglayacagiz.
+            Aktif KZT hesaplari tahsilat, odeme, satis, satinalma ve belge kapatma islemlerinde kullanilir.
+            Bakiye hareketlerle guncellenir; hesap bilgilerini duzenlemek bakiyeyi degistirmez.
+            Pasife alinan hesaplarin gecmis kayitlari korunur.
           </div>
 
           <button
@@ -178,14 +182,16 @@ export default function ErpCashAccountEditor({ accountId = "" }) {
   );
 }
 
-function InputField({ label, value, onChange, type = "text" }) {
+function InputField({ label, value, onChange, type = "text", readOnly = false }) {
   return (
     <label className="block space-y-2">
       <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</span>
       <input
         type={type}
+        readOnly={readOnly}
+        step={type === "number" ? "0.01" : undefined}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => onChange?.(event.target.value)}
         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none"
       />
     </label>

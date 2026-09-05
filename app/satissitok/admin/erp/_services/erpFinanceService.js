@@ -9,12 +9,12 @@ import {
   query,
   runTransaction,
   serverTimestamp,
-  setDoc,
   limit,
 } from "firebase/firestore";
 import { db } from "@/firebase";
 import { ERP_COLLECTIONS } from "./erpCollections";
 import { listErpDocuments } from "./erpDocumentsService";
+import { assertErpCashAccountUsable, buildErpCashAccountWrite } from "./erpCashAccountRules";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -115,10 +115,10 @@ export async function listErpCashAccounts() {
 export async function listErpCashAccountOptions() {
   const rows = await listErpCashAccounts();
   return rows
-    .filter((item) => item.name)
+    .filter((item) => item.name && item.active && item.currency.toUpperCase() === "KZT")
     .map((item) => ({
       value: item.id,
-      label: item.code ? `${item.name} (${item.code})` : item.name,
+      label: `${item.name}${item.code ? ` (${item.code})` : ""} – ${item.currency}`,
       active: item.active,
     }));
 }
@@ -138,24 +138,17 @@ export async function saveErpCashAccount(payload = {}) {
     ? doc(db, ERP_COLLECTIONS.CASH_ACCOUNTS, normalized.id)
     : doc(collection(db, ERP_COLLECTIONS.CASH_ACCOUNTS));
 
-  await setDoc(
-    ref,
-    {
-      code: normalized.code,
-      name: normalized.name,
-      type: normalized.type,
-      currency: normalized.currency,
-      openingBalance: normalized.openingBalance,
-      currentBalance: normalized.currentBalance,
-      notes: normalized.notes,
-      active: normalized.active,
-      updatedAt: serverTimestamp(),
-      createdAt: normalized.createdAt || serverTimestamp(),
-    },
-    { merge: true }
-  );
-
-  return { id: ref.id, ...normalized };
+  return runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(ref);
+    if (normalized.id && !snap.exists()) throw new Error("Finans hesabi bulunamadi.");
+    const existing = snap.exists() ? snap.data() : null;
+    const fields = buildErpCashAccountWrite(payload, existing);
+    transaction.set(ref, {
+      ...fields, updatedAt: serverTimestamp(),
+      ...(!existing ? { createdAt: serverTimestamp() } : {}),
+    }, { merge: true });
+    return { ...existing, ...fields, id: ref.id };
+  });
 }
 
 export async function listErpCashMovements(maxRows = 24) {
@@ -228,6 +221,8 @@ export async function createErpManualCashMovement(payload = {}) {
     }
 
     const accountData = accountSnap.data() || {};
+    assertErpCashAccountUsable(accountData);
+    if (normalized.currency !== "KZT") throw new Error("ERP hareket para birimi KZT olmali.");
     const currentBalance = num(accountData.currentBalance, num(accountData.openingBalance, 0));
     const nextBalance =
       normalized.direction === "in"
@@ -340,6 +335,7 @@ export async function createErpDocumentSettlement(payload = {}) {
     }
 
     const accountData = accountSnap.data() || {};
+    assertErpCashAccountUsable(accountData);
     const currentBalance = num(accountData.currentBalance, num(accountData.openingBalance, 0));
     const isSales = normalized.documentCollection === ERP_COLLECTIONS.SALES;
     const direction = isSales ? "in" : "out";

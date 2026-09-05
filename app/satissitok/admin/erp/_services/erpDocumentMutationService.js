@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase";
 import { ERP_COLLECTIONS } from "./erpCollections";
+import { assertErpCashAccountUsable } from "./erpCashAccountRules";
 import {
   buildCounterDocId,
   formatCounterNumber,
@@ -566,6 +567,7 @@ export async function confirmErpDocument({ kind, payload, settings }) {
       }
 
       const accountData = accountSnap.data() || {};
+      assertErpCashAccountUsable(accountData);
       const currentBalance = num(accountData.currentBalance, num(accountData.openingBalance, 0));
       const direction = getPaymentDirection(kind);
       const nextBalance =

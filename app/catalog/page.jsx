@@ -1,101 +1,53 @@
-"use client";
-
-import Link from "next/link";
-import { BriefcaseBusiness, Building2, ChefHat, ChevronRight } from "lucide-react";
-import { useLang } from "../context/LanguageContext";
-import { getGroupLabel } from "../lib/catalog/catalogLabels";
-
-const groups = [
-  {
-    key: "institutional",
-    description: "catalog.groupCards.institutional",
-    cta: "catalog.groupCardsCta.institutional",
-    href: "/catalog/institutional",
-    icon: Building2,
-    fallback: "Temizlik & Hijyen",
-  },
-  {
-    key: "equipment",
-    description: "catalog.groupCards.equipment",
-    cta: "catalog.groupCardsCta.equipment",
-    href: "/catalog/equipment",
-    icon: BriefcaseBusiness,
-    fallback: "Mutfak Ekipmanları",
-  },
-  {
-    key: "paslanmaz",
-    description: "catalog.groupCards.stainless",
-    cta: "catalog.groupCardsCta.stainless",
-    href: "/catalog/paslanmaz",
-    icon: ChefHat,
-    fallback: "Paslanmaz Ekipmanlar",
-  },
-];
-
+'use client';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
+import { useLang } from '../context/LanguageContext';
+import { buildCatalogTree } from '../lib/catalog/categoryTree';
+import { CATEGORY_GROUPS, CATEGORY_COLORS, categoryImageKey, readCategoryImagesResponse } from '../lib/categoryImages';
+import MainCategoryImage from '../components/MainCategoryImage';
+const copy = {
+  tr: { intro: 'Tüm ana kategorileri keşfedin; ürünleri görmek için bir kategori seçin.', all: 'Bütün ürünler' },
+  en: { intro: 'Explore all main categories. Select a category to view its products.', all: 'All products' },
+  ru: { intro: 'Все основные категории на одной странице. Выберите категорию, чтобы посмотреть товары.', all: 'Все товары' },
+  kz: { intro: 'Барлық негізгі санаттар бір бетте. Тауарларды көру үшін санатты таңдаңыз.', all: 'Барлық тауарлар' },
+};
 export default function CatalogLandingPage() {
   const { t, lang } = useLang();
-
-  return (
-    <main className="min-h-screen bg-[#f8f9fb] px-4 pb-16 pt-10 md:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1440px]">
-        <nav className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-          <Link href="/" className="transition hover:text-[#1d3246]">
-            {t("breadcrumb.home")}
-          </Link>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-[#1d3246]">{t("breadcrumb.categories")}</span>
-        </nav>
-
-        <header className="mb-10">
-          <h1 className="text-[38px] font-extrabold tracking-[-0.05em] text-[#1d3246] md:text-[48px]">
-            {t("breadcrumb.categories")}
-          </h1>
-          <p className="mt-3 max-w-3xl text-[15px] leading-7 text-slate-500">
-            {t("catalog.groupIntro") || "Urun grubunu secerek kategori ve urunlere gecis yapin."}
-          </p>
-        </header>
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {groups.map((group) => {
-            const Icon = group.icon;
-            const groupLabel = getGroupLabel({
-              t,
-              lang,
-              groupKey: group.key,
-              fallback: group.fallback,
-            });
-
-            return (
-              <Link
-                key={group.key}
-                href={group.href}
-                className="group rounded-[28px] border border-[#e5e7eb] bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-              >
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eef1f4] text-[#1d3246] transition group-hover:bg-[#1d3246] group-hover:text-white">
-                  <Icon className="h-7 w-7" />
-                </div>
-                <h2 className="text-2xl font-extrabold tracking-[-0.03em] text-[#1d3246]">
-                  {groupLabel}
-                </h2>
-                <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-500">
-                  {group.description
-                    ? t(group.description) !== group.description
-                      ? t(group.description)
-                      : group.fallbackDescription || ""
-                    : group.fallbackDescription || ""}
-                </p>
-                <div className="mt-6 text-sm font-bold uppercase tracking-[0.14em] text-[#1d3246]">
-                  {group.cta
-                    ? t(group.cta) !== group.cta
-                      ? t(group.cta)
-                      : group.fallbackCta || t("catalog.openCatalog") || "Open catalog"
-                    : group.fallbackCta || t("catalog.openCatalog") || "Open catalog"}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+  const [images, setImages] = useState({});
+  const tree = buildCatalogTree({ t, lang });
+  const labels = copy[lang] || copy.tr;
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/category-images', { cache: 'no-store', signal: controller.signal })
+      .then(readCategoryImagesResponse).then(data => setImages(data.images || {}))
+      .catch(error => { if (error.name !== 'AbortError') console.error('Category images unavailable', error); });
+    return () => controller.abort();
+  }, []);
+  return <main className="min-h-screen bg-[#f8f9fb] px-4 pb-16 pt-10 md:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1440px]">
+      <nav aria-label={t('breadcrumb.categories')} className="mb-4 flex items-center gap-2 text-sm text-slate-500">
+        <Link href="/" className="hover:underline">{t('breadcrumb.home')}</Link><ChevronRight className="h-4 w-4" /><span>{t('breadcrumb.categories')}</span>
+      </nav>
+      <header className="mb-10 flex flex-wrap items-end justify-between gap-5">
+        <div><h1 className="text-4xl font-extrabold tracking-tight text-[#1d3246]">{t('breadcrumb.categories')}</h1><p className="mt-3 text-slate-600">{labels.intro}</p></div>
+        <Link href="/products" className="rounded-xl bg-[#1d3246] px-5 py-3 font-semibold text-white hover:bg-slate-700">{labels.all}</Link>
+      </header>
+      <div className="space-y-12">
+        {CATEGORY_GROUPS.map(key => {
+          const group = tree.find(item => item.key === key);
+          if (!group) return null;
+          return <section key={key} aria-labelledby={`group-${key}`}>
+            <h2 id={`group-${key}`} className="mb-5 border-l-4 pl-3 text-2xl font-bold text-[#1d3246]" style={{ borderColor: CATEGORY_COLORS[key] }}>{group.label}</h2>
+            <div className="grid grid-cols-1 gap-4 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 md:gap-6">
+              {group.categories.map(category => <Link key={category.key} href={`/catalog/${key}/${category.key}`} className="overflow-hidden rounded-2xl border-[3px] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900" style={{ borderColor: CATEGORY_COLORS[key] }}>
+                <MainCategoryImage src={images[categoryImageKey(key, category.key)]?.src} group={key} />
+                <div className="px-3 py-4 text-center"><span className="text-xs font-medium text-slate-500">{group.label}</span><h3 className="mt-2 flex min-h-[3rem] items-center justify-center text-base font-bold leading-6 text-[#1d3246] md:text-lg">{category.label}</h3></div>
+              </Link>)}
+            </div>
+          </section>;
+        })}
       </div>
-    </main>
-  );
+    </div>
+  </main>;
 }

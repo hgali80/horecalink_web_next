@@ -374,8 +374,8 @@ function FinanceTable({ rows }) {
             <tr key={row.id} className="border-b border-slate-100 last:border-b-0">
               <td className="px-3 py-3 font-semibold text-slate-900">{row.name}</td>
               <td className="px-3 py-3 uppercase text-slate-600">{row.type}</td>
-              <td className="px-3 py-3 text-slate-600">{formatMoney(row.openingBalance)} KZT</td>
-              <td className="px-3 py-3 font-semibold text-slate-900">{formatMoney(row.currentBalance)} KZT</td>
+              <td className="px-3 py-3 text-slate-600">{formatMoney(row.openingBalance)} {row.currency}</td>
+              <td className="px-3 py-3 font-semibold text-slate-900">{formatMoney(row.currentBalance)} {row.currency}</td>
             </tr>
           ))}
         </tbody>
@@ -734,7 +734,7 @@ export default function ErpReportsPage() {
             <StatCard
               label="Kasa banka toplam"
               value={`${formatMoney(dashboard.overview.totalCashBalance)} KZT`}
-              hint="Tum aktif finans hesaplari"
+              hint="Aktif ve pasif KZT hesaplari"
               tone="slate"
             />
             <StatCard

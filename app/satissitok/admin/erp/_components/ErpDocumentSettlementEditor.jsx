@@ -1,5 +1,7 @@
 "use client";
 
+import ErpCashAccountSelect from "./ErpCashAccountSelect";
+
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -165,15 +167,7 @@ export default function ErpDocumentSettlementEditor() {
           />
 
           <div className="grid gap-4 md:grid-cols-2">
-            <SelectField
-              label="Kasa / Banka Hesabi"
-              value={form.accountId}
-              onChange={(value) => setField("accountId", value)}
-              options={accounts.map((item) => ({
-                value: item.value,
-                label: item.active ? item.label : `${item.label} (pasif)`,
-              }))}
-            />
+            <ErpCashAccountSelect value={form.accountId} onChange={(value) => setField("accountId", value)} options={accounts} onRefresh={setAccounts} />
 
             <SelectField
               label="Odeme Yontemi"

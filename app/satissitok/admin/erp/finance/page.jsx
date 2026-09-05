@@ -52,7 +52,7 @@ export default function ErpFinancePage() {
     return {
       accountCount: accounts.length,
       activeCount: accounts.filter((item) => item.active).length,
-      totalBalance: accounts.reduce((sum, item) => sum + Number(item.currentBalance || 0), 0),
+      totalBalance: accounts.filter(item => item.currency.toUpperCase() === "KZT").reduce((sum, item) => sum + Number(item.currentBalance || 0), 0),
     };
   }, [accounts]);
 
@@ -88,7 +88,7 @@ export default function ErpFinancePage() {
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard label="Toplam Hesap" value={String(metrics.accountCount)} />
         <MetricCard label="Aktif Hesap" value={String(metrics.activeCount)} />
-        <MetricCard label="Toplam Bakiye" value={fmtMoney(metrics.totalBalance)} />
+        <MetricCard label="Toplam Bakiye (KZT Hesapları)" value={fmtMoney(metrics.totalBalance)} />
       </div>
 
       {loading ? (

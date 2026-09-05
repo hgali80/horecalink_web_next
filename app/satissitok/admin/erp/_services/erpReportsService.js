@@ -416,7 +416,7 @@ export async function getErpReportDashboard(filters = {}) {
   const positiveStocks = stockBalances.filter((item) => item.totalQty > 0);
   const zeroStocks = stockBalances.filter((item) => item.totalQty === 0);
   const activeCaris = caris.filter((item) => item.isActive);
-  const totalCashBalance = round2(cashAccounts.reduce((sum, item) => sum + num(item.currentBalance, 0), 0));
+  const totalCashBalance = round2(cashAccounts.filter(item => item.currency.toUpperCase() === "KZT").reduce((sum, item) => sum + num(item.currentBalance, 0), 0));
 
   return {
     generatedAt: new Date().toISOString(),
@@ -450,7 +450,7 @@ export async function getErpReportDashboard(filters = {}) {
       negativeCount: negativeStocks.length,
       zeroCount: zeroStocks.length,
     },
-    cashAccounts: cashAccounts.slice(0, 12),
+    cashAccounts,
     recentCashMovements: filteredCashMovements.slice(0, 20),
     cariSnapshot: {
       activeCount: activeCaris.length,

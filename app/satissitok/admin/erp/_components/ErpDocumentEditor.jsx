@@ -1,5 +1,7 @@
 "use client";
 
+import ErpCashAccountSelect from "./ErpCashAccountSelect";
+
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -1172,15 +1174,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                 value={form.paidDate}
                 onChange={(value) => setField("paidDate", value)}
               />
-              <SelectField
-                label="Kasa / Banka"
-                value={form.accountId}
-                onChange={(value) => setField("accountId", value)}
-                options={accountOptions.map((item) => ({
-                  value: item.value,
-                  label: item.active ? item.label : `${item.label} (pasif)`,
-                }))}
-              />
+              <ErpCashAccountSelect value={form.accountId} onChange={(value) => setField("accountId", value)} options={accountOptions} onRefresh={setAccountOptions} />
               <SelectField
                 label="Odeme Yontemi"
                 value={form.paymentMethod}
