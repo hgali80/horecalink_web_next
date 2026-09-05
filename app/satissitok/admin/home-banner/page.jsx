@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { auth } from '@/firebase';
 import { BANNER_DEFAULTS, BANNER_MAX_MB, validateBannerFile, validateBannerDimensions, validateBannerSettings } from '@/app/lib/homeBanner';
 import { BannerCarousel } from '@/app/components/HomeBanner';
+import { prepareBannerUpload, readBannerResponse } from '@/app/lib/homeBannerUpload';
 
 const inputClass = 'w-full rounded-lg border border-slate-300 bg-white p-2';
 const buttonClass = 'rounded-lg border border-slate-300 px-3 py-2 hover:bg-slate-100 disabled:opacity-40';
@@ -25,7 +26,7 @@ export default function HomeBannerAdmin() {
   useEffect(() => {
     const controller = new AbortController();
     fetch('/api/home-banner', { signal: controller.signal, cache: 'no-store' })
-      .then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error); return data; })
+      .then(readBannerResponse)
       .then(data => { setSettings(data); setLoaded(true); setLoading(false); })
       .catch(error => { if (error.name !== 'AbortError') { setError(error.message); setLoading(false); } });
     const allocated = urls.current;
@@ -93,15 +94,20 @@ export default function HomeBannerAdmin() {
       if (!auth.currentUser) throw new Error('Oturumunuzu yenileyin.');
       const form = new FormData();
       form.append('settings', JSON.stringify({ ...settings, slides: settings.slides.map(({ id, alt, href }) => ({ id, alt, href })) }));
-      settings.slides.forEach(slide => { if (slide.file) form.append(slide.id, slide.file); });
+      for (const slide of settings.slides) {
+        if (slide.file) {
+          setMessage(`Görsel hazırlanıyor: ${slide.alt}`);
+          form.append(slide.id, await prepareBannerUpload(slide.file));
+        }
+      }
+      setMessage('Görseller kaydediliyor…');
       const token = await auth.currentUser.getIdToken();
       const response = await fetch('/api/admin/home-banner', { method: 'PUT', headers: { Authorization: `Bearer ${token}` }, body: form });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Kaydedilemedi.');
+      const data = await readBannerResponse(response);
       setSettings(data); setPreview(null); setDirty(false);
       urls.current.forEach(url => URL.revokeObjectURL(url)); urls.current.clear();
       setMessage('Kaydedildi. Görsel şerit ana sayfada yayınlandı.');
-    } catch (error) { setError(error.message); }
+    } catch (error) { setMessage(''); setError(error.message); }
     finally { setBusy(false); }
   }
 
@@ -116,7 +122,7 @@ export default function HomeBannerAdmin() {
           <li>Dosya başına en fazla <strong>{BANNER_MAX_MB} MB</strong> ve <strong>36 megapiksel</strong>. Formatlar: <strong>JPG, PNG, WebP</strong> (hareketsiz).</li>
           <li>Yayınlamak için en az <strong>2</strong>, en fazla <strong>5</strong> görsel gerekir.</li>
           <li>Mobilde de 3:1 oranı korunur; görsele eklenen yazıları kısa ve büyük tutun.</li>
-          <li>Görsel kırpılmadan alana sığdırılır; oran farkına göre kenarlarda küçük boşluklar olabilir. Kaydederken WebP formatında sıkıştırılır.</li>
+          <li>Görsel kırpılmadan alana sığdırılır; oran farkına göre kenarlarda küçük boşluklar olabilir. Yüklemeden önce otomatik küçültülüp WebP formatında sıkıştırılır; orijinal dosyanız değişmez.</li>
           <li>Her seferinde tek görsel gösterilir. Otomatik geçiş sağdan sola ilerler.</li>
         </ul>
       </div>
