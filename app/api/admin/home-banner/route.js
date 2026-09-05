@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { NextResponse } from 'next/server';
 import { authorizeAdminRequest, getAdminServices } from '@/app/lib/server/firebaseAdmin';
-import { BANNER_MAX_BYTES, BANNER_TYPES, validateBannerSettings } from '@/app/lib/homeBanner';
+import { BANNER_MAX_BYTES, validateBannerFile, validateBannerDimensions, validateBannerSettings } from '@/app/lib/homeBanner';
 
 export const runtime = 'nodejs';
 const roles = new Set(['admin', 'super_admin']);
@@ -13,7 +13,7 @@ export async function PUT(request) {
   try {
     const authorization = await authorizeAdminRequest(request, roles);
     if (!authorization.ok) return authorization.response;
-    if (Number(request.headers.get('content-length')) > 11 * 1024 * 1024)
+    if (Number(request.headers.get('content-length')) > 5 * BANNER_MAX_BYTES + 1024 * 1024)
       return NextResponse.json({ error: 'Toplam yükleme boyutu çok büyük.' }, { status: 413 });
     const form = await request.formData();
     const settings = JSON.parse(form.get('settings'));
@@ -30,8 +30,7 @@ export async function PUT(request) {
         pending.push({ ...existing, alt: slide.alt.trim(), href: slide.href });
         continue;
       }
-      if (!BANNER_TYPES.includes(file.type) || !file.size || file.size > BANNER_MAX_BYTES)
-        throw new Error('Görseller JPG, PNG veya WebP ve en fazla 2 MB olmalıdır.');
+      validateBannerFile(file);
       const bytes = Buffer.from(await file.arrayBuffer());
       const metadata = await sharp(bytes, { limitInputPixels: 36000000 }).metadata();
       if (!['jpeg', 'png', 'webp'].includes(metadata.format) || (metadata.pages || 1) > 1)
@@ -39,7 +38,7 @@ export async function PUT(request) {
       const rotated = [5, 6, 7, 8].includes(metadata.orientation);
       const width = rotated ? metadata.height : metadata.width;
       const height = rotated ? metadata.width : metadata.height;
-      if (width !== height * 3) throw new Error('Görsel oranı 3:1 olmalıdır (örnek: 1500 × 500 piksel).');
+      validateBannerDimensions(width, height);
       const normalized = await sharp(bytes).rotate().webp({ quality: 90 }).toBuffer();
       pending.push({ id: slide.id, alt: slide.alt.trim(), href: slide.href, bytes: normalized });
     }

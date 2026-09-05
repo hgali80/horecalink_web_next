@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { auth } from '@/firebase';
-import { BANNER_DEFAULTS, BANNER_MAX_BYTES, BANNER_TYPES, validateBannerSettings } from '@/app/lib/homeBanner';
+import { BANNER_DEFAULTS, BANNER_MAX_MB, validateBannerFile, validateBannerDimensions, validateBannerSettings } from '@/app/lib/homeBanner';
 import { BannerCarousel } from '@/app/components/HomeBanner';
 
 const inputClass = 'w-full rounded-lg border border-slate-300 bg-white p-2';
@@ -53,15 +53,15 @@ export default function HomeBannerAdmin() {
     const added = [];
     try {
       for (const file of files) {
-        if (!BANNER_TYPES.includes(file.type) || file.size > BANNER_MAX_BYTES || !file.size)
-          throw new Error(`${file.name}: JPG, PNG veya WebP ve en fazla 2 MB olmalıdır.`);
+        try { validateBannerFile(file); }
+        catch (error) { throw new Error(`${file.name}: ${error.message}`); }
         const src = URL.createObjectURL(file);
         urls.current.add(src);
         try {
           const image = new window.Image();
           image.src = src;
           await image.decode();
-          if (image.naturalWidth !== image.naturalHeight * 3) throw new Error(`${file.name}: 3:1 oranında olmalıdır. Önerilen: 1500 × 500 piksel.`);
+          validateBannerDimensions(image.naturalWidth, image.naturalHeight);
           added.push({ id: crypto.randomUUID(), src, file, alt: file.name.replace(/\.[^.]+$/, ''), href: '' });
         } catch (error) { URL.revokeObjectURL(src); urls.current.delete(src); throw error; }
       }
@@ -112,10 +112,11 @@ export default function HomeBannerAdmin() {
       <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 text-sm text-slate-700">
         <p className="font-semibold">Görsel yükleme kuralları</p>
         <ul className="mt-2 list-inside list-disc space-y-1">
-          <li>Yatay oran: <strong>3:1</strong>. Önerilen çözünürlük: <strong>1500 × 500 piksel</strong>.</li>
-          <li>Dosya başına en fazla <strong>2 MB</strong>. Formatlar: <strong>JPG, PNG, WebP</strong> (hareketsiz).</li>
+          <li>Önerilen yatay oran: <strong>3:1</strong>. <strong>2,7:1–3,3:1</strong> aralığındaki görseller de kabul edilir. Önerilen çözünürlük: <strong>1500 × 500 piksel</strong>.</li>
+          <li>Dosya başına en fazla <strong>{BANNER_MAX_MB} MB</strong> ve <strong>36 megapiksel</strong>. Formatlar: <strong>JPG, PNG, WebP</strong> (hareketsiz).</li>
           <li>Yayınlamak için en az <strong>2</strong>, en fazla <strong>5</strong> görsel gerekir.</li>
           <li>Mobilde de 3:1 oranı korunur; görsele eklenen yazıları kısa ve büyük tutun.</li>
+          <li>Görsel kırpılmadan alana sığdırılır; oran farkına göre kenarlarda küçük boşluklar olabilir. Kaydederken WebP formatında sıkıştırılır.</li>
           <li>Her seferinde tek görsel gösterilir. Otomatik geçiş sağdan sola ilerler.</li>
         </ul>
       </div>
