@@ -10,6 +10,9 @@ export default function MainCategoryImage({ src, group, children }) {
     {src && src !== failedSrc
       ? <img src={src} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" onError={() => setFailedSrc(src)} />
       : <Icon aria-hidden="true" className="h-16 w-16" strokeWidth={1.25} style={{ color: CATEGORY_COLORS[group] }} />}
-    {children && <div className="absolute inset-x-0 bottom-0 bg-white/90 px-3 py-3 text-center backdrop-blur-sm">{children}</div>}
+    {children && <div
+      className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-1 text-center text-base font-bold leading-tight text-white sm:text-lg md:text-[22px]"
+      style={{ WebkitTextStroke: '1.5px #000', paintOrder: 'stroke fill' }}
+    >{children}</div>}
   </div>;
 }

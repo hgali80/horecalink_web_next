@@ -42,7 +42,7 @@ export default function CatalogLandingPage() {
             <div className="grid grid-cols-1 gap-4 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 md:gap-6">
               {group.categories.map(category => <Link key={category.key} href={`/catalog/${key}/${category.key}`} className="overflow-hidden rounded-2xl border-[3px] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900" style={{ borderColor: CATEGORY_COLORS[key] }}>
                 <MainCategoryImage src={images[categoryImageKey(key, category.key)]?.src} group={key}>
-                  <h3 className="flex min-h-[3rem] items-center justify-center text-sm font-bold leading-5 text-[#1d3246] sm:text-base md:text-lg md:leading-6">{category.label}</h3>
+                  <h3>{category.label}</h3>
                 </MainCategoryImage>
               </Link>)}
             </div>

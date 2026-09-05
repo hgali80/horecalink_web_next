@@ -106,7 +106,7 @@ export default function CategoryImagesAdmin() {
           const id = categoryImageKey(key, category.key);
           return <article key={id} className="overflow-hidden rounded-2xl border-[3px] bg-white" style={{ borderColor: CATEGORY_COLORS[key] }}>
             <MainCategoryImage src={drafts[id]?.src || images[id]?.src} group={key}>
-              <h3 className="flex min-h-12 items-center justify-center font-bold text-[#1d3246]">{category.label}</h3>
+              <h3>{category.label}</h3>
             </MainCategoryImage>
             <div className="space-y-3 p-4">
               <fieldset disabled={Boolean(busy)} className="space-y-3 disabled:opacity-50">
