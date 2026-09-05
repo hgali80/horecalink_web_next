@@ -91,7 +91,7 @@ export default function CategoryImagesAdmin() {
   return <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
     <Link href="/satissitok/admin" className="text-sm text-blue-700 underline">Yönetim paneline dön</Link>
     <h1 className="text-2xl font-bold">Ana Kategori Görselleri</h1>
-    <p className="rounded-xl bg-blue-50 p-4 text-sm leading-6 text-slate-700">Her kategori için tek tek görsel seçip önizleyin, ardından kartın Kaydet düğmesine basın. JPG, PNG veya WebP, en fazla 10 MB / 36 megapiksel. Önerilen ölçü 800 × 600 pikseldir. Görseller kırpılmadan sığdırılır ve yüklemeden önce küçültülür. Görsel atanmayan kategorilerde grup ikonu gösterilir.</p>
+    <p className="rounded-xl bg-blue-50 p-4 text-sm leading-6 text-slate-700">Her kategori için tek tek görsel seçip önizleyin, ardından kartın Kaydet düğmesine basın. JPG, PNG veya WebP, en fazla 10 MB / 36 megapiksel. Önerilen ölçü 800 × 800 pikseldir. Görsel tüm kartı doldurur; farklı oranlardaki görsellerin kenarları kırpılabilir. Kategori adı görselin alt kısmında gösterilir. Görsel atanmayan kategorilerde grup ikonu gösterilir.</p>
     <Link href="/catalog" target="_blank" rel="noopener noreferrer" className="inline-block text-blue-700 underline">Kategori sayfasını görüntüle</Link>
     <div className="sticky top-2 z-10" aria-live="polite">
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700">{error}</p>}
@@ -105,8 +105,10 @@ export default function CategoryImagesAdmin() {
         <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">{group.categories.map(category => {
           const id = categoryImageKey(key, category.key);
           return <article key={id} className="overflow-hidden rounded-2xl border-[3px] bg-white" style={{ borderColor: CATEGORY_COLORS[key] }}>
-            <MainCategoryImage src={drafts[id]?.src || images[id]?.src} group={key} />
-            <div className="space-y-3 p-4"><h3 className="min-h-12 text-center font-bold">{category.label}</h3>
+            <MainCategoryImage src={drafts[id]?.src || images[id]?.src} group={key}>
+              <h3 className="flex min-h-12 items-center justify-center font-bold text-[#1d3246]">{category.label}</h3>
+            </MainCategoryImage>
+            <div className="space-y-3 p-4">
               <fieldset disabled={Boolean(busy)} className="space-y-3 disabled:opacity-50">
                 <label className="block text-sm font-medium" htmlFor={id}>Görsel yükle / değiştir</label>
                 <input id={id} type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-xs" onChange={event => selectFile(event, id)} />

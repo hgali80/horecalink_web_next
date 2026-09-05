@@ -41,8 +41,9 @@ export default function CatalogLandingPage() {
             <h2 id={`group-${key}`} className="mb-5 border-l-4 pl-3 text-2xl font-bold text-[#1d3246]" style={{ borderColor: CATEGORY_COLORS[key] }}>{group.label}</h2>
             <div className="grid grid-cols-1 gap-4 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 md:gap-6">
               {group.categories.map(category => <Link key={category.key} href={`/catalog/${key}/${category.key}`} className="overflow-hidden rounded-2xl border-[3px] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900" style={{ borderColor: CATEGORY_COLORS[key] }}>
-                <MainCategoryImage src={images[categoryImageKey(key, category.key)]?.src} group={key} />
-                <div className="px-3 py-4 text-center"><span className="text-xs font-medium text-slate-500">{group.label}</span><h3 className="mt-2 flex min-h-[3rem] items-center justify-center text-base font-bold leading-6 text-[#1d3246] md:text-lg">{category.label}</h3></div>
+                <MainCategoryImage src={images[categoryImageKey(key, category.key)]?.src} group={key}>
+                  <h3 className="flex min-h-[3rem] items-center justify-center text-sm font-bold leading-5 text-[#1d3246] sm:text-base md:text-lg md:leading-6">{category.label}</h3>
+                </MainCategoryImage>
               </Link>)}
             </div>
           </section>;
