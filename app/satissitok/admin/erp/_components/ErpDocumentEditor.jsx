@@ -1084,6 +1084,16 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
           </table>
           </div>
         </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={addManualItem}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
+          >
+            <PlusCircle size={14} />
+            Satir Ekle
+          </button>
+        </div>
       </section>
 
       <section className="grid gap-6 2xl:grid-cols-2">
