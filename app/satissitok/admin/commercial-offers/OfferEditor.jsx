@@ -14,6 +14,7 @@ import {
 import { getSettings } from "@/app/satissitok/services/settingsService";
 import { listProductsAdmin } from "@/app/satissitok/services/productService";
 import { listCaris } from "@/app/satissitok/admin/cari/services/cariService";
+import OfferSaleTransfer from "./OfferSaleTransfer";
 import {
   buildDefaultOfferPayload,
   buildOfferItemFromProduct,
@@ -754,6 +755,7 @@ export default function OfferEditor({ offerId = null, sourceRequestId = null }) 
             </div>
 
             <div className="flex flex-wrap gap-2">
+              <OfferSaleTransfer offerId={offerId} offer={{ ...form, items: calculated.items, totals: calculated.totals }} disabled={saving} />
               <button
                 type="button"
                 onClick={handlePrint}

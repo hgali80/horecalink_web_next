@@ -12,6 +12,8 @@ import {
 import { db } from "@/firebase";
 import { ERP_COLLECTIONS } from "./erpCollections";
 import { assertErpCashAccountUsable } from "./erpCashAccountRules";
+import { buildErpSaleFromOffer } from "./erpOfferConversion";
+import { listErpProductOptions } from "./erpProductsService";
 import {
   buildCounterDocId,
   formatCounterNumber,
@@ -230,6 +232,7 @@ function normalizePayload(kind, payload = {}) {
     cariName,
     cariSnapshot: cariName
       ? {
+          ...(payload.cariSnapshot?.id === cariId ? payload.cariSnapshot : {}),
           id: cariId,
           name: cariName,
         }
@@ -423,6 +426,81 @@ async function applyStockEffects({
   }
 
   return realizedCostTotal;
+}
+
+export async function convertCommercialOfferToSale({ offerId, offerPayload, docType, cariId, newCari, settings }) {
+  if (!text(offerId)) throw new Error("Önce teklifi kaydedin.");
+  const products = await listErpProductOptions();
+  const offerRef = doc(db, "commercial_offers", offerId);
+  // A stable ID plus a transaction protects against double clicks and concurrent tabs.
+  const saleRef = doc(db, ERP_COLLECTIONS.SALES, `commercial_offer_${offerId}`);
+  const newCariRef = newCari ? doc(collection(db, ERP_COLLECTIONS.CARIS)) : null;
+
+  return runTransaction(db, async (transaction) => {
+    const offerSnap = await transaction.get(offerRef);
+    if (!offerSnap.exists()) throw new Error("Teklif bulunamadı.");
+    const savedOffer = offerSnap.data();
+    const linkedRef = savedOffer.salesDocumentId
+      ? doc(db, ERP_COLLECTIONS.SALES, savedOffer.salesDocumentId)
+      : saleRef;
+    const existingSale = await transaction.get(linkedRef);
+    if (existingSale.exists()) return { id: linkedRef.id, existing: true };
+    if (savedOffer.salesDocumentId) throw new Error("Teklife bağlı satış belgesi bulunamadı. Bağlantıyı kontrol edin.");
+    if (!["R", "F"].includes(docType)) throw new Error("Resmî veya fiilî belge tipini seçin.");
+    if (Boolean(cariId) === Boolean(newCari)) throw new Error("Mevcut cari seçin veya yeni cari oluşturun.");
+
+    let cari;
+    const deferredWrites = [];
+    if (newCari) {
+      if (!text(newCari.name)) throw new Error("Yeni carinin adını girin.");
+      const counterRef = doc(db, ERP_COLLECTIONS.CARI_COUNTERS, "main");
+      const counterSnap = await transaction.get(counterRef);
+      const nextSeq = Number(counterSnap.data()?.lastSeq || 0) + 1;
+      cari = {
+        name: text(newCari.name), bin: text(newCari.bin),
+        phone: text(newCari.phone), email: text(newCari.email),
+        address: text(newCari.address), legalAddress: text(newCari.address),
+        notes: text(newCari.contactName) ? `Yetkili: ${text(newCari.contactName)}` : "",
+        code: `CAR${String(nextSeq).padStart(6, "0")}`,
+        active: true, isCustomer: true, isSupplier: false, currency: "KZT",
+        balanceSummary: { receivable: 0, payable: 0 },
+      };
+      deferredWrites.push(() => {
+        transaction.set(counterRef, { lastSeq: nextSeq, updatedAt: serverTimestamp() }, { merge: true });
+        transaction.set(newCariRef, { ...cari, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      });
+      cari = { ...cari, id: newCariRef.id };
+    } else {
+      const cariSnap = await transaction.get(doc(db, ERP_COLLECTIONS.CARIS, cariId));
+      if (!cariSnap.exists()) throw new Error("Seçilen ERP carisi bulunamadı.");
+      cari = { ...cariSnap.data(), id: cariSnap.id };
+    }
+
+    const offer = { ...savedOffer, ...offerPayload };
+    const payload = buildErpSaleFromOffer({ offer, offerId, docType, cari, products, settings });
+    const normalized = normalizePayload("sales", { ...payload, status: "draft" });
+    const reserved = await reserveCounterNumber({
+      transaction, deferredWrites, settings, kind: "sales", docType,
+      counterType: "draft", dateISO: normalized.documentDate,
+    });
+    await ensureUniqueField(ERP_COLLECTIONS.SALES, "draftNo", reserved.number, saleRef.id);
+
+    deferredWrites.forEach((write) => write());
+    transaction.set(saleRef, {
+      ...normalized, draftNo: reserved.number,
+      sourceCommercialOfferId: offerId,
+      sourceCommercialOfferNo: payload.sourceCommercialOfferNo,
+      sellerSnapshot: payload.sellerSnapshot,
+      currency: payload.currency,
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+    transaction.set(offerRef, {
+      ...offerPayload,
+      salesDocumentId: saleRef.id,
+      salesTransferredAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    }, { merge: true });
+    return { id: saleRef.id, draftNo: reserved.number, existing: false };
+  });
 }
 
 export async function saveErpDraftDocument({ kind, payload, settings }) {

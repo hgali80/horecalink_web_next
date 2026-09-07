@@ -392,6 +392,9 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
             return {
               ...current,
               id: existingDocument.id,
+              sourceCommercialOfferId: text(existingDocument.sourceCommercialOfferId),
+              sourceCommercialOfferNo: text(existingDocument.sourceCommercialOfferNo),
+              cariSnapshot: existingDocument.cariSnapshot || null,
               docType: existingDocument.docType || "R",
               documentDate: text(existingDocument.documentDate) || defaultDate(),
               cariId: text(existingDocument.cariId || existingDocument?.cariSnapshot?.id),
@@ -572,6 +575,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       ...current,
       cariId: value,
       cariName: selected?.name || "",
+      cariSnapshot: null,
     }));
   }
 
@@ -686,6 +690,12 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       </div>
 
       {notice ? <Banner tone="green" text={notice} /> : null}
+      {isSales && form.sourceCommercialOfferId ? (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          Kaynak teklif: <Link className="font-semibold underline" href={`/satissitok/admin/commercial-offers/${form.sourceCommercialOfferId}`}>{form.sourceCommercialOfferNo || form.sourceCommercialOfferId}</Link>
+          <span className="ml-3">Belge tipi: {form.docType === "F" ? "Fiilî (F)" : "Resmî (R)"}</span>
+        </div>
+      ) : null}
       {isSales && isEditMode ? <div className="flex flex-wrap items-center gap-3"><ErpSalesPdfButton documentId={documentId} /><span className="text-xs text-slate-500">PDF son kaydedilen belgeyi içerir.</span></div> : null}
       {error ? <Banner tone="red" text={error} /> : null}
 
@@ -696,8 +706,8 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
             value={form.docType}
             onChange={(value) => setField("docType", value)}
             options={[
-              { value: "R", label: "R Belge" },
-              { value: "F", label: "F Belge" },
+              { value: "R", label: "Resmî (R)" },
+              { value: "F", label: "Fiilî (F)" },
             ]}
           />
           <InputField
