@@ -64,7 +64,14 @@ export default function ThreadDetailPage() {
             </div>
 
             <div className="mt-2 text-sm text-gray-600">
-              Toplam: {q.pricing?.finalAmount || 0} KZT
+              Toplam: {Number(
+                q.pricing?.finalAmount ??
+                q.totalAmount ??
+                q.grandTotal ??
+                q.pricing?.specialAmount ??
+                q.pricing?.listAmount ??
+                0
+              ).toLocaleString("tr-TR")} KZT
             </div>
           </div>
         ))}

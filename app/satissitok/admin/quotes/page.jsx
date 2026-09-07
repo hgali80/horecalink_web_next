@@ -88,6 +88,8 @@ export default function QuotesPage() {
               q.pricing?.finalAmount ??
               q.totalAmount ??
               q.grandTotal ??
+              q.pricing?.specialAmount ??
+              q.pricing?.listAmount ??
               0;
 
             return (
