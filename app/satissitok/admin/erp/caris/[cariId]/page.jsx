@@ -134,8 +134,8 @@ export default function ErpCariDetailPage({ params }) {
 
         <section className="space-y-5 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="grid gap-4 md:grid-cols-2">
-            <SummaryBox title="Cari Bakiye Alacagi" value={fmtMoney(cari.openingReceivable)} />
-            <SummaryBox title="Cari Bakiye Borcu" value={fmtMoney(cari.openingPayable)} />
+            <SummaryBox title="Guncel Alacagimiz" value={fmtMoney(cari.receivable)} />
+            <SummaryBox title="Guncel Borcumuz" value={fmtMoney(cari.payable)} />
           </div>
 
           <div className="space-y-4">

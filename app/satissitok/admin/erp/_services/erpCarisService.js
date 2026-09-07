@@ -11,6 +11,7 @@ import {
 import { db } from "@/firebase";
 import { ERP_COLLECTIONS } from "./erpCollections";
 import { formatErpDate, listErpDocuments } from "./erpDocumentsService";
+import { calculateErpCariBalance } from "./erpCariBalance";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -86,7 +87,13 @@ function formatCariCode(seq) {
 }
 
 export async function listErpCaris() {
-  const snap = await getDocs(collection(db, ERP_COLLECTIONS.CARIS));
+  const [snap, sales, purchases, movementSnap] = await Promise.all([
+    getDocs(collection(db, ERP_COLLECTIONS.CARIS)),
+    listErpDocuments(ERP_COLLECTIONS.SALES),
+    listErpDocuments(ERP_COLLECTIONS.PURCHASES),
+    getDocs(collection(db, ERP_COLLECTIONS.CARI_MOVEMENTS)),
+  ]);
+  const movements = movementSnap.docs.map(item => item.data());
   const rows = snap.docs.map((item) => {
     const data = item.data() || {};
     const balance = data.balanceSummary || {};
@@ -103,8 +110,11 @@ export async function listErpCaris() {
       email: text(data.email),
       typeLabel: normalizeCariType(data),
       isActive: data.active !== false,
-      receivable: num(balance.receivable, num(data.receivable, 0)),
-      payable: num(balance.payable, num(data.payable, 0)),
+      ...calculateErpCariBalance({
+        id: item.id,
+        openingReceivable: num(balance.receivable, num(data.receivable, 0)),
+        openingPayable: num(balance.payable, num(data.payable, 0)),
+      }, sales, purchases, movements),
       updatedLabel: formatDate(data.updatedAt || data.createdAt),
       updatedTime: resolveSortTime(data.updatedAt || data.createdAt),
     };
@@ -228,11 +238,11 @@ export async function getErpCariDashboard(cariId) {
     .sort((a, b) => b.sortTime - a.sortTime);
 
   const openDocuments = allDocs.filter((item) =>
-    ["open", "partial"].includes(text(item.paymentStatus).toLowerCase())
+    item.status === "confirmed" && ["open", "partial"].includes(text(item.paymentStatus).toLowerCase())
   );
 
   return {
-    cari,
+    cari: { ...cari, ...calculateErpCariBalance(cari, sales, purchases, cariMovements) },
     documents: allDocs,
     openDocuments,
     cashMovements: cariMovements,
@@ -240,12 +250,12 @@ export async function getErpCariDashboard(cariId) {
       openDocumentCount: openDocuments.length,
       totalSales: round2(
         allDocs
-          .filter((item) => item.kind === "sales" || item.documentKind === "sales")
+          .filter((item) => item.status === "confirmed" && item.documentKind === "sales")
           .reduce((sum, item) => sum + num(item.totalAmount, 0), 0)
       ),
       totalPurchases: round2(
         allDocs
-          .filter((item) => item.kind === "purchases" || item.documentKind === "purchases")
+          .filter((item) => item.status === "confirmed" && item.documentKind === "purchases")
           .reduce((sum, item) => sum + num(item.totalAmount, 0), 0)
       ),
       movementCount: cariMovements.length,
@@ -264,6 +274,9 @@ export async function listErpCariMovementEntries(cariId) {
         cariName: text(data.cariName),
         direction: text(data.direction || "alacak"),
         kind: text(data.movementKind || "manual"),
+        status: text(data.status),
+        documentId: text(data.documentId),
+        settlementId: text(data.settlementId),
         amount: round2(data.amount),
         currency: text(data.currency || "KZT"),
         accountName: text(data.accountName),
