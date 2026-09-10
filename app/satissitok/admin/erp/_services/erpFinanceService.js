@@ -317,6 +317,9 @@ export async function createErpDocumentSettlement(payload = {}) {
     }
 
     const documentData = documentSnap.data() || {};
+    if (!["confirmed", "completed"].includes(documentData.status)) {
+      throw new Error("Yalnızca onaylı ve iptal edilmemiş faturaya ödeme/tahsilat işlenebilir.");
+    }
     const totalAmount = round2(documentData.totalAmount);
     const existingSummary = documentData.settlementSummary || {};
     const existingSettled = round2(existingSummary.settledAmount);

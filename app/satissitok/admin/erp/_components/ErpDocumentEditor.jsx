@@ -24,6 +24,7 @@ import { listErpProductOptions } from "../_services/erpProductsService";
 import { getErpSettings } from "../_services/erpSettingsService";
 import { listErpStockBalances } from "../_services/erpStockService";
 import ErpSalesPdfButton from "./ErpSalesPdfButton";
+import ErpDocumentCancellation from "./ErpDocumentCancellation";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -235,6 +236,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
   const [pickerState, setPickerState] = useState({ rowId: "", query: "" });
   const [previews, setPreviews] = useState({ draft: "", document: "", invoice: "" });
   const [loadedStatus, setLoadedStatus] = useState("");
+  const [loadedDocument, setLoadedDocument] = useState(null);
   const [form, setForm] = useState({
     id: "",
     docType: "R",
@@ -386,6 +388,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
         setPriceMemory(nextPriceMemory);
         setStockBalanceMap(new Map((nextBalances || []).map((item) => [item.id, item])));
         setLoadedStatus(text(existingDocument?.status));
+        setLoadedDocument(existingDocument);
         setForm((current) => {
           if (existingDocument) {
             const sourceItems = Array.isArray(existingDocument.items) ? existingDocument.items : [];
@@ -667,6 +670,20 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
     }
   }
 
+  async function handleCopyDraft() {
+    if (saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      const result = await saveErpDraftDocument({ kind, settings, payload: {
+        ...form, id: "", draftNo: "", documentNo: "", invoiceNo: "",
+        instantPaymentEnabled: false, paidAmount: 0,
+      } });
+      router.push(`/satissitok/admin/erp/${kind}/${result.id}`);
+    } catch (err) { setError(err.message || "Taslak kopyası oluşturulamadı."); }
+    finally { setSaving(false); }
+  }
+
   if (loading) {
     return <CardShell text="Belge editoru hazirlaniyor..." />;
   }
@@ -684,12 +701,19 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
         </p>
         {isEditMode ? (
           <div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-            Duzenlenen belge durumu: {loadedStatus || "yukleniyor"}
+            Belge durumu: {({ confirmed: "Onaylı", cancelled: "İptal edildi", draft: "Taslak" })[loadedStatus] || "Yükleniyor"}
           </div>
         ) : null}
       </div>
 
       {notice ? <Banner tone="green" text={notice} /> : null}
+      <ErpDocumentCancellation kind={kind} record={loadedDocument} onCancelled={record => {
+        setLoadedStatus("cancelled");
+        setLoadedDocument(record);
+        setNotice(`Fatura iptal edildi. ${record.recalculatedSalesCount || 0} bağlı satışın maliyeti güncellendi.`);
+        setError("");
+      }} />
+      {loadedStatus === "cancelled" ? <button type="button" disabled={saving} onClick={handleCopyDraft} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-50">{saving ? "Oluşturuluyor…" : "Yeni taslak olarak kopyala"}</button> : null}
       {isSales && form.sourceCommercialOfferId ? (
         <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
           Kaynak teklif: <Link className="font-semibold underline" href={`/satissitok/admin/commercial-offers/${form.sourceCommercialOfferId}`}>{form.sourceCommercialOfferNo || form.sourceCommercialOfferId}</Link>
@@ -699,6 +723,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       {isSales && isEditMode ? <div className="flex flex-wrap items-center gap-3"><ErpSalesPdfButton documentId={documentId} /><span className="text-xs text-slate-500">PDF son kaydedilen belgeyi içerir.</span></div> : null}
       {error ? <Banner tone="red" text={error} /> : null}
 
+      <fieldset disabled={saving || ["confirmed", "cancelled"].includes(loadedStatus)} className="min-w-0 space-y-6">
       <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SelectField
@@ -1225,7 +1250,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
             <button
               type="button"
               onClick={handleSaveDraft}
-              disabled={saving || loadedStatus === "confirmed"}
+              disabled={saving || ["confirmed", "cancelled"].includes(loadedStatus)}
               className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Kaydediliyor..." : "Taslak Kaydet"}
@@ -1233,7 +1258,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={saving || loadedStatus === "confirmed"}
+              disabled={saving || ["confirmed", "cancelled"].includes(loadedStatus)}
               className="rounded-2xl bg-[#1d3246] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#243f58] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Kaydediliyor..." : "Belgeyi Onayla"}
@@ -1241,13 +1266,13 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
           </div>
           {loadedStatus === "confirmed" ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Bu belge onayli. Cift stok ve finans etkisini onlemek icin bu fazda onayli belgeleri yeniden isleme kapali.
-              Sonraki fazda kontrollu revizyon / ters kayit akisini ekleyebiliriz.
+              Bu belge onaylı ve düzenlemeye kapalı. Üstteki “Faturayı iptal et” işlemiyle iptal edebilirsiniz.
             </div>
           ) : null}
         </div>
       </section>
 
+      </fieldset>
       <ProductPickerDialog
         open={Boolean(pickerState.rowId)}
         title={pickerRow?.productName || "Satir icin urun sec"}

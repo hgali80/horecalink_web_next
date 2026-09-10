@@ -305,6 +305,8 @@ async function applyStockEffects({
   documentNo,
 }) {
   let realizedCostTotal = 0;
+  const pendingBalances = new Map();
+  let stockSequence = 0;
 
   for (const item of normalized.items || []) {
     if (!item.productId || item.stockTracked === false || num(item.quantity, 0) <= 0) continue;
@@ -318,7 +320,8 @@ async function applyStockEffects({
     const quantity = num(item.quantity, 0);
     const balanceRef = doc(db, ERP_COLLECTIONS.STOCK_BALANCES, item.productId);
     const balanceSnap = await transaction.get(balanceRef);
-    const balanceData = balanceSnap.exists() ? balanceSnap.data() || {} : {};
+    const savedBalance = balanceSnap.exists() ? balanceSnap.data() || {} : {};
+    const balanceData = pendingBalances.get(item.productId) || savedBalance;
     const currentR = num(balanceData.rQty, 0);
     const currentF = num(balanceData.fQty, 0);
     const currentRAvg = num(balanceData.rAvgCost, 0);
@@ -378,6 +381,9 @@ async function applyStockEffects({
       }
     }
 
+    pendingBalances.set(item.productId, {
+      ...balanceData, rQty: nextR, fQty: nextF, rAvgCost: nextRAvg, fAvgCost: nextFAvg,
+    });
     deferredWrites.push(() =>
       transaction.set(balanceRef, {
         productId: item.productId,
@@ -401,6 +407,7 @@ async function applyStockEffects({
       warehouseKey: normalized.warehouseKey,
       bucket,
       movementType: kind === "purchases" ? "purchase" : "sale",
+      stockSequence: stockSequence++,
       direction: kind === "purchases" ? "in" : "out",
       quantity,
       unit: item.unit,
@@ -518,8 +525,8 @@ export async function saveErpDraftDocument({ kind, payload, settings }) {
       throw new Error("Onayli belgenin belge tipi bu fazda degistirilemez.");
     }
 
-    if (existing && text(existing.status).toLowerCase() === "confirmed") {
-      throw new Error("Onayli belgeyi taslak olarak yeniden kaydedemezsin. Bu fazda sadece taslak belgeler duzenlenebilir.");
+    if (existing && !["", "draft"].includes(text(existing.status).toLowerCase())) {
+      throw new Error("Onayli veya iptal edilmiş belge değiştirilemez. Yeni bir taslak oluşturun.");
     }
 
     let draftNo = existing?.draftNo || normalized.draftNo;
@@ -582,8 +589,8 @@ export async function confirmErpDocument({ kind, payload, settings }) {
     const existingSnap = currentId ? await transaction.get(ref) : null;
     const existing = existingSnap?.exists() ? existingSnap.data() : null;
 
-    if (existing && text(existing.status).toLowerCase() === "confirmed") {
-      throw new Error("Onayli belgeyi yeniden islemek bu fazda kapali. Cift stok/finans etkisini onlemek icin simdilik sadece taslak belge duzenleme acik.");
+    if (existing && !["", "draft"].includes(text(existing.status).toLowerCase())) {
+      throw new Error("Onayli veya iptal edilmiş belge yeniden onaylanamaz. Yeni bir taslak oluşturun.");
     }
 
     let draftNo = existing?.draftNo || normalized.draftNo || null;

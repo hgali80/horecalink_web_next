@@ -142,7 +142,7 @@ export async function getErpProductStockBalance(productId) {
 
 export async function listErpStockMovements() {
   const snap = await getDocs(collection(db, ERP_COLLECTIONS.STOCK_MOVEMENTS));
-  const rows = snap.docs.map(normalizeMovement);
+  const rows = snap.docs.filter(item => !["cancelled", "canceled", "void"].includes(item.data().status)).map(normalizeMovement);
   rows.sort((a, b) => b.sortTime - a.sortTime);
   return rows;
 }

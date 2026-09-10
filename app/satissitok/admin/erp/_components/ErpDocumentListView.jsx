@@ -138,7 +138,7 @@ export default function ErpDocumentListView({
                     </Td>
                     <Td>
                       <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusTone(row.status)}`}>
-                        {row.status}
+                        {({ confirmed: "Onaylı", cancelled: "İptal", draft: "Taslak" })[row.status] || row.status}
                       </span>
                     </Td>
                     <Td>{row.draftNo || "-"}</Td>
