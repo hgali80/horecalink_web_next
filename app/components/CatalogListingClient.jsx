@@ -239,7 +239,7 @@ export default function CatalogListingClient({
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                   <Link
                     href={groupHref}
-                    className={`flex items-center gap-3 text-[15px] font-extrabold ${
+                    className={`flex flex-1 items-center gap-3 py-1 text-[15px] font-extrabold ${
                       isCurrentGroup ? "text-[#12263a]" : "text-slate-600"
                     }`}
                   >
@@ -269,7 +269,7 @@ export default function CatalogListingClient({
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                           <Link
                             href={categoryHref}
-                            className={`text-[14px] font-bold ${
+                            className={`flex-1 py-1 text-[14px] font-bold ${
                               categorySelected ? "text-[#12263a]" : "text-slate-600"
                             }`}
                           >

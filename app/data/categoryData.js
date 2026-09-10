@@ -1,6 +1,133 @@
 // app/data/categoryData.js
 
 export const categoryData = {
+  "equipment": {
+    "mainCategories": {
+      "bakir-urunler-ve-sunum-ekipmanlari": [
+        "bakir-cezveler",
+        "bakir-sunum-urunleri",
+        "bakir-tavalar"
+      ],
+      "bicaklar-ve-kesici-el-aletleri": [
+        "balik-bicaklari",
+        "bicak-bakim-ve-saklama",
+        "doner-bicaklari",
+        "et-ve-kasap-bicaklari",
+        "kasap-satirlari-ve-ozel-kesiciler",
+        "mutfak-bicaklari",
+        "pasta-pizza-bicak-ve-spatulalari",
+        "sef-bicaklari"
+      ],
+      "bulasik-ve-bar-ekipmanlari": [
+        "bar-rinser-ekipmanlari",
+        "bulasik-makineleri",
+        "bulasik-makinesi-sepetleri",
+        "buz-makineleri",
+        "on-yikama-duslari"
+      ],
+      "cay-kahve-ve-icecek-ekipmanlari": [
+        "ayran-makineleri",
+        "bar-blenderleri",
+        "cay-makineleri",
+        "kahve-ekipmanlari",
+        "meyve-suyu-sogutuculari",
+        "slush-makineleri",
+        "su-boilerleri"
+      ],
+      "gn-kaplar-ve-saklama-ekipmanlari": [
+        "gn-kapaklari",
+        "gn-suzgec-kaplari",
+        "paslanmaz-gn-kaplar",
+        "polikarbon-gn-kaplar"
+      ],
+      "hazirlik-ekipmanlari": [
+        "dilimleme-makineleri",
+        "el-blenderleri",
+        "et-kemik-testereleri",
+        "et-kiyma-makineleri",
+        "hamburger-kofte-presleri",
+        "hamur-acma-makineleri",
+        "hamur-yogurma-makineleri",
+        "patates-kesme-makineleri",
+        "sebze-dograma-makineleri"
+      ],
+      "hijyen-ve-sterilizasyon-ekipmanlari": [
+        "bicak-sterilizatorleri"
+      ],
+      "kesim-levhalari-ve-tezgah-ustleri": [
+        "kesim-tahtalari-ve-aksesuarlari",
+        "mermer-tablalar",
+        "polietilen-tablalar"
+      ],
+      "pisirme-ekipmanlari": [
+        "doner-ocaklari",
+        "elektrikli-ocaklar",
+        "fritozler",
+        "gazli-ocaklar",
+        "hot-dog-makineleri",
+        "induksiyon-ocaklari",
+        "kontakt-grill-tost-makineleri",
+        "krep-pankek-makineleri",
+        "makarna-haslama-makineleri",
+        "pleyt-izgaralar",
+        "salamander-izgaralar",
+        "sosisli-roller-grill",
+        "waffle-makineleri"
+      ],
+      "servis-ve-mutfak-el-aletleri": [
+        "buz-kaplari",
+        "cirpicilar",
+        "elek-ve-suzgecler",
+        "et-dovme-ekipmanlari",
+        "et-ve-kebap-yardimci-ekipmanlari",
+        "kepceler",
+        "kevgir-kepceler",
+        "konserve-acacaklari",
+        "kurek-ve-savaklar",
+        "olcu-kaplari",
+        "rendeler",
+        "sarimsak-eziciler",
+        "servis-kasik-catal-spatulalari",
+        "servis-masalari",
+        "spatula-ve-kaziyicilar",
+        "sut-urunleri-suzgecleri"
+      ],
+      "sicak-tutma-ve-servis-ekipmanlari": [
+        "corba-kazanlari",
+        "marmitler",
+        "patates-sicak-tutma-ekipmanlari"
+      ],
+      "sos-baharat-ve-servis-dispenserleri": [
+        "baharat-saklama-kaplari",
+        "sos-dispenserleri",
+        "sos-siseleri",
+        "tuzluk-ve-biberlikler",
+        "yag-siseleri"
+      ],
+      "storage-and-transport": [
+        "dry-ingredient-bins"
+      ],
+      "tencere-tava-ve-pisirme-kaplari": [
+        "krep-tavalari",
+        "mayonez-kaplari",
+        "silindirik-tencereler",
+        "sos-tencereleri",
+        "suzgecler",
+        "tavalar",
+        "tencereler",
+        "wok-tavalar"
+      ],
+      "yedek-parca-ve-aksesuarlar": [
+        "cay-kazani-boiler-yedek-parcalari",
+        "doner-ocagi-yedek-parcalari",
+        "et-isleme-makinesi-yedek-parcalari",
+        "fritoz-yedek-parcalari",
+        "izgara-pleyt-yedek-parcalari",
+        "kontakt-grill-yedek-parcalari",
+        "patates-kesme-makinesi-bicaklari"
+      ]
+    }
+  },
   "institutional": {
     "mainCategories": {
       "cleaning-chemicals": [
@@ -67,128 +194,6 @@ export const categoryData = {
       "storage-and-transport": [
         "koli-bantlari",
         "paketleme-strec-filmleri"
-      ]
-    }
-  },
-  "equipment": {
-    "mainCategories": {
-      "hazirlik-ekipmanlari": [
-        "sebze-dograma-makineleri",
-        "et-kiyma-makineleri",
-        "et-kemik-testereleri",
-        "hamur-acma-makineleri",
-        "hamburger-kofte-presleri",
-        "patates-kesme-makineleri",
-        "el-blenderleri"
-      ],
-      "hijyen-ve-sterilizasyon-ekipmanlari": [
-        "bicak-sterilizatorleri"
-      ],
-      "pisirme-ekipmanlari": [
-        "doner-ocaklari",
-        "fritozler",
-        "kontakt-grill-tost-makineleri",
-        "pleyt-izgaralar",
-        "waffle-makineleri",
-        "krep-pankek-makineleri",
-        "sosisli-roller-grill",
-        "hot-dog-makineleri",
-        "makarna-haslama-makineleri",
-        "gazli-ocaklar",
-        "induksiyon-ocaklari",
-        "salamander-izgaralar"
-      ],
-      "bicaklar-ve-kesici-el-aletleri": [
-        "doner-bicaklari",
-        "et-ve-kasap-bicaklari",
-        "sef-bicaklari",
-        "kasap-satirlari-ve-ozel-kesiciler",
-        "balik-bicaklari",
-        "mutfak-bicaklari",
-        "pasta-pizza-bicak-ve-spatulalari",
-        "bicak-bakim-ve-saklama"
-      ],
-      "yedek-parca-ve-aksesuarlar": [
-        "doner-ocagi-yedek-parcalari",
-        "fritoz-yedek-parcalari",
-        "kontakt-grill-yedek-parcalari",
-        "izgara-pleyt-yedek-parcalari",
-        "cay-kazani-boiler-yedek-parcalari",
-        "patates-kesme-makinesi-bicaklari",
-        "et-isleme-makinesi-yedek-parcalari"
-      ],
-      "sicak-tutma-ve-servis-ekipmanlari": [
-        "patates-sicak-tutma-ekipmanlari",
-        "marmitler",
-        "corba-kazanlari"
-      ],
-      "cay-kahve-ve-icecek-ekipmanlari": [
-        "cay-makineleri",
-        "su-boilerleri",
-        "kahve-ekipmanlari",
-        "slush-makineleri",
-        "meyve-suyu-sogutuculari",
-        "ayran-makineleri"
-      ],
-      "bakir-urunler-ve-sunum-ekipmanlari": [
-        "bakir-sunum-urunleri",
-        "bakir-tavalar",
-        "bakir-cezveler"
-      ],
-      "bulasik-ve-bar-ekipmanlari": [
-        "bulasik-makineleri",
-        "on-yikama-duslari",
-        "bulasik-makinesi-sepetleri",
-        "bar-rinser-ekipmanlari",
-        "buz-makineleri"
-      ],
-      "servis-ve-mutfak-el-aletleri": [
-        "spatula-ve-kaziyicilar",
-        "et-dovme-ekipmanlari",
-        "et-ve-kebap-yardimci-ekipmanlari",
-        "sarimsak-eziciler",
-        "cirpicilar",
-        "kepceler",
-        "kevgir-kepceler",
-        "elek-ve-suzgecler",
-        "sut-urunleri-suzgecleri",
-        "servis-kasik-catal-spatulalari",
-        "servis-masalari",
-        "rendeler",
-        "kurek-ve-savaklar",
-        "buz-kaplari",
-        "olcu-kaplari"
-      ],
-      "gn-kaplar-ve-saklama-ekipmanlari": [
-        "paslanmaz-gn-kaplar",
-        "gn-kapaklari",
-        "polikarbon-gn-kaplar",
-        "gn-suzgec-kaplari"
-      ],
-      "storage-and-transport": [
-        "dry-ingredient-bins"
-      ],
-      "kesim-levhalari-ve-tezgah-ustleri": [
-        "kesim-tahtalari-ve-aksesuarlari",
-        "polietilen-tablalar",
-        "mermer-tablalar"
-      ],
-      "sos-baharat-ve-servis-dispenserleri": [
-        "baharat-saklama-kaplari",
-        "sos-dispenserleri",
-        "sos-siseleri",
-        "yag-siseleri",
-        "tuzluk-ve-biberlikler"
-      ],
-      "tencere-tava-ve-pisirme-kaplari": [
-        "tencereler",
-        "silindirik-tencereler",
-        "suzgecler",
-        "mayonez-kaplari",
-        "tavalar",
-        "krep-tavalari",
-        "wok-tavalar",
-        "sos-tencereleri"
       ]
     }
   },
