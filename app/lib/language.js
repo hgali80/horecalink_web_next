@@ -7,10 +7,10 @@ export const defaultLanguage = "ru";
 export const languageStorageKey = "hl_lang";
 
 export const languageOptions = [
-  { code: "kz", label: "Qazaqsha" },
-  { code: "ru", label: "Russkiy" },
-  { code: "tr", label: "Turkce" },
-  { code: "en", label: "English" },
+  { code: "kz", shortLabel: "KK", label: "Қазақша", flag: "/flags/kz.svg" },
+  { code: "ru", shortLabel: "RU", label: "Русский", flag: "/flags/ru.svg" },
+  { code: "tr", shortLabel: "TR", label: "Türkçe", flag: "/flags/tr.svg" },
+  { code: "en", shortLabel: "EN", label: "English", flag: "/flags/gb.svg" },
 ];
 
 export const translationTables = {
