@@ -42,6 +42,7 @@ export function buildErpSaleFromOffer({ offer, offerId, docType, cari, products 
   const defaultChoice = (rows = []) => rows.find((row) => row.default && row.active !== false) || rows.find((row) => row.active !== false);
   return {
     docType,
+    vatMode: "included",
     documentDate: new Date().toISOString().slice(0, 10),
     cariId: cari.id,
     cariName: text(cari.name),

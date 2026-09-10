@@ -1,5 +1,7 @@
 "use client";
 
+import { calculateErpVatLine, summarizeErpVat } from "../_services/erpVat";
+
 import ErpCashAccountSelect from "./ErpCashAccountSelect";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -240,6 +242,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
   const [form, setForm] = useState({
     id: "",
     docType: "R",
+    vatMode: "included",
     documentDate: defaultDate(),
     cariId: "",
     cariName: "",
@@ -286,30 +289,34 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       const balance = stockBalanceMap.get(text(item.productId)) || null;
       const stockCost = resolveStockCost(balance, stockSourceType);
       const manualUnitCost = isSales ? round2(item.manualUnitCost) : 0;
+      const vat = calculateErpVatLine(quantity, unitPrice, form.docType, form.vatMode);
       const baseCostUnit = isSales
         ? manualUnitCost > 0
           ? manualUnitCost
           : stockCost.unitCost
-        : round2(unitPrice);
-      const baseCostLineTotal = round2(baseCostUnit * quantity);
-      const lineTotal = round2(quantity * unitPrice);
+        : quantity > 0 ? round2(vat.netTotal / quantity) : 0;
+      const baseCostLineTotal = isSales ? round2(baseCostUnit * quantity) : vat.netTotal;
+      const lineTotal = vat.lineTotal;
       const salesHints = resolveErpSalesPriceHints({
         rows: priceMemory.sales,
         productId: item.productId,
         cariId: form.cariId,
         docType: form.docType,
+      vatMode: form.vatMode,
       });
       const purchaseHints = resolveErpPurchasePriceHints({
         rows: priceMemory.purchases,
         productId: item.productId,
         cariId: form.cariId,
         docType: form.docType,
+      vatMode: form.vatMode,
       });
 
       return {
         ...item,
         quantity,
         unitPrice,
+        ...vat,
         lineTotal,
         stockSourceType,
         manualUnitCost: manualUnitCost > 0 ? manualUnitCost : "",
@@ -323,8 +330,9 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
         balance,
       };
     });
-  }, [form.cariId, form.docType, form.items, isSales, priceMemory.purchases, priceMemory.sales, stockBalanceMap]);
+  }, [form.cariId, form.docType, form.vatMode, form.items, isSales, priceMemory.purchases, priceMemory.sales, stockBalanceMap]);
 
+  const vatSummary = useMemo(() => summarizeErpVat(calculatedItems), [calculatedItems]);
   const goodsTotal = useMemo(
     () => round2(calculatedItems.reduce((sum, item) => sum + num(item.lineTotal, 0), 0)),
     [calculatedItems]
@@ -339,8 +347,8 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
     [additionalCostTotal, calculatedItems]
   );
   const documentTotal = useMemo(
-    () => round2(isSales ? goodsTotal : goodsTotal + additionalCostTotal),
-    [additionalCostTotal, goodsTotal, isSales]
+    () => round2(vatSummary.grossTotal + (isSales ? 0 : additionalCostTotal)),
+    [additionalCostTotal, vatSummary.grossTotal, isSales]
   );
   const costOfGoods = useMemo(
     () => round2(costedItems.reduce((sum, item) => sum + num(item.baseCostLineTotal, 0), 0)),
@@ -399,6 +407,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
               sourceCommercialOfferNo: text(existingDocument.sourceCommercialOfferNo),
               cariSnapshot: existingDocument.cariSnapshot || null,
               docType: existingDocument.docType || "R",
+              vatMode: existingDocument.vatMode || "unknown",
               documentDate: text(existingDocument.documentDate) || defaultDate(),
               cariId: text(existingDocument.cariId || existingDocument?.cariSnapshot?.id),
               cariName: text(existingDocument.cariName || existingDocument?.cariSnapshot?.name),
@@ -481,6 +490,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       productId,
       cariId: form.cariId,
       docType: form.docType,
+      vatMode: form.vatMode,
     });
   }
 
@@ -490,6 +500,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       productId,
       cariId: form.cariId,
       docType: form.docType,
+      vatMode: form.vatMode,
     });
   }
 
@@ -724,6 +735,15 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       {error ? <Banner tone="red" text={error} /> : null}
 
       <fieldset disabled={saving || ["confirmed", "cancelled"].includes(loadedStatus)} className="min-w-0 space-y-6">
+        {form.docType === "R" ? <section className="rounded-2xl border border-slate-200 bg-white p-5">
+          <label className="block text-sm font-bold">KDV %16 — birim fiyat</label>
+          <select aria-label="KDV fiyat türü" className="mt-2 rounded-xl border p-3" value={form.vatMode} onChange={(e) => setField("vatMode", e.target.value)}>
+            {form.vatMode === "unknown" ? <option value="unknown">Eski kayıt — KDV bilgisi yok</option> : null}
+            <option value="included">KDV dahil</option>
+            <option value="excluded">KDV hariç</option>
+          </select>
+          <p className="mt-2 text-sm text-slate-600">KDV dahil fiyatın içinden ayrıştırılır; KDV hariç fiyatın üzerine eklenir. Ek masraf ayrı maliyet olarak eklenir, bu alana ayrıca KDV hesaplanmaz.</p>
+        </section> : null}
       <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SelectField
@@ -967,7 +987,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                           className={inputClassName("w-[120px]")}
                         />
                       </td>
-                      <td className="px-3 py-3 font-semibold text-slate-900">{fmtMoney(item.lineTotal)} KZT</td>
+                      <td className="px-3 py-3 font-semibold text-slate-900">{fmtMoney(item.grossTotal)} KZT</td>
                       <td className="px-3 py-3">
                         {isSales ? (
                           <select
@@ -1094,6 +1114,12 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                                   <InfoRow label="Satir tutar" value={`${fmtMoney(item.lineTotal)} KZT`} />
                                 </>
                               )}
+                              {form.docType === "R" && form.vatMode !== "unknown" ? <>
+                                <InfoRow label="KDV oranı" value="%16" />
+                                <InfoRow label="KDV hariç tutar" value={`${fmtMoney(item.netTotal)} KZT`} />
+                                <InfoRow label="KDV tutarı" value={`${fmtMoney(item.vatTotal)} KZT`} />
+                                <InfoRow label="KDV dahil tutar" value={`${fmtMoney(item.grossTotal)} KZT`} />
+                              </> : form.docType === "R" ? <p className="text-sm text-amber-700">Bu eski kayıtta KDV bilgisi yok.</p> : null}
                               <TextAreaField
                                 label="Satir Notu"
                                 value={item.notes || ""}
@@ -1143,7 +1169,8 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <MiniMetric label="Ara Toplam" value={`${fmtMoney(goodsTotal)} KZT`} tone="slate" />
+            <MiniMetric label={form.docType === "R" && form.vatMode !== "unknown" ? "KDV Hariç Ürün Toplamı" : "Ara Toplam"} value={`${fmtMoney(goodsTotal)} KZT`} tone="slate" />
+            {form.docType === "R" && form.vatMode !== "unknown" ? <MiniMetric label="Toplam KDV %16" value={`${fmtMoney(vatSummary.vatTotal)} KZT`} tone="blue" /> : null}
             <MiniMetric label="Ek Masraf" value={`${fmtMoney(additionalCostTotal)} KZT`} tone="amber" />
             <MiniMetric label="Belge Toplami" value={`${fmtMoney(documentTotal)} KZT`} tone="blue" />
             <MiniMetric label="Toplam Maliyet" value={`${fmtMoney(totalCost)} KZT`} tone="red" />

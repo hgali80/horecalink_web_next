@@ -34,6 +34,14 @@ function buildPriceHint(label, value, meta = {}) {
   };
 }
 
+function hintPrice(match, docType, vatMode) {
+  const price = num(match.item.unitPrice);
+  if (match.row.docType !== "R" || docType !== "R" ||
+      !["included", "excluded"].includes(match.row.vatMode) ||
+      !["included", "excluded"].includes(vatMode) || match.row.vatMode === vatMode) return price;
+  return vatMode === "included" ? price * 1.16 : price / 1.16;
+}
+
 function findLatestItem(rows, matcher) {
   for (const row of rows) {
     const items = Array.isArray(row.items) ? row.items : [];
@@ -58,7 +66,7 @@ export async function getErpPriceMemoryDataset() {
   };
 }
 
-export function resolveErpSalesPriceHints({ rows, productId, cariId, docType }) {
+export function resolveErpSalesPriceHints({ rows, productId, cariId, docType, vatMode }) {
   const safeRows = Array.isArray(rows) ? rows : [];
   const matchProduct = (item) => text(item.productId) === text(productId);
   const sameCari = (row) => text(row.cariId || row?.cariSnapshot?.id) === text(cariId);
@@ -70,25 +78,25 @@ export function resolveErpSalesPriceHints({ rows, productId, cariId, docType }) 
 
   return {
     lastSale: general
-      ? buildPriceHint("Son satis", general.item.unitPrice, {
+      ? buildPriceHint("Son satis", hintPrice(general, docType, vatMode), {
           documentNo: text(general.row.documentNo),
           cariName: text(general.row.cariName),
         })
       : null,
     lastSaleByCari: byCari
-      ? buildPriceHint("Bu cariye son satis", byCari.item.unitPrice, {
+      ? buildPriceHint("Bu cariye son satis", hintPrice(byCari, docType, vatMode), {
           documentNo: text(byCari.row.documentNo),
         })
       : null,
     lastSaleByDocType: byDocType
-      ? buildPriceHint("Bu evrak turunde son satis", byDocType.item.unitPrice, {
+      ? buildPriceHint("Bu evrak turunde son satis", hintPrice(byDocType, docType, vatMode), {
           documentNo: text(byDocType.row.documentNo),
         })
       : null,
   };
 }
 
-export function resolveErpPurchasePriceHints({ rows, productId, cariId, docType }) {
+export function resolveErpPurchasePriceHints({ rows, productId, cariId, docType, vatMode }) {
   const safeRows = Array.isArray(rows) ? rows : [];
   const matchProduct = (item) => text(item.productId) === text(productId);
   const sameCari = (row) => text(row.cariId || row?.cariSnapshot?.id) === text(cariId);
@@ -100,18 +108,18 @@ export function resolveErpPurchasePriceHints({ rows, productId, cariId, docType 
 
   return {
     lastPurchase: general
-      ? buildPriceHint("Son alis", general.item.unitPrice, {
+      ? buildPriceHint("Son alis", hintPrice(general, docType, vatMode), {
           documentNo: text(general.row.documentNo),
           cariName: text(general.row.cariName),
         })
       : null,
     lastPurchaseByCari: byCari
-      ? buildPriceHint("Bu cariden son alis", byCari.item.unitPrice, {
+      ? buildPriceHint("Bu cariden son alis", hintPrice(byCari, docType, vatMode), {
           documentNo: text(byCari.row.documentNo),
         })
       : null,
     lastPurchaseByDocType: byDocType
-      ? buildPriceHint("Bu evrak turunde son alis", byDocType.item.unitPrice, {
+      ? buildPriceHint("Bu evrak turunde son alis", hintPrice(byDocType, docType, vatMode), {
           documentNo: text(byDocType.row.documentNo),
         })
       : null,

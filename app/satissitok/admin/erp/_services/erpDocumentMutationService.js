@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
+import { calculateErpVatLine, summarizeErpVat } from "./erpVat";
 import { db } from "@/firebase";
 import { ERP_COLLECTIONS } from "./erpCollections";
 import { assertErpCashAccountUsable } from "./erpCashAccountRules";
@@ -63,7 +64,7 @@ function getPaymentDirection(kind) {
   return kind === "sales" ? "in" : "out";
 }
 
-function normalizeItems(items = [], fallbackBucket = "R") {
+function normalizeItems(items = [], fallbackBucket = "R", vatMode = "unknown") {
   return (Array.isArray(items) ? items : [])
     .map((item, index) => {
       const quantity = num(item?.quantity, 0);
@@ -77,7 +78,7 @@ function normalizeItems(items = [], fallbackBucket = "R") {
         unit: text(item?.unit || "adet"),
         quantity,
         unitPrice,
-        lineTotal: round2(quantity * unitPrice),
+        ...calculateErpVatLine(quantity, unitPrice, fallbackBucket, vatMode),
         stockSourceType: text(item?.stockSourceType).toUpperCase() === "F" ? "F" : fallbackBucket,
         stockTracked: item?.stockTracked !== false,
         webPublished: item?.webPublished === true,
@@ -97,7 +98,7 @@ function allocateAdditionalCost(items = [], additionalCostTotal = 0) {
     return rows.map((item) => ({
       ...item,
       allocatedAdditionalCost: 0,
-      effectiveUnitCost: round2(item.unitPrice),
+      effectiveUnitCost: item.quantity > 0 ? round2(item.lineTotal / item.quantity) : 0,
       effectiveLineCost: round2(item.lineTotal),
     }));
   }
@@ -212,13 +213,15 @@ function buildCariMovementDirection(kind) {
 function normalizePayload(kind, payload = {}) {
   const docType = normalizeDocType(payload.docType);
   const documentDate = text(payload.documentDate) || new Date().toISOString().slice(0, 10);
-  const items = normalizeItems(payload.items, docType);
+  const vatMode = ["included", "excluded"].includes(payload.vatMode) ? payload.vatMode : "unknown";
+  const items = normalizeItems(payload.items, docType, vatMode);
+  const vatSummary = summarizeErpVat(items);
   const additionalCostTotal = round2(payload.additionalCostTotal);
   const costSummary = buildCostSummary(kind, items, additionalCostTotal);
   const totalAmount =
     kind === "purchases"
-      ? round2(costSummary.goodsTotal + costSummary.additionalCostTotal)
-      : round2(costSummary.goodsTotal);
+      ? round2(vatSummary.grossTotal + costSummary.additionalCostTotal)
+      : round2(vatSummary.grossTotal);
   const paidAmount = payload.instantPaymentEnabled ? num(payload.paidAmount, 0) : 0;
   const cariId = text(payload.cariId);
   const cariName = text(payload.cariName);
@@ -239,6 +242,9 @@ function normalizePayload(kind, payload = {}) {
       : null,
     warehouseKey: text(payload.warehouseKey),
     totalAmount,
+    vatMode,
+    vatRate: docType === "R" && vatMode !== "unknown" ? 16 : 0,
+    vatSummary,
     goodsTotal: costSummary.goodsTotal,
     additionalCostTotal: costSummary.additionalCostTotal,
     items: costSummary.items,

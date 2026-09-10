@@ -55,6 +55,7 @@ const context = vm.createContext({
 });
 for (const [file, exports] of [
   ["erpCollections.js", ["ERP_COLLECTIONS"]],
+  ["erpVat.js", ["calculateErpVatLine", "summarizeErpVat"]],
   ["erpOfferConversion.js", ["buildErpSaleFromOffer"]],
   ["erpDocumentMutationService.js", ["convertCommercialOfferToSale", "saveErpDraftDocument", "confirmErpDocument"]],
 ]) {
