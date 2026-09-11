@@ -67,10 +67,11 @@ export async function listErpDocuments(collectionName) {
       paymentStatus: text(data?.settlementSummary?.status || data?.paymentStatus || "open") || "open",
       dateLabel: formatErpDate(data.documentDate || data.invoiceDate || data.createdAt),
       sortTime: resolveSortTime(data.documentDate || data.invoiceDate || data.createdAt),
+      confirmationSortTime: resolveSortTime(data.confirmedAt || data.createdAt),
     };
   });
 
-  rows.sort((a, b) => b.sortTime - a.sortTime);
+  rows.sort((a, b) => b.sortTime - a.sortTime || b.confirmationSortTime - a.confirmationSortTime);
   return rows;
 }
 

@@ -21,6 +21,7 @@ import {
   getErpPriceMemoryDataset,
   resolveErpPurchasePriceHints,
   resolveErpSalesPriceHints,
+  refreshAutomaticSalesPrices,
 } from "../_services/erpPriceMemoryService";
 import { listErpProductOptions } from "../_services/erpProductsService";
 import { getErpSettings } from "../_services/erpSettingsService";
@@ -524,17 +525,28 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
     return {
       ...buildProductSeed(product, form.docType),
       unitPrice: resolveInitialUnitPrice(product),
+      automaticSalesPrice: isSales,
+      defaultSalesPrice: num(product.price, 0),
     };
   }
 
   function setField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      if (isSales && ["docType", "vatMode"].includes(field)) {
+        next.items = refreshAutomaticSalesPrices(current.items || [], priceMemory.sales, next);
+      }
+      return next;
+    });
   }
 
   function updateItem(rowId, field, value) {
     setForm((current) => ({
       ...current,
-      items: (current.items || []).map((item) => (item.rowId === rowId ? { ...item, [field]: value } : item)),
+      items: (current.items || []).map((item) => (item.rowId === rowId ? {
+        ...item, [field]: value,
+        ...(field === "unitPrice" ? { automaticSalesPrice: false } : {}),
+      } : item)),
     }));
   }
 
@@ -590,6 +602,9 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       cariId: value,
       cariName: selected?.name || "",
       cariSnapshot: null,
+      items: isSales
+        ? refreshAutomaticSalesPrices(current.items || [], priceMemory.sales, { ...current, cariId: value })
+        : current.items,
     }));
   }
 
@@ -634,6 +649,8 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
               productName: productSeed.productName,
               unit: productSeed.unit,
               unitPrice: productSeed.unitPrice,
+              automaticSalesPrice: productSeed.automaticSalesPrice,
+              defaultSalesPrice: productSeed.defaultSalesPrice,
               stockTracked: productSeed.stockTracked,
               webPublished: productSeed.webPublished,
             }
@@ -986,6 +1003,20 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                           onChange={(event) => updateItem(item.rowId, "unitPrice", event.target.value)}
                           className={inputClassName("w-[120px]")}
                         />
+                        {isSales && form.cariId ? (
+                          <div className="mt-1 max-w-[180px] text-[11px] leading-4 text-slate-500">
+                            {item.salesHints.lastSaleByCari ? (
+                              <>
+                                <div>Bu cariye son satış: <span className="font-semibold text-slate-700">{priceText(item.salesHints.lastSaleByCari)}</span></div>
+                                <div>{item.salesHints.lastSaleByCari.sourceDocType === "F"
+                                  ? "F · Kayıtlı fiyat"
+                                  : item.salesHints.lastSaleByCari.sourceVatMode === "unknown"
+                                    ? "Eski kayıt · KDV bilgisi yok"
+                                    : form.docType === "R" ? `KDV ${form.vatMode === "included" ? "dahil" : form.vatMode === "excluded" ? "hariç" : "bilgisi kaynak belgede"}` : "R · Kayıtlı fiyat"}</div>
+                              </>
+                            ) : "Bu cariye önceki satış yok"}
+                          </div>
+                        ) : null}
                       </td>
                       <td className="px-3 py-3 font-semibold text-slate-900">{fmtMoney(item.grossTotal)} KZT</td>
                       <td className="px-3 py-3">

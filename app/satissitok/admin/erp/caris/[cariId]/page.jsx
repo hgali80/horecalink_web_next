@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getErpCariDashboard } from "../../_services/erpCarisService";
+import ErpCustomerProducts from "../../_components/ErpCustomerProducts";
 
 function fmtMoney(value) {
   return `${Number(value || 0).toLocaleString("tr-TR", {
@@ -95,6 +96,8 @@ export default function ErpCariDetailPage({ params }) {
         <MetricCard label="Toplam Satinalma" value={fmtMoney(summary.totalPurchases)} />
         <MetricCard label="Finans Hareketi" value={String(summary.movementCount)} />
       </div>
+
+      <ErpCustomerProducts documents={documents} />
 
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <section className="space-y-5 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">

@@ -86,6 +86,8 @@ export function resolveErpSalesPriceHints({ rows, productId, cariId, docType, va
     lastSaleByCari: byCari
       ? buildPriceHint("Bu cariye son satis", hintPrice(byCari, docType, vatMode), {
           documentNo: text(byCari.row.documentNo),
+          sourceDocType: byCari.row.docType,
+          sourceVatMode: byCari.row.vatMode || "unknown",
         })
       : null,
     lastSaleByDocType: byDocType
@@ -94,6 +96,16 @@ export function resolveErpSalesPriceHints({ rows, productId, cariId, docType, va
         })
       : null,
   };
+}
+
+// Only newly selected, automatically priced rows follow a changed customer/tax mode.
+// Reopened documents and manually edited prices are never overwritten here.
+export function refreshAutomaticSalesPrices(items, rows, { cariId, docType, vatMode }) {
+  return items.map((item) => {
+    if (!item.automaticSalesPrice || !item.productId) return item;
+    const hints = resolveErpSalesPriceHints({ rows, productId: item.productId, cariId, docType, vatMode });
+    return { ...item, unitPrice: round2(hints.lastSaleByCari?.value ?? hints.lastSale?.value ?? item.defaultSalesPrice ?? 0) };
+  });
 }
 
 export function resolveErpPurchasePriceHints({ rows, productId, cariId, docType, vatMode }) {
