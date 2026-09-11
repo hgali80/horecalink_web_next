@@ -1,6 +1,7 @@
 "use client";
 
 import { listErpCaris } from "./erpCarisService";
+import { buildReportVat } from "./erpReportVat";
 import { listErpDocuments } from "./erpDocumentsService";
 import { listErpCashAccounts, listErpCashMovements } from "./erpFinanceService";
 import { ERP_COLLECTIONS } from "./erpCollections";
@@ -436,6 +437,7 @@ export async function getErpReportDashboard(filters = {}) {
       totalProductCount: stockBalances.length,
     },
     salesSummary,
+    vatSummary: buildReportVat(filteredSales, filteredPurchases),
     purchaseSummary,
     salesProfitability,
     purchaseCosts,

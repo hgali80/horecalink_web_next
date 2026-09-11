@@ -42,6 +42,18 @@ export async function exportErpReportDashboardToExcel(dashboard) {
     { metric: "Urun Kapsami", value: dashboard.overview.totalProductCount },
   ]);
 
+  if (dashboard.vatSummary) {
+    addSheet(XLSX, workbook, "KDV Ozeti", [
+      { metric: "Baslangic", value: startDate || "Tum Tarihler" },
+      { metric: "Bitis", value: endDate || "Tum Tarihler" },
+      { metric: "Satis KDV (KZT)", value: dashboard.vatSummary.salesVat },
+      { metric: "Alis KDV (KZT)", value: dashboard.vatSummary.purchaseVat },
+      { metric: "Tahmini net KDV (KZT)", value: dashboard.vatSummary.netVat },
+      { metric: "KDV bilgisi eksik R belge", value: dashboard.vatSummary.missingCount },
+      { metric: "Kapsam", value: "Onayli R belgeleri. Devreden KDV, indirim uygunlugu ve beyanname duzeltmeleri dahil degildir. Kesin tahakkuk degildir. Eksik belgeler hesaba katilmaz." },
+    ]);
+  }
+
   addSheet(XLSX, workbook, "Platform Satis", (dashboard.platformSales || []).map((row) => ({
     Platform: row.label,
     Belge: row.count,

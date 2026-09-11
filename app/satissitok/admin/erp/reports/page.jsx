@@ -27,6 +27,16 @@ function defaultFilters() {
   };
 }
 
+function MetricValue({ value }) {
+  const money = typeof value === "string" && value.endsWith(" KZT");
+  return (
+    <div className="flex min-w-0 items-baseline gap-2 overflow-x-auto whitespace-nowrap pb-1 tabular-nums">
+      <span>{money ? value.slice(0, -4) : value}</span>
+      {money ? <span className="text-xs font-semibold tracking-normal opacity-60">KZT</span> : null}
+    </div>
+  );
+}
+
 function StatCard({ label, value, hint, tone = "slate" }) {
   const toneMap = {
     slate: "border-slate-200 bg-white text-slate-900",
@@ -38,8 +48,8 @@ function StatCard({ label, value, hint, tone = "slate" }) {
 
   return (
     <div className={`min-w-0 rounded-[24px] border p-5 shadow-sm ${toneMap[tone] || toneMap.slate}`}>
-      <div className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-slate-500">{label}</div>
-      <div className="mt-3 break-words text-2xl font-black leading-tight tracking-[-0.03em] tabular-nums 2xl:text-3xl">{value}</div>
+      <div className="text-xs font-semibold tracking-wide text-slate-500">{label}</div>
+      <div className="mt-3 text-[clamp(1.125rem,1.7vw,1.75rem)] font-bold leading-tight tracking-[-0.03em]"><MetricValue value={value} /></div>
       {hint ? <div className="mt-2 text-sm text-slate-600">{hint}</div> : null}
     </div>
   );
@@ -56,15 +66,15 @@ function MiniMetric({ label, value, tone = "slate" }) {
 
   return (
     <div className={`min-w-0 rounded-[20px] p-4 ${toneMap[tone] || toneMap.slate}`}>
-      <div className="text-xs font-bold uppercase tracking-[0.18em] opacity-70">{label}</div>
-      <div className="mt-2 break-words text-xl font-black leading-tight tabular-nums 2xl:text-2xl">{value}</div>
+      <div className="text-xs font-semibold opacity-70">{label}</div>
+      <div className="mt-2 text-lg font-bold leading-tight"><MetricValue value={value} /></div>
     </div>
   );
 }
 
 function SummaryCard({ title, summary, href, accentClass }) {
   return (
-    <div className={`rounded-[28px] border bg-white p-6 shadow-sm ${accentClass}`}>
+    <div className={`min-w-0 rounded-[28px] border bg-white p-6 shadow-sm ${accentClass}`}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-black tracking-[-0.03em] text-[#1d3246]">{title}</h2>
@@ -80,7 +90,7 @@ function SummaryCard({ title, summary, href, accentClass }) {
         </Link>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4">
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <MiniMetric label="Onayli Toplam" value={`${formatMoney(summary.confirmedTotal)} KZT`} tone="slate" />
         <MiniMetric label="R Belge" value={`${formatMoney(summary.rTotal)} KZT`} tone="green" />
         <MiniMetric label="F Belge" value={`${formatMoney(summary.fTotal)} KZT`} tone="blue" />
@@ -92,7 +102,7 @@ function SummaryCard({ title, summary, href, accentClass }) {
 
 function ProfitSummaryCard({ summary }) {
   return (
-    <div className="rounded-[28px] border border-emerald-200 bg-white p-6 shadow-sm">
+    <div className="min-w-0 rounded-[28px] border border-emerald-200 bg-white p-6 shadow-sm">
       <div className="space-y-2">
         <h2 className="text-xl font-black tracking-[-0.03em] text-[#1d3246]">Satis Karlilik Ozeti</h2>
         <p className="text-sm leading-6 text-slate-600">
@@ -100,7 +110,7 @@ function ProfitSummaryCard({ summary }) {
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4">
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <MiniMetric label="Ciro" value={`${formatMoney(summary.totalRevenue)} KZT`} tone="green" />
         <MiniMetric label="Gerceklesen Maliyet" value={`${formatMoney(summary.totalCost)} KZT`} tone="red" />
         <MiniMetric label="Brut Kar" value={`${formatMoney(summary.totalGrossProfit)} KZT`} tone="blue" />
@@ -119,7 +129,7 @@ function ProfitSummaryCard({ summary }) {
 
 function PurchaseCostSummaryCard({ summary }) {
   return (
-    <div className="rounded-[28px] border border-blue-200 bg-white p-6 shadow-sm">
+    <div className="min-w-0 rounded-[28px] border border-blue-200 bg-white p-6 shadow-sm">
       <div className="space-y-2">
         <h2 className="text-xl font-black tracking-[-0.03em] text-[#1d3246]">Satinalma Maliyet Ozeti</h2>
         <p className="text-sm leading-6 text-slate-600">
@@ -127,7 +137,7 @@ function PurchaseCostSummaryCard({ summary }) {
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4">
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <MiniMetric label="Mal Bedeli" value={`${formatMoney(summary.totalGoods)} KZT`} tone="blue" />
         <MiniMetric label="Ek Masraf" value={`${formatMoney(summary.totalAdditional)} KZT`} tone="amber" />
         <MiniMetric label="Toplam Maliyet" value={`${formatMoney(summary.totalLanded)} KZT`} tone="red" />
@@ -144,7 +154,7 @@ function PurchaseCostSummaryCard({ summary }) {
 
 function ProductProfitSummaryCard({ summary }) {
   return (
-    <div className="rounded-[28px] border border-amber-200 bg-white p-6 shadow-sm">
+    <div className="min-w-0 rounded-[28px] border border-amber-200 bg-white p-6 shadow-sm">
       <div className="space-y-2">
         <h2 className="text-xl font-black tracking-[-0.03em] text-[#1d3246]">Urun Bazli Karlilik</h2>
         <p className="text-sm leading-6 text-slate-600">
@@ -152,7 +162,7 @@ function ProductProfitSummaryCard({ summary }) {
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4">
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <MiniMetric label="Urun Sayisi" value={summary.productCount} tone="amber" />
         <MiniMetric label="Satilan Miktar" value={formatMoney(summary.totalSoldQty)} tone="blue" />
         <MiniMetric label="Toplam Kar" value={`${formatMoney(summary.totalGrossProfit)} KZT`} tone="green" />
@@ -706,56 +716,51 @@ export default function ErpReportsPage() {
 
       {!loading && !error && dashboard ? (
         <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Net satis hacmi"
-              value={`${formatMoney(dashboard.overview.confirmedSalesTotal)} KZT`}
-              hint="Onayli satis belgeleri"
-              tone="green"
-            />
-            <StatCard
-              label="Net alim hacmi"
-              value={`${formatMoney(dashboard.overview.confirmedPurchaseTotal)} KZT`}
-              hint="Onayli satinalma belgeleri"
-              tone="blue"
-            />
-            <StatCard
-              label="Tahsil edilecek"
-              value={`${formatMoney(dashboard.overview.receivableOpenTotal)} KZT`}
-              hint="Acik satis bakiyesi"
-              tone="amber"
-            />
-            <StatCard
-              label="Odeme bekleyen"
-              value={`${formatMoney(dashboard.overview.payableOpenTotal)} KZT`}
-              hint="Acik satinalma bakiyesi"
-              tone="red"
-            />
-            <StatCard
-              label="Kasa banka toplam"
-              value={`${formatMoney(dashboard.overview.totalCashBalance)} KZT`}
-              hint="Aktif ve pasif KZT hesaplari"
-              tone="slate"
-            />
-            <StatCard
-              label="Negatif stok"
-              value={dashboard.overview.negativeStockCount}
-              hint={`${dashboard.stockSnapshot.positiveCount} pozitif, ${dashboard.stockSnapshot.zeroCount} sifir stok`}
-              tone="red"
-            />
-            <StatCard
-              label="Aktif cari"
-              value={dashboard.overview.activeCariCount}
-              hint={`${dashboard.cariSnapshot.inactiveCount} pasif cari kaydi var`}
-              tone="blue"
-            />
-            <StatCard
-              label="Urun kapsami"
-              value={dashboard.overview.totalProductCount}
-              hint="Anlik stok listesine dahil urunler"
-              tone="slate"
-            />
-          </div>
+          <section className="space-y-4" aria-label="Dönem özeti">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-bold text-[#1d3246]">Dönem özeti</h2>
+              <span className="text-sm text-slate-500">{rangeLabel}</span>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <StatCard label="Satış toplamı" value={`${formatMoney(dashboard.overview.confirmedSalesTotal)} KZT`} hint="Onaylı belgelerin toplam tutarı" tone="green" />
+              <StatCard label="Alış toplamı" value={`${formatMoney(dashboard.overview.confirmedPurchaseTotal)} KZT`} hint="Onaylı satınalma belgeleri" tone="blue" />
+              <StatCard label="Brüt kâr" value={`${formatMoney(dashboard.salesProfitability.summary.totalGrossProfit)} KZT`} hint="Belge toplamı − gerçekleşen maliyet" />
+              <StatCard label="Brüt kâr marjı" value={formatPercent(dashboard.salesProfitability.summary.marginRate)} hint="Mevcut kârlılık raporuna göre" />
+            </div>
+          </section>
+
+          <section className="rounded-[24px] border border-blue-200 bg-white p-5 sm:p-6" aria-label="KDV özeti">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-[#1d3246]">Tahmini net KDV</h2>
+                <p className="mt-1 text-sm text-slate-500">{rangeLabel} · Onaylı R belgelerindeki kayıtlı KDV</p>
+              </div>
+              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">{dashboard.vatSummary.documentCount} R belge</span>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <MiniMetric label="Satış KDV’si" value={`${formatMoney(dashboard.vatSummary.salesVat)} KZT`} />
+              <MiniMetric label="Alış KDV’si" value={`${formatMoney(dashboard.vatSummary.purchaseVat)} KZT`} />
+              <MiniMetric label={dashboard.vatSummary.netVat < 0 ? "KDV farkı · alış fazlası" : "KDV farkı · satış − alış"} value={`${formatMoney(dashboard.vatSummary.netVat)} KZT`} tone="blue" />
+            </div>
+            <p className="mt-4 text-sm leading-6 text-slate-500">Önceki dönemden devreden KDV, indirim uygunluğu ve beyanname düzeltmeleri bu hesaba dahil değildir. Kesin tahakkuk tutarı değildir.</p>
+            {dashboard.vatSummary.missingCount > 0 ? <p role="status" className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{dashboard.vatSummary.missingCount} onaylı R belgede KDV bilgisi eksik. Bu belgeler hesaba katılmadı; gösterilen KDV farkı eksiktir.</p> : null}
+          </section>
+
+          <section className="space-y-4" aria-label="Tahsilat ve ödeme">
+            <h2 className="text-lg font-bold text-[#1d3246]">Tahsilat ve ödeme</h2>
+            <div className="grid gap-4 md:grid-cols-3">
+              <StatCard label="Tahsil edilecek" value={`${formatMoney(dashboard.overview.receivableOpenTotal)} KZT`} hint="Seçili tarihlerdeki satışların kalan bakiyesi" tone="amber" />
+              <StatCard label="Ödeme bekleyen" value={`${formatMoney(dashboard.overview.payableOpenTotal)} KZT`} hint="Seçili tarihlerdeki alışların kalan bakiyesi" tone="red" />
+              <StatCard label="Güncel kasa / banka" value={`${formatMoney(dashboard.overview.totalCashBalance)} KZT`} hint="Tarih filtresinden bağımsız · Tüm KZT hesapları" />
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">
+              <span><b>{dashboard.salesSummary.confirmedCount}</b> satış belgesi</span>
+              <span><b>{dashboard.purchaseSummary.confirmedCount}</b> alış belgesi</span>
+              <span><b>{dashboard.overview.activeCariCount}</b> güncel aktif cari</span>
+              <span><b>{dashboard.overview.totalProductCount}</b> stok listesindeki ürün</span>
+              <span className={dashboard.overview.negativeStockCount ? "font-semibold text-rose-700" : ""}><b>{dashboard.overview.negativeStockCount}</b> negatif stok</span>
+            </div>
+          </section>
 
           <div className="grid gap-6 xl:grid-cols-2">
             <SummaryCard
@@ -772,7 +777,7 @@ export default function ErpReportsPage() {
             />
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-3">
+          <div className="grid gap-6 xl:grid-cols-2">
             <ProfitSummaryCard summary={dashboard.salesProfitability.summary} />
             <PurchaseCostSummaryCard summary={dashboard.purchaseCosts.summary} />
             <ProductProfitSummaryCard summary={dashboard.productProfitability.summary} />
