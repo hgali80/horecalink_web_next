@@ -1168,7 +1168,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <MiniMetric label={form.docType === "R" && form.vatMode !== "unknown" ? "KDV Hariç Ürün Toplamı" : "Ara Toplam"} value={`${fmtMoney(goodsTotal)} KZT`} tone="slate" />
             {form.docType === "R" && form.vatMode !== "unknown" ? <MiniMetric label="Toplam KDV %16" value={`${fmtMoney(vatSummary.vatTotal)} KZT`} tone="blue" /> : null}
             <MiniMetric label="Ek Masraf" value={`${fmtMoney(additionalCostTotal)} KZT`} tone="amber" />
@@ -1521,9 +1521,9 @@ function MiniMetric({ label, value, tone = "slate" }) {
   };
 
   return (
-    <div className={`rounded-[20px] p-4 ${toneMap[tone] || toneMap.slate}`}>
-      <div className="text-xs font-bold uppercase tracking-[0.18em] opacity-70">{label}</div>
-      <div className="mt-2 text-2xl font-black">{value}</div>
+    <div className={`min-w-0 rounded-2xl p-3 ${toneMap[tone] || toneMap.slate}`}>
+      <div className="text-[11px] font-semibold leading-4 opacity-70">{label}</div>
+      <div className="mt-1 text-base font-bold leading-6 tabular-nums [overflow-wrap:anywhere]">{value}</div>
     </div>
   );
 }
