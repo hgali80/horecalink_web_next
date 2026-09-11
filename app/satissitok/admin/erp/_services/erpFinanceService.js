@@ -166,6 +166,7 @@ export async function listErpCashMovements(maxRows = 24) {
       amount: num(data.amount, 0),
       currency: text(data.currency || "KZT"),
       cariName: text(data.cariName || data?.cariSnapshot?.name),
+      accountId: text(data.accountId || data?.accountSnapshot?.id),
       accountName: text(data.accountName || data?.accountSnapshot?.name),
       documentNo: text(data.documentNo),
       receiptNo: text(data.receiptNo),
