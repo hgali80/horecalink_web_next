@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ErpSectionHeader from "../_components/ErpSectionHeader";
+import ErpCashMovementCancellation from "../_components/ErpCashMovementCancellation";
 import {
   listErpCashAccounts,
   listErpCashMovements,
@@ -20,7 +21,7 @@ export default function ErpFinancePage() {
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filters, setFilters] = useState({ search: "", account: "", direction: "", start: "", end: "" });
+  const [filters, setFilters] = useState({ search: "", account: "", direction: "", start: "", end: "", status: "" });
   const [page, setPage] = useState(1);
   const [maxRows, setMaxRows] = useState(250);
   const [refresh, setRefresh] = useState(0);
@@ -37,11 +38,12 @@ export default function ErpFinancePage() {
     return movements.filter((row) =>
       (!filters.account || row.accountId === filters.account) &&
       (!filters.direction || row.direction === filters.direction) &&
+      (!filters.status || (filters.status === "cancelled" ? isCancelled(row) : !isCancelled(row))) &&
       row.sortTime >= start && row.sortTime <= end &&
-      (!search || [row.accountName, row.cariName, row.documentNo, row.receiptNo, row.notes].join(" ").toLocaleLowerCase("tr-TR").includes(search))
+      (!search || [row.accountName, row.cariName, row.documentNo, row.originalDocumentNo, row.receiptNo, row.notes, row.cancellationReason].join(" ").toLocaleLowerCase("tr-TR").includes(search))
     ).sort((a, b) => oldestFirst ? a.sortTime - b.sortTime : b.sortTime - a.sortTime);
   }, [movements, filters, oldestFirst]);
-  const flow = useMemo(() => filtered.filter((row) => row.currency.toUpperCase() === "KZT").reduce((sum, row) => {
+  const flow = useMemo(() => filtered.filter((row) => !isCancelled(row) && row.currency.toUpperCase() === "KZT").reduce((sum, row) => {
     if (row.direction === "in") sum.in += row.amount;
     if (row.direction === "out") sum.out += row.amount;
     return sum;
@@ -162,11 +164,13 @@ export default function ErpFinancePage() {
                 <FilterField label="Ara"><input type="search" value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} placeholder="Cari, belge, makbuz, açıklama…" className={fieldClass} /></FilterField>
                 <FilterField label="Hesap"><select value={filters.account} onChange={(event) => updateFilter("account", event.target.value)} className={fieldClass}><option value="">Tüm hesaplar</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></FilterField>
                 <FilterField label="Yön"><select value={filters.direction} onChange={(event) => updateFilter("direction", event.target.value)} className={fieldClass}><option value="">Giriş ve çıkış</option><option value="in">Giriş</option><option value="out">Çıkış</option></select></FilterField>
+                <FilterField label="Durum"><select value={filters.status || ""} onChange={(event) => updateFilter("status", event.target.value)} className={fieldClass}><option value="">Tüm durumlar</option><option value="active">Aktif hareketler</option><option value="cancelled">İptal edilenler</option></select></FilterField>
                 <FilterField label="Başlangıç tarihi"><input type="date" value={filters.start} onChange={(event) => updateFilter("start", event.target.value)} className={fieldClass} /></FilterField>
                 <FilterField label="Bitiş tarihi"><input type="date" value={filters.end} onChange={(event) => updateFilter("end", event.target.value)} className={fieldClass} /></FilterField>
                 <button type="button" onClick={() => { setFilters({ search: "", account: "", direction: "", start: "", end: "" }); setPage(1); }} className="self-end rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold hover:bg-slate-50">Filtreleri temizle</button>
               </div>
               {invalidDates ? <p role="alert" className="text-sm text-rose-700">Başlangıç tarihi bitiş tarihinden sonra olamaz.</p> : null}
+              <p className="text-xs text-slate-500">Tahsilat ve ödeme iptallerini hareketin yanındaki işlemden yönetebilirsin. İptal edilen kayıtlar geçmişte görünür, aşağıdaki toplamlara dahil edilmez.</p>
               <p className="text-xs leading-5 text-slate-500">Arama ve toplamlar yüklenen hareketleri kapsar. {movements.length === maxRows ? "Eski kayıtları incelemek için aşağıdan daha fazla hareket yükle." : "Mevcut tüm hareketler yüklendi."} Özet toplamları yalnızca KZT hareketlerini kapsar; hesap bakiyeleri bu filtrelerle değişmez.</p>
               {!invalidDates ? <div className="grid gap-3 sm:grid-cols-3">
                 <InfoTile label="Filtrelenen giriş" value={fmtMoney(flow.in)} />
@@ -191,6 +195,7 @@ export default function ErpFinancePage() {
                         <Th>Makbuz</Th>
                         <Th><button type="button" onClick={() => { setOldestFirst((value) => !value); setPage(1); }} aria-label={oldestFirst ? "En yeni tarih önce sırala" : "En eski tarih önce sırala"}>Tarih {oldestFirst ? "↑" : "↓"}</button></Th>
                         <Th align="right">Tutar</Th>
+                        <Th>Durum / İşlem</Th>
                       </tr>
                     </thead>
                     <tbody>
@@ -200,10 +205,11 @@ export default function ErpFinancePage() {
                           <Td>{movementLabel(row)}</Td>
                           <Td>{row.accountName || "-"}</Td>
                           <Td>{row.cariName || "-"}</Td>
-                          <Td>{row.documentNo || "-"}</Td>
+                          <Td>{row.documentNo || row.originalDocumentNo || "-"}{row.advanceFromCancellation ? <div className="mt-1 text-xs text-amber-700">İptalden kalan avans</div> : null}</Td>
                           <Td>{row.receiptNo || "-"}</Td>
                           <Td>{row.dateLabel}</Td>
                           <Td align="right"><span className={`whitespace-nowrap font-semibold tabular-nums ${row.direction === "out" ? "text-rose-700" : "text-emerald-700"}`}>{row.direction === "out" ? "−" : "+"}{fmtMoney(row.amount, row.currency)}</span></Td>
+                          <Td><ErpCashMovementCancellation record={row} onCancelled={() => setRefresh(value => value + 1)} /></Td>
                         </tr>
                       ))}
                     </tbody>
@@ -276,4 +282,8 @@ function movementLabel(row) {
   if (row.kind === "document_settlement") return row.direction === "out" ? "Belge ödemesi" : "Belge tahsilatı";
   if (row.kind === "manual") return row.direction === "out" ? "Manuel çıkış" : "Manuel giriş";
   return { transfer: "Hesap transferi", expense: "Gider", payment: "Ödeme", collection: "Tahsilat" }[row.kind] || "Diğer hareket";
+}
+
+function isCancelled(row) {
+  return ["cancelled", "canceled", "void"].includes(row.status);
 }

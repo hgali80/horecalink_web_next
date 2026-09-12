@@ -201,19 +201,23 @@ export default function ErpCariDetailPage({ params }) {
         ]}
       />
 
+      <Link href="/satissitok/admin/erp/finance#finance-movements" className="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700">Tahsilat / ödeme iptallerini Finans Merkezi’nde yönet →</Link>
       <SectionTable
         title="Cari Finans Hareketleri"
         emptyText="Bu cariye ait finans hareketi yok."
         rows={cashMovements}
-        columns={["Yon", "Tur", "Hesap", "Makbuz", "Belge", "Tarih", "Tutar"]}
+        columns={["Yon", "Tur", "Hesap", "Makbuz", "Belge", "Tarih", "Tutar", "Durum"]}
         renderRow={(row) => [
           row.direction === "borc" ? "borc" : "alacak",
           row.kind || "-",
           row.accountName || "-",
           row.receiptNo || "-",
-          row.documentNo || "-",
+          row.documentNo || row.originalDocumentNo || "-",
           row.dateLabel,
           fmtMoney(row.amount),
+          ["cancelled", "canceled", "void"].includes(row.status)
+            ? <span className="text-rose-700" title={row.cancellationReason}>İptal edildi · {row.cancellationReason}</span>
+            : "Aktif",
         ]}
       />
     </div>

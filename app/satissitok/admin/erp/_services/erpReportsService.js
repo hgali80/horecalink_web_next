@@ -405,7 +405,8 @@ export async function getErpReportDashboard(filters = {}) {
 
   const filteredSales = filterRowsByDateRange(sales, startTs, endTs);
   const filteredPurchases = filterRowsByDateRange(purchases, startTs, endTs);
-  const filteredCashMovements = filterRowsByDateRange(cashMovements, startTs, endTs);
+  const filteredCashMovements = filterRowsByDateRange(cashMovements, startTs, endTs)
+    .filter(row => !["cancelled", "canceled", "void"].includes(row.status));
   const filteredStockMovements = filterRowsByDateRange(stockMovements, startTs, endTs);
 
   const salesSummary = summarizeDocuments(filteredSales, "sales");
