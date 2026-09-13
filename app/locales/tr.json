@@ -2413,6 +2413,8 @@
   "productDetail.noSpecs": "Teknik özellik yok.",
   "productDetail.notFound": "Ürün bulunamadı",
   "productDetail.openImage": "Görsel {{index}} aç",
+  "productDetail.watchVideo": "Videoyu izle",
+  "productDetail.openVideo": "Videoyu yeni sekmede aç",
   "productDetail.packaging.casePrice": "Koli fiyatı",
   "productDetail.packaging.caseQty": "Kolideki paket",
   "productDetail.packaging.packQty": "Paketteki miktar",

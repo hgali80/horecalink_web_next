@@ -2413,6 +2413,8 @@
   "productDetail.noSpecs": "Техникалық сипаттама жоқ.",
   "productDetail.notFound": "Өнім табылмады",
   "productDetail.openImage": "{{index}} суретін ашу",
+  "productDetail.watchVideo": "Бейнені көру",
+  "productDetail.openVideo": "Бейнені жаңа қойындыда ашу",
   "productDetail.packaging.casePrice": "Қорап бағасы",
   "productDetail.packaging.caseQty": "Қораптағы пакет саны",
   "productDetail.packaging.packQty": "Пакеттегі мөлшер",

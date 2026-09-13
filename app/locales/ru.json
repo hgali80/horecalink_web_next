@@ -2413,6 +2413,8 @@
   "productDetail.noSpecs": "Технические характеристики отсутствуют.",
   "productDetail.notFound": "Товар не найден.",
   "productDetail.openImage": "Открыть изображение {{index}}",
+  "productDetail.watchVideo": "Смотреть видео",
+  "productDetail.openVideo": "Открыть видео в новой вкладке",
   "productDetail.packaging.casePrice": "Цена кейса",
   "productDetail.packaging.caseQty": "Пакетов в кейсе",
   "productDetail.packaging.packQty": "Количество в пакете",

@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Package2, PlayCircle, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, PlayCircle, X } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
@@ -29,6 +29,15 @@ function ensureImageExtension(value) {
   const text = cleanText(value);
   if (!text) return "";
   return /\.[a-z0-9]+$/i.test(text) ? text : `${text}.jpg`;
+}
+
+function getVideoUrl(value) {
+  try {
+    const url = new URL(cleanText(value));
+    return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+  } catch {
+    return "";
+  }
 }
 
 function toImageStem(value) {
@@ -75,6 +84,7 @@ function probeImage(imageName) {
 
 export default function ProductGallery({ product }) {
   const { t } = useLang();
+  const videoUrl = getVideoUrl(product?.videoUrl);
   const candidateImages = useMemo(() => getImageCandidates(product), [product]);
   const fallbackImages = useMemo(
     () => candidateImages.slice(0, 1),
@@ -212,9 +222,18 @@ export default function ProductGallery({ product }) {
           );
         })}
 
-        <div className="flex aspect-square items-center justify-center rounded-lg bg-[#eceef0] text-slate-500">
-          <PlayCircle className="h-8 w-8" />
-        </div>
+        {videoUrl ? (
+          <a
+            href={videoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t("productDetail.openVideo")}
+            className="flex aspect-square flex-col items-center justify-center gap-2 rounded-lg bg-[#eceef0] p-2 text-[#1d3246] transition hover:bg-[#dfe5eb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#34495e]"
+          >
+            <PlayCircle className="h-8 w-8" />
+            <span className="text-center text-xs font-semibold">{t("productDetail.watchVideo")}</span>
+          </a>
+        ) : null}
       </div>
       </div>
 

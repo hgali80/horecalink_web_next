@@ -2433,6 +2433,8 @@
   "productDetail.noSpecs": "No technical specifications.",
   "productDetail.notFound": "Product not found",
   "productDetail.openImage": "Open image {{index}}",
+  "productDetail.watchVideo": "Watch video",
+  "productDetail.openVideo": "Open video in a new tab",
   "productDetail.packaging.casePrice": "Case price",
   "productDetail.packaging.caseQty": "Packs per case",
   "productDetail.packaging.packQty": "Units per pack",
