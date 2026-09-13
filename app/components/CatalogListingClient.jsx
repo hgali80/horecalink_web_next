@@ -316,10 +316,18 @@ export default function CatalogListingClient({
         </div>
       </div>
 
-      <div className="rounded-[28px] bg-[#f2f4f6] p-6">
-        <div className="text-[12px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
-          {t("filters.brand") || "Brand"}
-        </div>
+      <details className="group/brands rounded-[28px] bg-[#f2f4f6] p-6">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md text-[12px] font-extrabold uppercase tracking-[0.18em] text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1d3246] [&::-webkit-details-marker]:hidden">
+          <span>
+            {t("filters.brand") || "Brand"}
+            {brandValue ? (
+              <span className="mt-1 block text-sm font-semibold normal-case tracking-normal text-[#12263a]">
+                {brandValue}
+              </span>
+            ) : null}
+          </span>
+          <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-open/brands:rotate-180" />
+        </summary>
 
         <div className="mt-4 space-y-2">
           <button
@@ -347,7 +355,7 @@ export default function CatalogListingClient({
             </button>
           ))}
         </div>
-      </div>
+      </details>
     </div>
   );
 
