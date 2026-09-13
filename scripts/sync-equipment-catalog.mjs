@@ -124,8 +124,11 @@ await fs.writeFile(
   "utf8"
 );
 
-for (const { filePath } of localeFiles) {
+for (const { lang, filePath } of localeFiles) {
   const localeTable = JSON.parse(await fs.readFile(filePath, "utf8"));
+
+  // Excel labels are Turkish. Never seed other languages with Turkish text.
+  if (lang !== "tr") continue;
 
   const firstCategory = equipmentTree.values().next().value;
   if (firstCategory?.groupLabel) {
