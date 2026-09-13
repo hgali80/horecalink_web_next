@@ -83,7 +83,7 @@ export default function Home() {
     [t]
   );
 
-  const topFeatured = featuredProducts.slice(0, 4);
+  const topFeatured = featuredProducts.slice(0, 8);
 
   return (
     <main className="min-h-screen bg-[#F8F9FA] text-gray-900">
@@ -130,7 +130,7 @@ export default function Home() {
       <UsageAreasSection />
 
       <section className="mx-auto mb-12 max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mb-8 flex items-end justify-between border-b border-slate-200 pb-4">
+        <div className="mb-8 flex flex-col gap-4 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="flex items-center gap-2 text-2xl font-bold text-[#003366]">
               <Star size={22} />
@@ -144,7 +144,7 @@ export default function Home() {
 
           <Link
             href="/products"
-            className="flex items-center gap-1 text-sm font-bold text-[#003366] hover:underline"
+            className="flex shrink-0 items-center gap-1 self-start rounded-sm text-sm font-medium text-[#003366] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#003366] focus-visible:ring-offset-4 sm:self-auto"
           >
             {t("home.featured.all") || "Tumunu Gor"}
             <ArrowRight size={18} />
@@ -160,9 +160,9 @@ export default function Home() {
             {t("home.featured.empty") || "Urun bulunamadi."}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
             {topFeatured.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} variant="featured" />
             ))}
           </div>
         )}

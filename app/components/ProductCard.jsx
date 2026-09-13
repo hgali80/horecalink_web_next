@@ -93,7 +93,7 @@ function getImageUrl(product) {
   )}?alt=media`;
 }
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, variant = "default" }) {
   const { t } = useLang();
   const [imageError, setImageError] = useState(false);
 
@@ -108,6 +108,37 @@ export default function ProductCard({ product }) {
   const displayImageUrl = !imageError && imageUrl ? imageUrl : PLACEHOLDER_IMAGE;
   const formattedPrice = formatPrice(product?.price);
   const unit = cleanText(product?.unit) || t("productDetail.unit");
+
+  if (variant === "featured") {
+    return (
+      <Link
+        href={href}
+        aria-label={title}
+        title={title}
+        className="group flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-colors duration-200 hover:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#003366] focus-visible:ring-offset-4"
+      >
+        <div className="relative aspect-square w-full">
+          <Image
+            src={displayImageUrl}
+            alt={title}
+            fill
+            unoptimized
+            onError={() => setImageError(true)}
+            sizes="(max-width: 1023px) 50vw, 25vw"
+            className="object-contain p-4 sm:p-6"
+          />
+        </div>
+        <div className="px-3 pb-4 pt-2 sm:px-4 sm:pb-5">
+          <p className="truncate text-[11px] leading-4 text-slate-500">
+            SKU: {code || "-"}
+          </p>
+          <h3 className="mt-1.5 line-clamp-2 min-h-10 text-[13px] font-medium leading-5 text-[#12263a] sm:text-sm">
+            {title}
+          </h3>
+        </div>
+      </Link>
+    );
+  }
 
   return (
     <article className="group flex h-full min-w-0 flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_16px_34px_rgba(29,50,70,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_22px_46px_rgba(29,50,70,0.1)] sm:rounded-[28px]">
