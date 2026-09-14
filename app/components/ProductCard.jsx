@@ -4,7 +4,6 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
 import ProductQuoteActions from "./ProductQuoteActions";
 import ProductionBadge from "./production/ProductionBadge";
@@ -143,8 +142,13 @@ export default function ProductCard({ product, variant = "default" }) {
   }
 
   return (
-    <article className="group flex h-full min-w-0 flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_16px_34px_rgba(29,50,70,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_22px_46px_rgba(29,50,70,0.1)] sm:rounded-[28px]">
-      <Link href={href} className="relative block bg-[#f5f7f9]">
+    <article className="group relative isolate flex h-full min-w-0 flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_16px_34px_rgba(29,50,70,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_22px_46px_rgba(29,50,70,0.1)] sm:rounded-[28px]">
+      <Link
+        href={href}
+        aria-label={title}
+        className="absolute inset-0 z-10 rounded-[inherit] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[#003366]"
+      />
+      <div className="relative block bg-[#f5f7f9]">
         <div className="relative aspect-[4/3.45] w-full overflow-hidden">
           <Image
             src={displayImageUrl}
@@ -155,7 +159,7 @@ export default function ProductCard({ product, variant = "default" }) {
             className="object-contain p-3 transition-transform duration-500 group-hover:scale-105 sm:p-5"
           />
         </div>
-      </Link>
+      </div>
 
       <div className="flex flex-1 flex-col px-3 pb-3 pt-3 sm:px-6 sm:pb-6 sm:pt-5">
         <div className="mb-2"><ProductionBadge product={product} /></div>
@@ -164,7 +168,7 @@ export default function ProductCard({ product, variant = "default" }) {
         </div>
 
         <h3 className="line-clamp-2 min-h-[44px] text-[14px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#12263a] sm:min-h-[64px] sm:text-[18px] sm:tracking-[-0.04em]">
-          <Link href={href}>{title}</Link>
+          {title}
         </h3>
 
         {dimensions ? (
@@ -201,16 +205,10 @@ export default function ProductCard({ product, variant = "default" }) {
           )}
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 sm:mt-6 sm:gap-3 sm:pt-5">
-          <Link
-            href={href}
-            className="inline-flex min-w-0 items-center gap-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#1d3246] transition hover:text-[#34495e] sm:gap-2 sm:text-[12px] sm:tracking-[0.14em]"
-          >
-            <span className="truncate">{t("productDetail.tabs.description")}</span>
-            <ArrowUpRight className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-          </Link>
-
-          <ProductQuoteActions product={product} variant="compact" />
+        <div className="mt-4 flex items-center justify-end border-t border-slate-100 pt-3 sm:mt-6 sm:pt-5">
+          <div className="relative z-20">
+            <ProductQuoteActions product={product} variant="compact" />
+          </div>
         </div>
       </div>
     </article>
