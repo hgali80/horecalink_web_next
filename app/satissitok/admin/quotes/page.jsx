@@ -102,6 +102,7 @@ export default function QuotesPage() {
               >
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="space-y-2">
+                    {q.requestMeta?.source === 'web_production_form' && <div className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">Üretim talebi · {q.requestMeta.productionGroup === 'stainless' ? 'Paslanmaz' : 'Plastik ambalaj'}</div>}
                     <div className="text-lg font-semibold text-slate-800">
                       {customerName}
                     </div>

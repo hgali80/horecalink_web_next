@@ -12,6 +12,7 @@ import HeroSection from "./components/HeroSection";
 import HomeBanner from "./components/HomeBanner";
 import ProductCard from "./components/ProductCard";
 import UsageAreasSection from "./components/UsageAreasSection";
+import ProductionAreas from "./components/production/ProductionAreas";
 import { useLang } from "./context/LanguageContext";
 
 export default function Home() {
@@ -88,7 +89,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#F8F9FA] text-gray-900">
       <HeroSection />
-      <HomeBanner />
+      <ProductionAreas />
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <h2 className="mb-8 flex items-center gap-2 text-2xl font-bold text-[#003366]">
@@ -127,6 +128,7 @@ export default function Home() {
         </div>
       </section>
 
+      <HomeBanner />
       <UsageAreasSection />
 
       <section className="mx-auto mb-12 max-w-7xl px-4 py-16 sm:px-6 lg:px-8">

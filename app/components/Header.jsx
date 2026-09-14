@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ChevronDown, Info, Mail, Menu, Phone, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import UserMenu from "./UserMenu";
+import ProductionMenu from "./production/ProductionMenu";
 import { useLang } from "../context/LanguageContext";
 import { languageOptions } from "../lib/language";
 
@@ -90,6 +91,7 @@ export default function Header() {
         </Link>
         <div className="hidden min-w-0 flex-1 items-center justify-end gap-3 pl-6 md:flex lg:gap-5 lg:pl-10">
           <nav className="flex items-center gap-1 text-sm font-semibold text-gray-700 lg:gap-2">
+            <ProductionMenu />
             {navItems.map((item) => <Link key={item.href} href={item.href} className="inline-flex items-center gap-2 rounded-xl px-2.5 py-2 transition hover:bg-slate-100 hover:text-[#1d3246] lg:px-3">{item.label}</Link>)}
           </nav>
           <UserMenu />
@@ -99,7 +101,7 @@ export default function Header() {
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 md:hidden">
-          <div className="ml-auto flex h-full w-[86%] max-w-[360px] flex-col bg-white p-5 shadow-xl">
+          <div className="ml-auto flex h-full w-[86%] max-w-[360px] flex-col overflow-y-auto bg-white p-5 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <Image src="/horecalink_logoapp.png" alt={t("header.alt.logo")} width={2640} height={767} className="h-11 w-auto object-contain" />
               <button type="button" onClick={closeMobileMenu} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-700" aria-label={t("header.menu.closeMenu")}><X size={20} /></button>
@@ -109,6 +111,7 @@ export default function Header() {
               <a href="mailto:info@horecalink.kz" className="flex items-center gap-2"><Mail size={16} />info@horecalink.kz</a>
             </div>
             <nav className="mt-6 flex flex-col gap-2 border-t border-slate-100 pt-5 text-base font-semibold text-slate-700">
+              <ProductionMenu mobile onNavigate={closeMobileMenu} />
               {mobileNavItems.map((item) => {
                 const Icon = item.icon;
                 return <Link key={item.href} href={item.href} onClick={closeMobileMenu} className="inline-flex items-center gap-2 rounded-xl px-3 py-3 transition hover:bg-slate-100">{Icon ? <Icon size={18} /> : null}{item.label}</Link>;

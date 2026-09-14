@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { useLang } from "../context/LanguageContext";
 import ProductQuoteActions from "./ProductQuoteActions";
+import ProductionBadge from "./production/ProductionBadge";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
 const PLACEHOLDER_IMAGE = "/Placeholder.png";
@@ -129,6 +130,7 @@ export default function ProductCard({ product, variant = "default" }) {
           />
         </div>
         <div className="px-3 pb-4 pt-2 sm:px-4 sm:pb-5">
+          <ProductionBadge product={product} />
           <p className="truncate text-[11px] leading-4 text-slate-500">
             SKU: {code || "-"}
           </p>
@@ -156,6 +158,7 @@ export default function ProductCard({ product, variant = "default" }) {
       </Link>
 
       <div className="flex flex-1 flex-col px-3 pb-3 pt-3 sm:px-6 sm:pb-6 sm:pt-5">
+        <div className="mb-2"><ProductionBadge product={product} /></div>
         <div className="mb-2 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 sm:mb-3 sm:text-[11px] sm:tracking-[0.16em]">
           {t("productDetail.stockCode")}: {code || "-"}
         </div>

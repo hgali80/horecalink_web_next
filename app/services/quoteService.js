@@ -272,10 +272,12 @@ function sortQuotesDesc(items = []) {
   );
 }
 
-export async function createQuoteRequest({ user, form, items }) {
+export async function createQuoteRequest({ user, form, items, production }) {
   const normalizedItems = normalizeItems(items);
+  const isProduction = ['stainless', 'packaging'].includes(production?.group)
+    && typeof production?.family === 'string' && production.family.length > 0;
 
-  if (!normalizedItems.length) {
+  if (!normalizedItems.length && !isProduction) {
     throw new Error("ITEMS_REQUIRED");
   }
 
@@ -310,7 +312,8 @@ export async function createQuoteRequest({ user, form, items }) {
     ),
     requestMeta: {
       needsSpecialPricing: true,
-      source: "web_quote_form",
+      source: isProduction ? "web_production_form" : "web_quote_form",
+      ...(isProduction ? { productionGroup: production.group, productionFamily: production.family, language: normalizeText(production.language) } : {}),
       submittedFrom: user?.uid ? "account" : "guest",
     },
     pricing: {
@@ -319,7 +322,7 @@ export async function createQuoteRequest({ user, form, items }) {
       specialAmount: null,
       specialPreparedAt: null,
       specialPreparedBy: null,
-      priceNote:
+      priceNote: isProduction ? "" :
         "Liste fiyatı referans olarak kaydedildi. Özel fiyat daha sonra girilebilir.",
     },
     currency: "KZT",

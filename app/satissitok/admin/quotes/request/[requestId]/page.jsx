@@ -427,7 +427,7 @@ export default function RequestDetailPage() {
   const documentNumber = resolveDocumentNumber(data, requestId);
   const createdAt = formatDate(data.createdAt || data.requestMeta?.submittedAt, lang);
   const deliveryAddress = customer?.address || data?.requestMeta?.deliveryAddress || "-";
-  const customerMessage = data?.requestMeta?.customerMessage || "";
+  const customerMessage = data?.requestMeta?.customerMessage || data?.note || "";
   const filteredCatalogProducts = catalogProducts
     .filter((item) => {
       const q = productQuery.trim().toLowerCase();
@@ -554,7 +554,7 @@ export default function RequestDetailPage() {
             {customerMessage ? (
               <div className="mt-5">
                 <div className="text-sm text-slate-500">{t("adminQuoteDetail.customerMessage")}</div>
-                <div className="mt-1 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{customerMessage}</div>
+                <div className="mt-1 whitespace-pre-line rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{customerMessage}</div>
               </div>
             ) : null}
           </div>

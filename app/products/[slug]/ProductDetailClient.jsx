@@ -16,6 +16,7 @@ import {
 import ProductGallery from "../../components/ProductGallery";
 import ProductQuoteActions from "../../components/ProductQuoteActions";
 import RelatedProducts from "../../components/RelatedProducts";
+import ProductionBadge from "../../components/production/ProductionBadge";
 import { useLang } from "../../context/LanguageContext";
 
 const LEGACY_BADGE_ALIASES = {
@@ -303,6 +304,7 @@ export default function ProductDetailClient({ product, relatedProducts }) {
                 ) : null}
               </div>
 
+              <div className="mb-3"><ProductionBadge product={product} /></div>
               <h1 className="mb-2 text-2xl font-semibold leading-[1.2] tracking-[-0.02em] text-[#1d3246] md:text-3xl lg:text-4xl">
                 {productTitle}
               </h1>

@@ -4,10 +4,12 @@ import {
   getBaseUrl,
   getTodayDate,
 } from "../lib/server/sitemapUtils";
+import { packagingFamilies } from '../lib/production';
 export const revalidate = 3600;
 export const dynamic = "force-dynamic";
 
 const STATIC_PAGES = [
+  ...['/production', '/production/stainless', '/production/packaging', ...packagingFamilies.map(item => `/production/packaging/${item.slug}`)].map(path => ({ path, changefreq: 'monthly', priority: 0.8 })),
   { path: "/", changefreq: "daily", priority: 1.0 },
   { path: "/about", changefreq: "monthly", priority: 0.6 },
   { path: "/catalog", changefreq: "daily", priority: 0.9 },

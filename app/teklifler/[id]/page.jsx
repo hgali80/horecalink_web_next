@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLang } from "../../context/LanguageContext";
+import { getProductionCopy } from '../../lib/production';
 import {
   canViewQuote,
   getQuoteStatusLabelKey,
@@ -258,7 +259,7 @@ export default function QuoteDetailPage() {
         </section>
 
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr]">
-          <section className="overflow-hidden rounded-xl bg-white shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
+          {item.requestMeta?.source === 'web_production_form' && !item.items?.length ? <section className="rounded-xl bg-white p-6 shadow-[0_20px_40px_rgba(29,50,70,0.06)]"><h2 className="text-xl font-bold text-[#1d3246]">{getProductionCopy(lang).productionNote}</h2><p className="mt-5 whitespace-pre-line text-sm leading-7 text-slate-600">{item.note}</p></section> : <section className="overflow-hidden rounded-xl bg-white shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
             <div className="grid grid-cols-[minmax(0,1fr)_120px_130px_120px] gap-4 bg-[#f2f4f6] px-6 py-4 text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
               <div>{t("quoteDetail.table.product")}</div>
               <div className="text-center">{t("quoteDetail.table.quantity")}</div>
@@ -299,6 +300,7 @@ export default function QuoteDetailPage() {
             </div>
           </section>
 
+          }
           <aside className="space-y-6">
             <section className="rounded-xl bg-white p-6 shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
               <h2 className="text-xl font-extrabold tracking-[-0.02em] text-[#1d3246]">{t("quoteDetail.customerInfo")}</h2>
@@ -325,7 +327,7 @@ export default function QuoteDetailPage() {
               ) : null}
             </section>
 
-            {item.note ? (
+            {item.note && !(item.requestMeta?.source === 'web_production_form' && !item.items?.length) ? (
               <section className="rounded-xl bg-white p-6 shadow-[0_20px_40px_rgba(29,50,70,0.06)]">
                 <h2 className="text-xl font-extrabold tracking-[-0.02em] text-[#1d3246]">{t("quoteDetail.note")}</h2>
                 <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-600">{item.note}</p>

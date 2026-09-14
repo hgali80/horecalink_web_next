@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import ProductCard from "./ProductCard";
+import ProductionCatalogBanner from './production/ProductionCatalogBanner';
 import { buildCatalogTree } from "../lib/catalog/categoryTree";
 import { getCatalogLabels } from "../lib/catalog/categoryLabels";
 import { getCatalogSeoContent } from "../lib/catalog/catalogSeoContent";
@@ -398,6 +399,7 @@ export default function CatalogListingClient({
         </div>
 
         <div className="mb-8 rounded-[32px] bg-white p-6 shadow-[0_20px_60px_rgba(29,50,70,0.06)] md:p-8">
+          <ProductionCatalogBanner group={normalizedGroup} category={category} subcategory={subcategory} />
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="text-[12px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
