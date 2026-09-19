@@ -14,7 +14,8 @@ export default function CustomerExcelButton({ document, calculated, onError }) {
     onError("");
     try {
       const { downloadCustomerExcel } = await import("@/app/lib/customerExcelExport");
-      await downloadCustomerExcel({ document, calculated, t });
+      const { missingImages } = await downloadCustomerExcel({ document, calculated, t });
+      if (missingImages) onError(t("customerExcel.imageWarning", { count: missingImages }));
     } catch (error) {
       console.error("Customer Excel export failed:", error);
       onError(t("customerExcel.error"));

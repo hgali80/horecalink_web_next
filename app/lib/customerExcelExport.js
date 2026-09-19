@@ -6,7 +6,7 @@ const navy = "FF1D3246";
 const border = { style: "thin", color: { argb: "FFD9E1E8" } };
 
 // The offer editor supplies the same normalized items/totals used by its PDF.
-export function buildCustomerWorkbook({ document, calculated, t }) {
+export function buildCustomerWorkbook({ document, calculated, t, images = new Map() }) {
   const offer = Boolean(calculated);
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "HorecaLink";
@@ -22,7 +22,8 @@ export function buildCustomerWorkbook({ document, calculated, t }) {
   const fields = offer
     ? ["sku", "name", "description", "brand", "quantity", "unit", "unitPrice", "total", "image"]
     : ["sku", "name", "description", "brand", "unit", "unitPrice", "image"];
-  const widths = { sku: 20, name: 32, description: 44, brand: 17, quantity: 12, unit: 13, unitPrice: 20, total: 20, image: 13 };
+  const widths = { sku: 20, name: 32, description: 44, brand: 17, quantity: 12, unit: 13, unitPrice: 20, total: 20, image: 20 };
+  const imageRows = [];
   sheet.columns = fields.map((key) => ({ key, width: widths[key] }));
   const currency = document.currency || "KZT";
   const symbol = { KZT: "₸", TRY: "TL", USD: "$", EUR: "€" }[currency] || currency.replace(/[^A-Za-z]/g, "");
@@ -71,11 +72,9 @@ export function buildCustomerWorkbook({ document, calculated, t }) {
       row.getCell("total").value = { formula: `E${row.number}*G${row.number}`, result: item.lineTotal };
       row.getCell("total").numFmt = moneyFormat;
     }
-    // Keep the original photo accessible without network requests during export.
-    if (/^https?:\/\//i.test(text(item.imageUrl))) {
-      row.getCell("image").value = { text: label("image"), hyperlink: item.imageUrl };
-      row.getCell("image").font = { name: "Calibri", size: 11, color: { argb: "FF2563EB" }, underline: true };
-    }
+    const picture = images.get(text(item.imageUrl).trim());
+    row.getCell("image").value = picture ? "" : label("imageUnavailable");
+    if (picture) imageRows.push({ row, picture });
     row.eachCell({ includeEmpty: true }, (cell) => {
       cell.border = { top: border, bottom: border, left: border, right: border };
       if ((row.number - first) % 2 === 0) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF6F8FA" } };
@@ -136,6 +135,15 @@ export function buildCustomerWorkbook({ document, calculated, t }) {
     }
     row.height = Math.max(36, row.height);
   }
+  for (const { row, picture } of imageRows) {
+    row.height = Math.max(row.height, 84);
+    const imageId = workbook.addImage({ base64: picture, extension: "png" });
+    sheet.addImage(imageId, {
+      tl: { col: fields.length - 1 + 0.05, row: row.number - 1 + 0.05 },
+      ext: { width: 128, height: 96 },
+      editAs: "oneCell",
+    });
+  }
   // Long customer/terms text can make metadata taller than the screen.
   // Freeze the brand row and SKU column, leaving the entire document scrollable.
   sheet.views = [{ state: "frozen", xSplit: 1, ySplit: 1, topLeftCell: "B2", showGridLines: false }];
@@ -144,8 +152,46 @@ export function buildCustomerWorkbook({ document, calculated, t }) {
   return workbook;
 }
 
+async function loadExcelPicture(source) {
+  const url = new URL(source, window.location.origin);
+  if (!["http:", "https:", "data:", "blob:"].includes(url.protocol)) throw new Error("Unsupported image URL");
+  const src = url.hostname === "firebasestorage.googleapis.com"
+    ? `/api/pdf-image?url=${encodeURIComponent(url.href)}` : url.href;
+  const response = await fetch(src, { signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error(`Image request failed: ${response.status}`);
+  const bitmap = await createImageBitmap(await response.blob());
+  try {
+    // Normalize JPEG/PNG/WebP to a small PNG supported by desktop Excel.
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 192;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas unavailable");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const scale = Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
+    const width = bitmap.width * scale;
+    const height = bitmap.height * scale;
+    ctx.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+    return canvas.toDataURL("image/png");
+  } finally {
+    bitmap.close();
+  }
+}
+
 export async function downloadCustomerExcel(options) {
-  const workbook = buildCustomerWorkbook(options);
+  const items = options.calculated ? options.calculated.items : options.document.items || [];
+  const sources = [...new Set(items.map(item => text(item.imageUrl).trim()).filter(Boolean))];
+  const images = new Map();
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(4, sources.length) }, async () => {
+    while (next < sources.length) {
+      const source = sources[next++];
+      try { images.set(source, await loadExcelPicture(source)); }
+      catch { /* Keep the export usable and report missing photos to the user. */ }
+    }
+  }));
+  const workbook = buildCustomerWorkbook({ ...options, images });
   const buffer = await workbook.xlsx.writeBuffer();
   const url = URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
   const link = document.createElement("a");
@@ -160,4 +206,5 @@ export async function downloadCustomerExcel(options) {
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+  return { missingImages: items.filter(item => text(item.imageUrl).trim() && !images.has(text(item.imageUrl).trim())).length };
 }

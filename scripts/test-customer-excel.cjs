@@ -45,7 +45,8 @@ async function main() {
       const document = { title: "PRIVATE ADMIN TITLE", offerNo: "HL-001", issueDate: "2026-09-19", currency: "KZT", buyer: { companyName: "Müşteri", bin: "000456" }, items, visibility: { vatSummary: rate !== 12, termsSection: false, requisitesSection: false }, terms: { payment: ["PRIVATE TERMS"] }, seller: { bankDetails: "PRIVATE BANK" } };
       const calculated = context.calculateOfferTotals(items, rate);
       for (const offer of [false, true]) {
-        const original = context.buildCustomerWorkbook({ document, calculated: offer ? calculated : undefined, t });
+        const images = new Map([[items[0].imageUrl, "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aOZkAAAAASUVORK5CYII="]]);
+        const original = context.buildCustomerWorkbook({ document, calculated: offer ? calculated : undefined, t, images });
         const book = new ExcelJS.Workbook();
         await book.xlsx.load(await original.xlsx.writeBuffer());
         const sheet = book.worksheets[0];
@@ -59,7 +60,14 @@ async function main() {
         assert.equal(sheet.getCell(`B${first}`).type, ExcelJS.ValueType.String);
         assert.equal(sheet.getCell(`${offer ? "G" : "F"}${first}`).value, 1160.25);
         assert.match(sheet.getCell(`${offer ? "G" : "F"}${first}`).numFmt, /₸/);
-        assert.equal(sheet.getCell(`${offer ? "I" : "G"}${first}`).hyperlink, items[0].imageUrl);
+        assert.equal(sheet.getImages().length, 1);
+        const picture = sheet.getImages()[0];
+        assert.equal(picture.range.tl.nativeRow, first - 1);
+        assert.equal(picture.range.tl.nativeCol, offer ? 8 : 6);
+        assert.equal(book.getImage(picture.imageId).extension, "png");
+        assert.ok(book.getImage(picture.imageId).buffer.length > 0);
+        assert.ok(sheet.getRow(first).height >= 84);
+        assert.equal(sheet.getCell(`${offer ? "I" : "G"}${first + 1}`).value, t("customerExcel.imageUnavailable"));
         assert.ok(sheet.pageSetup.printTitlesRow);
         let totalRow;
         sheet.eachRow(row => {
@@ -85,6 +93,6 @@ async function main() {
       if (cell.formula) assert.equal(evaluate(empty.worksheets[0], cell.address), 0);
     }));
   }
-  console.log("PASS: XLSX round trips in four languages; numeric prices, literal SKUs/text, editable totals/VAT, zero/decimal quantities, empty offers, privacy, hyperlinks and print settings.");
+  console.log("PASS: XLSX round trips in four languages; numeric prices, literal SKUs/text, editable totals/VAT, zero/decimal quantities, empty offers, privacy, embedded images and print settings.");
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
