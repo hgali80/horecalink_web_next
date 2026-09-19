@@ -5,7 +5,7 @@ import { Sparkles, CookingPot, ChefHat } from 'lucide-react';
 import { CATEGORY_COLORS } from '@/app/lib/categoryImages';
 export default function MainCategoryImage({ src, group, children }) {
   const [failedSrc, setFailedSrc] = useState(null);
-  const Icon = { institutional: Sparkles, equipment: CookingPot, paslanmaz: ChefHat }[group] || ChefHat;
+  const Icon = { institutional: Sparkles, equipment: CookingPot, "stainless-steel": ChefHat }[group] || ChefHat;
   return <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden bg-slate-50">
     {src && src !== failedSrc
       ? <img src={src} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" onError={() => setFailedSrc(src)} />

@@ -1,6 +1,7 @@
 import { getCatalogLabels } from "../catalog/categoryLabels";
 import { normalizeCatalogGroupKey } from "../catalog/catalogLabels";
 import { getBaseUrl } from "./siteConfig";
+import { normalizeCatalogPath } from "../catalog/catalogKeys";
 
 function buildCanonical(pathname) {
   return `${getBaseUrl()}${pathname}`;
@@ -19,6 +20,7 @@ function buildDescription({ groupLabel, categoryLabel, subcategoryLabel }) {
 }
 
 export function buildCatalogMetadata({ group, category = "", subcategory = "" }) {
+  ({ group, category, subcategory } = normalizeCatalogPath({ group, category, subcategory }));
   const normalizedGroup = normalizeCatalogGroupKey(group);
   const labels = getCatalogLabels({
     group: normalizedGroup,

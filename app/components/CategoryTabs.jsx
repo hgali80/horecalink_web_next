@@ -9,7 +9,7 @@ import { getGroupLabel } from "../lib/catalog/catalogLabels";
 const GROUPS = [
   { key: "institutional", fallback: "Temizlik & Hijyen" },
   { key: "equipment", fallback: "Mutfak Ekipmanları" },
-  { key: "paslanmaz", fallback: "Paslanmaz Ekipmanlar" },
+  { key: "stainless-steel", fallback: "Paslanmaz Ekipmanlar" },
 ];
 
 export default function CategoryTabs({ selectedGroup, onSelectGroup }) {

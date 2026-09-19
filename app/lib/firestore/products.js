@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../firebase";
 import { compareProductsByCategoryOrder, getProductOrderValue } from "../catalog/productSort";
+import { canonicalCatalogKey } from "../catalog/catalogKeys";
 
 function asBoolean(value, fallback = false) {
   if (typeof value === "boolean") return value;
@@ -200,6 +201,9 @@ export async function getCatalogProducts({
   categoryKey = null,
   subcategoryKey = null,
 }) {
+  groupKey = canonicalCatalogKey("group", groupKey);
+  categoryKey = canonicalCatalogKey("main", categoryKey);
+  subcategoryKey = canonicalCatalogKey("sub", subcategoryKey);
   const constraints = [
     where("groupKey", "==", groupKey),
     where("active", "==", true),

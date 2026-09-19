@@ -16,7 +16,7 @@ const PLACEHOLDER_IMAGE = "/Placeholder.png";
 const GROUP_LABELS = {
   institutional: "Temizlik & Hijyen",
   equipment: "Mutfak Ekipmanlari",
-  paslanmaz: "Paslanmaz Ekipmanlar",
+  "stainless-steel": "Paslanmaz Ekipmanlar",
 };
 
 function getProductCode(product) {

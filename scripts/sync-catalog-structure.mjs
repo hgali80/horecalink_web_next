@@ -14,6 +14,20 @@ const categoryMapPath = path.join(projectRoot, "app", "data", "categoryMap.js");
 const categoryDataPath = path.join(projectRoot, "app", "data", "categoryData.js");
 const existingMapModule = await import(pathToFileURL(categoryMapPath).href);
 const existingMap = existingMapModule.categoryMap;
+const aliasesPath = path.join(projectRoot, "app", "data", "catalogKeyAliases.js");
+let aliases = { group: {}, main: {}, sub: {} };
+try {
+  aliases = structuredClone((await import(pathToFileURL(aliasesPath).href)).catalogKeyAliases);
+} catch (error) {
+  if (error.code !== "ERR_MODULE_NOT_FOUND") throw error;
+}
+function addAlias(scope, from, to) {
+  if (!from || from === to) return;
+  if (aliases[scope][from] && aliases[scope][from] !== to) {
+    throw new Error(`Ambiguous ${scope} alias: ${from}`);
+  }
+  aliases[scope][from] = to;
+}
 
 const workbook = xlsx.readFile(excelPath);
 const sheet = workbook.Sheets.Urun_Sablonu;
@@ -64,7 +78,15 @@ for (const row of rows.slice(1)) {
   const categories = tree.get(groupKey);
   if (!categories.has(categoryKey)) categories.set(categoryKey, new Map());
 
-  const existing = existingMap[subcategoryKey];
+  const existing = existingMap[subcategoryKey] || existingMap[text(row.subcategory)];
+  addAlias("group", existing?.groupKey, groupKey);
+  addAlias("main", existing?.categoryKey, categoryKey);
+  addAlias("sub", text(row.subcategory), subcategoryKey);
+  const previous = [...tree.values()].flatMap((categories) => [...categories.values()])
+    .map((subcategories) => subcategories.get(subcategoryKey)).find(Boolean);
+  if (previous && (previous.groupKey !== groupKey || previous.categoryKey !== categoryKey)) {
+    throw new Error(`Conflicting subcategory: ${subcategoryKey}`);
+  }
   categories.get(categoryKey).set(subcategoryKey, {
     groupKey,
     categoryKey,
@@ -113,6 +135,12 @@ const sortedCategoryData = Object.fromEntries(
       groupKey,
       { mainCategories: sortObject(group.mainCategories) },
     ])
+);
+
+await fs.writeFile(
+  aliasesPath,
+  `// Legacy keys from the import workbook; keep old links and translations usable.\nexport const catalogKeyAliases = ${JSON.stringify(aliases, null, 2)};\n`,
+  "utf8"
 );
 
 await fs.writeFile(

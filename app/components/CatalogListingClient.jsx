@@ -22,6 +22,7 @@ import { getCatalogProducts } from "../lib/firestore/products";
 import { useLang } from "../context/LanguageContext";
 import { normalizeCatalogGroupKey } from "../lib/catalog/catalogLabels";
 import { compareProductsByCategoryOrder } from "../lib/catalog/productSort";
+import { normalizeCatalogPath } from "../lib/catalog/catalogKeys";
 
 const PAGE_SIZE = 12;
 
@@ -93,10 +94,13 @@ function getGroupHref(groupKey) {
 }
 
 export default function CatalogListingClient({
-  group,
-  category = null,
-  subcategory = null,
+  group: rawGroup,
+  category: rawCategory = null,
+  subcategory: rawSubcategory = null,
 }) {
+  const { group, category, subcategory } = normalizeCatalogPath({
+    group: rawGroup, category: rawCategory, subcategory: rawSubcategory,
+  });
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

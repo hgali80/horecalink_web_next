@@ -135,7 +135,7 @@ function CategoriesContent() {
   const groupIcons = {
     institutional: "🏢",
     equipment: "⚙️",
-    paslanmaz: "🔩",
+    "stainless-steel": "🔩",
     accessories: "🔧",
   };
 

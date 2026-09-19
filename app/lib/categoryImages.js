@@ -1,7 +1,8 @@
 import { categoryData } from '@/app/data/categoryData';
-export const CATEGORY_GROUPS = ['institutional', 'equipment', 'paslanmaz'];
-export const CATEGORY_COLORS = { institutional: '#16a34a', equipment: '#ea580c', paslanmaz: '#2563eb' };
-export const categoryImageKey = (group, category) => `${group}--${category}`;
+import { legacyCatalogKey } from './catalog/catalogKeys';
+export const CATEGORY_GROUPS = ['institutional', 'equipment', 'stainless-steel'];
+export const CATEGORY_COLORS = { institutional: '#16a34a', equipment: '#ea580c', 'stainless-steel': '#2563eb' };
+export const categoryImageKey = (group, category) => `${legacyCatalogKey('group', group)}--${legacyCatalogKey('main', category)}`;
 export function isCategoryImageKey(key) {
   return CATEGORY_GROUPS.some(group => Object.keys(categoryData[group].mainCategories).some(category => categoryImageKey(group, category) === key));
 }

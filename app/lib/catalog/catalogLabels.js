@@ -2,6 +2,7 @@
 
 import { categoryMap } from "../../data/categoryMap";
 import { categoryTranslationOverrides } from "./catalogTranslationOverrides";
+import { canonicalCatalogKey, legacyCatalogKey } from "./catalogKeys";
 
 const LABELS_BY_LANG = {
   accessories: {
@@ -284,10 +285,12 @@ function getFallbackLabel(lang, key, fallback) {
 }
 
 function getOverrideLabel(scope, key, lang) {
-  return categoryTranslationOverrides?.[scope]?.[key]?.[lang] || "";
+  return categoryTranslationOverrides?.[scope]?.[key]?.[lang] ||
+    categoryTranslationOverrides?.[scope]?.[legacyCatalogKey(scope, key)]?.[lang] || "";
 }
 
 export function getGroupLabel({ t, lang, groupKey, fallback }) {
+  groupKey = legacyCatalogKey("group", groupKey);
   const override = getOverrideLabel("group", groupKey, lang);
   if (override) return override;
 
@@ -304,6 +307,7 @@ export function getGroupLabel({ t, lang, groupKey, fallback }) {
 }
 
 export function getMainCategoryLabel({ t, lang, categoryKey, fallback }) {
+  categoryKey = legacyCatalogKey("main", categoryKey);
   const override = getOverrideLabel("main", categoryKey, lang);
   if (override) return override;
 
@@ -326,6 +330,7 @@ export function getMainCategoryLabel({ t, lang, categoryKey, fallback }) {
 }
 
 export function getSubcategoryLabel({ t, lang, subcategoryKey, fallback }) {
+  subcategoryKey = legacyCatalogKey("sub", subcategoryKey);
   const override = getOverrideLabel("sub", subcategoryKey, lang);
   if (override) return override;
 
@@ -349,7 +354,7 @@ export function getSubcategoryLabel({ t, lang, subcategoryKey, fallback }) {
 
 function readKnownKey(...values) {
   for (const value of values) {
-    const key = String(value || "").trim();
+    const key = canonicalCatalogKey("sub", value);
     if (key && categoryMap[key]) {
       return key;
     }
@@ -360,12 +365,12 @@ function readKnownKey(...values) {
 
 export function normalizeCatalogGroupKey(value) {
   const normalized = normalizeLookupValue(value);
-  return GROUP_KEY_ALTERNATIVES.get(normalized) || String(value || "").trim();
+  return canonicalCatalogKey("group", GROUP_KEY_ALTERNATIVES.get(normalized) || value);
 }
 
 function resolveKnownCategoryKey(...values) {
   for (const value of values) {
-    const exact = String(value || "").trim();
+    const exact = canonicalCatalogKey("main", value);
     if (exact && categoryKeyIndex.has(normalizeLookupValue(exact))) {
       return categoryKeyIndex.get(normalizeLookupValue(exact));
     }

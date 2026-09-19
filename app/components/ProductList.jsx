@@ -18,13 +18,16 @@ import {
   resolveProductCategoryKeys,
 } from "../lib/catalog/catalogLabels";
 import { compareProductsByCategoryOrder } from "../lib/catalog/productSort";
+import { canonicalCatalogKey } from "../lib/catalog/catalogKeys";
 
 export default function ProductList({
-  filterSubCategory,
-  filterMainCategory,
+  filterSubCategory: rawSubCategory,
+  filterMainCategory: rawMainCategory,
   filterGroup,
   searchQuery,
 }) {
+  const filterSubCategory = canonicalCatalogKey("sub", rawSubCategory);
+  const filterMainCategory = canonicalCatalogKey("main", rawMainCategory);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 

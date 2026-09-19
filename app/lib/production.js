@@ -72,6 +72,6 @@ export function getProductionGroup(product) {
   if (product?.productionGroup === 'none') return null;
   if (['paslanmaz', 'stainless', 'stainless-steel', 'stainless_steel'].includes(product?.groupKey)) return 'stainless';
   // Other packaging categories may include traded goods. Only the confirmed bag group is automatic.
-  if (product?.subcategoryKey === 'cop-torbasi-ve-posetler') return 'packaging';
+  if (['cop-torbasi-ve-posetler', 'garbage-bags-and-liners'].includes(product?.subcategoryKey)) return 'packaging';
   return null;
 }
