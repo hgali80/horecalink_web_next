@@ -2,6 +2,7 @@
 
 import { createElement, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import CustomerExcelButton from "@/app/components/CustomerExcelButton";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -393,6 +394,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
           <div><h1 className="text-2xl font-extrabold text-slate-900">{presentationId ? "Ürün Fiyat Sunumunu Düzenle" : "Yeni Ürün Fiyat Sunumu"}</h1><p className="text-sm text-slate-500">Sunum adını müşteri görmez; yalnızca admin listesinde kullanılır.</p></div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <CustomerExcelButton document={form} onError={setMessage} />
           <button type="button" onClick={handlePdf} disabled={savingPdf} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50"><FileDown size={17} /> {savingPdf ? "PDF hazırlanıyor..." : "PDF İndir"}</button>
           <button type="button" onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-[#1d3246] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>
         </div>

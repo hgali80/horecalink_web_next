@@ -1,4 +1,5 @@
 "use client";
+import CustomerExcelButton from "@/app/components/CustomerExcelButton";
 
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -756,6 +757,7 @@ export default function OfferEditor({ offerId = null, sourceRequestId = null }) 
 
             <div className="flex flex-wrap gap-2">
               <OfferSaleTransfer offerId={offerId} offer={{ ...form, items: calculated.items, totals: calculated.totals }} disabled={saving} />
+              <CustomerExcelButton document={form} calculated={calculated} onError={setMessage} />
               <button
                 type="button"
                 onClick={handlePrint}
