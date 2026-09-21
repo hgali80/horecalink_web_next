@@ -58,9 +58,9 @@ function formatPriceWithDecimal(value) {
   }).format(numeric);
 }
 
-function asNumber(value) {
+function asPositiveNumber(value) {
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }
 
 function resolveText(t, key, fallback, params) {
@@ -165,15 +165,14 @@ function normalizeUnitType(value, t) {
 }
 
 function buildPackagingSummary(product, t) {
-  const price = asNumber(product?.price);
-  const packQty = asNumber(product?.packQty);
-  const caseQty = asNumber(product?.caseQty);
+  const price = asPositiveNumber(product?.price);
+  const packQty = asPositiveNumber(product?.packQty);
+  const caseQty = asPositiveNumber(product?.caseQty);
   const unitType = normalizeUnitType(product?.unitType, t);
   const totalUnits = packQty && caseQty ? packQty * caseQty : null;
   const pricePerPack = price && caseQty ? price / caseQty : null;
   const pricePerUnit = price && totalUnits ? price / totalUnits : null;
-  const hasPackagingData =
-    Number.isFinite(packQty) || Number.isFinite(caseQty) || Boolean(cleanText(product?.unitType));
+  const hasPackagingData = packQty !== null || caseQty !== null;
 
   if (!hasPackagingData) return null;
 
