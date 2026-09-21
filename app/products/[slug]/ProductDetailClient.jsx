@@ -174,7 +174,9 @@ function buildPackagingSummary(product, t) {
   const pricePerUnit = price && totalUnits ? price / totalUnits : null;
   const hasPackagingData = packQty !== null || caseQty !== null;
 
-  if (!hasPackagingData) return null;
+  const isSingleUnitPackaging = caseQty === 1 && packQty === 1 && totalUnits === 1;
+
+  if (!hasPackagingData || isSingleUnitPackaging) return null;
 
   const chips = [];
 
