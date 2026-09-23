@@ -16,7 +16,9 @@ import {
 import ProductGallery from "../../components/ProductGallery";
 import ProductQuoteActions from "../../components/ProductQuoteActions";
 import RelatedProducts from "../../components/RelatedProducts";
+import ProductFamilyVariants from "../../components/ProductFamilyVariants";
 import ProductionBadge from "../../components/production/ProductionBadge";
+import { getProductHighlightLines } from "../../lib/productHighlights";
 import { useLang } from "../../context/LanguageContext";
 
 const LEGACY_BADGE_ALIASES = {
@@ -113,40 +115,11 @@ function buildSpecs(product, t) {
     .map(([key, fallback, value]) => [resolveText(t, key, fallback), value]);
 }
 
-function getDefaultHighlightLines(t) {
-  return [
-    resolveText(
-      t,
-      "productDetail.highlight.professionalText",
-      "Bu urun HoReCa operasyonlarinda yogun kullanim icin uygundur."
-    ),
-    resolveText(
-      t,
-      "productDetail.highlight.updatedText",
-      "Kart bilgileri Firestore katalog verisinden otomatik olusturulur."
-    ),
-    resolveText(
-      t,
-      "productDetail.highlight.fastQuoteText",
-      "Ticari teklif talebinizi tek tikla iletebilirsiniz."
-    ),
-  ];
-}
-
 function buildHighlights(product, t) {
   const icons = [ShieldCheck, Sparkles, Truck];
-  const customLines = cleanText(product?.highlightLines)
-    .replace(/\s{2,}/g, "\n")
-    .split("\n")
-    .map((line) => cleanText(line))
-    .filter(Boolean)
-    .slice(0, 3);
-
-  const lines = customLines.length ? customLines : getDefaultHighlightLines(t);
-
-  return icons.map((icon, index) => ({
-    icon,
-    text: lines[index] || getDefaultHighlightLines(t)[index],
+  return getProductHighlightLines(product?.highlightLines, t).map((text, index) => ({
+    icon: icons[index],
+    text,
   }));
 }
 
@@ -229,7 +202,7 @@ function buildPackagingSummary(product, t) {
   };
 }
 
-export default function ProductDetailClient({ product, relatedProducts }) {
+export default function ProductDetailClient({ product, relatedProducts, familyVariants = [] }) {
   const { t } = useLang();
   const [activeTab, setActiveTab] = useState("description");
   const productTitle =
@@ -300,7 +273,7 @@ export default function ProductDetailClient({ product, relatedProducts }) {
 
                 {product.isNew ? (
                   <span className="rounded-sm border border-[#c3c7cd] bg-[#eceef0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1d3246]">
-                    New
+                    {t("product.badges.new")}
                   </span>
                 ) : null}
               </div>
@@ -438,6 +411,8 @@ export default function ProductDetailClient({ product, relatedProducts }) {
             </div>
           </div>
         </div>
+
+        <ProductFamilyVariants key={product.id} product={product} variants={familyVariants} />
 
         <div className="mt-24">
           <div className="flex overflow-x-auto border-b border-[#e6e8ea]">

@@ -4,6 +4,7 @@ import ProductDetailClient from "./ProductDetailClient";
 import {
   getProductBySlug,
   getRelatedProducts,
+  getProductFamilyVariants,
 } from "../../lib/firestore/products";
 import { hydrateProductImageNames } from "../../lib/server/productImages";
 
@@ -214,7 +215,9 @@ export default async function ProductDetailPage({ params }) {
   }
 
   const hydratedProduct = await hydrateProductImageNames(product);
-  const relatedProducts = await getRelatedProducts(hydratedProduct, 8);
+  const [relatedProducts, familyVariants] = await Promise.all([
+    getRelatedProducts(hydratedProduct, 6), getProductFamilyVariants(hydratedProduct),
+  ]);
   const productJsonLd = buildProductJsonLd(hydratedProduct);
 
   return (
@@ -225,7 +228,7 @@ export default async function ProductDetailPage({ params }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
         />
       ) : null}
-      <ProductDetailClient product={hydratedProduct} relatedProducts={relatedProducts} />
+      <ProductDetailClient product={hydratedProduct} relatedProducts={relatedProducts} familyVariants={familyVariants} />
     </>
   );
 }

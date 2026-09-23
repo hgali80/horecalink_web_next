@@ -12,6 +12,7 @@ import {
 import { db } from "../../../firebase";
 import { compareProductsByCategoryOrder, getProductOrderValue } from "../catalog/productSort";
 import { canonicalCatalogKey } from "../catalog/catalogKeys";
+import { getProductFamilyKey, groupProductFamilies } from "../catalog/productFamilies";
 
 function asBoolean(value, fallback = false) {
   if (typeof value === "boolean") return value;
@@ -260,7 +261,8 @@ export async function getRelatedProducts(product, maxItems = 8) {
   if (!product) return [];
 
   const bindingCodes = normalizeArray(product.binding_codes);
-  if (!bindingCodes.length) return [];
+  const family = getProductFamilyKey(product);
+  if (!bindingCodes.length && !family) return [];
 
   const q = query(
     collection(db, "products"),
@@ -270,15 +272,28 @@ export async function getRelatedProducts(product, maxItems = 8) {
 
   const snapshot = await getDocs(q);
 
-  return snapshot.docs
+  return groupProductFamilies(snapshot.docs
     .map(normalizeProduct)
     .filter((item) => item.id !== product.id)
     .filter((item) => {
+      if (family && getProductFamilyKey(item) === family) return false;
       const itemBindings = normalizeArray(item.binding_codes);
-      return itemBindings.some((code) => bindingCodes.includes(code));
+      return itemBindings.some((code) => bindingCodes.includes(code)) ||
+        (family && item.groupKey === product.groupKey && item.categoryKey === product.categoryKey);
     })
-    .sort(sortProducts)
+    .sort(sortProducts))
     .slice(0, maxItems);
+}
+
+export async function getProductFamilyVariants(product) {
+  const family = getProductFamilyKey(product);
+  if (!family) return [];
+  const snapshot = await getDocs(query(collection(db, "products"),
+    where("active", "==", true), where("webPublished", "==", true)));
+  return snapshot.docs.map(normalizeProduct)
+    .filter((item) => getProductFamilyKey(item) === family)
+    .sort((a, b) => (a.dimensions || a.manufacturerCode).localeCompare(
+      b.dimensions || b.manufacturerCode, "ru", { numeric: true }));
 }
 
 export async function getProductsByIds(productIds = []) {

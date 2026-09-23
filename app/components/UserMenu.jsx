@@ -57,7 +57,7 @@ export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
       {canOpenSalesStock ? (
         <Link href="/satissitok/admin" onClick={onNavigate} className={baseLinkClass}>
           <LayoutDashboard size={18} />
-          Satış/Stok
+          {t("header.menu.salesStock")}
         </Link>
       ) : null}
 

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useLang } from "../context/LanguageContext";
 import ProductQuoteActions from "./ProductQuoteActions";
 import ProductionBadge from "./production/ProductionBadge";
+import { familyLabels } from "../lib/catalog/familyLabels";
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
 const PLACEHOLDER_IMAGE = "/Placeholder.png";
@@ -94,19 +95,21 @@ function getImageUrl(product) {
 }
 
 export default function ProductCard({ product, variant = "default" }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const labels = familyLabels[lang] || familyLabels.ru;
+  const isFamily = product.familyCard === true;
   const [imageError, setImageError] = useState(false);
 
   const href = getProductHref(product);
-  const title = getProductName(product);
-  const description = getProductDescription(product);
-  const code = getProductCode(product);
-  const dimensions = isStainlessProduct(product)
+  const title = isFamily ? product.familyTitle : getProductName(product);
+  const description = isFamily ? `${labels.variants}: ${product.familyVariantCount}` : getProductDescription(product);
+  const code = isFamily ? product.familyKey : getProductCode(product);
+  const dimensions = !isFamily && isStainlessProduct(product)
     ? cleanText(product?.dimensions)
     : "";
   const imageUrl = getImageUrl(product);
   const displayImageUrl = !imageError && imageUrl ? imageUrl : PLACEHOLDER_IMAGE;
-  const formattedPrice = formatPrice(product?.price);
+  const formattedPrice = isFamily ? null : formatPrice(product?.price);
   const unit = cleanText(product?.unit) || t("productDetail.unit");
 
   if (variant === "featured") {
@@ -200,14 +203,14 @@ export default function ProductCard({ product, variant = "default" }) {
             </div>
           ) : (
             <div className="text-[12px] font-semibold text-slate-500 sm:text-[14px]">
-              {t("productcard.noPrice")}
+              {isFamily ? labels.choose : t("productcard.noPrice")}
             </div>
           )}
         </div>
 
         <div className="mt-4 flex items-center justify-end border-t border-slate-100 pt-3 sm:mt-6 sm:pt-5">
           <div className="relative z-20">
-            <ProductQuoteActions product={product} variant="compact" />
+            {isFamily ? <Link href={`${href}#series-variants`} className="inline-block rounded-xl bg-[#1d3246] px-4 py-2 text-sm font-semibold text-white">{labels.choose}</Link> : <ProductQuoteActions product={product} variant="compact" />}
           </div>
         </div>
       </div>

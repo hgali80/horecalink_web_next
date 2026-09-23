@@ -6,9 +6,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebase/index";
+import { useLang } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
 
 export default function LoginPage() {
+  const { t } = useLang();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
@@ -36,7 +38,7 @@ export default function LoginPage() {
     } catch (err) {
       console.error("Login error:", err);
 
-      let errorText = "Giriş başarısız. Bilgileri kontrol edin.";
+      let errorText = "login.genericError";
 
       if (
         err.code === "auth/user-not-found" ||
@@ -44,12 +46,12 @@ export default function LoginPage() {
         err.code === "auth/invalid-credential" ||
         err.code === "auth/invalid-login-credentials"
       ) {
-        errorText = "E-posta veya şifre hatalı.";
+        errorText = "login.invalidCredentials";
       } else if (err.code === "auth/invalid-email") {
-        errorText = "Geçerli bir e-posta adresi girin.";
+        errorText = "login.invalidEmail";
       } else if (err.code === "auth/too-many-requests") {
         errorText =
-          "Çok fazla başarısız deneme yapıldı. Lütfen daha sonra tekrar deneyin.";
+          "login.tooManyRequests";
       }
 
       setMsg(errorText);
@@ -61,7 +63,7 @@ export default function LoginPage() {
   if (authLoading) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center px-4">
-        <div className="text-sm text-slate-500">Yükleniyor...</div>
+        <div className="text-sm text-slate-500">{t("common.loading")}</div>
       </div>
     );
   }
@@ -71,17 +73,17 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-md sm:p-8">
         <div className="mb-6 text-center">
           <h1 className="text-3xl font-bold text-slate-900">
-            Horecalink Yönetici Girişi
+            {t("login.title")}
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Bu ekran sadece yönetici ve yetkili personel içindir.
+            {t("login.subtitle")}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {msg ? (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {msg}
+              {t(msg)}
             </div>
           ) : null}
 
@@ -90,7 +92,7 @@ export default function LoginPage() {
               htmlFor="email"
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              E-posta
+              {t("login.emailLabel")}
             </label>
             <input
               id="email"
@@ -98,7 +100,7 @@ export default function LoginPage() {
               type="email"
               autoComplete="email"
               required
-              placeholder="ornek@firma.com"
+              placeholder={t("login.emailPlaceholder")}
               className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm outline-none transition focus:border-sky-600"
             />
           </div>
@@ -108,7 +110,7 @@ export default function LoginPage() {
               htmlFor="password"
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Şifre
+              {t("login.passwordLabel")}
             </label>
             <input
               id="password"
@@ -116,7 +118,7 @@ export default function LoginPage() {
               type="password"
               autoComplete="current-password"
               required
-              placeholder="Şifrenizi girin"
+              placeholder={t("login.passwordPlaceholder")}
               className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm outline-none transition focus:border-sky-600"
             />
           </div>
@@ -126,7 +128,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-lg bg-sky-600 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+            {loading ? t("login.submitting") : t("login.submit")}
           </button>
         </form>
 
@@ -135,7 +137,7 @@ export default function LoginPage() {
             href="/forgot-password"
             className="text-sm text-slate-500 transition hover:text-slate-900"
           >
-            Şifremi unuttum
+            {t("login.forgotPassword")}
           </Link>
         </div>
       </div>

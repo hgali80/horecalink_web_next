@@ -2,6 +2,7 @@
 
 "use client";
 
+import { useLang } from "../context/LanguageContext";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -9,6 +10,7 @@ import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../firebase";
 
 export default function ForgotPasswordPage() {
+  const { t } = useLang();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -24,24 +26,24 @@ export default function ForgotPasswordPage() {
 
     try {
       if (!email) {
-        setError("Lütfen email girin.");
+        setError("forgotPassword.emptyEmail");
         setSending(false);
         return;
       }
 
       // Telefon ile kayıt olan kullanıcılar için kontrol
       if (email.includes("@phone.horecalink.kz")) {
-        setError("Bu hesap telefonla kayıtlı. Şifre sıfırlama emaili gönderilemez.");
+        setError("forgotPassword.phoneAccount");
         setSending(false);
         return;
       }
 
       await sendPasswordResetEmail(auth, email);
 
-      setMessage("Şifre sıfırlama bağlantısı email adresine gönderildi.");
+      setMessage("forgotPassword.success");
     } catch (err) {
       console.error(err);
-      setError("Email bulunamadı veya gönderilemedi.");
+      setError("forgotPassword.error");
     }
 
     setSending(false);
@@ -52,12 +54,12 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md bg-white shadow rounded-lg p-6">
 
         <h1 className="text-xl font-semibold mb-6 text-center">
-          Şifre Sıfırlama
+          {t("forgotPassword.title")}
         </h1>
 
         <form onSubmit={handleReset} className="space-y-4">
           <div>
-            <label className="block text-sm mb-1">Email</label>
+            <label className="block text-sm mb-1">{t("login.emailLabel")}</label>
             <input
               type="email"
               placeholder="mail@example.com"
@@ -67,15 +69,15 @@ export default function ForgotPasswordPage() {
             />
           </div>
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          {message && <p className="text-green-600 text-sm">{message}</p>}
+          {error && <p className="text-red-500 text-sm">{t(error)}</p>}
+          {message && <p className="text-green-600 text-sm">{t(message)}</p>}
 
           <button
             type="submit"
             disabled={sending}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded"
           >
-            {sending ? "Gönderiliyor..." : "Email Gönder"}
+            {sending ? t("forgotPassword.submitting") : t("forgotPassword.submit")}
           </button>
         </form>
 
@@ -83,7 +85,7 @@ export default function ForgotPasswordPage() {
           onClick={() => router.push("/login")}
           className="mt-4 w-full text-center text-gray-700 hover:underline"
         >
-          Giriş Sayfasına Dön
+          {t("forgotPassword.backToLogin")}
         </button>
 
       </div>

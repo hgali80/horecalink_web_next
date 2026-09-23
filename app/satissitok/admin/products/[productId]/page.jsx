@@ -50,11 +50,7 @@ function normalizeBadgeValue(value) {
   return LEGACY_BADGE_ALIASES[clean] || clean;
 }
 
-const DEFAULT_HIGHLIGHT_LINES = [
-  "Bu urun HoReCa operasyonlarinda yogun kullanim icin uygundur.",
-  "Kart bilgileri Firestore katalog verisinden otomatik olusturulur.",
-  "Ticari teklif talebinizi tek tikla iletebilirsiniz.",
-].join("\n");
+const HIGHLIGHT_PLACEHOLDER = "İsteğe bağlı ürüne özel Rusça bilgi satırları. Boş bırakılırsa genel bilgiler ziyaretçinin dilinde gösterilir.";
 
 function Field({ label, children, hint }) {
   return (
@@ -160,7 +156,7 @@ function buildInitialForm(product) {
     shortDescription: product.shortDescription ?? "",
     description: product.description ?? "",
     specs: product.specs ?? "",
-    highlightLines: product.highlightLines ?? DEFAULT_HIGHLIGHT_LINES,
+    highlightLines: product.highlightLines ?? "",
     group: product.group ?? "",
     groupKey: product.groupKey ?? "",
     category: product.category ?? product.main_category ?? "",
@@ -865,7 +861,7 @@ export default function ProductDetailEditPage() {
                 value={form.highlightLines}
                 onChange={(e) => set("highlightLines", e.target.value)}
                 className="min-h-[130px] w-full rounded-lg border px-3 py-2 text-sm"
-                placeholder={DEFAULT_HIGHLIGHT_LINES}
+                placeholder={HIGHLIGHT_PLACEHOLDER}
               />
             </Field>
 

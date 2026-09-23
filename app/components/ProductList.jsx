@@ -7,6 +7,7 @@ import Link from "next/link";
 
 import { app } from "../../firebase";
 import ProductCard from "./ProductCard";
+import { groupProductFamilies } from "../lib/catalog/productFamilies";
 import { categoryMap } from "../data/categoryMap";
 import { categoryData } from "../data/categoryData";
 import { useLang } from "../context/LanguageContext";
@@ -115,9 +116,9 @@ export default function ProductList({
 
   const filtered = useMemo(() => {
     const q = String(searchQuery || "").trim().toLowerCase();
-    if (!q) return products;
+    if (!q) return groupProductFamilies(products);
 
-    return products.filter((p) => {
+    return groupProductFamilies(products.filter((p) => {
       const hay = [
         p.name_tr,
         p.name_ru,
@@ -131,6 +132,7 @@ export default function ProductList({
         p.code,
         p.stock_code,
         p.sku,
+        p.manufacturerCode,
         p.id,
       ]
         .filter(Boolean)
@@ -138,7 +140,7 @@ export default function ProductList({
         .toLowerCase();
 
       return hay.includes(q);
-    });
+    }));
   }, [products, searchQuery]);
 
   if (loading) {

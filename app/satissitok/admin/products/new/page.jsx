@@ -32,11 +32,7 @@ const PRODUCT_TYPE_OPTIONS = ["sale_item", "consumable", "service"];
 const UNIT_OPTIONS = ["sht", "adet", "kg", "gr", "lt", "ml", "paket", "koli", "set", "pcs"];
 const UNIT_TYPE_OPTIONS = ["roll", "piece", "ml", "kg"];
 
-const DEFAULT_HIGHLIGHT_LINES = [
-  "Bu urun HoReCa operasyonlarinda yogun kullanim icin uygundur.",
-  "Kart bilgileri Firestore katalog verisinden otomatik olusturulur.",
-  "Ticari teklif talebinizi tek tikla iletebilirsiniz.",
-].join("\n");
+const HIGHLIGHT_PLACEHOLDER = "İsteğe bağlı ürüne özel Rusça bilgi satırları. Boş bırakılırsa genel bilgiler ziyaretçinin dilinde gösterilir.";
 
 const GROUP_OPTIONS = Array.from(
   Object.values(categoryMap).reduce((acc, item) => {
@@ -79,7 +75,7 @@ const INITIAL_FORM = {
   shortDescription: "",
   description: "",
   specs: "",
-  highlightLines: DEFAULT_HIGHLIGHT_LINES,
+  highlightLines: "",
   group: "",
   groupKey: "",
   category: "",
@@ -532,7 +528,7 @@ export default function NewProductPage() {
             value={form.highlightLines}
             onChange={(e) => setField("highlightLines", e.target.value)}
             className="w-full border rounded-lg px-3 py-2 text-sm min-h-[110px]"
-            placeholder={DEFAULT_HIGHLIGHT_LINES}
+            placeholder={HIGHLIGHT_PLACEHOLDER}
           />
         </Field>
 

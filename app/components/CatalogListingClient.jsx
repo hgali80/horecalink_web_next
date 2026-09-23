@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import ProductCard from "./ProductCard";
+import { groupProductFamilies } from "../lib/catalog/productFamilies";
 import ProductionCatalogBanner from './production/ProductionCatalogBanner';
 import { buildCatalogTree } from "../lib/catalog/categoryTree";
 import { getCatalogLabels } from "../lib/catalog/categoryLabels";
@@ -175,7 +176,7 @@ export default function CatalogListingClient({
       return true;
     });
 
-    return sortFilteredProducts(next, sortValue);
+    return groupProductFamilies(sortFilteredProducts(next, sortValue));
   }, [brandValue, products, searchValue, sortValue]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));

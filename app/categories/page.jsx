@@ -21,6 +21,7 @@ import { useLang } from "../context/LanguageContext";
 import { getFirestore, collection, getDocs, query, where } from "firebase/firestore";
 import { app } from "../../firebase";
 import ProductCard from "../components/ProductCard";
+import { groupProductFamilies } from "../lib/catalog/productFamilies";
 import {
   getGroupLabel,
   getMainCategoryLabel,
@@ -92,7 +93,7 @@ function CategoriesContent() {
   };
 
   const filteredProducts = useMemo(() => {
-    return allProducts
+    return groupProductFamilies(allProducts
       .filter((p) => {
         const { groupKey, categoryKey, subcategoryKey } = resolveProductCategoryKeys(p);
         const slug = subcategoryKey;
@@ -120,7 +121,7 @@ function CategoriesContent() {
 
         return true;
       })
-      .sort(compareProductsByCategoryOrder);
+      .sort(compareProductsByCategoryOrder));
   }, [allProducts, selectedGroup, selectedMainCategories, mainCategories, searchQuery]);
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
@@ -175,7 +176,7 @@ function CategoriesContent() {
               className="clear-btn"
               onClick={() => setSelectedMainCategories([])}
             >
-              {t("common.clear") || "Temizle"}
+              {t("common.clear")}
             </button>
           )}
         </div>
@@ -902,7 +903,7 @@ function CategoriesContent() {
               <input
                 type="text"
                 className="search-input"
-                placeholder={t("common.search") || "Ürün ara..."}
+                placeholder={t("common.search")}
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               />
@@ -913,7 +914,7 @@ function CategoriesContent() {
               onClick={() => setMobileFilterOpen(true)}
             >
               <SlidersHorizontal size={16} />
-              {t("filters.title") || "Filtrele"}
+              {t("filters.title")}
               {selectedMainCategories.length > 0 && (
                 <span className="filter-count-dot">{selectedMainCategories.length}</span>
               )}
@@ -923,14 +924,16 @@ function CategoriesContent() {
               <button
                 className={`view-btn ${viewMode === "grid" ? "view-btn--active" : ""}`}
                 onClick={() => setViewMode("grid")}
-                title="Grid görünüm"
+                title={t("catalogUi.gridView")}
+                aria-label={t("catalogUi.gridView")}
               >
                 <LayoutGrid size={16} />
               </button>
               <button
                 className={`view-btn ${viewMode === "list" ? "view-btn--active" : ""}`}
                 onClick={() => setViewMode("list")}
-                title="Liste görünüm"
+                title={t("catalogUi.listView")}
+                aria-label={t("catalogUi.listView")}
               >
                 <LayoutList size={16} />
               </button>
@@ -945,20 +948,20 @@ function CategoriesContent() {
           <section className="catalog-products">
             <div className="products-toolbar">
               <p className="results-info">
-                <strong>{filteredProducts.length}</strong> {t("common.product")} bulundu
+                {t("catalogUi.results", { count: filteredProducts.length })}
               </p>
             </div>
 
             {productsLoading ? (
               <div className="loading-state">
                 <Loader2 size={32} className="animate-spin" style={{ color: "var(--accent)" }} />
-                <span>Ürünler yükleniyor...</span>
+                <span>{t("catalogUi.loading")}</span>
               </div>
             ) : paginatedProducts.length === 0 ? (
               <div className="empty-state">
                 <Package size={48} />
-                <h3>Ürün bulunamadı</h3>
-                <p>Filtre veya arama kriterlerinizi değiştirmeyi deneyin.</p>
+                <h3>{t("catalogUi.empty")}</h3>
+                <p>{t("catalogUi.emptyHint")}</p>
               </div>
             ) : (
               <>
@@ -1021,7 +1024,7 @@ function CategoriesContent() {
             <div className="mobile-overlay" onClick={() => setMobileFilterOpen(false)} />
             <div className="mobile-drawer">
               <div className="drawer-header">
-                <span className="drawer-title">{t("filters.title") || "Filtreler"}</span>
+                <span className="drawer-title">{t("filters.title")}</span>
                 <button className="drawer-close" onClick={() => setMobileFilterOpen(false)}>
                   <X size={16} />
                 </button>
@@ -1036,6 +1039,7 @@ function CategoriesContent() {
 }
 
 export default function CategoriesPage() {
+  const { t } = useLang();
   return (
     <Suspense
       fallback={
@@ -1060,7 +1064,7 @@ export default function CategoriesPage() {
                 margin: "0 auto 16px",
               }}
             />
-            <p style={{ color: "#5A7184", fontSize: 14 }}>Yükleniyor...</p>
+            <p style={{ color: "#5A7184", fontSize: 14 }}>{t("common.loading")}</p>
           </div>
         </div>
       }
