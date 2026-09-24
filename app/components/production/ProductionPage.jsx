@@ -4,8 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, ArrowUpRight, Check, ChevronRight, Factory } from 'lucide-react';
 import { useLang } from '../../context/LanguageContext';
-import { getProductionCopy, localized, packagingFamilies, packagingSpecifications, stainlessFamilies } from '../../lib/production';
-import ProductionIcon from './ProductionIcon';
+import { getProductionCopy, localized, packagingFamilies, packagingSpecifications } from '../../lib/production';
+import StainlessCategoryCards from './StainlessCategoryCards';
 import ProductionRequestForm from './ProductionRequestForm';
 
 const button = 'inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-offset-4';
@@ -20,7 +20,7 @@ export default function ProductionPage({ group, familySlug }) {
   const cover = packaging ? `/images/production/${family?.image || 'packing'}.webp` : '/images/operations/stainless.jpg';
   const familySpecs = family?.specs || packagingSpecifications[familySlug];
   const options = familySpecs ? localized(familySpecs, lang) : packaging ? c.packOptions : c.steelOptions;
-  const catalog = family?.catalog || (packaging ? '/catalog/institutional/packaging-products' : '/catalog/paslanmaz');
+  const catalog = family?.catalog || (packaging ? '/catalog/institutional/packaging-products' : '/catalog/stainless-steel');
   return <main className="min-h-screen bg-[#f7f8fa] pb-24 text-[#1d3246] md:pb-12">
     <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
       <nav aria-label={t('breadcrumb.home')} className="flex flex-wrap items-center gap-2 text-xs leading-5 text-slate-500"><Link href="/" className="hover:underline">{t('breadcrumb.home')}</Link><ChevronRight size={13}/><Link href="/production" className="hover:underline">{c.nav}</Link>{family && <><ChevronRight size={13}/><Link href="/production/packaging" className="hover:underline">{c.packaging}</Link></>}<ChevronRight size={13}/><span aria-current="page">{title}</span></nav>
@@ -29,9 +29,10 @@ export default function ProductionPage({ group, familySlug }) {
         <div className="relative h-72 overflow-hidden rounded-3xl bg-slate-200 sm:h-96 lg:h-[440px]"><Image src={cover} alt={title} fill priority sizes="(max-width: 1023px) 100vw, 50vw" className="object-cover"/><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-6 pb-6 pt-16"><p className="text-xs font-semibold tracking-[0.2em] text-white">HORECALINK / {c.nav}</p></div></div>
       </section>
 
-      {!family && <section id="families" className="scroll-mt-40 py-10"><h2 className="mb-7 text-3xl font-bold tracking-tight">{c.groups}</h2><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {(packaging ? packagingFamilies : stainlessFamilies).map((item, index) => <Link key={item.slug} href={packaging ? `/production/packaging/${item.slug}` : `/catalog/paslanmaz/${item.category}`} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#286452]">
-          {packaging ? <div className="relative h-56 overflow-hidden"><Image src={`/images/production/${item.image}.webp`} alt={localized(item.name, lang)} fill sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-105"/></div> : <div className="flex items-center justify-between bg-[#edf2f6] p-6"><ProductionIcon group="stainless"/><span className="text-4xl font-light text-slate-300">0{index + 1}</span></div>}
+      {!family && !packaging && <StainlessCategoryCards title={c.groups} />}
+      {!family && packaging && <section id="families" className="scroll-mt-40 py-10"><h2 className="mb-7 text-3xl font-bold tracking-tight">{c.groups}</h2><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {packagingFamilies.map((item) => <Link key={item.slug} href={`/production/packaging/${item.slug}`} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#286452]">
+          {<div className="relative h-56 overflow-hidden"><Image src={`/images/production/${item.image}.webp`} alt={localized(item.name, lang)} fill sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-105"/></div>}
           <div className="p-6"><h3 className="text-xl font-bold leading-snug">{localized(item.name, lang)}</h3>{item.description && <p className="mt-3 text-sm leading-6 text-slate-500">{localized(item.description, lang)}</p>}<span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#286452]">{packaging ? c.discover : c.catalog}<ArrowUpRight size={17}/></span></div>
         </Link>)}
       </div></section>}
