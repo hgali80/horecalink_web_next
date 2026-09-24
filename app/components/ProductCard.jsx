@@ -103,7 +103,7 @@ export default function ProductCard({ product, variant = "default" }) {
   const href = getProductHref(product);
   const title = isFamily ? product.familyTitle : getProductName(product);
   const description = isFamily ? `${labels.variants}: ${product.familyVariantCount}` : getProductDescription(product);
-  const code = isFamily ? product.familyKey : getProductCode(product);
+  const code = cleanText(product?.sku) || getProductCode(product);
   const dimensions = !isFamily && isStainlessProduct(product)
     ? cleanText(product?.dimensions)
     : "";
@@ -152,7 +152,7 @@ export default function ProductCard({ product, variant = "default" }) {
         className="absolute inset-0 z-10 rounded-[inherit] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[#003366]"
       />
       <div className="relative block bg-[#f5f7f9]">
-        <div className="relative aspect-[4/3.45] w-full overflow-hidden">
+        <div className={`relative w-full overflow-hidden ${isFamily ? "aspect-[4/3]" : "aspect-[4/3.45]"}`}>
           <Image
             src={displayImageUrl}
             alt={title}
@@ -164,13 +164,13 @@ export default function ProductCard({ product, variant = "default" }) {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col px-3 pb-3 pt-3 sm:px-6 sm:pb-6 sm:pt-5">
+      <div className={`flex flex-1 flex-col p-3 ${isFamily ? "sm:p-4" : "sm:px-6 sm:pb-6 sm:pt-5"}`}>
         <div className="mb-2"><ProductionBadge product={product} /></div>
-        <div className="mb-2 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 sm:mb-3 sm:text-[11px] sm:tracking-[0.16em]">
-          {t("productDetail.stockCode")}: {code || "-"}
+        <div className="mb-2 truncate text-[11px] font-semibold text-slate-600 sm:text-xs">
+          SKU: {code || "-"}
         </div>
 
-        <h3 className="line-clamp-2 min-h-[44px] text-[14px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#12263a] sm:min-h-[64px] sm:text-[18px] sm:tracking-[-0.04em]">
+        <h3 className={`line-clamp-2 text-[14px] font-semibold tracking-[-0.03em] text-[#12263a] ${isFamily ? "min-h-10 leading-5 sm:text-base" : "min-h-[44px] leading-[1.15] sm:min-h-[64px] sm:text-[18px] sm:tracking-[-0.04em]"}`}>
           {title}
         </h3>
 
@@ -181,14 +181,14 @@ export default function ProductCard({ product, variant = "default" }) {
         ) : null}
 
         {description ? (
-          <p className="mt-2 line-clamp-2 min-h-[36px] text-[12px] leading-5 text-slate-500 sm:mt-3 sm:min-h-[48px] sm:text-[14px] sm:leading-6">
+          <p className={isFamily ? "mt-1 text-xs leading-5 text-slate-500 sm:text-sm" : "mt-2 line-clamp-2 min-h-[36px] text-[12px] leading-5 text-slate-500 sm:mt-3 sm:min-h-[48px] sm:text-[14px] sm:leading-6"}>
             {description}
           </p>
         ) : (
           <div className="mt-2 min-h-[36px] sm:mt-3 sm:min-h-[48px]" />
         )}
 
-        <div className="mt-4 sm:mt-7">
+        {!isFamily && <div className="mt-4 sm:mt-7">
           {formattedPrice ? (
             <div className="flex flex-wrap items-end gap-x-1 gap-y-0.5 text-[#12263a]">
               <span className="text-[17px] font-extrabold tracking-[-0.03em] sm:text-[22px] sm:tracking-[-0.04em]">
@@ -206,9 +206,9 @@ export default function ProductCard({ product, variant = "default" }) {
               {isFamily ? labels.choose : t("productcard.noPrice")}
             </div>
           )}
-        </div>
+        </div>}
 
-        <div className="mt-4 flex items-center justify-end border-t border-slate-100 pt-3 sm:mt-6 sm:pt-5">
+        <div className={`flex items-center justify-end border-t border-slate-100 ${isFamily ? "mt-3 pt-3" : "mt-4 pt-3 sm:mt-6 sm:pt-5"}`}>
           <div className="relative z-20">
             {isFamily ? <Link href={`${href}#series-variants`} className="inline-block rounded-xl bg-[#1d3246] px-4 py-2 text-sm font-semibold text-white">{labels.choose}</Link> : <ProductQuoteActions product={product} variant="compact" />}
           </div>
