@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import ProductDetailClient from "./ProductDetailClient";
@@ -10,6 +11,13 @@ import { hydrateProductImageNames } from "../../lib/server/productImages";
 
 const BASE_URL = "https://horecalink.kz";
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
+
+// Share product and image discovery between metadata and the page for this request.
+const getProductForPage = cache(async (slug) => {
+  const product = await getProductBySlug(slug);
+  if (!product) return null;
+  return hydrateProductImageNames(product);
+});
 
 function cleanText(value) {
   if (value === null || value === undefined) return "";
@@ -157,9 +165,9 @@ function buildProductJsonLd(product) {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const hydratedProduct = await getProductForPage(slug);
 
-  if (!product) {
+  if (!hydratedProduct) {
     return {
       title: "Товар не найден",
       robots: {
@@ -169,7 +177,6 @@ export async function generateMetadata({ params }) {
     };
   }
 
-  const hydratedProduct = await hydrateProductImageNames(product);
   const title = getProductSeoTitle(hydratedProduct);
   const description = getProductMetaDescription(hydratedProduct);
   const canonical = getProductUrl(hydratedProduct);
@@ -208,13 +215,12 @@ export async function generateMetadata({ params }) {
 export default async function ProductDetailPage({ params }) {
   const { slug } = await params;
 
-  const product = await getProductBySlug(slug);
+  const hydratedProduct = await getProductForPage(slug);
 
-  if (!product) {
+  if (!hydratedProduct) {
     notFound();
   }
 
-  const hydratedProduct = await hydrateProductImageNames(product);
   const [relatedProducts, familyVariants] = await Promise.all([
     getRelatedProducts(hydratedProduct, 6), getProductFamilyVariants(hydratedProduct),
   ]);
