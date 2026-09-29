@@ -6,7 +6,7 @@ import {
 } from "../lib/server/sitemapUtils";
 import { packagingFamilies } from '../lib/production';
 export const revalidate = 3600;
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
 
 const STATIC_PAGES = [
   ...['/production', '/production/stainless', '/production/packaging', ...packagingFamilies.map(item => `/production/packaging/${item.slug}`)].map(path => ({ path, changefreq: 'monthly', priority: 0.8 })),

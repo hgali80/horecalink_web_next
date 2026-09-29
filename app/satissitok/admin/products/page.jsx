@@ -7,7 +7,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Home, PlusCircle, Search } from "lucide-react";
 import {
-  listProductsAdmin,
+  getProductsAdminStats,
+  listProductsAdminPage,
+  listRemainingProductsAdmin,
   updateProductFlags,
   updateProductsFlags,
 } from "@/app/satissitok/services/productService";
@@ -22,9 +24,16 @@ const STATUS_FILTERS = [
 
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
 const PLACEHOLDER_IMAGE = "/Placeholder.png";
+const PRODUCTS_PAGE_SIZE = 100;
 
 function toStr(x) {
   return (x ?? "").toString();
+}
+
+function sortProductsByStockCode(products) {
+  return [...products].sort((a, b) =>
+    toStr(a.stock_code).localeCompare(toStr(b.stock_code), "tr")
+  );
 }
 
 function cleanText(value) {
@@ -72,6 +81,9 @@ export default function AdminProductsPage() {
   const router = useRouter();
 
   const [items, setItems] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [cursor, setCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -79,6 +91,8 @@ export default function AdminProductsPage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [busyMap, setBusyMap] = useState({});
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingAll, setLoadingAll] = useState(false);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -87,9 +101,18 @@ export default function AdminProductsPage() {
     (async () => {
       try {
         setLoading(true);
-        const list = await listProductsAdmin();
+        setLoadingAll(false);
+        setLoadingMore(false);
+        setErr("");
+        setSelectedIds([]);
+        const page = await listProductsAdminPage({
+          statusFilter,
+          pageSize: PRODUCTS_PAGE_SIZE,
+        });
         if (!alive) return;
-        setItems(list);
+        setItems(page.products);
+        setCursor(page.cursor);
+        setHasMore(page.hasMore);
       } catch (e) {
         if (!alive) return;
         setErr(e?.message || "Urunler yuklenemedi.");
@@ -101,7 +124,57 @@ export default function AdminProductsPage() {
     return () => {
       alive = false;
     };
+  }, [statusFilter]);
+
+  useEffect(() => {
+    let alive = true;
+
+    getProductsAdminStats()
+      .then((nextStats) => {
+        if (alive) setStats(nextStats);
+      })
+      .catch((error) => {
+        console.error("Ürün sayaçları yüklenemedi:", error);
+      });
+
+    return () => {
+      alive = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!q.trim()) {
+      setLoadingAll(false);
+      return;
+    }
+
+    if (loading || !hasMore) return;
+
+    let alive = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        setLoadingAll(true);
+        const remaining = await listRemainingProductsAdmin({
+          statusFilter,
+          cursor,
+        });
+        if (!alive) return;
+
+        setItems((current) => sortProductsByStockCode([...current, ...remaining.products]));
+        setCursor(remaining.cursor);
+        setHasMore(false);
+      } catch (error) {
+        if (alive) setErr(error?.message || "Arama için ürünler yüklenemedi.");
+      } finally {
+        if (alive) setLoadingAll(false);
+      }
+    }, 350);
+
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [cursor, hasMore, loading, q, statusFilter]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -130,17 +203,6 @@ export default function AdminProductsPage() {
       return hay.includes(s);
     });
   }, [items, q, statusFilter]);
-
-  const stats = useMemo(() => {
-    return {
-      total: items.length,
-      active: items.filter((item) => item.active === true).length,
-      passive: items.filter((item) => item.active === false).length,
-      web: items.filter((item) => item.webPublished === true).length,
-      notWeb: items.filter((item) => item.webPublished === false).length,
-      visible: filtered.length,
-    };
-  }, [filtered.length, items]);
 
   const visibleIds = useMemo(() => filtered.map((item) => item.id).filter(Boolean), [filtered]);
   const selectedCount = selectedIds.length;
@@ -171,6 +233,35 @@ export default function AdminProductsPage() {
     );
   }
 
+  async function refreshStats() {
+    try {
+      setStats(await getProductsAdminStats());
+    } catch (error) {
+      console.error("Ürün sayaçları yenilenemedi:", error);
+    }
+  }
+
+  async function handleLoadMore() {
+    if (!hasMore || loadingMore || loadingAll) return;
+
+    setLoadingMore(true);
+    setErr("");
+    try {
+      const page = await listProductsAdminPage({
+        statusFilter,
+        pageSize: PRODUCTS_PAGE_SIZE,
+        cursor,
+      });
+      setItems((current) => sortProductsByStockCode([...current, ...page.products]));
+      setCursor(page.cursor);
+      setHasMore(page.hasMore);
+    } catch (error) {
+      setErr(error?.message || "Daha fazla ürün yüklenemedi.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   async function handleSingleToggle(productId, field, value) {
     setErr("");
     setNotice("");
@@ -179,6 +270,7 @@ export default function AdminProductsPage() {
     try {
       await updateProductFlags(productId, { [field]: value });
       patchItems([productId], { [field]: value });
+      await refreshStats();
       setNotice(`Ürün güncellendi: ${productId}`);
     } catch (e) {
       setErr(e?.message || "Ürün durumu güncellenemedi.");
@@ -201,6 +293,7 @@ export default function AdminProductsPage() {
     try {
       const updatedIds = await updateProductsFlags(selectedIds, { [field]: value });
       patchItems(updatedIds, { [field]: value });
+      await refreshStats();
       setNotice(`${updatedIds.length} ürün güncellendi.`);
     } catch (e) {
       setErr(e?.message || "Toplu güncelleme başarısız.");
@@ -261,12 +354,12 @@ export default function AdminProductsPage() {
       {!loading && !err ? (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
-            <SummaryCard label="Toplam" value={stats.total} tone="slate" />
-            <SummaryCard label="Aktif" value={stats.active} tone="green" />
-            <SummaryCard label="Pasif" value={stats.passive} tone="red" />
-            <SummaryCard label="Webde" value={stats.web} tone="blue" />
-            <SummaryCard label="Webde Degil" value={stats.notWeb} tone="amber" />
-            <SummaryCard label="Listelenen" value={stats.visible} tone="slate" />
+            <SummaryCard label="Toplam" value={stats?.total ?? "…"} tone="slate" />
+            <SummaryCard label="Aktif" value={stats?.active ?? "…"} tone="green" />
+            <SummaryCard label="Pasif" value={stats?.passive ?? "…"} tone="red" />
+            <SummaryCard label="Webde" value={stats?.web ?? "…"} tone="blue" />
+            <SummaryCard label="Webde Degil" value={stats?.notWeb ?? "…"} tone="amber" />
+            <SummaryCard label="Yuklenen" value={items.length} tone="slate" />
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -356,7 +449,12 @@ export default function AdminProductsPage() {
       ) : err ? (
         <div className="text-sm text-red-600">{err}</div>
       ) : (
-        <div className="border rounded-xl overflow-hidden">
+        <div className="overflow-hidden rounded-xl border">
+          {loadingAll ? (
+            <div className="border-b bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              Eksiksiz arama için kalan ürünler yükleniyor…
+            </div>
+          ) : null}
           <div className="grid grid-cols-12 bg-gray-50 text-xs font-semibold text-gray-700 px-3 py-2">
             <div className="col-span-1 flex items-center gap-2">
               <input
@@ -442,6 +540,19 @@ export default function AdminProductsPage() {
               </div>
             </div>
           ))}
+
+          {hasMore && !q.trim() ? (
+            <div className="flex justify-center border-t bg-gray-50 px-4 py-4">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={loadingMore || loadingAll}
+                className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              >
+                {loadingMore ? "Yükleniyor…" : `${PRODUCTS_PAGE_SIZE} ürün daha yükle`}
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

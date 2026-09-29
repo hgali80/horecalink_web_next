@@ -25,7 +25,7 @@ export default function HomeBannerAdmin() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/home-banner', { signal: controller.signal, cache: 'no-store' })
+    fetch('/api/home-banner', { signal: controller.signal })
       .then(readBannerResponse)
       .then(data => { setSettings(data); setLoaded(true); setLoading(false); })
       .catch(error => { if (error.name !== 'AbortError') { setError(error.message); setLoading(false); } });

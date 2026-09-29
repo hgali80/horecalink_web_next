@@ -1,6 +1,16 @@
 import familyMap from "./productFamilyMap.json";
 
 const text = (value) => String(value ?? "").trim();
+const familySkus = new Map();
+for (const [sku, family] of Object.entries(familyMap.skus)) {
+  if (!familySkus.has(family)) familySkus.set(family, []);
+  familySkus.get(family).push(sku);
+}
+
+export function getProductFamilySkus(family) {
+  return [...(familySkus.get(text(family)) || [])];
+}
+
 export function getProductFamilyKey(product) {
   return text(product?.productFamilyKey) || familyMap.skus[text(product?.sku || product?.id)] || "";
 }

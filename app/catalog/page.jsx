@@ -19,7 +19,7 @@ export default function CatalogLandingPage() {
   const labels = copy[lang] || copy.tr;
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/category-images', { cache: 'no-store', signal: controller.signal })
+    fetch('/api/category-images', { signal: controller.signal })
       .then(readCategoryImagesResponse).then(data => setImages(data.images || {}))
       .catch(error => { if (error.name !== 'AbortError') console.error('Category images unavailable', error); });
     return () => controller.abort();

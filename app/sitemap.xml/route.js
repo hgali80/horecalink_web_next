@@ -5,7 +5,7 @@ import {
   getTodayDate,
 } from "../lib/server/sitemapUtils";
 export const revalidate = 3600;
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
 
 export async function GET() {
   const baseUrl = getBaseUrl();

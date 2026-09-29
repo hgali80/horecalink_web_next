@@ -4,6 +4,8 @@ import fs from "fs";
 import path from "path";
 import * as xlsx from "xlsx";
 import { FieldValue } from "firebase-admin/firestore";
+import { loadProductImageIndex } from "./productImageInventory";
+import { mergeDiscoveredProductImageNames } from "../productImageNames.mjs";
 
 export const DEFAULT_IMPORT_PATH = "D:\\web uygulaması araçları\\horecalink_urunleri_tam_liste.xlsx";
 export const DEFAULT_SHEET_NAME = "Urun_Sablonu";
@@ -467,7 +469,15 @@ async function importProductsFromWorkbook({
     throw new ImportValidationError("Excel verisi dogrulanamadi.", validationErrors);
   }
 
-  const snapshot = await adminDb.collection("products").get();
+  // Resolve the inventory once per import, rather than on every product visit.
+  // Fail before writes if Storage is unavailable, avoiding incomplete image lists.
+  const [snapshot, imageIndex] = await Promise.all([
+    adminDb.collection("products").get(),
+    loadProductImageIndex(),
+  ]);
+  importedProducts.forEach(payload => {
+    payload.image_names = mergeDiscoveredProductImageNames(payload, imageIndex);
+  });
   const existingDocs = new Map(snapshot.docs.map((doc) => [doc.id, doc.data()]));
 
   const createdIds = [];

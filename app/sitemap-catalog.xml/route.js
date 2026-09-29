@@ -5,8 +5,9 @@ import {
   getPublishedProductsForSitemap,
   getTodayDate,
 } from "../lib/server/sitemapUtils";
+import { normalizeCatalogPath } from "../lib/catalog/catalogKeys";
 export const revalidate = 3600;
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
 
 export async function GET() {
   const baseUrl = getBaseUrl();
@@ -16,9 +17,15 @@ export async function GET() {
   const seen = new Map();
 
   for (const product of products) {
-    if (!product.groupKey) continue;
+    const { group, category, subcategory } = normalizeCatalogPath({
+      group: product.groupKey,
+      category: product.categoryKey,
+      subcategory: product.subcategoryKey,
+    });
 
-    const groupPath = `/catalog/${product.groupKey}`;
+    if (!group) continue;
+
+    const groupPath = `/catalog/${group}`;
     if (!seen.has(groupPath)) {
       seen.set(
         groupPath,
@@ -31,9 +38,9 @@ export async function GET() {
       );
     }
 
-    if (!product.categoryKey) continue;
+    if (!category) continue;
 
-    const categoryPath = `${groupPath}/${product.categoryKey}`;
+    const categoryPath = `${groupPath}/${category}`;
     if (!seen.has(categoryPath)) {
       seen.set(
         categoryPath,
@@ -46,9 +53,9 @@ export async function GET() {
       );
     }
 
-    if (!product.subcategoryKey) continue;
+    if (!subcategory) continue;
 
-    const subcategoryPath = `${categoryPath}/${product.subcategoryKey}`;
+    const subcategoryPath = `${categoryPath}/${subcategory}`;
     if (!seen.has(subcategoryPath)) {
       seen.set(
         subcategoryPath,

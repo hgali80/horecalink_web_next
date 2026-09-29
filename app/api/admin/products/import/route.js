@@ -3,6 +3,8 @@ import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
+import { revalidatePublicProductPages } from "@/app/lib/server/productPageCache";
+
 import {
   DEFAULT_IMPORT_PATH,
   DEFAULT_SHEET_NAME,
@@ -129,6 +131,10 @@ export async function POST(request) {
         dryRun: body?.dryRun === true,
         requestedBy: authResult.requester.uid,
       });
+    }
+
+    if (result?.dryRun === false) {
+      revalidatePublicProductPages();
     }
 
     return NextResponse.json({ ok: true, result });

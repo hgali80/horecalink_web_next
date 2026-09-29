@@ -2,11 +2,18 @@
 import {
   collection,
   doc,
+  documentId,
+  getCountFromServer,
   getDoc,
   getDocs,
+  limit,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
+  startAfter,
   updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 
@@ -16,7 +23,34 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 
-import { db, storage } from "@/firebase";
+import { auth, db, storage } from "@/firebase";
+
+async function revalidatePublicProductPages() {
+  try {
+    const user = auth.currentUser;
+    if (!user) return false;
+
+    const idToken = await user.getIdToken();
+    const response = await fetch("/api/admin/products/revalidate", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return true;
+  } catch (error) {
+    // The write is already complete. The one-hour ISR fallback prevents a
+    // transient invalidation failure from leaving the public page stale forever.
+    console.error("Public product cache could not be refreshed:", error);
+    return false;
+  }
+}
 
 function toStr(x) {
   return (x ?? "").toString().trim();
@@ -316,6 +350,8 @@ export async function createProduct(raw) {
     updatedAt: serverTimestamp(),
   });
 
+  await revalidatePublicProductPages();
+
   return p.stock_code;
 }
 
@@ -330,6 +366,8 @@ export async function updateProduct(productId, raw) {
     ...p,
     updatedAt: serverTimestamp(),
   });
+
+  await revalidatePublicProductPages();
 
   return id;
 }
@@ -352,6 +390,7 @@ export async function updateProductFlags(productId, patch = {}) {
 
   const ref = doc(db, "products", id);
   await updateDoc(ref, updates);
+  await revalidatePublicProductPages();
   return id;
 }
 
@@ -384,6 +423,8 @@ export async function updateProductsFlags(productIds = [], patch = {}) {
     await batch.commit();
   }
 
+  await revalidatePublicProductPages();
+
   return ids;
 }
 
@@ -392,4 +433,75 @@ export async function listProductsAdmin() {
   return snap.docs
     .map((d) => normalizeAdminProductRecord(d.id, d.data()))
     .sort((a, b) => toStr(a.stock_code).localeCompare(toStr(b.stock_code), "tr"));
+}
+
+function getAdminStatusConstraint(statusFilter) {
+  if (statusFilter === "active") return where("active", "==", true);
+  if (statusFilter === "passive") return where("active", "==", false);
+  if (statusFilter === "web") return where("webPublished", "==", true);
+  if (statusFilter === "not_web") return where("webPublished", "==", false);
+  return null;
+}
+
+function buildAdminProductsPageQuery({ statusFilter = "all", pageSize = 100, cursor = null }) {
+  const constraints = [];
+  const statusConstraint = getAdminStatusConstraint(statusFilter);
+
+  if (statusConstraint) constraints.push(statusConstraint);
+  constraints.push(orderBy(documentId()));
+  if (cursor) constraints.push(startAfter(cursor));
+  constraints.push(limit(Math.min(Math.max(Number(pageSize) || 100, 1), 250)));
+
+  return query(collection(db, "products"), ...constraints);
+}
+
+export async function listProductsAdminPage(options = {}) {
+  const snap = await getDocs(buildAdminProductsPageQuery(options));
+  const products = snap.docs
+    .map((document) => normalizeAdminProductRecord(document.id, document.data()))
+    .sort((a, b) => toStr(a.stock_code).localeCompare(toStr(b.stock_code), "tr"));
+
+  return {
+    products,
+    cursor: snap.docs.at(-1) || null,
+    hasMore: snap.size >= Math.min(Math.max(Number(options.pageSize) || 100, 1), 250),
+  };
+}
+
+export async function listRemainingProductsAdmin({
+  statusFilter = "all",
+  cursor = null,
+  pageSize = 250,
+} = {}) {
+  const products = [];
+  let nextCursor = cursor;
+  let hasMore = true;
+
+  while (hasMore) {
+    const page = await listProductsAdminPage({ statusFilter, pageSize, cursor: nextCursor });
+    products.push(...page.products);
+    nextCursor = page.cursor;
+    hasMore = page.hasMore;
+  }
+
+  return { products, cursor: nextCursor, hasMore: false };
+}
+
+export async function getProductsAdminStats() {
+  const productsRef = collection(db, "products");
+  const [total, active, passive, web, notWeb] = await Promise.all([
+    getCountFromServer(productsRef),
+    getCountFromServer(query(productsRef, where("active", "==", true))),
+    getCountFromServer(query(productsRef, where("active", "==", false))),
+    getCountFromServer(query(productsRef, where("webPublished", "==", true))),
+    getCountFromServer(query(productsRef, where("webPublished", "==", false))),
+  ]);
+
+  return {
+    total: total.data().count,
+    active: active.data().count,
+    passive: passive.data().count,
+    web: web.data().count,
+    notWeb: notWeb.data().count,
+  };
 }

@@ -42,7 +42,7 @@ export default function CategoryImagesAdmin() {
   const tree = buildCatalogTree({ t, lang });
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/category-images', { cache: 'no-store', signal: controller.signal }).then(readCategoryImagesResponse)
+    fetch('/api/category-images', { signal: controller.signal }).then(readCategoryImagesResponse)
       .then(data => { setImages(data.images || {}); setLoaded(true); })
       .catch(error => { if (error.name !== 'AbortError') setError(error.message); });
     const allocated = urls.current;

@@ -1,6 +1,10 @@
+import "server-only";
+
+import { unstable_cache } from "next/cache";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "../../../firebase";
+import { PUBLIC_PRODUCTS_CACHE_TAG } from "./cacheTags";
 import { getAdminServices } from "./firebaseAdmin";
 import { getBaseUrl as getConfiguredBaseUrl } from "./siteConfig";
 
@@ -101,7 +105,7 @@ export function getTodayDate() {
   return new Date().toISOString().split("T")[0];
 }
 
-export async function getPublishedProductsForSitemap() {
+const getCachedPublishedProductsForSitemap = unstable_cache(async () => {
   let docs = [];
 
   try {
@@ -146,6 +150,13 @@ export async function getPublishedProductsForSitemap() {
       };
     })
     .filter((product) => product.active && product.webPublished && product.slug);
+}, ["published-products-sitemap-v1"], {
+  revalidate: 3600,
+  tags: [PUBLIC_PRODUCTS_CACHE_TAG],
+});
+
+export function getPublishedProductsForSitemap() {
+  return getCachedPublishedProductsForSitemap();
 }
 
 export function createUrlsetResponse(entries) {

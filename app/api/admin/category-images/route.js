@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { NextResponse } from 'next/server';
 import { authorizeAdminRequest, getAdminServices } from '@/app/lib/server/firebaseAdmin';
+import { revalidateCategoryImagesCache } from '@/app/lib/server/siteContentCache';
 import { isCategoryImageKey } from '@/app/lib/categoryImages';
 import { validateBannerFile } from '@/app/lib/homeBanner';
 
@@ -46,6 +47,7 @@ export async function PUT(request) {
       return { result, previous };
     });
     committed = true;
+    revalidateCategoryImagesCache();
     if (previous?.path?.startsWith('category_images/')) {
       try { await bucket.file(previous.path).delete({ ignoreNotFound: true }); }
       catch (error) { console.error('Category image cleanup failed', error); }

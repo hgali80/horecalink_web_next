@@ -49,6 +49,10 @@ function getImageCandidates(product) {
     ? product.image_names.map((item) => ensureImageExtension(item)).filter(Boolean)
     : [];
 
+  if (existingNames.length) {
+    return Array.from(new Set(existingNames));
+  }
+
   const baseStem =
     toImageStem(product?.stock_code) ||
     toImageStem(product?.imageBase) ||
@@ -82,10 +86,9 @@ function probeImage(imageName) {
   });
 }
 
-export default function ProductGallery({ product }) {
+function ProductGalleryContent({ product, candidateImages }) {
   const { t } = useLang();
   const videoUrl = getVideoUrl(product?.videoUrl);
-  const candidateImages = useMemo(() => getImageCandidates(product), [product]);
   const fallbackImages = useMemo(
     () => candidateImages.slice(0, 1),
     [candidateImages]
@@ -98,11 +101,6 @@ export default function ProductGallery({ product }) {
 
   useEffect(() => {
     let cancelled = false;
-
-    setImages(fallbackImages);
-    setSelectedIndex(0);
-    setSelectedImageFailed(false);
-    setFailedImages({});
 
     async function discoverImages() {
       if (!candidateImages.length) {
@@ -290,5 +288,18 @@ export default function ProductGallery({ product }) {
         </div>
       ) : null}
     </>
+  );
+}
+
+export default function ProductGallery({ product }) {
+  const candidateImages = useMemo(() => getImageCandidates(product), [product]);
+  const galleryKey = `${product?.id || product?.stock_code || "product"}:${candidateImages.join("|")}`;
+
+  return (
+    <ProductGalleryContent
+      key={galleryKey}
+      product={product}
+      candidateImages={candidateImages}
+    />
   );
 }

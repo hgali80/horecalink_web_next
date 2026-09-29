@@ -12,7 +12,7 @@ import {
 import { db } from "../../../firebase";
 import { compareProductsByCategoryOrder, getProductOrderValue } from "../catalog/productSort";
 import { canonicalCatalogKey } from "../catalog/catalogKeys";
-import { getProductFamilyKey, groupProductFamilies } from "../catalog/productFamilies";
+import { getProductFamilyKey, getProductFamilySkus, groupProductFamilies } from "../catalog/productFamilies";
 
 function asBoolean(value, fallback = false) {
   if (typeof value === "boolean") return value;
@@ -257,6 +257,31 @@ export async function getProductBySlug(slug) {
   return normalizeProduct(fallbackSnapshot.docs[0]);
 }
 
+// Firestore permits at most 30 values in these disjunctive filters.
+function queryValueChunks(values) {
+  const unique = [...new Set(values)];
+  const chunks = [];
+  for (let index = 0; index < unique.length; index += 30) {
+    chunks.push(unique.slice(index, index + 30));
+  }
+  return chunks;
+}
+
+async function getPublishedCandidates(filterGroups) {
+  const snapshots = await Promise.all(filterGroups.map((filters) => getDocs(query(
+    collection(db, "products"),
+    where("active", "==", true),
+    where("webPublished", "==", true),
+    ...filters
+  ))));
+  const docs = new Map();
+  snapshots.forEach((snapshot) => snapshot.docs.forEach((item) => docs.set(item.id, item)));
+  // Preserve the old document-ID order for products with equal display order.
+  return [...docs.values()]
+    .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+    .map(normalizeProduct);
+}
+
 export async function getRelatedProducts(product, maxItems = 8) {
   if (!product) return [];
 
@@ -264,16 +289,18 @@ export async function getRelatedProducts(product, maxItems = 8) {
   const family = getProductFamilyKey(product);
   if (!bindingCodes.length && !family) return [];
 
-  const q = query(
-    collection(db, "products"),
-    where("active", "==", true),
-    where("webPublished", "==", true)
-  );
+  const filters = queryValueChunks(bindingCodes).map((codes) => [
+    where("binding_codes", "array-contains-any", codes),
+  ]);
+  if (family && product.groupKey && product.categoryKey) {
+    filters.push([
+      where("groupKey", "==", product.groupKey),
+      where("categoryKey", "==", product.categoryKey),
+    ]);
+  }
+  const candidates = await getPublishedCandidates(filters);
 
-  const snapshot = await getDocs(q);
-
-  return groupProductFamilies(snapshot.docs
-    .map(normalizeProduct)
+  return groupProductFamilies(candidates
     .filter((item) => item.id !== product.id)
     .filter((item) => {
       if (family && getProductFamilyKey(item) === family) return false;
@@ -288,9 +315,15 @@ export async function getRelatedProducts(product, maxItems = 8) {
 export async function getProductFamilyVariants(product) {
   const family = getProductFamilyKey(product);
   if (!family) return [];
-  const snapshot = await getDocs(query(collection(db, "products"),
-    where("active", "==", true), where("webPublished", "==", true)));
-  return snapshot.docs.map(normalizeProduct)
+  const filters = [[where("productFamilyKey", "==", family)]];
+  // Legacy products derive their family from SKU (or ID when SKU is absent).
+  // Query both so mapped products do not need a database migration.
+  for (const skus of queryValueChunks(getProductFamilySkus(family))) {
+    filters.push([where("sku", "in", skus)]);
+    filters.push([where(documentId(), "in", skus)]);
+  }
+  const candidates = await getPublishedCandidates(filters);
+  return candidates
     .filter((item) => getProductFamilyKey(item) === family)
     .sort((a, b) => (a.dimensions || a.manufacturerCode).localeCompare(
       b.dimensions || b.manufacturerCode, "ru", { numeric: true }));

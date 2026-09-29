@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { NextResponse } from 'next/server';
 import { authorizeAdminRequest, getAdminServices } from '@/app/lib/server/firebaseAdmin';
+import { revalidateHomeBannerCache } from '@/app/lib/server/siteContentCache';
 import { BANNER_MAX_BYTES, validateBannerFile, validateBannerDimensions, validateBannerSettings } from '@/app/lib/homeBanner';
 
 export const runtime = 'nodejs';
@@ -61,6 +62,7 @@ export async function PUT(request) {
       transaction.set(ref, result);
     });
     committed = true;
+    revalidateHomeBannerCache();
     const retained = new Set(slides.map(slide => slide.path));
     const removed = previous.slides.filter(slide => slide.path?.startsWith('home_banners/') && !retained.has(slide.path));
     const cleanup = await Promise.allSettled(removed.map(slide => bucket.file(slide.path).delete({ ignoreNotFound: true })));

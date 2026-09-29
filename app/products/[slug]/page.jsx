@@ -2,22 +2,20 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import ProductDetailClient from "./ProductDetailClient";
-import {
-  getProductBySlug,
-  getRelatedProducts,
-  getProductFamilyVariants,
-} from "../../lib/firestore/products";
-import { hydrateProductImageNames } from "../../lib/server/productImages";
+import { getProductPageData } from "../../lib/server/productPageCache";
 
 const BASE_URL = "https://horecalink.kz";
 const STORAGE_BUCKET = "horecakatalog-e2d10.firebasestorage.app";
 
-// Share product and image discovery between metadata and the page for this request.
-const getProductForPage = cache(async (slug) => {
-  const product = await getProductBySlug(slug);
-  if (!product) return null;
-  return hydrateProductImageNames(product);
-});
+// Reuse the cross-request cache result between metadata and the page render.
+const getProductDataForRequest = cache((slug) => getProductPageData(slug));
+
+// Unknown product slugs are generated on their first visit and then served as ISR.
+export function generateStaticParams() {
+  return [];
+}
+
+export const revalidate = 3600;
 
 function cleanText(value) {
   if (value === null || value === undefined) return "";
@@ -165,7 +163,8 @@ function buildProductJsonLd(product) {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const hydratedProduct = await getProductForPage(slug);
+  const pageData = await getProductDataForRequest(slug);
+  const hydratedProduct = pageData?.product;
 
   if (!hydratedProduct) {
     return {
@@ -215,15 +214,14 @@ export async function generateMetadata({ params }) {
 export default async function ProductDetailPage({ params }) {
   const { slug } = await params;
 
-  const hydratedProduct = await getProductForPage(slug);
+  const pageData = await getProductDataForRequest(slug);
+  const hydratedProduct = pageData?.product;
 
   if (!hydratedProduct) {
     notFound();
   }
 
-  const [relatedProducts, familyVariants] = await Promise.all([
-    getRelatedProducts(hydratedProduct, 6), getProductFamilyVariants(hydratedProduct),
-  ]);
+  const { relatedProducts, familyVariants } = pageData;
   const productJsonLd = buildProductJsonLd(hydratedProduct);
 
   return (

@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getAdminServices } from '@/app/lib/server/firebaseAdmin';
-import { BANNER_DEFAULTS } from '@/app/lib/homeBanner';
+import { getPublicHomeBanner } from '@/app/lib/server/siteContentCache';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
+export const revalidate = 3600;
+
 export async function GET() {
   try {
-    const { adminDb } = getAdminServices();
-    const snapshot = await adminDb.collection('siteContent').doc('homeBanner').get();
-    return NextResponse.json(snapshot.exists ? snapshot.data() : BANNER_DEFAULTS, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(await getPublicHomeBanner());
   } catch (error) {
     console.error('Home banner read failed', error);
-    return NextResponse.json({ error: 'Görsel şerit yüklenemedi.' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Görsel şerit yüklenemedi.' },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
   }
 }

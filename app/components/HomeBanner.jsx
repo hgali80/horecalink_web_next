@@ -16,7 +16,7 @@ export default function HomeBanner() {
   const [settings, setSettings] = useState(null);
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/home-banner', { signal: controller.signal, cache: 'no-store' })
+    fetch('/api/home-banner', { signal: controller.signal })
       .then(response => { if (!response.ok) throw new Error('Banner unavailable'); return response.json(); })
       .then(setSettings).catch(() => {});
     return () => controller.abort();

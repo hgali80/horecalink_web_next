@@ -13,6 +13,17 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    files: [
+      "**/*.cjs",
+      "firebase/vatReport.js",
+      "scripts/sync-catalog-locales.js",
+      "scripts/validate-products.js",
+    ],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
