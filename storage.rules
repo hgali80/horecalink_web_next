@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function canAccessProductLists() {
+      return request.auth != null && (
+        request.auth.uid == '8hV0aS1izsf7rIvbeeJ6JIPDh3I2'
+        || request.auth.token.get('phone_number', '') in ['+77004446911', '+77023940182']
+        || request.auth.token.get('email', '') in [
+          'hasanaligunay@outlook.com',
+          '+77004446911@temporary.com',
+          '+77023940182@temporary.com'
+        ]
+        || (
+          firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+          && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin']
+        )
+      );
+    }
+
+    match /product_images/{allPaths=**} {
+      allow read, list: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /usage_areas/{allPaths=**} {
+      allow read, list: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /informal_product_list_images/{listId}/{rowId} {
+      allow read: if canAccessProductLists();
+      allow create, update: if canAccessProductLists()
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
