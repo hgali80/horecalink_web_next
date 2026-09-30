@@ -1,6 +1,8 @@
 const FIREBASE_STORAGE_HOST = "firebasestorage.googleapis.com";
 const PRODUCT_IMAGE_PATH_PREFIX =
   "/v0/b/horecakatalog-e2d10.firebasestorage.app/o/product_images%2F";
+const LIST_IMAGE_PATH_PREFIX =
+  "/v0/b/horecakatalog-e2d10.firebasestorage.app/o/informal_product_list_images%2F";
 const IMAGE_FETCH_TIMEOUT_MS = 15000;
 
 export const runtime = "nodejs";
@@ -9,7 +11,8 @@ function isAllowedImageUrl(url) {
   return (
     url.protocol === "https:" &&
     url.hostname === FIREBASE_STORAGE_HOST &&
-    url.pathname.startsWith(PRODUCT_IMAGE_PATH_PREFIX)
+    (url.pathname.startsWith(PRODUCT_IMAGE_PATH_PREFIX) ||
+      (url.pathname.startsWith(LIST_IMAGE_PATH_PREFIX) && !!url.searchParams.get("token")))
   );
 }
 
@@ -41,11 +44,16 @@ export async function GET(request) {
       return Response.json({ error: "Görsel alınamadı." }, { status: 502 });
     }
 
-    return new Response(response.body, {
+    // Consume the body under the timeout too, rather than waiting indefinitely
+    // after an upstream server has sent headers.
+    const body = await response.arrayBuffer();
+    return new Response(body, {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+        "Cache-Control": imageUrl.pathname.startsWith(LIST_IMAGE_PATH_PREFIX)
+          ? "private, no-store"
+          : "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
       },
     });
   } catch (error) {

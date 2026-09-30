@@ -1,13 +1,12 @@
 "use client";
 
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
-  orderBy,
-  query,
+  onSnapshot,
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
@@ -155,8 +154,18 @@ export function calculateProductListTotal(items = []) {
 }
 
 export async function listProductLists() {
-  const snap = await getDocs(query(collection(db, COLLECTION_NAME), orderBy("createdAt", "desc")));
-  return snap.docs.map((item) => ({ id: item.id, ...item.data() }));
+  const snap = await getDocs(collection(db, COLLECTION_NAME));
+  return productListRows(snap);
+}
+
+function productListRows(snap) {
+  const time = (value) => value?.toMillis?.() || (value?.seconds || 0) * 1000;
+  return snap.docs.map((item) => ({ ...item.data(), id: item.id }))
+    .sort((a, b) => time(b.updatedAt || b.createdAt) - time(a.updatedAt || a.createdAt));
+}
+
+export function subscribeProductLists(onRows, onError) {
+  return onSnapshot(collection(db, COLLECTION_NAME), (snap) => onRows(productListRows(snap)), onError);
 }
 
 export async function getProductList(listId) {
@@ -165,14 +174,20 @@ export async function getProductList(listId) {
 }
 
 export async function createProductList(payload) {
-  const ref = await addDoc(collection(db, COLLECTION_NAME), {
-    ...payload,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  // Retrying a draft must save the same document, even after a slow connection.
+  const ref = doc(db, COLLECTION_NAME, safePathPart(payload.storageKey, uniqueId("list")));
+  await saveProductList(ref.id, payload);
   return ref.id;
 }
 
 export async function saveProductList(listId, payload) {
-  await setDoc(doc(db, COLLECTION_NAME, listId), { ...payload, updatedAt: serverTimestamp() }, { merge: true });
+  const ref = doc(db, COLLECTION_NAME, listId);
+  const existing = await getDocFromServer(ref);
+  await setDoc(ref, {
+    ...payload,
+    ...(!existing.exists() || !existing.data().createdAt ? { createdAt: serverTimestamp() } : {}),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+  const saved = await getDocFromServer(ref);
+  if (!saved.exists()) throw new Error("Liste sunucuda doğrulanamadı. Tekrar kaydet.");
 }

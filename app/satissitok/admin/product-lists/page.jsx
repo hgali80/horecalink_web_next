@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ClipboardList, PlusCircle } from "lucide-react";
-import { calculateProductListTotal, listProductLists } from "@/app/satissitok/services/productListService";
+import { calculateProductListTotal, subscribeProductLists } from "@/app/satissitok/services/productListService";
 
 function formatDate(value) {
   const date = typeof value?.toDate === "function" ? value.toDate() : value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
@@ -21,15 +21,14 @@ export default function ProductListsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    let alive = true;
-    listProductLists()
-      .then((rows) => alive && setItems(rows))
-      .catch((err) => {
+    return subscribeProductLists(
+      (rows) => { setItems(rows); setError(""); setLoading(false); },
+      (err) => {
         console.error("Product lists load error:", err);
-        if (alive) setError("Ürün listeleri yüklenemedi. Firestore kurallarını kontrol et.");
-      })
-      .finally(() => alive && setLoading(false));
-    return () => { alive = false; };
+        setError("Ürün listeleri alınamadı. Bağlantını kontrol edip sayfayı yenile.");
+        setLoading(false);
+      }
+    );
   }, []);
 
   return (

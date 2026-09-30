@@ -1,6 +1,6 @@
 "use client";
 
-import { createElement, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,8 @@ import { ArrowDown, ArrowLeft, ArrowUp, Check, FileDown, ImageOff, ImagePlus, Lo
 import { listProductsAdmin } from "@/app/satissitok/services/productService";
 import { getSettings } from "@/app/satissitok/services/settingsService";
 import { compareProductsByCategoryOrder } from "@/app/lib/catalog/productSort";
+import { useAuth } from "@/app/context/AuthContext";
+import { prepareProductListPdf, renderProductListPdf } from "./productListPdfExport";
 import {
   buildDefaultProductList,
   buildEmptyProductListItem,
@@ -32,17 +34,6 @@ function money(value, currency) {
   return `${number(value).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbols[currency] || currency}`;
 }
 function categoryOf(product) { return text(product.main_category || product.category || product.categoryKey || "Kategorisiz").trim() || "Kategorisiz"; }
-
-function printableImageSrc(value) {
-  const src = text(value).trim();
-  if (!src || typeof window === "undefined") return src;
-  try {
-    const url = new URL(src, window.location.origin);
-    if (url.origin === window.location.origin) return url.href;
-    if (url.hostname === "firebasestorage.googleapis.com") return `/api/pdf-image?url=${encodeURIComponent(url.href)}`;
-  } catch {}
-  return src;
-}
 
 function ProductImage({ src, alt, className = "" }) {
   const [failed, setFailed] = useState("");
@@ -98,6 +89,8 @@ function ProductPicker({ open, products, existingIds, onClose, onAdd }) {
 
 export default function ProductListEditor({ listId = null }) {
   const router = useRouter();
+  const { user } = useAuth();
+  const draftKey = user?.uid ? `horecalink_product_list_draft:${user.uid}` : null;
   const [form, setForm] = useState(null);
   const [products, setProducts] = useState([]);
   const [units, setUnits] = useState([]);
@@ -117,14 +110,28 @@ export default function ProductListEditor({ listId = null }) {
         if (listId && !saved) { setMessage("Ürün listesi bulunamadı."); return; }
         setProducts(catalog);
         setUnits((settings.units || []).filter((item) => item.active !== false));
-        setForm(normalizeProductList(saved || buildDefaultProductList()));
+        let draft = null;
+        if (!listId && draftKey) {
+          try { draft = JSON.parse(localStorage.getItem(draftKey) || "null"); } catch {}
+        }
+        setForm(normalizeProductList(saved || draft || buildDefaultProductList()));
+        if (draft) setMessage("Kaydedilmemiş taslağın geri yüklendi. Sunucuya kaydetmek için Kaydet’e bas.");
       } catch (error) {
         console.error("Product list load error:", error);
         if (alive) setMessage("Ürün listesi yüklenemedi.");
       } finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
-  }, [listId]);
+  }, [listId, draftKey]);
+
+  useEffect(() => {
+    if (listId || !draftKey || !form) return;
+    try {
+      // Blob previews expire; store only durable image URLs.
+      const items = form.items.map((item) => ({ ...item, imageUrl: item.imageUrl?.startsWith("blob:") ? "" : item.imageUrl }));
+      localStorage.setItem(draftKey, JSON.stringify({ ...form, items }));
+    } catch { /* Server saving is still available when local storage is full. */ }
+  }, [draftKey, form, listId]);
 
   const existingIds = useMemo(() => new Set((form?.items || []).map((item) => text(item.productId)).filter(Boolean)), [form?.items]);
   const grandTotal = useMemo(() => calculateProductListTotal(form?.items), [form?.items]);
@@ -172,32 +179,47 @@ export default function ProductListEditor({ listId = null }) {
   }
 
   async function handleSave() {
+    if (saving) return;
     const problem = validate(); if (problem) return setMessage(problem);
     try {
       setSaving(true); setMessage("");
       const payload = { ...form };
       delete payload.id;
-      if (listId) { await saveProductList(listId, payload); setMessage("Ürün listesi kaydedildi."); }
-      else { const newId = await createProductList(payload); router.replace(`/satissitok/admin/product-lists/${newId}`); }
-    } catch (error) { console.error("Product list save error:", error); setMessage("Liste kaydedilemedi. Firestore kurallarını kontrol et."); }
+      let timer;
+      const operation = listId ? saveProductList(listId, payload).then(() => listId) : createProductList(payload);
+      let savedId;
+      try {
+        savedId = await Promise.race([operation, new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error("Sunucu kaydı henüz onaylamadı. Bağlantını kontrol edip tekrar kaydet; taslağın bu tarayıcıda korunuyor.")), 20000);
+        })]);
+      } finally { clearTimeout(timer); }
+      if (!listId && draftKey) { try { localStorage.removeItem(draftKey); } catch {} }
+      setMessage("Ürün listesi sunucuya kaydedildi.");
+      if (!listId) router.replace(`/satissitok/admin/product-lists/${savedId}`);
+    } catch (error) {
+      console.error("Product list save error:", error);
+      setMessage(error?.code === "permission-denied" ? "Kaydetme yetkisi alınamadı. Oturumunu yenileyip tekrar kaydet; taslağın korunuyor." : error?.message || "Liste kaydedilemedi. Tekrar dene.");
+    }
     finally { setSaving(false); }
   }
 
   async function handlePdf() {
+    if (savingPdf) return;
     const problem = validate(); if (problem) return setMessage(problem);
     try {
       setSavingPdf(true); setMessage("");
-      const [{ pdf }, { default: ProductListPdf }] = await Promise.all([import("@react-pdf/renderer"), import("./ProductListPdf")]);
-      const origin = window.location.origin;
-      const productList = { ...form, items: form.items.map((item) => { const src = printableImageSrc(item.imageUrl); return { ...item, pdfImageUrl: src ? new URL(src, origin).href : "" }; }) };
-      const element = createElement(ProductListPdf, { productList, logoUrl: new URL("/pdf/horecalink_logo_white_v2.png", origin).href, fontUrl: new URL("/pdf/NotoSans.ttf", origin).href });
-      const blob = await pdf(element).toBlob();
+      setMessage("PDF kaynakları hazırlanıyor...");
+      const { missingImages, ...payload } = await prepareProductListPdf(form, setMessage);
+      setMessage("PDF oluşturuluyor...");
+      const blob = await renderProductListPdf(payload);
       const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `${form.title || "spisok-tovar"}.pdf`.replace(/[\\/:*?"<>|]+/g, "-"); document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) { console.error("Product list PDF error:", error); setMessage("PDF oluşturulamadı."); }
+      setMessage(missingImages ? `PDF indirildi. ${missingImages} görsel alınamadığı için fotoğraf alanı boş bırakıldı.` : "PDF indirildi.");
+    } catch (error) { console.error("Product list PDF error:", error); setMessage(error?.message || "PDF oluşturulamadı."); }
     finally { setSavingPdf(false); }
   }
 
-  if (loading || !form) return <div className="flex min-h-[60vh] items-center justify-center text-sm text-slate-500">Yükleniyor...</div>;
+  if (loading) return <div className="flex min-h-[60vh] items-center justify-center text-sm text-slate-500">Yükleniyor...</div>;
+  if (!form) return <div className="p-6 text-red-700">{message || "Ürün listesi açılamadı."} <Link href="/satissitok/admin/product-lists" className="underline">Listelere dön</Link></div>;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
