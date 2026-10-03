@@ -357,6 +357,10 @@ export default function ProductImportPage() {
         </section>
       </form>
 
+      {result?.whatsappPending?.length > 0 && <div className="rounded-xl bg-blue-50 p-4 text-blue-900">{result.whatsappPending.length} ürünün WhatsApp güncellemesi zamanlanmış katalog kontrolünü bekliyor.</div>}
+      {result?.whatsappFailures?.length > 0 && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900">
+        Ürün aktarımı tamamlandı; WhatsApp senkronizasyonu tekrar denenmeli: {result.whatsappFailures.join(", ")}
+      </div>}
       {result?.totals ? (
         <section className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-1">

@@ -196,6 +196,7 @@ function buildInitialForm(product) {
     technicalPdf: product.technicalPdf ?? "",
     popular: product.popular ?? "",
     active: product.active ?? true,
+    whatsappPublished: product.whatsappPublished === true,
     webPublished: product.webPublished ?? false,
     isNew: product.isNew ?? false,
     stockTracked: product.stockTracked ?? true,
@@ -693,6 +694,7 @@ export default function ProductDetailEditPage() {
                 />
               </Field>
 
+              <div className="text-sm text-slate-600">WhatsApp yayını ürün listesindeki bağımsız tikten yönetilir. Yayındaki ürün kaydedildiğinde katalog güncellenir.</div>
               <Field label="SKU" hint="Belge anahtarıyla uyumlu tutulur">
                 <input
                   value={form.sku}

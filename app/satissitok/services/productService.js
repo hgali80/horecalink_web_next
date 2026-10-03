@@ -52,6 +52,32 @@ async function revalidatePublicProductPages() {
   }
 }
 
+
+export async function syncProductWhatsApp(productId, published) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("WhatsApp için oturum açmanız gerekiyor.");
+  const response = await fetch(`/api/admin/products/${encodeURIComponent(productId)}/whatsapp`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${await user.getIdToken()}`, "Content-Type": "application/json" },
+    body: JSON.stringify(typeof published === "boolean" ? { published } : {}),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    const error = new Error(result.error || "WhatsApp senkronizasyonu başarısız.");
+    error.whatsappPublished = result.published;
+    throw error;
+  }
+  return result;
+}
+
+async function syncIfWhatsAppPublished(productId) {
+  const snap = await getDoc(doc(db, "products", productId));
+  if (snap.data()?.whatsappPublished === true) {
+    try { await syncProductWhatsApp(productId); }
+    catch (error) { throw new Error(`Ürün kaydedildi; ${error.message} WhatsApp için ürünü yeniden kaydedin veya yeniden senkronize edin.`); }
+  }
+}
+
 function toStr(x) {
   return (x ?? "").toString().trim();
 }
@@ -152,6 +178,7 @@ function normalizeAdminProductRecord(id, raw = {}) {
     sortOrder: num(raw.sortOrder ?? raw.order, 0),
     active: bool(raw.active, true),
     webPublished: bool(raw.webPublished, false),
+    whatsappPublished: bool(raw.whatsappPublished, false),
     isNew: bool(raw.isNew, false),
     saleEnabled: bool(raw.saleEnabled, true),
     purchaseEnabled: bool(raw.purchaseEnabled, true),
@@ -368,11 +395,15 @@ export async function updateProduct(productId, raw) {
   });
 
   await revalidatePublicProductPages();
+  await syncIfWhatsAppPublished(id);
 
   return id;
 }
 
 export async function updateProductFlags(productId, patch = {}) {
+  if (Object.prototype.hasOwnProperty.call(patch, "whatsappPublished")) {
+    return await syncProductWhatsApp(productId, patch.whatsappPublished);
+  }
   const id = toStr(productId);
   if (!id) throw new Error("productId zorunlu.");
 

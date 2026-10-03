@@ -101,7 +101,13 @@ service cloud.firestore {
     // =========================
     match /products/{productId} {
       allow read: if true;
-      allow write: if isManager();
+      allow create: if isManager() && (!('whatsappPublished' in request.resource.data) || request.resource.data.whatsappPublished == false);
+      allow update: if isManager() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['whatsappPublished']);
+      allow delete: if isManager() && resource.data.get('whatsappPublished', false) != true;
+    }
+    match /whatsapp_catalog_sync/{productId} {
+      allow read: if isManager();
+      allow write: if false;
     }
 
     // =========================

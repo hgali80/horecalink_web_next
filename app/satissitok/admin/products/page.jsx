@@ -268,11 +268,12 @@ export default function AdminProductsPage() {
     setBusyMap((current) => ({ ...current, [productId]: true }));
 
     try {
-      await updateProductFlags(productId, { [field]: value });
-      patchItems([productId], { [field]: value });
+      const result = await updateProductFlags(productId, { [field]: value });
+      patchItems([productId], { [field]: field === "whatsappPublished" ? result.published : value });
       await refreshStats();
-      setNotice(`Ürün güncellendi: ${productId}`);
+      setNotice(field === "whatsappPublished" ? (result.status === "pending" ? `Ürün işlem sırasında değişti; WhatsApp yeniden senkronizasyonu gerekiyor: ${productId}` : `WhatsApp senkronizasyonu tamamlandı: ${productId}`) : `Ürün güncellendi: ${productId}`);
     } catch (e) {
+      if (typeof e.whatsappPublished === "boolean") patchItems([productId], { whatsappPublished: e.whatsappPublished });
       setErr(e?.message || "Ürün durumu güncellenemedi.");
     } finally {
       setBusyMap((current) => {
@@ -455,7 +456,7 @@ export default function AdminProductsPage() {
               Eksiksiz arama için kalan ürünler yükleniyor…
             </div>
           ) : null}
-          <div className="grid grid-cols-12 bg-gray-50 text-xs font-semibold text-gray-700 px-3 py-2">
+          <div className="grid grid-cols-[repeat(13,minmax(0,1fr))] bg-gray-50 text-xs font-semibold text-gray-700 px-3 py-2">
             <div className="col-span-1 flex items-center gap-2">
               <input
                 type="checkbox"
@@ -470,6 +471,7 @@ export default function AdminProductsPage() {
             <div className="col-span-3">Urun</div>
             <div className="col-span-2">Kategori</div>
             <div className="col-span-1 text-center">Web</div>
+            <div className="col-span-1 text-center">WhatsApp</div>
             <div className="col-span-1 text-center">Aktif</div>
             <div className="col-span-1 text-right">Fiyat</div>
           </div>
@@ -477,7 +479,7 @@ export default function AdminProductsPage() {
           {filtered.map((p) => (
             <div
               key={p.id}
-              className="grid grid-cols-12 items-center gap-2 border-t px-3 py-2 text-sm hover:bg-gray-50"
+              className="grid grid-cols-[repeat(13,minmax(0,1fr))] items-center gap-2 border-t px-3 py-2 text-sm hover:bg-gray-50"
             >
               <div className="col-span-1">
                 <input
@@ -520,6 +522,17 @@ export default function AdminProductsPage() {
                     aria-label={`${toStr(p.stock_code)} web durumu`}
                   />
                 </label>
+              </div>
+
+              <div className="col-span-1 flex flex-col items-center gap-1">
+                <input type="checkbox" className="h-4 w-4" checked={p.whatsappPublished === true}
+                  disabled={busyMap[p.id] || bulkBusy}
+                  onChange={(e) => handleSingleToggle(p.id, "whatsappPublished", e.target.checked)}
+                  title="WhatsApp yayın tercihi; başarısız işlemler Yenile ile tekrar denenebilir" aria-label={`${toStr(p.stock_code)} WhatsApp yayın tercihi`} />
+                <button type="button" className="text-xs text-blue-700 underline"
+                  disabled={busyMap[p.id] || bulkBusy}
+                  onClick={() => handleSingleToggle(p.id, "whatsappPublished", p.whatsappPublished === true)}>Yenile</button>
+                {p.whatsappPublished === true && p.webPublished !== true && <span className="text-xs text-amber-700">Web linki kapalı</span>}
               </div>
 
               <div className="col-span-1 flex justify-center">

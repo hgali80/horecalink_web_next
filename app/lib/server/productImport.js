@@ -1,4 +1,5 @@
 ﻿import "server-only";
+import { syncWhatsAppProduct } from "./whatsappCatalog";
 
 import fs from "fs";
 import path from "path";
@@ -504,7 +505,14 @@ async function importProductsFromWorkbook({
 
   const deletedIds = Array.from(existingDocs.keys()).filter((id) => !importedProducts.has(id));
 
+  const whatsappFailures = [];
+  const whatsappPending = [];
   if (!dryRun) {
+    // Queue all affected published records before any import writes start.
+    const whatsappIds = [...updatedIds, ...deletedIds].filter(id => existingDocs.get(id)?.whatsappPublished === true);
+    await Promise.all(whatsappIds.map(id =>
+      adminDb.collection("whatsapp_catalog_sync").doc(id).set({ sku: existingDocs.get(id).sku, status: "pending" }, { merge: true })
+    ));
     const writer = adminDb.bulkWriter();
 
     createdIds.forEach((id) => {
@@ -539,9 +547,17 @@ async function importProductsFromWorkbook({
     });
 
     await writer.close();
+    const whatsappStarted = Date.now();
+    for (const id of whatsappIds) {
+      if (Date.now() - whatsappStarted > 45000) { whatsappPending.push(id); continue; }
+      try { await syncWhatsAppProduct(adminDb, id); }
+      catch { whatsappFailures.push(id); }
+    }
   }
 
   return {
+    whatsappFailures,
+    whatsappPending,
     excelPath: sourceLabel,
     sheetName: resolvedSheetName,
     dryRun,
