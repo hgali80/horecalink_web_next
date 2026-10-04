@@ -2920,6 +2920,8 @@
     "samsung": "In the Samsung Internet menu (☰), choose “Add page to” → “Home screen”.",
     "edge": "In the Edge menu (…), choose “Add to phone” or “Install app”.",
     "other": "Open this page in Chrome, Samsung Internet or Edge, then add it to your home screen using the browser menu.",
-    "error": "Installation could not be opened. Try adding the app through your browser menu."
+    "error": "Installation could not be opened. Try adding the app through your browser menu.",
+    "pending": "The installation request was sent to your browser. Check your app list for HorecaLink. If no icon appears, use the browser menu steps below.",
+    "retry": "The browser installation dialog did not complete. Try installing through the browser menu."
   }
 }

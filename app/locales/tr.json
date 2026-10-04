@@ -2906,6 +2906,8 @@
     "samsung": "Samsung Internet menüsünde (☰) “Sayfayı ekle” → “Ana ekran” seçeneğini kullanın.",
     "edge": "Edge menüsünde (…) “Telefona ekle” veya “Uygulamayı yükle” seçeneğini kullanın.",
     "other": "Bu sayfayı Chrome, Samsung Internet veya Edge’de açın; tarayıcı menüsünden ana ekrana ekleyin.",
-    "error": "Kurulum açılamadı. Tarayıcı menüsünden ana ekrana eklemeyi deneyin."
+    "error": "Kurulum açılamadı. Tarayıcı menüsünden ana ekrana eklemeyi deneyin.",
+    "pending": "Kurulum isteği tarayıcıya iletildi. Uygulama listesinde HorecaLink’i kontrol edin. Simge görünmezse aşağıdaki menü adımlarını kullanın.",
+    "retry": "Tarayıcının kurulum penceresi tamamlanmadı. Tarayıcı menüsünden yüklemeyi deneyin."
   }
 }

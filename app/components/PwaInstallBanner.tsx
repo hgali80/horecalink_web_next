@@ -26,10 +26,16 @@ function save(key: string, value: string) {
   try { localStorage.setItem(key, value); } catch { /* Private browsing may block storage. */ }
 }
 
+function browserHelp() {
+  const ua = navigator.userAgent;
+  return /SamsungBrowser/i.test(ua) ? "samsung" : /EdgA/i.test(ua) ? "edge" : /Chrome/i.test(ua) && !/; wv\)/i.test(ua) ? "chrome" : "other";
+}
+
 export default function PwaInstallBanner() {
   const { t } = useLang();
   const pathname = usePathname();
   const prompt = useRef<InstallEvent | null>(null);
+  const installRequested = useRef(false);
   const [visible, setVisible] = useState(false);
   const [help, setHelp] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,13 +58,29 @@ export default function PwaInstallBanner() {
       event.preventDefault();
       prompt.current = event as InstallEvent;
     };
-    const onInstalled = () => {
+    const confirmInstalled = () => {
       installed = true;
       save(installedKey, "1");
       prompt.current = null;
+      installRequested.current = false;
       setVisible(false);
     };
-    const onDisplay = () => { if (isStandalone()) onInstalled(); };
+    const checkInstalled = async () => {
+      if (isStandalone()) { confirmInstalled(); return; }
+      if (!nav.getInstalledRelatedApps) return;
+      try {
+        const apps = await nav.getInstalledRelatedApps();
+        if (!cancelled && apps.length) confirmInstalled();
+      } catch {}
+    };
+    // Android fires appinstalled before the WebAPK has necessarily finished installing.
+    const onInstalled = () => {
+      prompt.current = null;
+      installRequested.current = true;
+      setHelp("pending");
+      void checkInstalled();
+    };
+    const onDisplay = () => { if (isStandalone()) confirmInstalled(); };
     const onStorage = (event: StorageEvent) => {
       if (event.key === installedKey || event.key === dismissalKey) {
         installed = installed || stored(installedKey) === "1";
@@ -73,12 +95,20 @@ export default function PwaInstallBanner() {
     if (isStandalone()) save(installedKey, "1");
     const timer = window.setTimeout(async () => {
       if (nav.getInstalledRelatedApps) {
-        try { if ((await nav.getInstalledRelatedApps()).length) installed = true; } catch {}
+        try {
+          const apps = await nav.getInstalledRelatedApps();
+          if (!cancelled) installed = isStandalone() || apps.length > 0;
+        } catch {}
       }
       if (!cancelled && canShow()) setVisible(true);
     }, 15000);
+    let checks = 0;
+    const verificationTimer = window.setInterval(() => {
+      if (installRequested.current && checks++ < 12) void checkInstalled();
+    }, 5000);
     return () => {
       cancelled = true;
+      window.clearInterval(verificationTimer);
       window.clearTimeout(timer);
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
@@ -88,6 +118,7 @@ export default function PwaInstallBanner() {
   }, []);
 
   function dismiss() {
+    installRequested.current = false;
     save(dismissalKey, today());
     setVisible(false);
     setHelp(null);
@@ -95,19 +126,23 @@ export default function PwaInstallBanner() {
   async function install() {
     const event = prompt.current;
     if (!event) {
-      const ua = navigator.userAgent;
-      setHelp(/SamsungBrowser/i.test(ua) ? "samsung" : /EdgA/i.test(ua) ? "edge" : /Chrome/i.test(ua) && !/; wv\)/i.test(ua) ? "chrome" : "other");
+      setHelp(browserHelp());
       return;
     }
     prompt.current = null;
+    installRequested.current = true;
     setBusy(true);
     try {
       await event.prompt();
       const { outcome } = await event.userChoice;
       if (outcome === "accepted") {
-        setVisible(false);
-      } else dismiss();
-    } catch { setHelp("error"); }
+        setHelp("pending");
+      } else {
+        installRequested.current = false;
+        save(dismissalKey, today());
+        setHelp("retry");
+      }
+    } catch { installRequested.current = false; setHelp("error"); }
     finally { setBusy(false); }
   }
 
@@ -121,6 +156,7 @@ export default function PwaInstallBanner() {
         <div><p className="text-sm font-semibold">{t("pwa.title")}</p><p className="mt-1 text-xs text-slate-600">{t("pwa.body")}</p></div>
       </div>
       {help && <p role="status" className="mt-3 text-sm">{t("pwa." + help)}</p>}
+      {(help === "pending" || help === "retry") && <p className="mt-2 text-xs text-slate-600">{t("pwa." + browserHelp())}</p>}
       <button type="button" disabled={busy} onClick={install} className="mt-3 rounded-lg bg-[#0b3a53] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{t("pwa.install")}</button>
     </aside>
   );
