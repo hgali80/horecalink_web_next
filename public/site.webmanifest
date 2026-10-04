@@ -14,6 +14,18 @@
     }
   ],
   "theme_color": "#0b3a53",
-  "background_color": "#0b3a53",
-  "display": "standalone"
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "description": "HorecaLink — HoReCa equipment and supply platform",
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://horecalink.kz/site.webmanifest",
+      "id": "https://horecalink.kz/"
+    }
+  ],
+  "prefer_related_applications": false
 }

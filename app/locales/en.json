@@ -2910,5 +2910,16 @@
   "header.menu.openMenu": "Open menu",
   "header.menu.closeMenu": "Close menu",
   "header.menu.quotes": "Quote requests",
-  "menu.products": "Products"
+  "menu.products": "Products",
+  "pwa": {
+    "title": "Install HorecaLink on your phone",
+    "body": "Open the catalogue directly from your home screen.",
+    "install": "Install",
+    "close": "Do not show again today",
+    "chrome": "In the Chrome menu (⋮), choose “Install app” or “Add to Home screen”.",
+    "samsung": "In the Samsung Internet menu (☰), choose “Add page to” → “Home screen”.",
+    "edge": "In the Edge menu (…), choose “Add to phone” or “Install app”.",
+    "other": "Open this page in Chrome, Samsung Internet or Edge, then add it to your home screen using the browser menu.",
+    "error": "Installation could not be opened. Try adding the app through your browser menu."
+  }
 }

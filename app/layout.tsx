@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 
+import PwaInstallBanner from "./components/PwaInstallBanner";
 import Header from "./components/Header";
 import VisitorTracker from "./components/VisitorTracker";
 import { AuthProvider } from "./context/AuthContext";
@@ -52,12 +53,15 @@ export const metadata = {
   },
 };
 
+export const viewport = { themeColor: "#0b3a53" };
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ru" suppressHydrationWarning>
       <body>
         <AuthProvider>
           <LanguageProvider>
+            <PwaInstallBanner />
             <VisitorTracker />
             <Header />
             {children}

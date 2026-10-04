@@ -2896,5 +2896,16 @@
   "forgotPassword.error": "E-posta bulunamadı veya mesaj gönderilemedi.",
   "forgotPassword.submit": "E-posta gönder",
   "forgotPassword.submitting": "Gönderiliyor...",
-  "forgotPassword.backToLogin": "Giriş sayfasına dön"
+  "forgotPassword.backToLogin": "Giriş sayfasına dön",
+  "pwa": {
+    "title": "HorecaLink’i telefonunuza yükleyin",
+    "body": "Ana ekranınızdan kataloğa kolayca ulaşın.",
+    "install": "Yükle",
+    "close": "Bugün tekrar gösterme",
+    "chrome": "Chrome menüsünde (⋮) “Uygulamayı yükle” veya “Ana ekrana ekle” seçeneğini kullanın.",
+    "samsung": "Samsung Internet menüsünde (☰) “Sayfayı ekle” → “Ana ekran” seçeneğini kullanın.",
+    "edge": "Edge menüsünde (…) “Telefona ekle” veya “Uygulamayı yükle” seçeneğini kullanın.",
+    "other": "Bu sayfayı Chrome, Samsung Internet veya Edge’de açın; tarayıcı menüsünden ana ekrana ekleyin.",
+    "error": "Kurulum açılamadı. Tarayıcı menüsünden ana ekrana eklemeyi deneyin."
+  }
 }
