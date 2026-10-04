@@ -10,7 +10,20 @@ export class MetaCatalog {
       ...(data ? { body: JSON.stringify(data) } : {}), signal: AbortSignal.timeout(20000), cache: 'no-store',
     });
     const body = await response.json();
-    if (!response.ok || body.error) throw new Error(`Meta Catalog isteği başarısız (HTTP ${response.status}, kod ${body.error?.code ?? 'unknown'}).`);
+    if (!response.ok || body.error) {
+      // Derive diagnostics from a fixed vocabulary, never expose upstream text.
+      const fields = ['price', 'currency', 'name', 'description', 'brand', 'image_url', 'url', 'retailer_id', 'availability', 'sale_price'];
+      const message = String(body.error?.message || '');
+      const required = /required|missing|must be specified/i.test(message);
+      const mentioned = fields.filter(field => new RegExp(`\\b${field}\\b`, 'i').test(message));
+      const blame = JSON.stringify(body.error?.error_data?.blame_field_specs || []);
+      const blamed = fields.filter(field => blame.includes(`"${field}"`));
+      const detail = mentioned.length ? ` ${required ? 'Eksik zorunlu alan' : 'Kontrol edilecek alan'}: ${mentioned.join(', ')}.` : blamed.length ? ` Kontrol edilecek alan: ${blamed.join(', ')}.` : '';
+      const stage = method === 'GET' ? 'okuma' : method === 'DELETE' ? 'silme' : path === `${this.catalogId}/products` ? 'ürün oluşturma' : 'ürün güncelleme';
+      const code = Number.isSafeInteger(body.error?.code) ? body.error.code : 'unknown';
+      const subcode = Number.isSafeInteger(body.error?.error_subcode) ? `, alt kod ${body.error.error_subcode}` : '';
+      throw new Error(`Meta Catalog isteği başarısız (HTTP ${response.status}, kod ${code}${subcode}; ${stage}).${detail}`);
+    }
     return body;
   }
   async find(sku) {

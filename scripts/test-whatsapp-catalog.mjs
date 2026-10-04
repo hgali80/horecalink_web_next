@@ -86,3 +86,13 @@ test('no-price CREATE sends no fabricated price; UPDATE clears and verifies old 
   const stale = api([{ data: [{ id: 'old' }] }, { success: true }, { price: '4000 KZT' }]);
   await assert.rejects(stale.client.sync(product.sku, payload), /eski fiyatı/);
 });
+
+test('required-field errors identify price and operation without exposing raw secrets', async () => {
+  const client = api([{ data: [] }, { error: { code: 100, message: '(#100) The parameter price is required test-secret' } }]).client;
+  await assert.rejects(client.sync('102385', buildWhatsAppPayload({ ...product, price: null })), error => {
+    assert.match(error.message, /Eksik zorunlu alan: price/);
+    assert.match(error.message, /ürün oluşturma/);
+    assert.ok(!error.message.includes('test-secret'));
+    return true;
+  });
+});
