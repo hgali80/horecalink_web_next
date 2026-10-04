@@ -33,7 +33,7 @@ test('all distinct web images up to one main and 20 extras, preserving order', (
   assert.deepEqual(buildWhatsAppPayload(product).additional_image_urls, []);
 });
 test('reject incomplete items instead of uploading invalid catalog records', () => {
-  for (const patch of [{ sku: '' }, { name: '' }, { brand: '' }, { specs: '' }, { price: 0 }, { price: NaN }, { image_names: [] }]) {
+  for (const patch of [{ sku: '' }, { name: '' }, { brand: '' }, { specs: '' }, { price: -1 }, { price: NaN }, { price: 0.001 }, { image_names: [] }]) {
     assert.throws(() => buildWhatsAppPayload({ ...product, ...patch }));
   }
 });
@@ -64,4 +64,25 @@ test('existing SKU UPDATE clears removed extra images; DELETE is idempotent', as
 test('duplicate remote SKU fails; upstream secret-bearing error text is redacted', async () => {
   await assert.rejects(api([{ data: [{ id: '1' }, { id: '2' }] }]).client.sync('102385', null), /birden fazla/);
   await assert.rejects(api([{ error: { code: 190, message: 'test-secret' } }]).client.sync('102385', null), error => !error.message.includes('test-secret') && error.message.includes('190'));
+});
+
+test('missing and zero prices omit monetary fields and add Russian inquiry note', () => {
+  for (const price of [undefined, null, '', ' ', 0, '0']) {
+    const payload = buildWhatsAppPayload({ ...product, price });
+    assert.equal(Object.hasOwn(payload, 'price'), false);
+    assert.equal(Object.hasOwn(payload, 'currency'), false);
+    assert.match(payload.description, /Цену уточняйте$/);
+  }
+  assert.doesNotMatch(buildWhatsAppPayload(product).description, /Цену уточняйте/);
+});
+test('no-price CREATE sends no fabricated price; UPDATE clears and verifies old prices', async () => {
+  const payload = buildWhatsAppPayload({ ...product, price: 0 });
+  const create = api([{ data: [] }, { id: 'new' }]);
+  await create.client.sync(product.sku, payload);
+  assert.equal(Object.hasOwn(JSON.parse(create.calls[1].body), 'price'), false);
+  const update = api([{ data: [{ id: 'old' }] }, { success: true }, { price: null, sale_price: null }]);
+  await update.client.sync(product.sku, payload);
+  assert.equal(JSON.parse(update.calls[1].body).price, null);
+  const stale = api([{ data: [{ id: 'old' }] }, { success: true }, { price: '4000 KZT' }]);
+  await assert.rejects(stale.client.sync(product.sku, payload), /eski fiyatı/);
 });

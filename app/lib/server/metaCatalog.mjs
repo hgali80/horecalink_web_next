@@ -22,7 +22,19 @@ export class MetaCatalog {
   async sync(sku, payload) {
     const id = await this.find(sku);
     if (!payload) { if (id) await this.request(id, 'DELETE'); return { id: null, action: 'DELETE' }; }
-    if (id) { await this.request(id, 'POST', payload); return { id, action: 'UPDATE' }; }
+    if (id) {
+      const withoutPrice = !Object.hasOwn(payload, 'price');
+      // Omission on UPDATE could preserve a previous price. Explicitly clear it
+      // and verify the result; never report success with a stale customer price.
+      await this.request(id, 'POST', withoutPrice ? { ...payload, price: null, sale_price: null } : payload);
+      if (withoutPrice) {
+        const stored = await this.request(`${id}?fields=price,sale_price`);
+        if ([stored.price, stored.sale_price].some(value => value != null && String(value).trim() !== '')) {
+          throw new Error('Meta eski fiyatı kaldırmadı. Fiyatsız yayın doğrulanamadı.');
+        }
+      }
+      return { id, action: 'UPDATE' };
+    }
     const created = await this.request(`${this.catalogId}/products`, 'POST', payload);
     if (!created.id) throw new Error('Meta ürün kimliği dönmedi.');
     return { id: created.id, action: 'CREATE' };
