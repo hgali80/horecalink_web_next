@@ -16,7 +16,8 @@ export function buildWhatsAppPayload(product, options = {}) {
   }
   return {
     retailer_id: sku, name, description: hasPrice ? description : `${description}\n\nЦену уточняйте`, brand, condition: 'new',
-    ...(hasPrice ? { currency: 'KZT', price: Math.round(price * 100) } : {}),
+    currency: 'KZT',
+    ...(hasPrice ? { price: Math.round(price * 100) } : {}),
     // Catalog publication is independent of inventory; items can be ordered.
     availability: 'available for order',
     url: `${(options.baseUrl || 'https://horecalink.kz').replace(/\/$/, '')}/products/${encodeURIComponent(text(product.slug) || text(product.id))}`,

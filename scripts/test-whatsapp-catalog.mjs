@@ -66,11 +66,11 @@ test('duplicate remote SKU fails; upstream secret-bearing error text is redacted
   await assert.rejects(api([{ error: { code: 190, message: 'test-secret' } }]).client.sync('102385', null), error => !error.message.includes('test-secret') && error.message.includes('190'));
 });
 
-test('missing and zero prices omit monetary fields and add Russian inquiry note', () => {
+test('missing and zero prices omit price, retain currency and add Russian inquiry note', () => {
   for (const price of [undefined, null, '', ' ', 0, '0']) {
     const payload = buildWhatsAppPayload({ ...product, price });
     assert.equal(Object.hasOwn(payload, 'price'), false);
-    assert.equal(Object.hasOwn(payload, 'currency'), false);
+    assert.equal(payload.currency, 'KZT');
     assert.match(payload.description, /Цену уточняйте$/);
   }
   assert.doesNotMatch(buildWhatsAppPayload(product).description, /Цену уточняйте/);

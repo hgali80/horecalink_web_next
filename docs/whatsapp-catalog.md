@@ -38,4 +38,4 @@ Live read-only inspection of SKU 102385 confirmed Russian name, brand VEIRO, pri
 
 ## Products without prices
 
-Blank or zero website prices omit price/currency on CREATE and append `Цену уточняйте` to the description. Negative, malformed and unrepresentable prices are rejected. UPDATE explicitly requests clearing price and sale_price and reads them back to prevent a stale price being reported as synchronized. Meta acceptance of omitted/cleared prices and WhatsApp rendering require a live test after deployment; SDK parameter listings do not establish server acceptance. No fabricated zero price is sent.
+Blank or zero website prices omit price on CREATE, retaining currency=KZT (required by the live API) and append `Цену уточняйте` to the description. Negative, malformed and unrepresentable prices are rejected. UPDATE explicitly requests clearing price and sale_price and reads them back to prevent a stale price being reported as synchronized. Meta acceptance of omitted/cleared prices and WhatsApp rendering require a live test after deployment; SDK parameter listings do not establish server acceptance. No fabricated zero price is sent.
