@@ -43,6 +43,7 @@ export async function listErpProductOptions() {
       nameRu: text(item.name_ru),
       brand: text(item.brand),
       barcode: text(item.barcode),
+      manufacturerCode: text(item.manufacturerCode),
       unit: text(item.unit || item.unitType || "adet"),
       price: num(item.price, 0),
       imageUrl: getProductImageUrl(item),

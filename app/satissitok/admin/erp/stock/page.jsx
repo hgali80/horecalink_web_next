@@ -15,11 +15,18 @@ function fmtMoney(value) {
   })} KZT`;
 }
 
+function normalizeSearch(value) {
+  return String(value ?? "").toLowerCase().replace(/ı/g, "i").replace(/ё/g, "е")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 export default function ErpStockPage() {
   const [balances, setBalances] = useState([]);
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [stockFilter, setStockFilter] = useState("all");
 
   useEffect(() => {
     let alive = true;
@@ -56,6 +63,20 @@ export default function ErpStockPage() {
     };
   }, [balances]);
 
+  const filteredBalances = useMemo(() => {
+    const terms = normalizeSearch(search).trim().split(/\s+/).filter(Boolean);
+    return balances.filter((row) => {
+      if (stockFilter === "positive" && row.totalQty <= 0) return false;
+      if (stockFilter === "negative" && row.totalQty >= 0) return false;
+      if (stockFilter === "zero" && row.totalQty !== 0) return false;
+      const haystack = normalizeSearch([
+        row.name, row.nameTr, row.nameRu, row.sku, row.id, row.brand,
+        row.barcode, row.manufacturerCode, row.searchText,
+      ].join(" "));
+      return terms.every((term) => haystack.includes(term));
+    });
+  }, [balances, search, stockFilter]);
+
   return (
     <div className="space-y-6">
       <ErpSectionHeader
@@ -84,6 +105,30 @@ export default function ErpStockPage() {
               </div>
             </div>
 
+            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-end">
+              <label className="flex-1 space-y-2 text-sm font-semibold text-slate-700">
+                <span>Ürün ara / Поиск товара</span>
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Türkçe / Русский, SKU, barkod, marka, üretici kodu…"
+                  className="block w-full rounded-xl border border-slate-300 px-4 py-3 font-normal"
+                />
+              </label>
+              <label className="space-y-2 text-sm font-semibold text-slate-700">
+                <span>Stok durumu</span>
+                <select value={stockFilter} onChange={(event) => setStockFilter(event.target.value)} className="block w-full rounded-xl border border-slate-300 px-4 py-3 font-normal">
+                  <option value="all">Tüm ürünler</option>
+                  <option value="positive">Stokta olanlar</option>
+                  <option value="negative">Eksi stok</option>
+                  <option value="zero">Stok olmayanlar</option>
+                </select>
+              </label>
+              <button type="button" onClick={() => { setSearch(""); setStockFilter("all"); }} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">Temizle</button>
+            </div>
+            <p role="status" className="text-sm text-slate-500">{balances.length} üründen {filteredBalances.length} ürün gösteriliyor.</p>
+
             <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
@@ -101,7 +146,8 @@ export default function ErpStockPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {balances.map((row) => (
+                    {!filteredBalances.length ? <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Aramanıza uygun ürün bulunamadı. Filtreleri değiştirin veya temizleyin.</td></tr> : null}
+                    {filteredBalances.map((row) => (
                       <tr key={row.id} className="border-t border-slate-100">
                         <Td>
                           <Link
@@ -110,6 +156,8 @@ export default function ErpStockPage() {
                           >
                             {row.name}
                           </Link>
+                          {row.nameTr && row.nameTr !== row.name ? <div className="text-xs text-slate-600">{row.nameTr}</div> : null}
+                          {row.nameRu && row.nameRu !== row.name && row.nameRu !== row.nameTr ? <div className="text-xs text-slate-600">{row.nameRu}</div> : null}
                           <div className="text-xs text-slate-500">{row.brand || "-"}</div>
                         </Td>
                         <Td>{row.sku || "-"}</Td>

@@ -350,9 +350,11 @@ export default function AdminProductsPage() {
         />
       </div>
 
+      {err ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{err}</div> : null}
+
       {notice ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div> : null}
 
-      {!loading && !err ? (
+      {!loading ? (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
             <SummaryCard label="Toplam" value={stats?.total ?? "…"} tone="slate" />
@@ -447,8 +449,6 @@ export default function AdminProductsPage() {
 
       {loading ? (
         <div className="text-sm text-gray-600">Yukleniyor...</div>
-      ) : err ? (
-        <div className="text-sm text-red-600">{err}</div>
       ) : (
         <div className="overflow-hidden rounded-xl border">
           {loadingAll ? (
