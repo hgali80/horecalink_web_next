@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLang } from "../context/LanguageContext";
 import { getProductFamilyTitle } from "../lib/catalog/productFamilies";
 import { familyLabels } from "../lib/catalog/familyLabels";
+import ProductQuoteActions from "./ProductQuoteActions";
 
 export default function ProductFamilyVariants({ product, variants = [] }) {
   const { lang } = useLang();
@@ -30,8 +31,15 @@ export default function ProductFamilyVariants({ product, variants = [] }) {
               <td className="p-3 font-medium">{item.manufacturerCode}<span className="block text-xs text-slate-500">SKU: {item.sku || item.id}</span></td>
               <td className="whitespace-nowrap p-3">{item.dimensions || "—"}</td>
               <td className="whitespace-nowrap p-3">{Number(item.price) > 0 ? `${Number(item.price).toLocaleString("ru-RU")} ₸` : labels.quote}</td>
-              <td className="p-3">{selected ? <span aria-current="true" className="font-semibold text-cyan-800">{labels.selected}</span> :
-                <Link prefetch={false} href={`/products/${item.slug || item.id}#series-variants`} className="inline-block rounded-lg bg-[#1d3246] px-4 py-2 text-white">{labels.select}</Link>}</td>
+              <td className="p-3">
+                <div className="flex items-center gap-3">
+                  {selected ? <span aria-current="true" className="whitespace-nowrap font-semibold text-cyan-800">{labels.selected}</span> :
+                    <Link prefetch={false} href={`/products/${item.slug || item.id}#series-variants`} className="inline-block whitespace-nowrap rounded-lg bg-[#1d3246] px-4 py-2 text-white">{labels.select}</Link>}
+                  <div className="min-w-[180px]">
+                    <ProductQuoteActions product={item} variant="compact" />
+                  </div>
+                </div>
+              </td>
             </tr>;
           })}</tbody>
         </table>
