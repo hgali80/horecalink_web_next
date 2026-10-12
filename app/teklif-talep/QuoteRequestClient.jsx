@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { collection, documentId, getDocs, query, where } from "firebase/firestore";
+import { getProductsByIds } from "../lib/firestore/products";
 import {
   ArrowLeft,
   ChevronRight,
@@ -20,7 +20,6 @@ import {
   Truck,
   Wrench,
 } from "lucide-react";
-import { db } from "../../firebase";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LanguageContext";
 import QuotePageGuide from "./QuotePageGuide";
@@ -222,14 +221,7 @@ export default function QuoteRequestClient() {
         setLoading(true);
         setError("");
         const ids = draft.map((item) => item.productId);
-        const chunks = [];
-        for (let i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10));
-
-        const docs = [];
-        for (const chunk of chunks) {
-          const snap = await getDocs(query(collection(db, "products"), where(documentId(), "in", chunk)));
-          snap.docs.forEach((docItem) => docs.push({ id: docItem.id, ...docItem.data() }));
-        }
+        const docs = await getProductsByIds(ids);
 
         const mapped = draft
           .map((draftItem) => {

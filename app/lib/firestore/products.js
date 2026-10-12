@@ -243,18 +243,23 @@ export async function getProductBySlug(slug) {
     return normalizeProduct(snapshot.docs[0]);
   }
 
-  const fallbackById = query(
-    collection(db, "products"),
-    where(documentId(), "==", normalizedSlug),
-    where("active", "==", true),
-    where("webPublished", "==", true),
-    limit(1)
-  );
+  return getPublishedProductById(normalizedSlug);
+}
 
-  const fallbackSnapshot = await getDocs(fallbackById);
-  if (fallbackSnapshot.empty) return null;
-
-  return normalizeProduct(fallbackSnapshot.docs[0]);
+async function getPublishedProductById(id) {
+  let snapshot;
+  try {
+    snapshot = await getDoc(doc(db, "products", id));
+  } catch (error) {
+    // Hidden or missing records may be denied by publication rules. Keep
+    // visible linked products usable; propagate network and other failures.
+    if (error.code === "permission-denied") return null;
+    throw error;
+  }
+  if (!snapshot.exists()) return null;
+  const data = snapshot.data();
+  if (data.active !== true || data.webPublished !== true) return null;
+  return normalizeProduct(snapshot);
 }
 
 // Firestore permits at most 30 values in these disjunctive filters.
@@ -342,16 +347,8 @@ export async function getProductsByIds(productIds = []) {
 
   const productMap = new Map();
 
-  const snapshots = await Promise.all(
-    ids.map((id) => getDoc(doc(db, "products", id)))
-  );
-
-  snapshots.forEach((snapshot) => {
-    if (!snapshot?.exists?.()) return;
-    const normalized = normalizeProduct(snapshot);
-    if (normalized.active !== true || normalized.webPublished !== true) return;
-    productMap.set(snapshot.id, normalized);
-  });
+  const products = await Promise.all(ids.map(getPublishedProductById));
+  products.filter(Boolean).forEach((product) => productMap.set(product.id, product));
 
   return ids.map((id) => productMap.get(id)).filter(Boolean).sort(sortProducts);
 }
