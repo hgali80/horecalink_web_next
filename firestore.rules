@@ -100,7 +100,14 @@ service cloud.firestore {
     // PRODUCTS
     // =========================
     match /products/{productId} {
-      allow read: if true;
+      // Private products are readable only by existing managers or active admins.
+      // Public queries must include active == true and webPublished == true.
+      allow read: if isManager()
+        || (
+          hasAdminRole()
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isActive', false) == true
+        )
+        || (resource.data.active == true && resource.data.webPublished == true);
       allow create: if isManager() && (!('whatsappPublished' in request.resource.data) || request.resource.data.whatsappPublished == false);
       allow update: if isManager() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['whatsappPublished']);
       allow delete: if isManager() && resource.data.get('whatsappPublished', false) != true;
@@ -129,9 +136,25 @@ service cloud.firestore {
     // USERS
     // =========================
     match /users/{userId} {
-      allow create: if isOwner(userId);
+      // Normal kullanici kendisine yonetici rolu veremez.
+      allow create: if isOwner(userId) && (
+        isManager() || (
+          (!('role' in request.resource.data) || request.resource.data.role == 'user')
+          && (!('isActive' in request.resource.data) || request.resource.data.isActive is bool)
+        )
+      );
       allow read: if isManager() || isOwner(userId);
-      allow update, delete: if isManager() || isOwner(userId);
+      // Yetki alanlarini eklemek, silmek veya degistirmek yoneticiye aittir.
+      allow update: if isManager() || (
+        isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isActive'])
+      );
+      // Yetki alanlarini silip yeniden olusturarak sifirlamak engellenir.
+      allow delete: if isManager() || (
+        isOwner(userId)
+        && resource.data.get('role', 'user') == 'user'
+        && resource.data.get('isActive', true) == true
+      );
 
       match /addresses/{addressId} {
         allow read, write: if isOwner(userId);

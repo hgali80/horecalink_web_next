@@ -15,11 +15,22 @@ function harness(rows) {
   const context = vm.createContext({
     familyMap, db: {},
     collection: () => 'products',
+    doc: (db, collection, id) => ({ id }),
+    getDoc: async ({ id }) => {
+      calls.push({ id });
+      const document = documents.find(item => item.id === id);
+      if (!document || document.data().active !== true || document.data().webPublished !== true) {
+        throw Object.assign(new Error('Private or missing product'), { code: 'permission-denied' });
+      }
+      return { ...document, exists: () => true };
+    },
     documentId: () => '__name__',
     where: (field, op, value) => ({ field, op, value }),
     query: (collection, ...filters) => ({ collection, filters }),
     getDocs: async ({ filters }) => {
       assert.ok(filters.some(f => !['active', 'webPublished'].includes(f.field)), 'No full published-catalog scan');
+      assert.ok(filters.some(f => f.field === 'active' && f.op === '==' && f.value === true), 'Public reads require active products');
+      assert.ok(filters.some(f => f.field === 'webPublished' && f.op === '==' && f.value === true), 'Public reads require published products');
       for (const filter of filters) {
         if (['in', 'array-contains-any'].includes(filter.op)) {
           assert.ok(filter.value.length > 0 && filter.value.length <= 30, 'Firestore disjunction size');
@@ -110,6 +121,34 @@ test('no family or bindings makes no database request', async () => {
   assert.equal((await context.getRelatedProducts({ id: 'unmapped' })).length, 0);
   assert.equal((await context.getProductFamilyVariants({ id: 'unmapped' })).length, 0);
   assert.equal(calls.length, 0);
+});
+
+test('linked product lists omit hidden, inactive and deleted IDs without losing visible products', async () => {
+  const rows = Array.from({ length: 35 }, (_, i) => ({
+    id: `visible-${i}`, name: `Product ${i}`, active: true, webPublished: true, order: i,
+  }));
+  rows.push(
+    { id: 'hidden', active: true, webPublished: false },
+    { id: 'inactive', active: false, webPublished: true },
+    { id: 'legacy', name: 'No visibility flags' },
+  );
+  const { context, calls } = harness(rows);
+  assert.deepEqual(plain(await context.getProductsByIds([])), []);
+  assert.equal(calls.length, 0);
+  const requested = [...rows.map(row => row.id), 'deleted', 'visible-0', ''];
+  const result = plain(await context.getProductsByIds(requested));
+  assert.deepEqual(result, plain(harness(rows.slice(0, 35)).published.sort(context.sortProducts)));
+  assert.equal(calls.length, 39, 'IDs are deduplicated before individual reads');
+});
+
+test('public product reads propagate network failures and hide denied ID fallbacks', async () => {
+  const { context } = harness([]);
+  context.canonicalCatalogKey = (type, value) => value;
+  context.limit = value => ({ field: '__limit__', value });
+  context.getDocs = async () => ({ empty: true, docs: [] });
+  assert.equal(await context.getProductBySlug('hidden'), null);
+  context.getDoc = async () => { throw Object.assign(new Error('Offline'), { code: 'unavailable' }); };
+  await assert.rejects(context.getProductsByIds(['visible']), /Offline/);
 });
 
 test('live published catalog retains identical results (read-only, opt-in)', {
