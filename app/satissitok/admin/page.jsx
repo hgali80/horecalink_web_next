@@ -110,6 +110,14 @@ export default function SalesStockDashboard() {
           />
 
           <DashboardCard
+            title="WhatsApp Mesajları"
+            desc="WhatsApp üzerinden gelen müşteri mesajlarını oku"
+            href="/admin/whatsapp"
+            color="green"
+            icon={<Mail />}
+          />
+
+          <DashboardCard
             title="Urunler"
             desc="Urun listesi, yeni urun olustur, duzenle"
             href="/satissitok/admin/products"
