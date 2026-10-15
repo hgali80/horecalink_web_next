@@ -26,6 +26,7 @@ export default function PrivacyPage() {
         <ul className="list-disc pl-6 space-y-2">
           <li>{t("privacy.section1.item1")}</li>
           <li>{t("privacy.section1.item2")}</li>
+          <li>{t("privacy.section1.item3")}</li>
         </ul>
 
         <h2 className="text-xl font-semibold">
