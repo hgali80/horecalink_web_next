@@ -34,3 +34,17 @@ export function safeSendDiagnostics(status, error) {
   const numeric = value => Number.isSafeInteger(value) && value >= 0 && value <= 2147483647 ? value : null;
   return { httpStatus: numeric(status), code: numeric(error?.code), subcode: numeric(error?.error_subcode) };
 }
+
+// This exception is limited to the verified Meta TEST sender. Never normalize all +7 numbers.
+export function resolveReplyRecipient(conversation, rawMap) {
+  const canonical = conversation.senderId;
+  if (conversation.phoneNumberId !== '1298404383366536' || !rawMap) return canonical;
+  let mapping;
+  try {
+    if (typeof rawMap !== 'string' || rawMap.length > 2048) throw new Error();
+    mapping = JSON.parse(rawMap);
+    if (!mapping || Array.isArray(mapping) || typeof mapping !== 'object' || Object.keys(mapping).length > 10 ||
+        Object.entries(mapping).some(([from, to]) => !/^\d{5,20}$/.test(from) || typeof to !== 'string' || !/^\d{5,20}$/.test(to))) throw new Error();
+  } catch { throw replyError('Test alıcısı eşlemesi geçersiz. Yönetici ayarını kontrol edin.', 503); }
+  return Object.hasOwn(mapping, canonical) ? mapping[canonical] : canonical;
+}

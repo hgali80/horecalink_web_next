@@ -1,6 +1,6 @@
 import { authorizeWhatsAppRequest, inboxJson } from '@/app/lib/server/whatsappInbox';
 import { INBOX_COLLECTION, readBoundedBody, validInboxId } from '@/app/lib/server/whatsappInboxCore.mjs';
-import { assertSendable, digest, incomingRevision, millis, parseDraft, replyError, safeSendDiagnostics, validateReply } from '@/app/lib/server/whatsappReplyCore.mjs';
+import { assertSendable, digest, incomingRevision, millis, parseDraft, replyError, resolveReplyRecipient, safeSendDiagnostics, validateReply } from '@/app/lib/server/whatsappReplyCore.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -76,12 +76,14 @@ async function send(auth, ref, body) {
     if (!conversation) throw replyError('Konuşma bulunamadı.', 404);
     assertSendable(conversation, body.baseIncomingAt, phoneId);
     if (incomingRevision(conversation) !== body.baseRevision) throw replyError('Yeni mesaj geldi. Mesajları yenileyip yanıtınızı yeniden inceleyin.', 409);
+    const recipient = resolveReplyRecipient(conversation, process.env.WHATSAPP_TEST_RECIPIENT_MAP);
+    if ((recipient !== conversation.senderId || body.reviewedRecipient !== undefined) && body.reviewedRecipient !== recipient) throw replyError('Alıcı ayarı değişti. Mesajları yenileyip alıcıyı yeniden onaylayın.', 409);
     const now = Date.now();
     tx.create(messageRef, { type: 'text', text, direction: 'outgoing', sendState: 'sending', timestamp: now,
       approvedBy: auth.uid, approvedAt: new Date(now), baseIncomingAt: body.baseIncomingAt, baseRevision: body.baseRevision,
-      senderId: conversation.senderId, phoneNumberId: phoneId, expiresAt: new Date(now + 90 * 86400000) });
+      senderId: conversation.senderId, apiRecipient: recipient, phoneNumberId: phoneId, expiresAt: new Date(now + 90 * 86400000) });
     tx.update(ref, { pendingSendId: id });
-    return { recipient: conversation.senderId };
+    return { recipient, canonicalRecipient: conversation.senderId };
   });
   if (claim.existing) return inboxJson({ ok: true, state: claim.state, diagnostics: claim.diagnostics });
   let state = 'unknown', metaMessageId = '', diagnostics = null;
@@ -92,7 +94,8 @@ async function send(auth, ref, body) {
       body: JSON.stringify({ messaging_product: 'whatsapp', to: claim.recipient, type: 'text', text: { body: text, preview_url: false } }),
     });
     const data = await response.json();
-    if (response.ok && typeof data.messages?.[0]?.id === 'string') { state = 'accepted'; metaMessageId = data.messages[0].id; }
+    if (response.ok && typeof data.messages?.[0]?.id === 'string' &&
+        (!data.contacts || (Array.isArray(data.contacts) && data.contacts.length === 1 && data.contacts[0].wa_id === claim.canonicalRecipient))) { state = 'accepted'; metaMessageId = data.messages[0].id; }
     else if (response.status >= 400 && response.status < 500 && data.error) {
       state = 'rejected'; diagnostics = safeSendDiagnostics(response.status, data.error);
     }

@@ -86,6 +86,7 @@ function WhatsAppInbox() {
 function Conversation({ conversation }) {
   const [baseIncomingAt, setBaseIncomingAt] = useState(null);
   const [baseRevision, setBaseRevision] = useState('');
+  const [replyRecipient, setReplyRecipient] = useState(null);
   const [messages, setMessages] = useState([]);
   const [cursor, setCursor] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -101,8 +102,8 @@ function Conversation({ conversation }) {
       if (request.signal.aborted) return;
       setMessages(previous => nextCursor ? [...new Map([...previous, ...result.messages].map(item => [item.id, item])).values()] : result.messages);
       setCursor(result.nextCursor);
-      if (!nextCursor) { setBaseIncomingAt(result.baseIncomingAt); setBaseRevision(result.baseRevision); }
-    } catch (err) { if (!request.signal.aborted) { setError(err.message); setMessages([]); setCursor(null); setBaseIncomingAt(null); } }
+      if (!nextCursor) { setBaseIncomingAt(result.baseIncomingAt); setBaseRevision(result.baseRevision); setReplyRecipient(result.replyRecipient); }
+    } catch (err) { if (!request.signal.aborted) { setError(err.message); setMessages([]); setCursor(null); setBaseIncomingAt(null); setReplyRecipient(null); } }
     finally { if (!request.signal.aborted) setBusy(false); }
   }, [conversation.id]);
   useEffect(() => { load(); return () => controller.current?.abort(); }, [load]);
@@ -117,6 +118,6 @@ function Conversation({ conversation }) {
       <p className="whitespace-pre-wrap break-words text-sm">{message.type === 'text' ? message.text : `Bu mesaj türü henüz görüntülenemiyor: ${message.type}`}</p>
       <time dateTime={message.timestamp} className="mt-2 block text-xs text-slate-500">{formatDate(message.timestamp)}</time>
     </li>)}</ol>
-    <ReplyComposer conversation={conversation} baseIncomingAt={baseIncomingAt} baseRevision={baseRevision} onSent={() => load()} />
+    <ReplyComposer conversation={conversation} baseIncomingAt={baseIncomingAt} baseRevision={baseRevision} replyRecipient={replyRecipient} onSent={() => load()} />
   </section>;
 }

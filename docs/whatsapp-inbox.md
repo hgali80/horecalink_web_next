@@ -57,3 +57,11 @@ References: https://developers.openai.com/api/docs/guides/structured-outputs?api
 
 ### Sending rejection diagnostics
 Definite Meta 4xx rejections now store and display only the numeric HTTP status, Meta error code and subcode. Provider message/details are neither logged nor stored, because they may expose tokens or customer information. The same request ID returns the recorded result without resending. After a definite rejection the client releases its request ID so a later explicitly approved send can make a new attempt after configuration is corrected. Unknown outcomes remain locked. Historical rejected records cannot recover discarded provider codes; one newly approved attempt after deployment is required for diagnosis.
+
+
+### Verified Meta test-recipient alias
+An operator-run Graph Explorer POST returned `contacts.input=787023940182` and `contacts.wa_id=77023940182`, and the text arrived on the operator phone. This is a verified test-only routing alias, not a general Kazakhstan normalization rule.
+
+Optional server Config variable `WHATSAPP_TEST_RECIPIENT_MAP` accepts a JSON object of explicitly verified canonical-ID to API-input pairs. For this test use `{"77023940182":"787023940182"}`. It is applied ONLY when the conversation phone-number ID is the known Meta test sender `1298404383366536`; all business sender IDs and unmatched contacts retain canonical routing. Absence disables aliases. Never populate from client requests or guess aliases from phone prefixes. Malformed config fails closed for the test sender.
+
+Messages GET exposes the resolved destination to the authorized operator; the confirmation shows the canonical recipient plus the Meta test mapping. Send requires that exact destination to be reviewed and rechecks it in the transaction, rejecting stale configurations. Canonical IDs, inbound records and conversation hashes remain unchanged. Outgoing audit records include the actual API recipient. If Meta returns a different canonical `wa_id`, the outcome remains unknown/locked; no fallback or automatic retry is performed. Remove the variable when retiring the test setup. Real business-number registration/coexistence remains a separate task. Deploy and one explicitly approved test send are still required; automated tests do not use live credentials.

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { assertSendable, parseDraft, safeSendDiagnostics, validateReply } from '../app/lib/server/whatsappReplyCore.mjs';
+import { assertSendable, parseDraft, resolveReplyRecipient, safeSendDiagnostics, validateReply } from '../app/lib/server/whatsappReplyCore.mjs';
 
 import { formatSendRejection } from '../app/lib/whatsappSendFeedback.mjs';
 
@@ -52,7 +52,7 @@ const source = (await readFile(new URL('../app/api/admin/whatsapp/conversations/
 const route = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 test('actual reply route gates authorization, claims sends atomically and never retries ambiguous sends', async () => {
   const originalFetch = globalThis.fetch;
-  const envKeys = ['WHATSAPP_SEND_ENABLED','WHATSAPP_ACCESS_TOKEN','WHATSAPP_PHONE_NUMBER_ID','WHATSAPP_GRAPH_API_VERSION','WHATSAPP_DRAFTS_ENABLED','OPENAI_API_KEY','OPENAI_MODEL'];
+  const envKeys = ['WHATSAPP_SEND_ENABLED','WHATSAPP_ACCESS_TOKEN','WHATSAPP_PHONE_NUMBER_ID','WHATSAPP_GRAPH_API_VERSION','WHATSAPP_DRAFTS_ENABLED','OPENAI_API_KEY','OPENAI_MODEL','WHATSAPP_TEST_RECIPIENT_MAP'];
   const saved = envKeys.map(key => [key,process.env[key]]);
   const request = body => new Request('https://test.invalid', { method: 'POST', body: JSON.stringify(body) });
   const context = { params: Promise.resolve({ conversationId }) };
@@ -63,7 +63,7 @@ test('actual reply route gates authorization, claims sends atomically and never 
     assert.equal((await route.POST(request(body), context)).status, 403);
     const db = database();
     globalThis.__replyAuth = { ok: true, uid: 'admin', adminDb: db };
-    delete process.env.WHATSAPP_SEND_ENABLED;
+    delete process.env.WHATSAPP_SEND_ENABLED; delete process.env.WHATSAPP_TEST_RECIPIENT_MAP;
     assert.equal((await route.POST(request(body), context)).status, 503);
     Object.assign(process.env, { WHATSAPP_SEND_ENABLED:'true', WHATSAPP_ACCESS_TOKEN:'fake', WHATSAPP_PHONE_NUMBER_ID:'200', WHATSAPP_GRAPH_API_VERSION:'v26.0' });
     globalThis.fetch = async (url, options) => {
@@ -89,6 +89,25 @@ test('actual reply route gates authorization, claims sends atomically and never 
     changedDb.records.get(`whatsapp_conversations/${conversationId}`).lastIncomingRevision='b'.repeat(64);
     globalThis.__replyAuth={ok:true,uid:'admin',adminDb:changedDb};
     assert.equal((await route.POST(request(body),context)).status,409);
+    // Aliased destination must be returned by server and explicitly reviewed; never trust client routing.
+    const aliasDb=database();
+    const aliasConversation=aliasDb.records.get(`whatsapp_conversations/${conversationId}`);
+    aliasConversation.phoneNumberId='1298404383366536'; aliasConversation.senderId='77023940182';
+    globalThis.__replyAuth={ok:true,uid:'admin',adminDb:aliasDb};
+    process.env.WHATSAPP_PHONE_NUMBER_ID='1298404383366536';
+    process.env.WHATSAPP_TEST_RECIPIENT_MAP='{"77023940182":"787023940182"}';
+    let aliasCalls=0;
+    globalThis.fetch=async (url,options) => {
+      aliasCalls++; assert.equal(JSON.parse(options.body).to,'787023940182');
+      return Response.json({contacts:[{input:'787023940182',wa_id:'77023940182'}],messages:[{id:'wamid.alias'}]});
+    };
+    assert.equal((await route.POST(request(body),context)).status,409);
+    assert.equal((await route.POST(request({...body,reviewedRecipient:'77023940182'}),context)).status,409);
+    const aliased=await (await route.POST(request({...body,reviewedRecipient:'787023940182'}),context)).json();
+    assert.equal(aliased.state,'accepted'); assert.equal(aliasCalls,1);
+    const sent=[...aliasDb.records.values()].find(value=>value.sendState==='accepted');
+    assert.equal(sent.senderId,'77023940182'); assert.equal(sent.apiRecipient,'787023940182');
+    process.env.WHATSAPP_PHONE_NUMBER_ID='200'; delete process.env.WHATSAPP_TEST_RECIPIENT_MAP;
     // A definite rejection is persisted; retrying the same request never calls Meta again.
     globalThis.__replyAuth={ok:true,uid:'admin',adminDb:database()};
     let rejectionCalls=0;
@@ -125,4 +144,16 @@ test('Meta diagnostics expose only numeric codes, never provider text or secrets
   assert.match(formatSendRejection(clean),/Meta kodu: 190/);
   assert.doesNotMatch(formatSendRejection({code:'SECRET',httpStatus:'private'}),/SECRET|private/);
   assert.deepEqual(safeSendDiagnostics(400,{code:'190',error_subcode:-1}),{httpStatus:400,code:null,subcode:null});
+});
+
+test('verified test alias never changes real senders, other contacts or canonical identity', () => {
+  const canonical = '77023940182', alias = '787023940182';
+  const mapping = JSON.stringify({[canonical]:alias});
+  const testConversation = {phoneNumberId:'1298404383366536',senderId:canonical};
+  assert.equal(resolveReplyRecipient(testConversation,mapping),alias);
+  assert.equal(testConversation.senderId,canonical);
+  assert.equal(resolveReplyRecipient({...testConversation,phoneNumberId:'business-number-id'},mapping),canonical);
+  assert.equal(resolveReplyRecipient({...testConversation,senderId:'77001234567'},mapping),'77001234567');
+  assert.equal(resolveReplyRecipient(testConversation,undefined),canonical);
+  for (const invalid of ['{','[]','null','{"77023940182":"https://invalid"}','{"77023940182":787023940182}']) assert.throws(() => resolveReplyRecipient(testConversation,invalid));
 });
