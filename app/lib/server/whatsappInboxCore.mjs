@@ -82,8 +82,11 @@ export async function persistIncoming(db, messages, now = Date.now()) {
     const existing = await Promise.all(refs.map(ref => tx.get(ref)));
     const current = new Map(await Promise.all([...conversations].map(async ([id, ref]) => [id, (await tx.get(ref)).data() || {}])));
     const updates = new Map();
+    const revisions = new Map();
     messages.forEach((message, index) => {
       if (existing[index].exists) return;
+      const previousRevision = revisions.get(message.conversationId) || current.get(message.conversationId).lastIncomingRevision || '';
+      revisions.set(message.conversationId, hash(`${previousRevision}:${message.id}`));
       tx.create(refs[index], { ...message, receivedAt: new Date(now), expiresAt });
       const prior = updates.get(message.conversationId) || current.get(message.conversationId);
       if (message.timestamp >= (prior.lastIncomingAt?.getTime?.() || prior.lastIncomingAt?.toMillis?.() || 0)) {
@@ -95,6 +98,6 @@ export async function persistIncoming(db, messages, now = Date.now()) {
         });
       }
     });
-    for (const [id, update] of updates) tx.set(conversations.get(id), update, { merge: true });
+    for (const [id, revision] of revisions) tx.set(conversations.get(id), { ...(updates.get(id) || {}), lastIncomingRevision: revision }, { merge: true });
   });
 }

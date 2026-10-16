@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { auth } from '@/firebase/index';
+import ReplyComposer from './ReplyComposer';
 
 const formatDate = value => value ? new Date(value).toLocaleString('tr-TR') : '';
 async function readInbox(path, signal) {
@@ -58,7 +59,7 @@ function WhatsAppInbox() {
     <main className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6">
       <Link href="/satissitok/admin" className="text-sm text-blue-700 underline">Yönetim paneline dön</Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">WhatsApp mesajları</h1><p className="mt-1 text-sm text-slate-600">Gelen mesajları okuyun. Yanıt hazırlama ve gönderme sonraki aşamada açılacak.</p></div>
+        <div><h1 className="text-2xl font-bold">WhatsApp mesajları</h1><p className="mt-1 text-sm text-slate-600">Mesajları okuyun, yanıt hazırlayın ve inceleyerek gönderin.</p></div>
         <button type="button" onClick={() => load()} disabled={busy} className="rounded-lg bg-slate-900 px-4 py-2 text-white disabled:opacity-50">{busy ? 'Yükleniyor...' : 'Yenile'}</button>
       </div>
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-800">{error}</p>}
@@ -82,6 +83,8 @@ function WhatsAppInbox() {
 }
 
 function Conversation({ conversation }) {
+  const [baseIncomingAt, setBaseIncomingAt] = useState(null);
+  const [baseRevision, setBaseRevision] = useState('');
   const [messages, setMessages] = useState([]);
   const [cursor, setCursor] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -97,7 +100,8 @@ function Conversation({ conversation }) {
       if (request.signal.aborted) return;
       setMessages(previous => nextCursor ? [...new Map([...previous, ...result.messages].map(item => [item.id, item])).values()] : result.messages);
       setCursor(result.nextCursor);
-    } catch (err) { if (!request.signal.aborted) { setError(err.message); setMessages([]); setCursor(null); } }
+      if (!nextCursor) { setBaseIncomingAt(result.baseIncomingAt); setBaseRevision(result.baseRevision); }
+    } catch (err) { if (!request.signal.aborted) { setError(err.message); setMessages([]); setCursor(null); setBaseIncomingAt(null); } }
     finally { if (!request.signal.aborted) setBusy(false); }
   }, [conversation.id]);
   useEffect(() => { load(); return () => controller.current?.abort(); }, [load]);
@@ -106,9 +110,11 @@ function Conversation({ conversation }) {
     {error && <p role="alert" className="mb-3 text-red-700">{error}</p>}
     {!busy && !error && !messages.length && <p className="text-sm text-slate-600">Bu konuşmada saklanan mesaj yok.</p>}
     {cursor && <button type="button" disabled={busy} onClick={() => load(cursor)} className="mb-4 rounded-lg border px-3 py-2 text-sm disabled:opacity-50">Önceki mesajlar</button>}
-    <ol className="space-y-3">{[...messages].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id)).map(message => <li key={message.id} className="rounded-lg bg-slate-50 p-3">
+    <ol className="space-y-3">{[...messages].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id)).map(message => <li key={message.id} className={`rounded-lg p-3 ${message.direction === 'outgoing' ? 'bg-blue-50' : 'bg-slate-50'}`}>
+      {message.direction === 'outgoing' && <p className="mb-1 text-xs text-slate-600">Yanıt · {({accepted: 'Gönderim kabul edildi (teslimat doğrulanmadı)', rejected: 'Reddedildi', sending: 'Gönderiliyor', unknown: 'Sonuç belirsiz'})[message.sendState] || 'Sonuç belirsiz'}</p>}
       <p className="whitespace-pre-wrap break-words text-sm">{message.type === 'text' ? message.text : `Bu mesaj türü henüz görüntülenemiyor: ${message.type}`}</p>
       <time dateTime={message.timestamp} className="mt-2 block text-xs text-slate-500">{formatDate(message.timestamp)}</time>
     </li>)}</ol>
+    <ReplyComposer conversation={conversation} baseIncomingAt={baseIncomingAt} baseRevision={baseRevision} onSent={() => load()} />
   </section>;
 }

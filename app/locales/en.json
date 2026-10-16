@@ -2449,7 +2449,7 @@
   "privacy.section3.title": "Purposes of Use",
   "privacy.section4.text": "To obtain information about your data or request its correction or deletion, contact info@horecalink.kz. We may ask you to verify your identity so that your request can be handled securely.",
   "privacy.section4.title": "Information, Correction and Deletion Requests",
-  "privacy.section5.text": "WhatsApp communications are handled through Meta’s WhatsApp Business Platform service. Google Firebase infrastructure is used to store messages and provide access to authorised users. These service providers may process data as part of providing their services. Personal data is not sold or rented.",
+  "privacy.section5.text": "WhatsApp communications are handled through Meta’s WhatsApp Business Platform service. Google Firebase infrastructure is used to store messages and provide access to authorised users. These service providers may process data as part of providing their services. Personal data is not sold or rented. When an operator requests a reply draft, a limited portion of recent messages is sent to the OpenAI API service. Drafts are reviewed by a staff member and are not sent automatically. OpenAI may process this data under its service terms and data retention policies.",
   "privacy.section5.title": "Service Providers and Data Sharing",
   "privacy.section6.text": "Only authorised staff can access message records. Records are retained for as long as necessary to handle the customer enquiry and the related business process; applicable legal retention requirements are considered separately. HorecaLink takes reasonable technical and organisational measures to protect personal data.",
   "privacy.section6.title": "Retention, Access and Security",

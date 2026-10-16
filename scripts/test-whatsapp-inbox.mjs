@@ -133,7 +133,8 @@ const coreUrl = new URL('../app/lib/server/whatsappInboxCore.mjs', import.meta.u
 const webhookSource = (await readFile(new URL('../app/api/webhooks/whatsapp/route.js', import.meta.url), 'utf8'))
   .replace("import { NextResponse } from 'next/server';", 'const NextResponse = { json: (body, options) => Response.json(body, options) };')
   .replace("import { getAdminServices } from '@/app/lib/server/firebaseAdmin';", 'const getAdminServices = () => globalThis.__inboxWebhookServices;')
-  .replace("'@/app/lib/server/whatsappInboxCore.mjs'", JSON.stringify(coreUrl));
+  .replace("'@/app/lib/server/whatsappInboxCore.mjs'", JSON.stringify(coreUrl))
+      .replace("'@/app/lib/server/whatsappReplyCore.mjs'", JSON.stringify(new URL('../app/lib/server/whatsappReplyCore.mjs', import.meta.url).href));
 const webhook = await import(`data:text/javascript;base64,${Buffer.from(webhookSource).toString('base64')}`);
 test('actual webhook route is off by default, verifies challenge/signature and retries database failure', async () => {
   const keys = ['WHATSAPP_INBOX_ENABLED', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'WHATSAPP_WABA_ID', 'WHATSAPP_PHONE_NUMBER_ID'];
@@ -182,7 +183,8 @@ test('actual list routes enforce authorization, page limits and conversation-sco
   async function loadRoute(path) {
     const source = (await readFile(new URL(path, import.meta.url), 'utf8'))
       .replace("import { authorizeWhatsAppRequest, inboxIso, inboxJson } from '@/app/lib/server/whatsappInbox';", 'const authorizeWhatsAppRequest = async () => globalThis.__inboxApiAuth; const inboxJson = globalThis.__inboxApiJson; const inboxIso = globalThis.__inboxApiIso;')
-      .replace("'@/app/lib/server/whatsappInboxCore.mjs'", JSON.stringify(coreUrl));
+      .replace("'@/app/lib/server/whatsappInboxCore.mjs'", JSON.stringify(coreUrl))
+      .replace("'@/app/lib/server/whatsappReplyCore.mjs'", JSON.stringify(new URL('../app/lib/server/whatsappReplyCore.mjs', import.meta.url).href));
     return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
   }
   try {

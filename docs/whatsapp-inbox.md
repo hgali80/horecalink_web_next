@@ -1,8 +1,8 @@
-# WhatsApp inbox — phase 1
+# WhatsApp inbox and reviewed replies
 
 Panel: `/admin/whatsapp`, linked from `/satissitok/admin`. Only active `admin` and `super_admin` users can read inbox APIs. Every request verifies the Firebase ID token with revocation checks and reads the current user record. The client role check is navigation only; server checks protect the data.
 
-This phase receives and lists incoming messages only. No OpenAI calls, reply drafts, send endpoint or outgoing message credential is added. Catalog services, credentials, product fields, imports and reconciliation are independent and unchanged.
+Incoming messages are listed alongside manually approved outgoing replies. Draft generation and sending are separate, opt-in server features. Catalog services, credentials, product fields, imports and reconciliation are independent and unchanged.
 
 ## Server configuration (disabled by default)
 
@@ -34,3 +34,22 @@ Each new message has an `expiresAt` date 90 days after receipt. Conversation exp
 Run `node --test scripts/test-whatsapp-inbox.mjs`, `node scripts/test-whatsapp-catalog.mjs`, `node scripts/test-whatsapp-sync.mjs`, and lint the changed JS/JSX files separately (the existing build ignores lint/type errors). Use a separate test Meta app/number, approved Firebase test environment and authorized test recipient; no production tokens in tests. Verify valid/invalid GET challenges, signed/unsigned POSTs, retries, unsupported media, pagination, revoked/disabled/non-admin users, and UI empty/error/loading states. Check the existing catalog scheduler still operates independently. No live Meta or Firestore writes are part of automated tests.
 
 Deployment, hosting secrets, Firestore TTL and Meta subscription changes require separate user approval. Roll back intake by disabling `WHATSAPP_INBOX_ENABLED`; catalog reconciliation continues unchanged. Keep the callback enabled during an outage only when returning a retryable error is intended. Preserve the stored inbox for approved retention; do not silently delete customer messages during rollback.
+
+
+## Reviewed replies (disabled by default)
+
+The operator can write manually or request a Russian, Kazakh, Turkish or English draft. Every send requires reviewing the editable final text and checking the recipient confirmation. Editing text clears that confirmation. Nothing is sent from the webhook or AI response. Only active admins/super-admins can call the authenticated reply POST endpoint.
+
+Configure only server secrets (never NEXT_PUBLIC):
+- `WHATSAPP_DRAFTS_ENABLED=true`, `OPENAI_API_KEY`, `OPENAI_MODEL`: select an account-available Responses model supporting strict JSON-schema text output. No model default is assumed.
+- `WHATSAPP_SEND_ENABLED=true`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_GRAPH_API_VERSION` (e.g. `v26.0` after checking Meta support). Use the intended Cloud API messaging credential, never the catalog credential. Existing `WHATSAPP_PHONE_NUMBER_ID` determines the sender.
+
+Deploy the four-language privacy disclosure before enabling drafts. Last 12 messages, at most 1,500 characters each, are sent to OpenAI on operator request; phone/profile metadata is excluded, but message text may contain personal information. `store:false` disables Responses application storage; it does not promise zero retention by the provider. Configure provider access/billing separately. No verified product facts are supplied: operators must check prices, stock and claims. Untrusted customer text is data and there are no model tools. Draft requests are limited to one per 15 seconds and 30 per hour per operator, including failed attempts. Configure TTL for `whatsapp_reply_limits` as well.
+
+Sending is text-only, within 24 hours of the latest incoming message. Server obtains the recipient from the conversation, verifies the configured phone, checks the operator's reviewed message version and atomically claims a durable request ID before calling Meta. Retries of that same ID return its recorded state without another upstream call. The approved text, operator UID and time are stored with the outgoing message. Editing after a failed transport attempt starts a different request, but an unresolved prior claim blocks any new send for that conversation.
+
+`accepted` means Meta accepted the request, NOT delivered/read. Delivery receipt processing is not included. Timeout, malformed response, 5xx or crash after claim can leave `unknown`/`sending`; these lock further sends. Check Meta/WhatsApp and the durable record before a deliberate administrative reconciliation of `pendingSendId`; never clear it blindly or retry automatically. A definite JSON 4xx rejection is recorded as `rejected`. If Meta accepted but the final database write failed, the durable claim still blocks a repeat. Existing incoming webhook logic ignores status-only events. Outgoing records share message TTL. No raw upstream errors or secrets are exposed.
+
+Validate with `node --test scripts/test-whatsapp-replies.mjs scripts/test-whatsapp-inbox.mjs`, catalog/sync regression scripts, targeted ESLint and production build. Tests use mocked providers and storage, never live sends or paid API calls. Before rollout, test with the existing test number and explicitly reviewed content. Real-number migration/coexistence is a separate setup; this code does not migrate or register phone numbers. Deploy remains the owner's action.
+
+References: https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses and https://developers.openai.com/api/docs/guides/your-data
