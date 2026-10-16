@@ -1,6 +1,6 @@
 import { authorizeWhatsAppRequest, inboxJson } from '@/app/lib/server/whatsappInbox';
 import { INBOX_COLLECTION, readBoundedBody, validInboxId } from '@/app/lib/server/whatsappInboxCore.mjs';
-import { assertSendable, digest, incomingRevision, millis, parseDraft, replyError, validateReply } from '@/app/lib/server/whatsappReplyCore.mjs';
+import { assertSendable, digest, incomingRevision, millis, parseDraft, replyError, safeSendDiagnostics, validateReply } from '@/app/lib/server/whatsappReplyCore.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -71,7 +71,7 @@ async function send(auth, ref, body) {
     if (existing.exists) {
       const data = existing.data();
       if (data.approvedBy !== auth.uid || data.text !== text) throw replyError('Gönderim kaydı farklı bir yanıta ait.', 409);
-      return { existing: true, state: data.sendState };
+      return { existing: true, state: data.sendState, diagnostics: safeSendDiagnostics(data.sendDiagnostics?.httpStatus, { code: data.sendDiagnostics?.code, error_subcode: data.sendDiagnostics?.subcode }) };
     }
     if (!conversation) throw replyError('Konuşma bulunamadı.', 404);
     assertSendable(conversation, body.baseIncomingAt, phoneId);
@@ -83,8 +83,8 @@ async function send(auth, ref, body) {
     tx.update(ref, { pendingSendId: id });
     return { recipient: conversation.senderId };
   });
-  if (claim.existing) return inboxJson({ ok: true, state: claim.state });
-  let state = 'unknown', metaMessageId = '';
+  if (claim.existing) return inboxJson({ ok: true, state: claim.state, diagnostics: claim.diagnostics });
+  let state = 'unknown', metaMessageId = '', diagnostics = null;
   try {
     const response = await fetch(`https://graph.facebook.com/${version}/${phoneId}/messages`, {
       method: 'POST', signal: AbortSignal.timeout(20000),
@@ -93,12 +93,14 @@ async function send(auth, ref, body) {
     });
     const data = await response.json();
     if (response.ok && typeof data.messages?.[0]?.id === 'string') { state = 'accepted'; metaMessageId = data.messages[0].id; }
-    else if (response.status >= 400 && response.status < 500 && data.error) state = 'rejected';
+    else if (response.status >= 400 && response.status < 500 && data.error) {
+      state = 'rejected'; diagnostics = safeSendDiagnostics(response.status, data.error);
+    }
   } catch { /* A timeout can occur after Meta accepts the message. Never retry automatically. */ }
   await auth.adminDb.runTransaction(async tx => {
     const conversation = (await tx.get(ref)).data();
-    tx.update(messageRef, { sendState: state, metaMessageId });
+    tx.update(messageRef, { sendState: state, metaMessageId, sendDiagnostics: diagnostics });
     if (conversation?.pendingSendId === id && state !== 'unknown') tx.update(ref, { pendingSendId: null });
   });
-  return inboxJson({ ok: true, state });
+  return inboxJson({ ok: true, state, diagnostics });
 }

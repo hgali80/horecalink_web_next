@@ -53,3 +53,7 @@ Sending is text-only, within 24 hours of the latest incoming message. Server obt
 Validate with `node --test scripts/test-whatsapp-replies.mjs scripts/test-whatsapp-inbox.mjs`, catalog/sync regression scripts, targeted ESLint and production build. Tests use mocked providers and storage, never live sends or paid API calls. Before rollout, test with the existing test number and explicitly reviewed content. Real-number migration/coexistence is a separate setup; this code does not migrate or register phone numbers. Deploy remains the owner's action.
 
 References: https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses and https://developers.openai.com/api/docs/guides/your-data
+
+
+### Sending rejection diagnostics
+Definite Meta 4xx rejections now store and display only the numeric HTTP status, Meta error code and subcode. Provider message/details are neither logged nor stored, because they may expose tokens or customer information. The same request ID returns the recorded result without resending. After a definite rejection the client releases its request ID so a later explicitly approved send can make a new attempt after configuration is corrected. Unknown outcomes remain locked. Historical rejected records cannot recover discarded provider codes; one newly approved attempt after deployment is required for diagnosis.

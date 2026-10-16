@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { formatSendRejection } from '@/app/lib/whatsappSendFeedback.mjs';
 import { auth } from '@/firebase/index';
 
 export default function ReplyComposer({ conversation, baseIncomingAt, baseRevision, onSent }) {
@@ -40,7 +41,8 @@ export default function ReplyComposer({ conversation, baseIncomingAt, baseRevisi
       } else {
         setReviewed(false);
         setLocked(result.state !== 'rejected');
-        setNotice(result.state === 'accepted' ? 'WhatsApp gönderimi kabul etti. Teslim edildiği henüz doğrulanmadı.' : result.state === 'rejected' ? 'WhatsApp gönderimi reddetti. Yapılandırmayı kontrol edin.' : 'Gönderim sonucu belirsiz veya işlem sürüyor. Tekrar göndermeden önce WhatsApp üzerinden kontrol edin.');
+        if (result.state === 'rejected') requestId.current = null;
+        setNotice(result.state === 'accepted' ? 'WhatsApp gönderimi kabul etti. Teslim edildiği henüz doğrulanmadı.' : result.state === 'rejected' ? formatSendRejection(result.diagnostics) : 'Gönderim sonucu belirsiz veya işlem sürüyor. Tekrar göndermeden önce WhatsApp üzerinden kontrol edin.');
         onSent();
       }
     } catch (error) {

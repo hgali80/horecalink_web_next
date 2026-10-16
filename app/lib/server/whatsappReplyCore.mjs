@@ -28,3 +28,9 @@ export function parseDraft(response) {
   if (typeof value.reply !== 'string' || !value.reply.trim() || value.reply.length > 4096) throw replyError('Taslak geçersiz.', 502);
   return value.reply.trim();
 }
+
+// Do not persist upstream error messages/details: they may contain credentials or customer data.
+export function safeSendDiagnostics(status, error) {
+  const numeric = value => Number.isSafeInteger(value) && value >= 0 && value <= 2147483647 ? value : null;
+  return { httpStatus: numeric(status), code: numeric(error?.code), subcode: numeric(error?.error_subcode) };
+}

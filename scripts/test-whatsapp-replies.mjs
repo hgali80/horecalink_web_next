@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { assertSendable, parseDraft, validateReply } from '../app/lib/server/whatsappReplyCore.mjs';
+import { assertSendable, parseDraft, safeSendDiagnostics, validateReply } from '../app/lib/server/whatsappReplyCore.mjs';
+
+import { formatSendRejection } from '../app/lib/whatsappSendFeedback.mjs';
 
 const now = Date.now();
 const conversationId = 'a'.repeat(64);
@@ -87,6 +89,18 @@ test('actual reply route gates authorization, claims sends atomically and never 
     changedDb.records.get(`whatsapp_conversations/${conversationId}`).lastIncomingRevision='b'.repeat(64);
     globalThis.__replyAuth={ok:true,uid:'admin',adminDb:changedDb};
     assert.equal((await route.POST(request(body),context)).status,409);
+    // A definite rejection is persisted; retrying the same request never calls Meta again.
+    globalThis.__replyAuth={ok:true,uid:'admin',adminDb:database()};
+    let rejectionCalls=0;
+    globalThis.fetch=async () => { rejectionCalls++; return Response.json({error:{code:190,error_subcode:463,message:'SECRET_TOKEN'}},{status:401}); };
+    const rejection=await route.POST(request(body),context);
+    const rejectionBody=await rejection.json();
+    assert.equal(rejectionBody.state,'rejected');
+    assert.deepEqual(rejectionBody.diagnostics,{httpStatus:401,code:190,subcode:463});
+    assert.doesNotMatch(JSON.stringify(rejectionBody),/SECRET_TOKEN/);
+    const same=await (await route.POST(request(body),context)).json();
+    assert.deepEqual(same.diagnostics,rejectionBody.diagnostics); assert.equal(rejectionCalls,1);
+    assert.equal(globalThis.__replyAuth.adminDb.records.get(`whatsapp_conversations/${conversationId}`).pendingSendId,null);
     Object.assign(process.env,{WHATSAPP_DRAFTS_ENABLED:'true',OPENAI_API_KEY:'fake',OPENAI_MODEL:'configured-model'});
     globalThis.fetch = async (url,options) => {
       assert.equal(url,'https://api.openai.com/v1/responses');
@@ -101,4 +115,14 @@ test('actual reply route gates authorization, claims sends atomically and never 
     globalThis.fetch=originalFetch; delete globalThis.__replyAuth;
     for (const [key,value] of saved) { if(value===undefined) delete process.env[key]; else process.env[key]=value; }
   }
+});
+
+test('Meta diagnostics expose only numeric codes, never provider text or secrets', () => {
+  const raw = {code:190,error_subcode:463,message:'SECRET_TOKEN private phone',error_data:{details:'private'}};
+  const clean = safeSendDiagnostics(401,raw);
+  assert.deepEqual(clean,{httpStatus:401,code:190,subcode:463});
+  assert.doesNotMatch(JSON.stringify(clean),/SECRET|private/);
+  assert.match(formatSendRejection(clean),/Meta kodu: 190/);
+  assert.doesNotMatch(formatSendRejection({code:'SECRET',httpStatus:'private'}),/SECRET|private/);
+  assert.deepEqual(safeSendDiagnostics(400,{code:'190',error_subcode:-1}),{httpStatus:400,code:null,subcode:null});
 });

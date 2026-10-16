@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { auth } from '@/firebase/index';
+import { formatSendRejection } from '@/app/lib/whatsappSendFeedback.mjs';
 import ReplyComposer from './ReplyComposer';
 
 const formatDate = value => value ? new Date(value).toLocaleString('tr-TR') : '';
@@ -112,6 +113,7 @@ function Conversation({ conversation }) {
     {cursor && <button type="button" disabled={busy} onClick={() => load(cursor)} className="mb-4 rounded-lg border px-3 py-2 text-sm disabled:opacity-50">Önceki mesajlar</button>}
     <ol className="space-y-3">{[...messages].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id)).map(message => <li key={message.id} className={`rounded-lg p-3 ${message.direction === 'outgoing' ? 'bg-blue-50' : 'bg-slate-50'}`}>
       {message.direction === 'outgoing' && <p className="mb-1 text-xs text-slate-600">Yanıt · {({accepted: 'Gönderim kabul edildi (teslimat doğrulanmadı)', rejected: 'Reddedildi', sending: 'Gönderiliyor', unknown: 'Sonuç belirsiz'})[message.sendState] || 'Sonuç belirsiz'}</p>}
+      {message.sendState === 'rejected' && <p className="mb-2 text-xs text-red-700">{formatSendRejection(message.sendDiagnostics)}</p>}
       <p className="whitespace-pre-wrap break-words text-sm">{message.type === 'text' ? message.text : `Bu mesaj türü henüz görüntülenemiyor: ${message.type}`}</p>
       <time dateTime={message.timestamp} className="mt-2 block text-xs text-slate-500">{formatDate(message.timestamp)}</time>
     </li>)}</ol>

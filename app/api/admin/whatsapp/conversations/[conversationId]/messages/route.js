@@ -1,7 +1,7 @@
 import { authorizeWhatsAppRequest, inboxIso, inboxJson } from '@/app/lib/server/whatsappInbox';
 import { INBOX_COLLECTION, validInboxId } from '@/app/lib/server/whatsappInboxCore.mjs';
 
-import { incomingRevision, millis } from '@/app/lib/server/whatsappReplyCore.mjs';
+import { incomingRevision, millis, safeSendDiagnostics } from '@/app/lib/server/whatsappReplyCore.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,7 +27,7 @@ export async function GET(request, context) {
     const docs = snapshot.docs.slice(0, 50);
     return inboxJson({ ok: true, baseIncomingAt: millis(conversationSnapshot.data().lastIncomingAt), baseRevision: incomingRevision(conversationSnapshot.data()), messages: docs.map(doc => {
       const data = doc.data();
-      return { id: doc.id, direction: data.direction || 'incoming', sendState: data.sendState || null, type: data.type, text: data.text || '', timestamp: new Date(data.timestamp).toISOString(), receivedAt: inboxIso(data.receivedAt) };
+      return { id: doc.id, direction: data.direction || 'incoming', sendState: data.sendState || null, sendDiagnostics: data.sendState === 'rejected' ? safeSendDiagnostics(data.sendDiagnostics?.httpStatus, { code: data.sendDiagnostics?.code, error_subcode: data.sendDiagnostics?.subcode }) : null, type: data.type, text: data.text || '', timestamp: new Date(data.timestamp).toISOString(), receivedAt: inboxIso(data.receivedAt) };
     }), nextCursor: snapshot.size > 50 ? docs.at(-1).id : null });
   } catch { return inboxJson({ error: 'Mesajlar alınamadı.' }, 503); }
 }
