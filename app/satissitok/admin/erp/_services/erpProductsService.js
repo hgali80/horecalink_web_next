@@ -46,6 +46,7 @@ export async function listErpProductOptions() {
       manufacturerCode: text(item.manufacturerCode),
       unit: text(item.unit || item.unitType || "adet"),
       price: num(item.price, 0),
+      order: num(item.order, 0),
       imageUrl: getProductImageUrl(item),
       imageName: text(Array.isArray(item.image_names) ? item.image_names[0] : ""),
       searchText: text(item.searchText),
@@ -55,5 +56,5 @@ export async function listErpProductOptions() {
       saleEnabled: item.saleEnabled !== false,
       purchaseEnabled: item.purchaseEnabled !== false,
     }))
-    .sort((a, b) => a.name.localeCompare(b.name, "tr"));
+    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "tr"));
 }
