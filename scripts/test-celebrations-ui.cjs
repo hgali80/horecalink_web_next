@@ -11,10 +11,11 @@ const root = path.resolve(__dirname, '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'celebrations-ui-'));
 const write = (name, value) => fs.writeFileSync(path.join(temp, name), value);
 write('loader.cjs', `const ts=require(${JSON.stringify(require.resolve('typescript'))});module.exports=source=>ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2020}}).outputText;`);
-write('link.jsx', 'export default function Link({href,children,...props}) {return <a href={href} {...props}/>;}');
+write('link.jsx', 'export default function Link({href,children,...props}) {return <a href={href} {...props}>{children}</a>;}');
 write('image.jsx', 'export default function Image(props) {return <img {...props}/>;}');
 write('auth.js', 'export const auth={currentUser:{getIdToken:async()=>"fixture-token"}};');
 write('lang.js', 'export const useLang=()=>({lang:"kz"});');
+write('css-loader.cjs', "module.exports = source => \"export default \" + JSON.stringify(Object.fromEntries([...source.matchAll(/\\.([a-zA-Z][a-zA-Z0-9_-]*)/g)].map(x => [x[1], x[1]]))) + \";\";");
 write('nav.js', 'export const usePathname=()=>"/";');
 write('entry.jsx', `import React from 'react';import{createRoot}from'react-dom/client';import Admin from ${JSON.stringify(path.join(root, 'app/satissitok/admin/celebrations/page.jsx'))};createRoot(document.getElementById('root')).render(<Admin/>);`);
 
@@ -26,7 +27,7 @@ async function main() {
         '@/firebase$': path.join(temp, 'auth.js'), '@': root, 'next/link$': path.join(temp, 'link.jsx'),
         'next/image$': path.join(temp, 'image.jsx'), 'next/navigation$': path.join(temp, 'nav.js'),
         '../context/LanguageContext$': path.join(temp, 'lang.js'),
-      }}, module: {rules: [{test: /\.[jt]sx?$/, exclude: /node_modules/, use: path.join(temp, 'loader.cjs')}]},
+      }}, module: {rules: [{test: /\.css$/, use: path.join(temp, 'css-loader.cjs')}, {test: /\.[jt]sx?$/, exclude: /node_modules/, use: path.join(temp, 'loader.cjs')}]},
     });
     compiler.run((error, stats) => compiler.close(() => error || stats.hasErrors() ? reject(error || new Error(stats.toString({all: false, errors: true}))) : resolve()));
   });
@@ -59,7 +60,7 @@ async function main() {
     });
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     await page.getByRole('button', {name: 'Aktif et', exact: true}).waitFor();
-    await page.getByRole('button', {name: 'Önizle'}).click();
+    await page.getByRole('button', {name: 'Önizle', exact: true}).click();
     assert.equal(writes, 0);
     for (const width of [360, 390, 1280]) {
       await page.setViewportSize({width, height: 900});

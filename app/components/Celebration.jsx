@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useLang } from '../context/LanguageContext';
 import { CELEBRATIONS } from '../lib/celebrations';
+import CelebrationWelcome from './CelebrationWelcome';
 
 const CelebrationContext = createContext(null);
 const isInternal = path => path.startsWith('/satissitok') || path.startsWith('/admin') || path === '/login' || path === '/forgot-password';
@@ -29,7 +30,7 @@ export function CelebrationProvider({ children }) {
     return () => { controller.abort(); document.removeEventListener('visibilitychange', onVisible); };
   }, [pathname]);
   const celebration = isInternal(pathname) ? null : CELEBRATIONS.find(item => item.id === activeId);
-  return <CelebrationContext.Provider value={celebration}>{children}</CelebrationContext.Provider>;
+  return <CelebrationContext.Provider value={celebration}>{children}<CelebrationOpening /></CelebrationContext.Provider>;
 }
 
 export function CelebrationStrip({ celebration, language }) {
@@ -60,4 +61,11 @@ export function CelebrationHeroDetail() {
   const celebration = useContext(CelebrationContext);
   const { lang } = useLang();
   return celebration ? <div className="mb-4"><CelebrationDetail celebration={celebration} language={lang} /></div> : null;
+}
+
+function CelebrationOpening() {
+  const celebration = useContext(CelebrationContext);
+  const { lang } = useLang();
+  const pathname = usePathname();
+  return <CelebrationWelcome celebration={celebration} language={lang} enabled={pathname === '/'} />;
 }
