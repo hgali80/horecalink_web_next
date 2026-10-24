@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronDown, Info, Mail, Menu, Phone, X } from "lucide-react";
+import { ChevronDown, Info, Mail, Menu, Phone, Settings, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import UserMenu from "./UserMenu";
+import { useAuth } from "../context/AuthContext";
 import ProductionMenu from "./production/ProductionMenu";
 import { useLang } from "../context/LanguageContext";
 import { languageOptions } from "../lib/language";
+
+const STAFF_ROLES = new Set(["super_admin", "admin", "staff", "sales", "viewer"]);
 
 function LanguageFlag({ option }) {
   return (
@@ -19,6 +22,8 @@ function LanguageFlag({ option }) {
 
 export default function Header() {
   const { t, lang, setLang } = useLang();
+  const { user } = useAuth();
+  const canOpenSalesStock = STAFF_ROLES.has(user?.role);
   const [langOpen, setLangOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -59,6 +64,7 @@ export default function Header() {
             <a href="mailto:info@horecalink.kz" className="hidden items-center gap-2 transition hover:text-[#1d3246] md:inline-flex"><Mail size={14} />info@horecalink.kz</a>
           </div>
 
+          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <div className="hidden items-center gap-1 sm:flex" aria-label={t("header.languageSelect")}>
             {languageOptions.map((item) => (
               <button key={item.code} type="button" onClick={() => selectLanguage(item.code)} title={item.label} aria-label={item.label} aria-pressed={lang === item.code}
@@ -81,6 +87,17 @@ export default function Header() {
                 ))}
               </div>
             )}
+          </div>
+          {canOpenSalesStock ? (
+            <Link
+              href="/satissitok/admin"
+              aria-label={t("header.menu.salesStock")}
+              title={t("header.menu.salesStock")}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-white hover:text-[#1d3246] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1d3246]"
+            >
+              <Settings size={18} aria-hidden="true" />
+            </Link>
+          ) : null}
           </div>
         </div>
       </div>
