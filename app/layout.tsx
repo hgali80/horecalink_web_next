@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import PwaInstallBanner from "./components/PwaInstallBanner";
 import Header from "./components/Header";
+import { CelebrationProvider, CelebrationBanner } from "./components/Celebration";
 import VisitorTracker from "./components/VisitorTracker";
 import { AuthProvider } from "./context/AuthContext";
 import { LanguageProvider } from "./context/LanguageContext";
@@ -61,10 +62,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <AuthProvider>
           <LanguageProvider>
+            <CelebrationProvider>
             <PwaInstallBanner />
             <VisitorTracker />
+            <CelebrationBanner />
             <Header />
             {children}
+            </CelebrationProvider>
           </LanguageProvider>
         </AuthProvider>
       </body>

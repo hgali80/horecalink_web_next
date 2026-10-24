@@ -46,6 +46,7 @@ export default function SalesStockDashboard() {
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-6">
           <VisitorAnalyticsCard />
+          <DashboardCard title="Bayram ve Özel Günler" desc="Bayram kutlamalarını önizle, aktif veya pasif et" href="/satissitok/admin/celebrations" color="blue" icon={<Images />} />
           <DashboardCard
             title="Ana Kategori Görselleri"
             desc="Kategori kartlarının görsellerini yükle, değiştir ve kaldır"
