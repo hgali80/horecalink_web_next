@@ -17,8 +17,8 @@ export function parseLanguageResponse(response, ids) {
   let rows;
   try { rows = JSON.parse(content.filter(item => item.type === 'output_text').map(item => item.text).join('')).translations; }
   catch { throw replyError('Çeviri okunamadı.', 502); }
-  if (!Array.isArray(rows) || rows.length !== ids.length || new Set(rows.map(row => row.id)).size !== ids.length || rows.some(row => !ids.includes(row.id) || typeof row.text !== 'string' || !row.text.trim() || row.text.length > 8192 || !['tr','ru','kk','en','other'].includes(row.language))) throw replyError('Çeviri yanıtı geçersiz.', 502);
-  return rows;
+  if (!Array.isArray(rows) || rows.length !== ids.length || new Set(rows.map(row => row.id)).size !== ids.length || rows.some(row => !ids.includes(row.id) || typeof row.text !== 'string' || !row.text.trim() || row.text.length > 8192 || !['tr','ru','kk','en','other'].includes(row.source_language))) throw replyError('Çeviri yanıtı geçersiz.', 502);
+  return rows.map(row => ({id:row.id,text:row.text,language:row.source_language}));
 }
 
 export async function translateTexts(items, target, fetcher = fetch, env = process.env) {
@@ -34,8 +34,8 @@ export async function translateTexts(items, target, fetcher = fetch, env = proce
         schema:{
           type:'object', additionalProperties:false, required:['translations'],
           properties:{ translations:{type:'array',items:{
-            type:'object',additionalProperties:false,required:['id','text','language'],
-            properties:{id:{type:'string'},text:{type:'string'},language:{type:'string',enum:['tr','ru','kk','en','other']}}
+            type:'object',additionalProperties:false,required:['id','text','source_language'],
+            properties:{id:{type:'string'},text:{type:'string'},source_language:{type:'string',description:'The language of the ORIGINAL input text before translation, not the target language.',enum:['tr','ru','kk','en','other']}}
           }}}
         }
       } },

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseLanguageResponse, translateTexts } from '../app/lib/server/whatsappLanguage.mjs';
-const completed = rows => ({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({translations:rows})}]}]});
+const completed = rows => ({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({translations:rows.map(({language,...row}) => ({...row,source_language:language}))})}]}]});
 test('translation rejects incomplete, refused, duplicate and foreign message results',() => {
   assert.throws(() => parseLanguageResponse({status:'incomplete'},['a']));
   assert.throws(() => parseLanguageResponse({status:'completed',output:[{content:[{type:'refusal'}]}]},['a']));
