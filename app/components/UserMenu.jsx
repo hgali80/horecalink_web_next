@@ -1,18 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  LogOut,
   PackageSearch,
 } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LanguageContext";
 import { useQuoteDraft } from "../hooks/useQuoteDraft";
 
 export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
-  const router = useRouter();
-  const { user, logout } = useAuth();
   const { t } = useLang();
   const { itemKinds } = useQuoteDraft();
 
@@ -20,19 +15,9 @@ export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
     ? "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#1d3246] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#243f58]"
     : "inline-flex items-center gap-2 rounded-xl bg-[#1d3246] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#243f58]";
 
-  const dangerButtonClass = mobile
-    ? "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700"
-    : "inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700";
-
   const wrapperClass = mobile
     ? "flex w-full flex-col items-stretch gap-3"
     : "flex items-center gap-2";
-
-  const handleLogout = async () => {
-    await logout();
-    onNavigate();
-    router.push("/");
-  };
 
   return (
     <div className={wrapperClass}>
@@ -46,12 +31,6 @@ export default function UserMenu({ mobile = false, onNavigate = () => {} }) {
         ) : null}
       </Link>
 
-      {user ? (
-        <button type="button" onClick={handleLogout} className={dangerButtonClass}>
-          <LogOut size={18} />
-          {t("header.menu.logout")}
-        </button>
-      ) : null}
     </div>
   );
 }

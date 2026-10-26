@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronDown, Info, Mail, Menu, Phone, Settings, X } from "lucide-react";
+import { ChevronDown, Info, LogOut, Mail, Menu, Phone, Settings, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import UserMenu from "./UserMenu";
 import { useAuth } from "../context/AuthContext";
@@ -22,7 +23,8 @@ function LanguageFlag({ option }) {
 
 export default function Header() {
   const { t, lang, setLang } = useLang();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const canOpenSalesStock = STAFF_ROLES.has(user?.role);
   const [langOpen, setLangOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -47,6 +49,11 @@ export default function Header() {
   }, [mobileOpen]);
 
   const closeMobileMenu = () => setMobileOpen(false);
+  const handleLogout = async () => {
+    await logout();
+    closeMobileMenu();
+    router.push("/");
+  };
   const activeLanguage = languageOptions.find((item) => item.code === lang) || languageOptions[0];
   const selectLanguage = (code) => {
     setLang(code);
@@ -97,6 +104,17 @@ export default function Header() {
             >
               <Settings size={18} aria-hidden="true" />
             </Link>
+          ) : null}
+          {user ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              aria-label={t("header.menu.logout")}
+              title={t("header.menu.logout")}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-white hover:text-[#1d3246] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1d3246]"
+            >
+              <LogOut size={18} aria-hidden="true" />
+            </button>
           ) : null}
           </div>
         </div>
