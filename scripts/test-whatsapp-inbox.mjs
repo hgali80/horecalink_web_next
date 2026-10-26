@@ -202,9 +202,30 @@ test('actual list routes enforce authorization, page limits and conversation-sco
     assert.deepEqual(calls.find(item => item[0] === 'startAfter'), ['startAfter', INBOX_COLLECTION, fixtures[29].id]);
     const conversationId = fixtures[5].id;
     const result = await (await messages.GET(request(fixtures[49].id), { params: Promise.resolve({ conversationId }) })).json();
-    assert.equal(result.messages.length, 50); assert.equal(result.nextCursor, fixtures[49].id);
+    assert.equal(result.messages.length, 20); assert.equal(result.nextCursor, fixtures[19].id);
     assert.ok(calls.some(item => item[0] === 'startAfter' && item[1] === `${INBOX_COLLECTION}/${conversationId}/messages`));
   } finally {
     delete globalThis.__inboxApiAuth; delete globalThis.__inboxApiJson; delete globalThis.__inboxApiIso;
   }
+});
+
+
+test('phone echoes are outgoing, idempotent and never open or extend the customer reply window', async () => {
+  const incoming = normalizeIncoming(event(),config)[0];
+  const { db, records } = fakeDb();
+  await persistIncoming(db,[incoming],now);
+  const initial = records.get(`${INBOX_COLLECTION}/${incoming.conversationId}`);
+  const payload = event([]);
+  const change = payload.entry[0].changes[0];
+  change.field='smb_message_echoes';
+  change.value.message_echoes=[{...message('phone-reply',(now+10000)/1000),from:'77004446911',to:incoming.senderId}];
+  const echoes=normalizeIncoming(payload,{...config,now:now+20000});
+  assert.equal(echoes[0].conversationId,incoming.conversationId);
+  assert.equal(echoes[0].direction,'outgoing'); assert.equal(echoes[0].source,'phone');
+  await persistIncoming(db,echoes,now+20000); await persistIncoming(db,echoes,now+30000);
+  const updated=records.get(`${INBOX_COLLECTION}/${incoming.conversationId}`);
+  assert.equal(updated.lastIncomingAt.getTime(),initial.lastIncomingAt.getTime());
+  assert.equal(updated.lastIncomingRevision,initial.lastIncomingRevision);
+  assert.equal(updated.lastMessageDirection,'outgoing');
+  assert.equal(records.size,3);
 });

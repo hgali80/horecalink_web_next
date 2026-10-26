@@ -47,22 +47,26 @@ export function normalizeIncoming(payload, { wabaId, phoneNumberId, now = Date.n
     if (entry.id !== wabaId) continue;
     for (const change of entry.changes || []) {
       const value = change.value;
-      if (change.field !== 'messages' || value?.metadata?.phone_number_id !== phoneNumberId) continue;
-      if (value.messages !== undefined && !Array.isArray(value.messages)) throw new Error('INVALID_EVENT');
-      for (const message of value.messages || []) {
+      const echo = change.field === 'smb_message_echoes';
+      if ((!echo && change.field !== 'messages') || value?.metadata?.phone_number_id !== phoneNumberId) continue;
+      const batch = echo ? value.message_echoes : value.messages;
+      if (batch !== undefined && !Array.isArray(batch)) throw new Error('INVALID_EVENT');
+      for (const message of batch || []) {
         if (++count > 100) throw new Error('TOO_MANY_MESSAGES');
         const timestamp = Number(message.timestamp) * 1000;
+        const senderId = echo ? message.to : message.from;
         if (typeof message.id !== 'string' || !message.id || message.id.length > 512 ||
-            typeof message.from !== 'string' || !/^\d{5,20}$/.test(message.from) ||
+            typeof senderId !== 'string' || !/^\d{5,20}$/.test(senderId) ||
             !Number.isSafeInteger(timestamp) || timestamp <= 0 || timestamp > now + 300000 ||
             typeof message.type !== 'string' || !/^[a-z_]{1,40}$/.test(message.type)) throw new Error('INVALID_MESSAGE');
         if (message.type === 'text' && (typeof message.text?.body !== 'string' || message.text.body.length > 8192)) throw new Error('INVALID_MESSAGE');
-        const contact = (value.contacts || []).find(item => item.wa_id === message.from);
+        const contact = (value.contacts || []).find(item => item.wa_id === senderId);
         const contactName = typeof contact?.profile?.name === 'string' ? contact.profile.name.slice(0, 256) : '';
         const id = hash(`${phoneNumberId}:${message.id}`);
         messages.set(id, {
-          id, conversationId: hash(`${phoneNumberId}:${message.from}`),
-          metaMessageId: message.id, senderId: message.from, phoneNumberId,
+          id, conversationId: hash(`${phoneNumberId}:${senderId}`),
+          metaMessageId: message.id, senderId, phoneNumberId,
+          ...(echo ? { direction: 'outgoing', source: 'phone', sendState: 'accepted' } : {}),
           contactName, type: message.type,
           text: message.type === 'text' ? message.text.body : '', timestamp,
         });
@@ -83,21 +87,30 @@ export async function persistIncoming(db, messages, now = Date.now()) {
     const current = new Map(await Promise.all([...conversations].map(async ([id, ref]) => [id, (await tx.get(ref)).data() || {}])));
     const updates = new Map();
     const revisions = new Map();
+    const activities = new Map();
     messages.forEach((message, index) => {
       if (existing[index].exists) return;
-      const previousRevision = revisions.get(message.conversationId) || current.get(message.conversationId).lastIncomingRevision || '';
-      revisions.set(message.conversationId, hash(`${previousRevision}:${message.id}`));
+      if (message.direction !== 'outgoing') {
+        const previousRevision = revisions.get(message.conversationId) || current.get(message.conversationId).lastIncomingRevision || '';
+        revisions.set(message.conversationId, hash(`${previousRevision}:${message.id}`));
+      }
+      activities.set(message.conversationId, hash(`${activities.get(message.conversationId) || current.get(message.conversationId).activityRevision || ''}:${message.id}`));
       tx.create(refs[index], { ...message, receivedAt: new Date(now), expiresAt });
       const prior = updates.get(message.conversationId) || current.get(message.conversationId);
-      if (message.timestamp >= (prior.lastIncomingAt?.getTime?.() || prior.lastIncomingAt?.toMillis?.() || 0)) {
+      if (message.direction !== 'outgoing' && message.timestamp >= (prior.lastIncomingAt?.getTime?.() || prior.lastIncomingAt?.toMillis?.() || 0)) {
+        updates.set(message.conversationId, { ...prior, lastIncomingAt: new Date(message.timestamp) });
+      }
+      if (message.timestamp >= (prior.lastMessageAt?.getTime?.() || prior.lastMessageAt?.toMillis?.() || prior.updatedAt?.getTime?.() || prior.updatedAt?.toMillis?.() || 0)) {
         updates.set(message.conversationId, {
+          ...(updates.get(message.conversationId) || {}),
           senderId: message.senderId, phoneNumberId: message.phoneNumberId,
           contactName: message.contactName || prior.contactName || '',
-          lastIncomingAt: new Date(message.timestamp), updatedAt: new Date(message.timestamp),
+          lastMessageAt: new Date(message.timestamp), updatedAt: new Date(message.timestamp),
+          lastMessageDirection: message.direction || 'incoming',
           lastMessageType: message.type, lastMessagePreview: message.text.slice(0, 240), expiresAt,
         });
       }
     });
-    for (const [id, revision] of revisions) tx.set(conversations.get(id), { ...(updates.get(id) || {}), lastIncomingRevision: revision }, { merge: true });
+    for (const [id, activityRevision] of activities) tx.set(conversations.get(id), { ...(updates.get(id) || {}), activityRevision, ...(revisions.has(id) ? { lastIncomingRevision: revisions.get(id) } : {}) }, { merge: true });
   });
 }

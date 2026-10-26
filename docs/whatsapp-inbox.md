@@ -1,5 +1,42 @@
 # WhatsApp inbox and reviewed replies
 
+## Translation in the workspace
+
+The operator explicitly approved sending displayed message text and compose text to OpenAI on 26 October 2026.
+`/api/admin/whatsapp/conversations/{id}/translate` remains authenticated and bounded to 20 message IDs and
+24,000 characters per provider batch, or 4,096 compose characters. Phone/profile metadata and database IDs
+are excluded from provider input; only text and temporary ordinal IDs are sent. Originals are retained.
+The existing server-only draft enable flag, key and configured model also gate translation. `store:false`
+is used, without implying zero provider retention. Text may contain personal information.
+
+Completed Turkish translations are cached on the existing message record. A transactional 60-second lease
+prevents concurrent tabs from translating the same message, with a five-minute cooldown after failure.
+The per-operator language quota is 120 paid attempts/hour and a two-second minimum interval. Cached results
+do not call the provider again. No translation is sent as a WhatsApp reply automatically. Compose translation
+and reply drafting are distinct actions; changing the source/target clears the old final text and approval.
+Automatic translation only considers loaded message pages. UI status and originals remain usable on failure.
+
+## Workspace redesign and bounded history
+
+The message API now returns 20 messages per page (21 documents read for lookahead), plus the conversation
+and optional cursor document. The UI loads older pages only on user scrolling to the bottom or pressing
+the older-message button. It keeps the last five opened conversations in the current operator's memory.
+Newest messages are at the top. Search applies to the loaded conversation list, which remains paginated at 30.
+When visible, the selected conversation checks one conversation document every 20 seconds for a revision;
+message pages are fetched only when that revision changes. The list checks its latest summary every 45 seconds.
+These checks still incur reads, but do not repeatedly read entire histories. Hidden tabs skip the checks.
+No retention duration, TTL configuration, deletion or archive migration is changed by this redesign.
+
+The product picker ranks only published active website products and never selects a product automatically.
+Its catalogue projection is cached for an hour and invalidated by the existing public-products tag.
+The first cold catalogue load reads the published products; repeated searches filter the cached projection.
+Reply drafts re-read the selected product before using its facts. Stock, delivery and discounts are not inferred.
+
+Signed `smb_message_echoes` events can record phone-originated outgoing messages separately from incoming
+messages. They do not change the last customer message, incoming revision or the 24-hour reply window.
+The Meta field subscription and Coexistence eligibility must be verified separately before claiming live
+phone synchronization; a live phone-originated test is required. Historical phone chats are not imported.
+
 ## Real-number connection: +7 700 444 69 11
 
 The inbox now includes an admin-only connection check at `/api/admin/whatsapp/connection`.

@@ -6,6 +6,7 @@ export const incomingRevision = conversation => conversation?.lastIncomingRevisi
 export function replyError(message, status = 400) { return Object.assign(new Error(message), { status }); }
 export function validateReply(body) {
   if (!body || !['draft', 'send'].includes(body.action)) throw replyError('İşlem geçersiz.');
+  if (body.productId !== undefined && (typeof body.productId !== 'string' || !body.productId || body.productId.length > 128 || /[\/]/.test(body.productId))) throw replyError('Ürün seçimi geçersiz.');
   if (body.action === 'draft' && !['tr', 'ru', 'kk', 'en'].includes(body.language)) throw replyError('Dil seçin.');
   if (body.action === 'send' && (typeof body.text !== 'string' || !body.text.trim() || body.text.length > 4096 ||
     !/^[a-f0-9-]{36}$/.test(body.requestId || '') || body.reviewed !== true || !Number.isSafeInteger(body.baseIncomingAt) || typeof body.baseRevision !== 'string' || body.baseRevision.length > 64)) throw replyError('Metni ve alıcıyı kontrol ederek gönderimi onaylayın.');

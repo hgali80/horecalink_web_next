@@ -3,9 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatSendRejection } from '@/app/lib/whatsappSendFeedback.mjs';
 import { auth } from '@/firebase/index';
+import { Languages, Send, Sparkles, ArrowRight, Link2 } from 'lucide-react';
+import ProductPicker from './ProductPicker';
 
-export default function ReplyComposer({ conversation, baseIncomingAt, baseRevision, replyRecipient, onSent }) {
+export default function ReplyComposer({ conversation, baseIncomingAt, baseRevision, replyRecipient, onSent, readInbox, suggestedLanguage, suggestion }) {
   const [text, setText] = useState('');
+  const [source,setSource] = useState('');
+  const [product,setProduct] = useState(null);
+  const languageTouched = useRef(false);
+  useEffect(() => { if (!languageTouched.current && ['ru','kk'].includes(suggestedLanguage)) setLanguage(suggestedLanguage); },[suggestedLanguage]);
   const [language, setLanguage] = useState('ru');
   const [reviewed, setReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -28,7 +34,7 @@ export default function ReplyComposer({ conversation, baseIncomingAt, baseRevisi
       if (kind === 'send') requestId.current ||= crypto.randomUUID();
       const response = await fetch(`/api/admin/whatsapp/conversations/${conversation.id}/reply`, {
         method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(kind === 'draft' ? { action: kind, language } : {
+        body: JSON.stringify(kind === 'draft' ? { action: kind, language, productId:product?.id } : {
           action: kind, text, reviewed, requestId: requestId.current, baseIncomingAt, baseRevision, reviewedRecipient: replyRecipient,
         }),
       });
@@ -40,7 +46,8 @@ export default function ReplyComposer({ conversation, baseIncomingAt, baseRevisi
         edit(result.text);
       } else {
         setReviewed(false);
-        setLocked(result.state !== 'rejected');
+        setLocked(!['accepted','rejected'].includes(result.state));
+        if (result.state === 'accepted') { setText(''); setSource(''); requestId.current=null; }
         if (result.state === 'rejected') requestId.current = null;
         setNotice(result.state === 'accepted' ? 'WhatsApp gönderimi kabul etti. Teslim edildiği henüz doğrulanmadı.' : result.state === 'rejected' ? formatSendRejection(result.diagnostics) : 'Gönderim sonucu belirsiz veya işlem sürüyor. Tekrar göndermeden önce WhatsApp üzerinden kontrol edin.');
         onSent();
@@ -53,19 +60,26 @@ export default function ReplyComposer({ conversation, baseIncomingAt, baseRevisi
       }
     } finally { guard.current = false; if (active.current) setBusy(false); }
   }
-  return <div className="mt-5 space-y-3 border-t pt-4">
-    <h3 className="font-semibold">Yanıt hazırlayın</h3>
-    <div className="flex flex-wrap gap-2">
-      <select aria-label="Yanıt dili" value={language} disabled={busy || locked} onChange={event => { setLanguage(event.target.value); setReviewed(false); }} className="rounded-lg border p-2">
-        <option value="ru">Русский</option><option value="kk">Қазақша</option><option value="tr">Türkçe</option><option value="en">English</option>
-      </select>
-      <button type="button" disabled={busy || locked || !baseIncomingAt} onClick={() => action('draft')} className="rounded-lg border px-3 py-2 disabled:opacity-50">Taslak hazırla</button>
+
+  async function translate() {
+    if (busy || locked || !source.trim() || guard.current) return;
+    guard.current=true; setBusy(true); setNotice('');
+    try {
+      const result=await readInbox(`/api/admin/whatsapp/conversations/${conversation.id}/translate`,undefined,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'compose',text:source,target:language})});
+      if (active.current) edit(result.text);
+    } catch (err) { if (active.current) setNotice(err.message); }
+    finally { guard.current=false; if (active.current) setBusy(false); }
+  }
+  return <div className="space-y-3">
+    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold text-slate-800">Yanıt çalışma alanı</h3><div className="flex items-center gap-2"><span className="text-[10px] text-slate-400">Müşterinin dili</span><select aria-label="Yanıt dili" value={language} disabled={busy || locked} onChange={event => { languageTouched.current=true; setLanguage(event.target.value); edit(''); }} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"><option value="ru">Русский</option><option value="kk">Қазақша</option><option value="tr">Türkçe</option><option value="en">English</option></select></div></div>
+    <ProductPicker readInbox={readInbox} suggestion={suggestion} selected={product} disabled={busy || locked} onSelect={value => { setProduct(value); setReviewed(false); }}/>
+    <div className="grid gap-3 xl:grid-cols-2">
+      <div><label htmlFor="reply-source" className="mb-1.5 block text-[11px] font-semibold text-slate-500">Türkçe yazın</label><textarea id="reply-source" aria-label="Çevrilecek Türkçe metin" value={source} maxLength={4096} rows={4} disabled={busy || locked} onChange={event => { setSource(event.target.value); edit(''); }} className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm leading-6 outline-none focus:border-orange-400" placeholder="Ne söylemek istediğinizi Türkçe yazın…"/><button type="button" disabled={busy || locked || !source.trim()} onClick={translate} className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-[11px] font-semibold text-orange-700 disabled:opacity-40"><Languages size={13}/>{busy?'Hazırlanıyor…':'Seçilen dile çevir'}<ArrowRight size={12}/></button></div>
+      <div><label htmlFor="reply-final" className="mb-1.5 block text-[11px] font-semibold text-slate-500">Müşteriye gönderilecek metin</label><textarea id="reply-final" aria-label="Yanıt metni" value={text} maxLength={4096} rows={4} disabled={busy || locked} onChange={event => edit(event.target.value)} className="w-full resize-y rounded-xl border border-slate-200 bg-white p-3 text-sm leading-6 outline-none focus:border-blue-400" placeholder="Çeviri burada görünür. Doğrudan da yazabilirsiniz."/><div className="mt-1.5 flex flex-wrap gap-2"><button type="button" disabled={busy || locked || !baseIncomingAt} onClick={() => action('draft')} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40"><Sparkles size={12}/>Yanıt öner</button>{product && <button type="button" disabled={busy || locked} onClick={() => edit(`${text}${text?'\n\n':''}${product.url}`.slice(0,4096))} className="inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] text-slate-500"><Link2 size={12}/>Ürün bağlantısı ekle</button>}</div></div>
     </div>
-    <p className="text-xs text-slate-600">Taslak için son mesajların sınırlı bir bölümü OpenAI ile paylaşılır. Taslağın dilini, fiyatları ve tüm bilgileri kontrol edin. Mesaj kendiliğinden gönderilmez.</p>
-    <textarea aria-label="Yanıt metni" value={text} maxLength={4096} rows={5} disabled={busy || locked} onChange={event => edit(event.target.value)} className="w-full rounded-lg border p-3" placeholder="Yanıtınızı yazın veya taslak hazırlayın." />
-    <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={reviewed} disabled={busy || locked || !text.trim()} onChange={event => setReviewed(event.target.checked)} /> <span>Metni inceledim; bu yanıtın +{conversation.senderId} numarasına gönderilmesini onaylıyorum.{replyRecipient && replyRecipient !== conversation.senderId && <span className="block text-xs text-slate-600">Meta test alıcısı eşlemesi: +{replyRecipient}</span>}</span></label>
-    <button type="button" disabled={busy || locked || !replyRecipient || !reviewed || !text.trim() || !baseIncomingAt} onClick={() => action('send')} className="rounded-lg bg-blue-700 px-4 py-2 text-white disabled:opacity-50">{busy ? 'İşleniyor…' : 'Onayladığım yanıtı gönder'}</button>
-    {notice && <p role="status" className="rounded-lg bg-slate-100 p-3 text-sm">{notice}</p>}
-    {locked && <p className="text-xs text-slate-600">Yeni bir yanıt için konuşmayı yeniden açın. Sonucu belirsiz gönderimler sunucuda tekrar gönderime kapatılır.</p>}
+    <p className="text-[10px] leading-4 text-slate-400">Çeviri anlamı korur; yanıt önerisi yeni bir taslak üretir. Metinler çeviri/taslak için OpenAI ile paylaşılır. Fiyat, stok ve teslimatı kontrol edin. Kendiliğinden gönderim yapılmaz.</p>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3"><label className="flex max-w-lg items-start gap-2 text-[11px] leading-5 text-slate-500"><input type="checkbox" checked={reviewed} disabled={busy || locked || !text.trim()} onChange={event => setReviewed(event.target.checked)} className="mt-1 accent-orange-600"/><span>Metni ve +{conversation.senderId} alıcısını kontrol ettim.{replyRecipient && replyRecipient!==conversation.senderId && <span className="block">Test alıcısı: +{replyRecipient}</span>}</span></label><button type="button" disabled={busy || locked || !replyRecipient || !reviewed || !text.trim() || !baseIncomingAt} onClick={() => action('send')} className="inline-flex items-center gap-2 rounded-xl bg-[#1c354b] px-5 py-2.5 text-xs font-semibold text-white shadow-sm disabled:opacity-35"><Send size={14}/>{busy?'İşleniyor…':'İnceledim, gönder'}</button></div>
+    {notice && <p role="status" className="rounded-xl bg-slate-100 p-3 text-xs text-slate-600">{notice}</p>}
+    {locked && <p className="text-xs text-amber-700">Gönderim sonucu netleşmeden yeni bir yanıt göndermeyin.</p>}
   </div>;
 }

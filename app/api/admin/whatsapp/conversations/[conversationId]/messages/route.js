@@ -14,6 +14,9 @@ export async function GET(request, context) {
     const conversation = auth.adminDb.collection(INBOX_COLLECTION).doc(conversationId);
     const conversationSnapshot = await conversation.get();
     if (!conversationSnapshot.exists) return inboxJson({ error: 'Konuşma bulunamadı.' }, 404);
+    const data = conversationSnapshot.data();
+    const revision = `${data.activityRevision || data.lastIncomingRevision || ''}:${data.pendingSendId || ''}`;
+    if (new URL(request.url).searchParams.get('revisionOnly') === '1') return inboxJson({ revision });
     const collection = conversation.collection('messages');
     let query = collection.orderBy('timestamp', 'desc');
     const cursor = new URL(request.url).searchParams.get('cursor');
@@ -23,11 +26,11 @@ export async function GET(request, context) {
       if (!doc.exists) return inboxJson({ error: 'Konuşmayı yenileyin.' }, 400);
       query = query.startAfter(doc);
     }
-    const snapshot = await query.limit(51).get();
-    const docs = snapshot.docs.slice(0, 50);
-    return inboxJson({ ok: true, replyRecipient: resolveReplyRecipient(conversationSnapshot.data(), process.env.WHATSAPP_TEST_RECIPIENT_MAP), baseIncomingAt: millis(conversationSnapshot.data().lastIncomingAt), baseRevision: incomingRevision(conversationSnapshot.data()), messages: docs.map(doc => {
+    const snapshot = await query.limit(21).get();
+    const docs = snapshot.docs.slice(0, 20);
+    return inboxJson({ ok: true, revision, replyRecipient: resolveReplyRecipient(conversationSnapshot.data(), process.env.WHATSAPP_TEST_RECIPIENT_MAP), baseIncomingAt: millis(conversationSnapshot.data().lastIncomingAt), baseRevision: incomingRevision(conversationSnapshot.data()), messages: docs.map(doc => {
       const data = doc.data();
-      return { id: doc.id, direction: data.direction || 'incoming', sendState: data.sendState || null, sendDiagnostics: data.sendState === 'rejected' ? safeSendDiagnostics(data.sendDiagnostics?.httpStatus, { code: data.sendDiagnostics?.code, error_subcode: data.sendDiagnostics?.subcode }) : null, type: data.type, text: data.text || '', timestamp: new Date(data.timestamp).toISOString(), receivedAt: inboxIso(data.receivedAt) };
-    }), nextCursor: snapshot.size > 50 ? docs.at(-1).id : null });
+      return { id: doc.id, direction: data.direction || 'incoming', source: data.source || 'panel', translationTr: data.translationTr || null, sendState: data.sendState || null, sendDiagnostics: data.sendState === 'rejected' ? safeSendDiagnostics(data.sendDiagnostics?.httpStatus, { code: data.sendDiagnostics?.code, error_subcode: data.sendDiagnostics?.subcode }) : null, type: data.type, text: data.text || '', timestamp: new Date(data.timestamp).toISOString(), receivedAt: inboxIso(data.receivedAt) };
+    }), nextCursor: snapshot.size > 20 ? docs.at(-1).id : null });
   } catch { return inboxJson({ error: 'Mesajlar alınamadı.' }, 503); }
 }
