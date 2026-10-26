@@ -17,18 +17,23 @@ export async function inspectWhatsAppConnection(env, fetcher = fetch, checkMeta 
     result.meta = { state: 'invalid' }; return result;
   }
   try {
-    const get = async path => {
+    const get = async (path, stage) => {
       const response = await fetcher(`https://graph.facebook.com/${env.WHATSAPP_GRAPH_API_VERSION}/${path}`, {
         headers: { Authorization: `Bearer ${env.WHATSAPP_ACCESS_TOKEN}` }, cache: 'no-store', signal: AbortSignal.timeout(10000),
       });
-      if (!response.ok) throw new Error('META_UNAVAILABLE');
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const error = new Error('META_UNAVAILABLE');
+        error.diagnostics = { stage, httpStatus: response.status, code: Number.isInteger(body.error?.code) ? body.error.code : null, subcode: Number.isInteger(body.error?.error_subcode) ? body.error.error_subcode : null };
+        throw error;
+      }
       return response.json();
     };
     // Read the configured phone directly; do not guess IDs from display numbers.
     const [phone, subscriptions, numbers] = await Promise.all([
-      get(`${env.WHATSAPP_PHONE_NUMBER_ID}?fields=id,display_phone_number,verified_name`),
-      get(`${env.WHATSAPP_WABA_ID}/subscribed_apps?limit=100`),
-      get(`${env.WHATSAPP_WABA_ID}/phone_numbers?fields=id&limit=100`),
+      get(`${env.WHATSAPP_PHONE_NUMBER_ID}?fields=id,display_phone_number,verified_name`, 'phone'),
+      get(`${env.WHATSAPP_WABA_ID}/subscribed_apps?limit=100`, 'subscription'),
+      get(`${env.WHATSAPP_WABA_ID}/phone_numbers?fields=id&limit=100`, 'account'),
     ]);
     if (!Array.isArray(subscriptions.data) || !Array.isArray(numbers.data) || typeof phone.display_phone_number !== 'string' || phone.id !== env.WHATSAPP_PHONE_NUMBER_ID) throw new Error('INVALID_META_RESPONSE');
     const app = subscriptions.data.find(item => item.whatsapp_business_api_data?.id === env.WHATSAPP_APP_ID);
@@ -39,6 +44,6 @@ export async function inspectWhatsAppConnection(env, fetcher = fetch, checkMeta 
       hasCallbackOverride: Boolean(app?.override_callback_uri),
       phoneBelongsToAccount: numbers.data.some(item => item.id === phone.id) ? true : numbers.paging?.next ? null : false,
     };
-  } catch { result.meta = { state: 'unavailable' }; }
+  } catch (error) { result.meta = { state: 'unavailable', ...(error.diagnostics ? { diagnostics: error.diagnostics } : {}) }; }
   return result;
 }

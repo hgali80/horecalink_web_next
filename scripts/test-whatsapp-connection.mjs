@@ -27,6 +27,9 @@ test('checks real number, account ownership and exact app subscription', async (
   assert.equal(paged.meta.subscribed, null); assert.doesNotMatch(JSON.stringify(paged), /secret/);
 });
 test('provider errors and missing credentials do not leak secrets or claim success', async () => {
+  const rejected = await inspectWhatsAppConnection(env, async () => Response.json({ error: { code: 190, error_subcode: 463, message: 'token-never-expose' } }, { status: 400 }), true);
+  assert.equal(rejected.meta.diagnostics.code, 190); assert.equal(rejected.meta.diagnostics.subcode, 463);
+  assert.doesNotMatch(JSON.stringify(rejected), /never-expose/);
   const failed = await inspectWhatsAppConnection(env, async () => { throw new Error('token-never-expose'); }, true);
   assert.equal(failed.meta.state, 'unavailable'); assert.doesNotMatch(JSON.stringify(failed), /never-expose/);
   const missing = await inspectWhatsAppConnection({ ...env, WHATSAPP_APP_ID: '' }, () => assert.fail('network'), true);

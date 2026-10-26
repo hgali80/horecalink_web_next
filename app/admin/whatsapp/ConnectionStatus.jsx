@@ -31,6 +31,7 @@ export default function ConnectionStatus({ readInbox }) {
       {status.meta.state === 'missing' && <p className="text-amber-800">Meta kontrolü için sunucu ayarları eksik. Yöneticiye iletilecek alanlar: {status.meta.missing.join(', ')}</p>}
       {status.meta.state === 'invalid' && <p className="text-red-700">Meta hesap ayarlarının biçimi geçersiz.</p>}
       {status.meta.state === 'unavailable' && <p className="text-red-700">Meta kontrolü başarısız. Erişim anahtarı, hesap izinleri ve bağlantı kontrol edilmeli.</p>}
+      {status.meta.diagnostics && <p className="text-red-700">Kontrol: {({phone: 'Numara erişimi', subscription: 'Hesap aboneliği', account: 'Hesap erişimi'})[status.meta.diagnostics.stage]} · HTTP {status.meta.diagnostics.httpStatus} · Meta kodu {status.meta.diagnostics.code ?? 'yok'} / {status.meta.diagnostics.subcode ?? 'yok'}</p>}
       {status.meta.state === 'checked' && <>
         <p className={status.meta.phoneMatches ? '' : 'text-red-700'}>Meta’da bağlı numara: {status.meta.displayPhone}{!status.meta.phoneMatches && ' — işletme numarasıyla eşleşmiyor.'}</p>
         {status.meta.phoneBelongsToAccount !== true && <p className="text-red-700">Numaranın yapılandırılmış WhatsApp işletme hesabına ait olduğu doğrulanamadı. Hesap ve numara kimlikleri kontrol edilmeli.</p>}
