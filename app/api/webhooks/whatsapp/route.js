@@ -25,16 +25,29 @@ export async function POST(request) {
   try {
     const body = await readBoundedBody(request);
     if (!verifyWebhookSignature(body, request.headers.get('x-hub-signature-256'), process.env.WHATSAPP_APP_SECRET)) return reply({ error: 'Doğrulama başarısız.' }, 401);
-    messages = normalizeIncoming(JSON.parse(body.toString('utf8')), {
+    const payload = JSON.parse(body.toString('utf8'));
+    messages = normalizeIncoming(payload, {
       wabaId: process.env.WHATSAPP_WABA_ID, phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
     });
+    // Counts only, after signature verification. No account IDs or message content.
+    if (!messages.length) {
+      const entries = payload.entry || [];
+      const matching = entries.filter(entry => entry.id === process.env.WHATSAPP_WABA_ID);
+      const changes = matching.flatMap(entry => entry.changes || []).filter(change => change.field === 'messages');
+      const incoming = entries.flatMap(entry => entry.changes || []).some(change => Array.isArray(change.value?.messages) && change.value.messages.length > 0);
+      console.info('whatsapp_webhook', { outcome: incoming ? 'incoming_filtered' : 'no_incoming_messages', accountMatched: matching.length > 0, phoneMatched: changes.some(change => change.value?.metadata?.phone_number_id === process.env.WHATSAPP_PHONE_NUMBER_ID) });
+    }
   } catch (error) {
     return reply({ error: 'Webhook verisi geçersiz.' }, error.message === 'BODY_TOO_LARGE' ? 413 : 400);
   }
   try {
-    if (messages.length) await persistIncoming(getAdminServices().adminDb, messages);
+    if (messages.length) {
+      await persistIncoming(getAdminServices().adminDb, messages);
+      console.info('whatsapp_webhook', { outcome: 'persisted', count: messages.length });
+    }
     return reply({ ok: true });
   } catch {
+    console.error('whatsapp_webhook', { outcome: 'storage_failed' });
     // No raw events, message bodies, tokens or upstream errors in logs.
     return reply({ error: 'Mesajlar kaydedilemedi.' }, 503);
   }

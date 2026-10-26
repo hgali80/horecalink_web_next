@@ -1,5 +1,43 @@
 # WhatsApp inbox and reviewed replies
 
+## Real-number connection: +7 700 444 69 11
+
+The inbox now includes an admin-only connection check at `/api/admin/whatsapp/connection`.
+It reports configuration presence and the latest stored incoming timestamp without exposing secrets.
+The panel's **Meta bağlantısını kontrol et** button explicitly calls `?meta=1` to read the configured
+phone, WABA phone membership and exact app subscription from Meta. It does not change Meta settings.
+Set `WHATSAPP_APP_ID` in addition to the existing messaging token and Graph API version to use this check.
+The token needs WhatsApp account management read access. Unknown/paginated results are not treated as missing subscriptions.
+This check does not verify the app-level callback, the `messages` field subscription, phone-level overrides,
+phone registration/coexistence or end-to-end delivery. A stored test conversation is not proof of a live connection.
+
+Operator rollout, using hosting secrets (never paste credentials into chat):
+
+1. In Meta, select the actual business number **+7 700 444 69 11**. Complete its supported
+   registration/coexistence process if needed; this code does not register, migrate or disconnect a phone.
+2. Set `WHATSAPP_INBOX_ENABLED=true`, `WHATSAPP_APP_ID`, `WHATSAPP_APP_SECRET`,
+   `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_WABA_ID`, `WHATSAPP_PHONE_NUMBER_ID`,
+   `WHATSAPP_ACCESS_TOKEN` and the supported `WHATSAPP_GRAPH_API_VERSION` in hosting secrets.
+   Use the real business phone's ID, not the historical test sender ID. Preserve Firebase Admin secrets.
+   Retention/TTL requirements below still apply.
+3. Deploy the application. In Meta configure the HTTPS callback
+   `https://horecalink.kz/api/webhooks/whatsapp` with the same verification token, then subscribe to `messages`.
+   Confirm any existing app/WABA/phone callback overrides point to the intended callback.
+4. With these environment variables supplied securely, run `node scripts/setup-whatsapp-inbox.mjs`
+   for read-only checks. If the exact app is absent from the WABA subscription, run with `--subscribe`.
+   This verifies the real number, WABA membership and token app identity before creating the missing
+   subscription, then reads back the result. Existing subscriptions/overrides are never overwritten.
+   It does not configure the app-level callback. Do not run a local development process with production secrets.
+5. Send a new message **from another phone to +7 700 444 69 11** and refresh the panel.
+   Hosting logs emit only safe `whatsapp_webhook` outcomes: `persisted` (including duplicate retries),
+   `incoming_filtered` with account/phone match booleans, `no_incoming_messages`, or `storage_failed`.
+   No webhook request means check Meta delivery/subscriptions; `incoming_filtered` means check IDs;
+   `storage_failed` means check Firebase availability/credentials. No message bodies or secrets are logged.
+
+Validation: `node --test scripts/test-whatsapp-connection.mjs scripts/test-whatsapp-inbox.mjs scripts/test-whatsapp-replies.mjs`.
+Provider calls in tests are mocked. The setup command does not send WhatsApp messages.
+Meta reference: https://www.postman.com/meta/whatsapp-business-platform/documentation/wlk6lh4/whatsapp-cloud-api
+
 Panel: `/admin/whatsapp`, linked from `/satissitok/admin`. Only active `admin` and `super_admin` users can read inbox APIs. Every request verifies the Firebase ID token with revocation checks and reads the current user record. The client role check is navigation only; server checks protect the data.
 
 Incoming messages are listed alongside manually approved outgoing replies. Draft generation and sending are separate, opt-in server features. Catalog services, credentials, product fields, imports and reconciliation are independent and unchanged.

@@ -7,6 +7,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { auth } from '@/firebase/index';
 import { formatSendRejection } from '@/app/lib/whatsappSendFeedback.mjs';
 import ReplyComposer from './ReplyComposer';
+import ConnectionStatus from './ConnectionStatus';
 
 const formatDate = value => value ? new Date(value).toLocaleString('tr-TR') : '';
 async function readInbox(path, signal) {
@@ -64,6 +65,7 @@ function WhatsAppInbox() {
         <button type="button" onClick={() => load()} disabled={busy} className="rounded-lg bg-slate-900 px-4 py-2 text-white disabled:opacity-50">{busy ? 'Yükleniyor...' : 'Yenile'}</button>
       </div>
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-800">{error}</p>}
+      <ConnectionStatus readInbox={readInbox} />
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <section aria-label="Konuşmalar" className="rounded-xl border bg-white p-3">
           {!conversations.length && !busy && !error && <p className="p-3 text-sm text-slate-600">Henüz gelen mesaj yok.</p>}
