@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { inspectWhatsAppConnection } from '../app/lib/server/whatsappConnectionCore.mjs';
+import { inspectWhatsAppConnection, subscribeWhatsAppConnection } from '../app/lib/server/whatsappConnectionCore.mjs';
 
 const env = { WHATSAPP_INBOX_ENABLED: 'true', WHATSAPP_APP_SECRET: 'secret-never-expose', WHATSAPP_VERIFY_TOKEN: 'verify-never-expose', WHATSAPP_WABA_ID: '100', WHATSAPP_PHONE_NUMBER_ID: '200', WHATSAPP_APP_ID: '300', WHATSAPP_ACCESS_TOKEN: 'token-never-expose', WHATSAPP_GRAPH_API_VERSION: 'v26.0' };
 const provider = (options = {}) => async (url, init) => {
@@ -48,8 +48,38 @@ test('connection API authorizes before checking Meta or reading stored messages'
   try {
     globalThis.__connectionAuth = { ok: false, response: new Response('denied', { status: 403 }) };
     assert.equal((await route.GET(new Request('https://test.invalid?meta=1'))).status, 403);
+    globalThis.__connectionAuth.response = new Response('denied', { status: 403 });
+    assert.equal((await route.POST(new Request('https://test.invalid', { method: 'POST', body: '{"action":"subscribe"}' }))).status, 403);
     globalThis.__connectionAuth = { ok: true, adminDb: { collection: () => ({ orderBy: () => ({ limit: () => ({ get: async () => ({ docs: [] }) }) }) }) } };
     const response = await route.GET(new Request('https://test.invalid'));
     assert.equal(response.status, 200); assert.equal((await response.json()).lastIncomingAt, null);
+    assert.equal((await route.POST(new Request('https://test.invalid', { method: 'POST', body: '{"action":"send"}' }))).status, 400);
+    assert.equal((await route.POST(new Request('https://test.invalid', { method: 'POST', body: 'bad json' }))).status, 400);
   } finally { delete globalThis.__connectionAuth; }
+});
+
+test('subscription verifies app identity, adds only a missing subscription and reads it back', async () => {
+  let subscribed = false;
+  let posts = 0;
+  const network = async (url, init) => {
+    if (String(url).includes('debug_token')) return Response.json({ data: { is_valid: true, app_id: '300' } });
+    if (init.method === 'POST') { posts++; subscribed = true; return Response.json({ success: true }); }
+    return provider({ apps: subscribed ? [{ whatsapp_business_api_data: { id: '300' } }] : [] })(url, init);
+  };
+  assert.equal((await subscribeWhatsAppConnection(env, network)).meta.subscribed, true);
+  assert.equal(posts, 1);
+  assert.equal((await subscribeWhatsAppConnection(env, network)).meta.subscribed, true);
+  assert.equal(posts, 1);
+});
+
+test('subscription fails closed for wrong number, foreign token app and unknown pagination', async () => {
+  await assert.rejects(subscribeWhatsAppConnection(env, provider({ phone: '+1 555 123 4567', apps: [] })), /CONNECTION_NOT_READY/);
+  await assert.rejects(subscribeWhatsAppConnection(env, provider({ apps: [], paging: { next: 'private' } })), /UNCONFIRMED/);
+  let posts = 0;
+  await assert.rejects(subscribeWhatsAppConnection(env, async (url, init) => {
+    if (init.method === 'POST') posts++;
+    if (String(url).includes('debug_token')) return Response.json({ data: { is_valid: true, app_id: '999' } });
+    return provider({ apps: [] })(url, init);
+  }), /TOKEN_APP_MISMATCH/);
+  assert.equal(posts, 0);
 });

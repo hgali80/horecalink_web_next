@@ -47,3 +47,25 @@ export async function inspectWhatsAppConnection(env, fetcher = fetch, checkMeta 
   } catch (error) { result.meta = { state: 'unavailable', ...(error.diagnostics ? { diagnostics: error.diagnostics } : {}) }; }
   return result;
 }
+
+export async function subscribeWhatsAppConnection(env, fetcher = fetch) {
+  const before = await inspectWhatsAppConnection(env, fetcher, true);
+  if (!before.enabled || before.missing.length || before.testSender || before.meta.state !== 'checked' || !before.meta.phoneMatches || before.meta.phoneBelongsToAccount !== true) throw new Error('CONNECTION_NOT_READY');
+  if (before.meta.subscribed === true) return before;
+  if (before.meta.subscribed !== false) throw new Error('SUBSCRIPTION_UNCONFIRMED');
+  // POST subscribes the token's app, so verify that identity before mutation.
+  const debugUrl = new URL(`https://graph.facebook.com/${env.WHATSAPP_GRAPH_API_VERSION}/debug_token`);
+  debugUrl.searchParams.set('input_token', env.WHATSAPP_ACCESS_TOKEN);
+  const debugResponse = await fetcher(debugUrl, { headers: { Authorization: `Bearer ${env.WHATSAPP_APP_ID}|${env.WHATSAPP_APP_SECRET}` }, cache: 'no-store', signal: AbortSignal.timeout(10000) });
+  if (!debugResponse.ok) throw new Error('TOKEN_CHECK_FAILED');
+  const debug = (await debugResponse.json()).data;
+  if (debug?.is_valid !== true || String(debug.app_id) !== env.WHATSAPP_APP_ID) throw new Error('TOKEN_APP_MISMATCH');
+  // Do not POST over an existing subscription: it can reset callback overrides.
+  const response = await fetcher(`https://graph.facebook.com/${env.WHATSAPP_GRAPH_API_VERSION}/${env.WHATSAPP_WABA_ID}/subscribed_apps`, {
+    method: 'POST', headers: { Authorization: `Bearer ${env.WHATSAPP_ACCESS_TOKEN}` }, signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok || (await response.json()).success !== true) throw new Error('SUBSCRIPTION_FAILED');
+  const after = await inspectWhatsAppConnection(env, fetcher, true);
+  if (after.meta.subscribed !== true) throw new Error('SUBSCRIPTION_UNCONFIRMED');
+  return after;
+}

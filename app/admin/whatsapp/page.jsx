@@ -10,12 +10,12 @@ import ReplyComposer from './ReplyComposer';
 import ConnectionStatus from './ConnectionStatus';
 
 const formatDate = value => value ? new Date(value).toLocaleString('tr-TR') : '';
-async function readInbox(path, signal) {
+async function readInbox(path, signal, options = {}) {
   const currentUser = auth.currentUser;
   if (!currentUser) throw new Error('Oturum açmanız gerekiyor.');
   const token = await currentUser.getIdToken();
   if (auth.currentUser?.uid !== currentUser.uid) throw new Error('Oturum değişti. Sayfayı yenileyin.');
-  const response = await fetch(path, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal });
+  const response = await fetch(path, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` }, cache: 'no-store', signal });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Mesajlar alınamadı.');
   return result;

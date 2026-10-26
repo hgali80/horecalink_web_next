@@ -18,6 +18,17 @@ export default function ConnectionStatus({ readInbox }) {
     } catch (err) { if (!request.signal.aborted) { setStatus(null); setError(err.message); } }
     finally { if (!request.signal.aborted) setBusy(false); }
   }, [readInbox]);
+  const subscribe = async () => {
+    controller.current?.abort();
+    const request = new AbortController();
+    controller.current = request;
+    setBusy(true); setError('');
+    try {
+      const result = await readInbox('/api/admin/whatsapp/connection', request.signal, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'subscribe' }) });
+      if (!request.signal.aborted) setStatus(result);
+    } catch (err) { if (!request.signal.aborted) { setStatus(null); setError(err.message); } }
+    finally { if (!request.signal.aborted) setBusy(false); }
+  };
   useEffect(() => { check(); return () => controller.current?.abort(); }, [check]);
   return <section aria-label="WhatsApp bağlantısı" className="rounded-xl border bg-slate-50 p-4 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">İşletme numarası: +7 700 444 69 11</h2><button type="button" disabled={busy} onClick={() => check(true)} className="rounded-lg border bg-white px-3 py-2 disabled:opacity-50">{busy ? 'Kontrol ediliyor...' : 'Meta bağlantısını kontrol et'}</button></div>
@@ -36,6 +47,7 @@ export default function ConnectionStatus({ readInbox }) {
         <p className={status.meta.phoneMatches ? '' : 'text-red-700'}>Meta’da bağlı numara: {status.meta.displayPhone}{!status.meta.phoneMatches && ' — işletme numarasıyla eşleşmiyor.'}</p>
         {status.meta.phoneBelongsToAccount !== true && <p className="text-red-700">Numaranın yapılandırılmış WhatsApp işletme hesabına ait olduğu doğrulanamadı. Hesap ve numara kimlikleri kontrol edilmeli.</p>}
         <p className={status.meta.subscribed === true ? '' : 'text-red-700'}>{status.meta.subscribed === true ? 'Uygulama WhatsApp hesabına abone.' : status.meta.subscribed === false ? 'Uygulama WhatsApp hesabına abone değil. Meta hesap aboneliği kurulmalı.' : 'Hesap aboneliği doğrulanamadı.'}</p>
+        {status.enabled && !status.missing.length && status.meta.phoneMatches && status.meta.phoneBelongsToAccount === true && status.meta.subscribed === false && <div className="space-y-2"><p>Etkinleştirdiğinizde bu numaraya gelen müşteri mesajları panelde saklanabilir ve yetkili yöneticilerce görülebilir.</p><button type="button" disabled={busy} onClick={subscribe} className="rounded-lg bg-slate-900 px-3 py-2 text-white disabled:opacity-50">Mesaj bağlantısını etkinleştir</button></div>}
         {status.meta.hasCallbackOverride && <p className="text-amber-800">Hesapta özel mesaj iletim adresi var; doğru siteye yönlendirdiği kontrol edilmeli.</p>}
         <p>Bu kontrol mesaj teslimatını doğrulamaz. Meta’da “messages” aboneliği ve bu siteye iletim adresi doğrulanmalı; ardından işletme numarasına yeni mesaj gönderilmeli.</p>
       </>}

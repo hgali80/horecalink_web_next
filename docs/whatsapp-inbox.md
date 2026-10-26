@@ -8,6 +8,12 @@ The panel's **Meta bağlantısını kontrol et** button explicitly calls `?meta=
 phone, WABA phone membership and exact app subscription from Meta. It does not change Meta settings.
 Set `WHATSAPP_APP_ID` in addition to the existing messaging token and Graph API version to use this check.
 The token needs WhatsApp account management read access. Unknown/paginated results are not treated as missing subscriptions.
+When the number and account are verified and the exact app subscription is absent, the panel offers
+**Mesaj bağlantısını etkinleştir**. This explicit admin action calls authenticated POST
+`/api/admin/whatsapp/connection` with `{ "action": "subscribe" }`. The server verifies the token's app
+identity with Meta before adding the subscription and reads it back to confirm. Existing subscriptions
+and callback overrides are left intact. All credentials stay server-side. Requests are bounded to 1 KiB;
+this endpoint never sends a WhatsApp message. Inspect connection status after any uncertain result.
 This check does not verify the app-level callback, the `messages` field subscription, phone-level overrides,
 phone registration/coexistence or end-to-end delivery. A stored test conversation is not proof of a live connection.
 
