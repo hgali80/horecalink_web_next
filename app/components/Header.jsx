@@ -122,7 +122,7 @@ export default function Header() {
 
       <div className="mx-auto flex min-h-[84px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex min-w-0 max-w-[300px] items-center self-center py-3 lg:max-w-[360px] xl:max-w-[420px]">
-          <Image src="/horecalink_logoapp.png" alt={t("header.alt.logo")} width={2640} height={767} className="block h-12 w-full object-contain sm:h-14 lg:h-[60px]" priority />
+          <Image src="/horecalink_logo_zemin_beyaz.png" alt={t("header.alt.logo")} width={2172} height={337} sizes="(min-width: 1280px) 420px, (min-width: 1024px) 360px, 300px" className="block h-auto w-full object-contain" priority />
         </Link>
         <div className="hidden min-w-0 flex-1 items-center justify-end gap-3 pl-6 md:flex lg:gap-5 lg:pl-10">
           <nav className="flex items-center gap-1 text-sm font-semibold text-gray-700 lg:gap-2">
@@ -138,7 +138,7 @@ export default function Header() {
         <div className="fixed inset-0 z-50 bg-black/40 md:hidden">
           <div className="ml-auto flex h-full w-[86%] max-w-[360px] flex-col overflow-y-auto bg-white p-5 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <Image src="/horecalink_logoapp.png" alt={t("header.alt.logo")} width={2640} height={767} className="h-11 w-auto object-contain" />
+              <Image src="/horecalink_logo_zemin_beyaz.png" alt={t("header.alt.logo")} width={2172} height={337} sizes="280px" className="h-auto w-full min-w-0 flex-1 object-contain pr-3" />
               <button type="button" onClick={closeMobileMenu} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-700" aria-label={t("header.menu.closeMenu")}><X size={20} /></button>
             </div>
             <div className="mt-5 space-y-3 text-sm text-slate-600">
