@@ -58,3 +58,9 @@ Mevcut WhatsApp, katalog, OpenAI ve Firebase değerleri değiştirilmedi. Yeni a
 Gizli değer içermeyen raporlar: firebase-cloud-settings-status.json ve firebase-cloud-ttl-status.json.
 
 Tarayıcı bildirimi ayarları güncellemesi: `NEXT_PUBLIC_FIREBASE_VAPID_KEY` production ortamında mevcut ve sağlanan açık anahtarla birebir eşleşiyor; `CRM_BROWSER_PUSH_ENABLED=true` tekrar okunarak doğrulandı. Deploy ve gerçek bildirim gönderimi yapılmadı. Deploy sonrası yönetici panelinde Müşteri Takibi → Tarayıcı bildirimini aç adımı gerekir.
+
+## Bağlı kayıt seçimi düzeltmesi
+
+Cari, teklif ve WhatsApp seçimleri formun altında ekran dışında açılmak yerine yerel modal pencerede açılıyor. Pencerede türe özel başlık, yükleme, boş liste, hata ve yeniden deneme durumları var. Kapatılan pencerede devam eden istek iptal ediliyor; 15 saniye sonra yükleme zaman aşımı gösteriliyor.
+
+Değişen sayfa: app/satissitok/admin/crm/page.jsx. ESLint ve git diff --check başarılı. Gerçek sayfa bileşeni, sahte oturum/API ile Edge üzerinde test edildi: üç kayıt türü açma/seçme, mevcut form değerlerinin korunması, boş liste, hata/yeniden deneme, Escape ve Kapat, masaüstü ve 390 piksel mobil görünüm. Canlı oturum veya API testi ve deploy yapılmadı.

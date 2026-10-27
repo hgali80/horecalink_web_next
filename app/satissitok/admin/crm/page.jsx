@@ -138,7 +138,7 @@ function Workspace() {
           <label className="block text-sm">Takip nedeni<select className={FIELD} value={form.kind} onChange={e => update('kind', e.target.value)}>{Object.entries(KINDS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
           <label className="block text-sm">Tarih ve saat (Kazakistan)<input className={FIELD} type="datetime-local" required value={form.due} onChange={e => update('due', e.target.value)} /></label>
           <label className="block text-sm">Not<textarea className={FIELD} rows={3} maxLength={2000} value={form.notes} onChange={e => update('notes', e.target.value)} /></label>
-          <div className="space-y-2 text-sm"><p className="font-medium">Bağlı kayıtlar</p>{[['customer', 'Müşteri / cari'], ['offer', 'Ticari teklif'], ['conversation', 'WhatsApp görüşmesi']].map(([type, label]) => <div key={type} className="rounded-lg border p-2"><span className="block text-xs text-slate-500">{label}</span><span className="block break-words">{sourceLabels[type] || (form[`${type}Id`] ? 'Bağlı kayıt' : 'Bağlanmadı')}</span><button type="button" className="mr-3 text-xs text-blue-700" onClick={() => setPicker(type)}>Seç</button>{form[`${type}Id`] && <button type="button" className="text-xs text-slate-500" onClick={() => { update(`${type}Id`, ''); setSourceLabels(old => ({ ...old, [type]: '' })); }}>Bağlantıyı kaldır</button>}</div>)}<p className="text-xs text-slate-500">Seçtiğiniz kayıtların aynı müşteriye ait olduğunu kontrol edin.</p></div>
+          <div className="space-y-2 text-sm"><p className="font-medium">Bağlı kayıtlar</p>{[['customer', 'Müşteri / cari'], ['offer', 'Ticari teklif'], ['conversation', 'WhatsApp görüşmesi']].map(([type, label]) => <div key={type} className="rounded-lg border p-2"><span className="block text-xs text-slate-500">{label}</span><span className="block break-words">{sourceLabels[type] || (form[`${type}Id`] ? 'Bağlı kayıt' : 'Bağlanmadı')}</span><button type="button" className="mr-3 text-xs text-blue-700" aria-label={`${label} seç`} aria-haspopup="dialog" onClick={() => setPicker(type)}>Seç</button>{form[`${type}Id`] && <button type="button" className="text-xs text-slate-500" onClick={() => { update(`${type}Id`, ''); setSourceLabels(old => ({ ...old, [type]: '' })); }}>Bağlantıyı kaldır</button>}</div>)}<p className="text-xs text-slate-500">Seçtiğiniz kayıtların aynı müşteriye ait olduğunu kontrol edin.</p></div>
           <button className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" type="submit">{sourceBusy ? 'Bağlantı yükleniyor…' : 'Takibi kaydet'}</button>
         </fieldset></form>
         {picker && <RecordPicker key={picker} type={picker} onClose={() => setPicker('')} onSelect={record => { update(`${picker}Id`, record.id); setSourceLabels(old => ({ ...old, [picker]: record.label })); setForm(old => ({ ...old, customerName: old.customerName || record.customerName, phone: old.phone || record.phone })); setPicker(''); }} />}
@@ -164,13 +164,39 @@ function Workspace() {
 function RecordPicker({ type, onClose, onSelect }) {
   const [rows, setRows] = useState([]), [cursor, setCursor] = useState(null), [query, setQuery] = useState('');
   const [busy, setBusy] = useState(true), [error, setError] = useState('');
-  const active = useRef(true);
+  const active = useRef(true), dialog = useRef(null), request = useRef(null);
+  const title = { customer: 'Müşteri / cari seç', offer: 'Ticari teklif seç', conversation: 'WhatsApp görüşmesi seç' }[type];
   const load = useCallback(async next => {
+    request.current?.abort();
+    const controller = new AbortController(); request.current = controller;
+    const timer = setTimeout(() => controller.abort(), 15000);
     setBusy(true); setError('');
-    try { const result = await api(`?options=${type}${next ? `&cursor=${encodeURIComponent(next)}` : ''}`); if (active.current) { setRows(old => next ? [...old, ...result.options] : result.options); setCursor(result.nextCursor); } }
-    catch (err) { if (active.current) setError(err.message); }
-    finally { if (active.current) setBusy(false); }
+    try {
+      const result = await api(`?options=${type}${next ? `&cursor=${encodeURIComponent(next)}` : ''}`, { signal: controller.signal });
+      if (active.current && request.current === controller) { setRows(old => next ? [...old, ...result.options] : result.options); setCursor(result.nextCursor); }
+    } catch (err) {
+      if (active.current && request.current === controller) setError(controller.signal.aborted ? 'Kayıtların yüklenmesi uzun sürdü. Yeniden deneyin.' : err.message);
+    } finally {
+      clearTimeout(timer);
+      if (active.current && request.current === controller) setBusy(false);
+    }
   }, [type]);
-  useEffect(() => { active.current = true; load(null); return () => { active.current = false; }; }, [load]);
-  return <section className="mt-4 space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-3" aria-label="Bağlanacak kaydı seç"><div className="flex justify-between"><strong className="text-sm">Kayıt seç</strong><button type="button" onClick={onClose}>Kapat</button></div><input className={FIELD} aria-label="Yüklenen kayıtlarda ara" placeholder="Yüklenen kayıtlarda ara" value={query} onChange={e => setQuery(e.target.value)} />{error && <p role="alert" className="text-sm text-red-700">{error}<button type="button" onClick={() => load(null)}> Yeniden dene</button></p>}<ul className="max-h-64 space-y-1 overflow-auto">{rows.filter(row => `${row.label} ${row.customerName} ${row.phone}`.toLocaleLowerCase('tr-TR').includes(query.toLocaleLowerCase('tr-TR'))).map(row => <li key={row.id}><button type="button" className="w-full rounded-lg bg-white p-2 text-left text-sm" disabled={busy} onClick={() => onSelect(row)}><span className="block font-medium">{row.label}</span><span className="text-xs text-slate-500">{row.customerName} {row.phone}</span></button></li>)}</ul><p className="text-xs text-slate-500">{busy ? 'Yükleniyor…' : `${rows.length} kayıt yüklendi. Arama yüklenen kayıtları kapsar.`}</p>{cursor && <button type="button" className={BUTTON} disabled={busy} onClick={() => load(cursor)}>Daha fazla yükle</button>}</section>;
+  useEffect(() => {
+    active.current = true;
+    const element = dialog.current;
+    element.showModal();
+    load(null);
+    return () => { active.current = false; request.current?.abort(); element.close(); };
+  }, [load]);
+  const visible = rows.filter(row => `${row.label} ${row.customerName} ${row.phone}`.toLocaleLowerCase('tr-TR').includes(query.toLocaleLowerCase('tr-TR')));
+  return <dialog ref={dialog} aria-labelledby="crm-picker-title" onCancel={event => { event.preventDefault(); onClose(); }} className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-xl backdrop:bg-slate-900/50">
+    <div className="mb-4 flex items-center justify-between gap-3"><h2 id="crm-picker-title" className="text-lg font-semibold">{title}</h2><button type="button" className={BUTTON} onClick={onClose}>Kapat</button></div>
+    <input autoFocus className={FIELD} aria-label="Yüklenen kayıtlarda ara" placeholder="Ad, telefon veya teklif numarası ara" value={query} onChange={e => setQuery(e.target.value)} />
+    {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}<button type="button" className="ml-2 underline" onClick={() => load(null)}>Yeniden dene</button></p>}
+    {busy && <p role="status" className="py-4 text-sm text-slate-600">Kayıtlar yükleniyor…</p>}
+    {!busy && !error && !visible.length && <p role="status" className="py-4 text-sm text-slate-600">{rows.length ? 'Aramanızla eşleşen kayıt bulunamadı.' : 'Bu bölümde bağlanabilecek kayıt bulunamadı. Cari veya teklif oluşturmadan da takip kaydedebilirsiniz.'}</p>}
+    <ul className="mt-3 space-y-2">{visible.map(row => <li key={row.id}><button type="button" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-left text-sm hover:bg-blue-50 disabled:opacity-50" disabled={busy} onClick={() => onSelect(row)}><span className="block font-medium">{row.label}</span><span className="text-xs text-slate-500">{row.customerName} {row.phone}</span></button></li>)}</ul>
+    <p className="mt-3 text-xs text-slate-500">{rows.length} kayıt yüklendi. Arama yüklenen kayıtları kapsar.</p>
+    {cursor && <button type="button" className={`${BUTTON} mt-3`} disabled={busy} onClick={() => load(cursor)}>Daha fazla yükle</button>}
+  </dialog>;
 }
