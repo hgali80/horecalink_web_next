@@ -16,6 +16,9 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
+        import("../lib/crmPushClient").then(({ disableCrmPush, savedCrmPush }) => {
+          if (!auth.currentUser && savedCrmPush()) return disableCrmPush();
+        }).catch(() => {});
         setUser(null);
         localStorage.removeItem("horecalink_user");
         setLoading(false);
@@ -55,6 +58,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = async () => {
+    try {
+      const { disableCrmPush, savedCrmPush } = await import("../lib/crmPushClient");
+      if (savedCrmPush()) await disableCrmPush();
+    } catch { /* Local unsubscribe is attempted even when server cleanup is unavailable. */ }
     try {
       await signOut(auth);
     } catch (e) {

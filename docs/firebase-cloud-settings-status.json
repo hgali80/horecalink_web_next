@@ -1,0 +1,135 @@
+{
+  "project": "horecakatalog-e2d10",
+  "checkedAt": "2026-10-27T16:52:36.898443+00:00",
+  "ttl": [
+    {
+      "group": "whatsapp_conversations",
+      "scanned": 10,
+      "expired": 0,
+      "scanComplete": true,
+      "roots": {
+        "whatsapp_conversations": 10
+      }
+    },
+    {
+      "group": "messages",
+      "scanned": 165,
+      "expired": 0,
+      "scanComplete": true,
+      "roots": {
+        "chats": 69,
+        "whatsapp_conversations": 96
+      }
+    },
+    {
+      "group": "whatsapp_reply_limits",
+      "scanned": 2,
+      "expired": 0,
+      "scanComplete": true,
+      "roots": {
+        "whatsapp_reply_limits": 2
+      }
+    },
+    {
+      "group": "whatsapp_card_limits",
+      "scanned": 0,
+      "expired": 0,
+      "scanComplete": true,
+      "roots": {}
+    },
+    {
+      "group": "whatsapp_delivery_receipts",
+      "scanned": 0,
+      "expired": 0,
+      "scanComplete": true,
+      "roots": {}
+    },
+    {
+      "group": "crm_notifications",
+      "scanned": 0,
+      "expired": 0,
+      "scanComplete": true,
+      "roots": {}
+    },
+    {
+      "group": "crm_push_subscriptions",
+      "scanned": 0,
+      "expired": 0,
+      "scanComplete": true,
+      "roots": {}
+    }
+  ],
+  "fcm": "ENABLED",
+  "fcmRegistrations": "ENABLED",
+  "adminServiceAccount": {
+    "found": true,
+    "roles": [
+      {
+        "role": "roles/firebase.sdkAdminServiceAgent",
+        "conditional": false,
+        "roleReadHttp": 200,
+        "canCreateFcmMessages": true
+      },
+      {
+        "role": "roles/firebaseappcheck.admin",
+        "conditional": false,
+        "roleReadHttp": 200,
+        "canCreateFcmMessages": false
+      },
+      {
+        "role": "roles/firebaseauth.admin",
+        "conditional": false,
+        "roleReadHttp": 200,
+        "canCreateFcmMessages": false
+      },
+      {
+        "role": "roles/iam.serviceAccountTokenCreator",
+        "conditional": false,
+        "roleReadHttp": 200,
+        "canCreateFcmMessages": false
+      },
+      {
+        "role": "roles/storage.admin",
+        "conditional": false,
+        "roleReadHttp": 200,
+        "canCreateFcmMessages": false
+      }
+    ],
+    "sameProject": true
+  },
+  "vercel": "PRODUCTION_CRM_AND_PUSH_ENV_VERIFIED_META_TEMPLATES_PENDING",
+  "vapid": "OWNER_SUPPLIED_P256_VALIDATED_AND_VERCEL_READBACK_MATCHED",
+  "ttlApplied": true,
+  "ttlStateByGroup": {
+    "whatsapp_conversations": "ACTIVE",
+    "messages": "ACTIVE",
+    "whatsapp_reply_limits": "ACTIVE",
+    "whatsapp_card_limits": "ACTIVE",
+    "whatsapp_delivery_receipts": "ACTIVE",
+    "crm_notifications": "ACTIVE",
+    "crm_push_subscriptions": "ACTIVE"
+  },
+  "retentionApprovedByUser": true,
+  "ttlConfigurationSubmitted": true,
+  "deploymentPerformed": false,
+  "vercelProjectId": "prj_3JudSGSDlDTpmiZkj3n6o4lQ0yIs",
+  "vercelSettings": {
+    "projectId": "prj_3JudSGSDlDTpmiZkj3n6o4lQ0yIs",
+    "domainVerified": "horecalink.kz",
+    "target": "production",
+    "CRON_SECRET": {
+      "present": true,
+      "type": "sensitive",
+      "randomBytes": 48
+    },
+    "CRM_AUTOMATION_ENABLED": "true",
+    "CRM_BROWSER_PUSH_ENABLED": "true",
+    "WHATSAPP_TEMPLATE_SEND_ENABLED": "false",
+    "NEXT_PUBLIC_FIREBASE_VAPID_KEY": "CONFIGURED_AND_READBACK_MATCHED",
+    "readBackVerified": true,
+    "existingProviderVariablesPreserved": true,
+    "appliesOnNextDeployment": true
+  },
+  "vapidFirebaseRegistrationVerified": false,
+  "realBrowserDeliveryVerified": false
+}

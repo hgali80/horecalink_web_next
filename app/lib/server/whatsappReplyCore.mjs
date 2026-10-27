@@ -10,6 +10,12 @@ export function validateReply(body) {
   if (body.action === 'draft' && !['tr', 'ru', 'kk', 'en'].includes(body.language)) throw replyError('Dil seçin.');
   if (body.action === 'send' && (typeof body.text !== 'string' || !body.text.trim() || body.text.length > 4096 ||
     !/^[a-f0-9-]{36}$/.test(body.requestId || '') || body.reviewed !== true || !Number.isSafeInteger(body.baseIncomingAt) || typeof body.baseRevision !== 'string' || body.baseRevision.length > 64)) throw replyError('Metni ve alıcıyı kontrol ederek gönderimi onaylayın.');
+  if (body.shareMode !== undefined && !['text', 'image', 'image_link'].includes(body.shareMode)) throw replyError('Paylaşım biçimi geçersiz.');
+  if (body.action === 'send' && ['image', 'image_link'].includes(body.shareMode)) {
+    if (!body.productId || !['tr', 'ru', 'kk', 'en'].includes(body.language) || typeof body.showPrice !== 'boolean' ||
+        !/^[a-f0-9]{64}$/.test(body.productRevision || '') || !/^[a-f0-9]{64}$/.test(body.cardRevision || '') || [...body.text.trim()].length > 1024) throw replyError('Ürün kartını ve en fazla 1024 karakterlik açıklamayı yeniden inceleyin.');
+  }
+  if (body.followupId !== undefined && (typeof body.followupId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(body.followupId) || typeof body.followupRevision !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(body.followupRevision))) throw replyError('Takip bilgisini yenileyin.');
   return body;
 }
 export function assertSendable(conversation, base, phoneId, now = Date.now()) {

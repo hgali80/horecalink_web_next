@@ -4,6 +4,7 @@ import { normalizeIncoming, persistIncoming, readBoundedBody, secretMatches, ver
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 const reply = (body, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 function configured() {
   return process.env.WHATSAPP_INBOX_ENABLED === 'true' &&
@@ -21,7 +22,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   if (!configured()) return reply({ error: 'Webhook kullanıma kapalı.' }, 503);
-  let messages;
+  let messages, statuses = [];
   try {
     const body = await readBoundedBody(request);
     if (!verifyWebhookSignature(body, request.headers.get('x-hub-signature-256'), process.env.WHATSAPP_APP_SECRET)) return reply({ error: 'Doğrulama başarısız.' }, 401);
@@ -29,6 +30,10 @@ export async function POST(request) {
     messages = normalizeIncoming(payload, {
       wabaId: process.env.WHATSAPP_WABA_ID, phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
     });
+    if ((payload.entry || []).some(entry => (entry.changes || []).some(change => change.value?.statuses !== undefined))) {
+      const { normalizeStatuses } = await import('@/app/lib/server/whatsappDeliveryCore.mjs');
+      statuses = normalizeStatuses(payload, { wabaId: process.env.WHATSAPP_WABA_ID, phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID });
+    }
     // Counts only, after signature verification. No account IDs or message content.
     if (!messages.length) {
       const entries = payload.entry || [];
@@ -44,6 +49,10 @@ export async function POST(request) {
     if (messages.length) {
       await persistIncoming(getAdminServices().adminDb, messages);
       console.info('whatsapp_webhook', { outcome: 'persisted', count: messages.length });
+    }
+    if (statuses.length) {
+      const { persistStatuses } = await import('@/app/lib/server/whatsappDeliveryCore.mjs');
+      await persistStatuses(getAdminServices().adminDb, statuses);
     }
     return reply({ ok: true });
   } catch {

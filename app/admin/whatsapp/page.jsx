@@ -75,11 +75,20 @@ function WhatsAppInbox() {
     },45000);
     return () => { clearInterval(timer); request.abort(); };
   },[load]);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('conversationId');
+    if (!id) return;
+    const request = new AbortController();
+    readInbox(`/api/admin/crm/followups?sourceType=conversation&sourceId=${encodeURIComponent(id)}`, request.signal)
+      .then(result => { if (!request.signal.aborted) setSelected({ id, contactName: result.customerName, senderId: result.phone }); })
+      .catch(err => { if (!request.signal.aborted) setError(err.message); });
+    return () => request.abort();
+  }, []);
   const filtered = conversations.filter(item => `${item.contactName} ${item.senderId} ${item.lastMessagePreview}`.toLocaleLowerCase('tr-TR').includes(search.toLocaleLowerCase('tr-TR')));
   return <main className="mx-auto max-w-[1480px] px-3 py-5 sm:px-6 sm:py-7">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1c354b] text-white shadow-sm"><MessageSquare size={23}/></div><div><h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Müşteri mesajları</h1><p className="mt-1 text-xs text-slate-500">WhatsApp çalışma alanı <span className="mx-1.5 text-slate-300">/</span> HorecaLink</p></div></div>
-      <div className="flex items-center gap-2"><Link href="/satissitok/admin" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">Yönetim paneli</Link><button type="button" onClick={() => setSettings(value => !value)} aria-expanded={settings} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-600"><span className="h-2 w-2 rounded-full bg-slate-400"/>Bağlantı ayrıntıları<ChevronDown size={13}/></button></div>
+      <div className="flex items-center gap-2"><Link href="/satissitok/admin/crm" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">Müşteri Takibi</Link><Link href="/satissitok/admin" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">Yönetim paneli</Link><button type="button" onClick={() => setSettings(value => !value)} aria-expanded={settings} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-600"><span className="h-2 w-2 rounded-full bg-slate-400"/>Bağlantı ayrıntıları<ChevronDown size={13}/></button></div>
     </div>
     {settings && <div className="mb-4"><ConnectionStatus readInbox={readInbox}/></div>}
     {error && <p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
@@ -168,6 +177,7 @@ function Conversation({conversation,cache,onBack}) {
   const ordered=[...messages].sort((a,b) => b.timestamp.localeCompare(a.timestamp) || b.id.localeCompare(a.id));
   return <section className="flex min-w-0 flex-col bg-[#f4f6f8]">
     <header className="flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-4 sm:px-6"><div className="flex min-w-0 items-center gap-3"><button type="button" onClick={onBack} aria-label="Konuşmalara dön" className="lg:hidden"><ArrowLeft size={19}/></button><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1c354b] text-sm font-bold text-white">{(conversation.contactName || conversation.senderId).slice(0,2).toUpperCase()}</span><div className="min-w-0"><h2 className="truncate text-sm font-bold text-slate-800">{conversation.contactName || `+${conversation.senderId}`}</h2><p className="mt-0.5 text-xs text-slate-400">+{conversation.senderId}</p></div></div><button type="button" disabled={busy} onClick={() => load(null,true)} className="flex items-center gap-2 rounded-xl border px-3 py-2 text-xs text-slate-600"><RefreshCw size={13} className={busy?'animate-spin':''}/><span className="hidden sm:inline">Yenile</span></button></header>
+    <div className="border-b border-slate-200 bg-white px-5 py-2 text-xs"><Link className="font-semibold text-blue-700" href={`/satissitok/admin/crm?sourceType=conversation&sourceId=${encodeURIComponent(conversation.id)}`}>Bu müşteri için takip oluştur</Link></div>
     <div className="flex items-center justify-between gap-2 border-b border-slate-200/70 px-5 py-2 text-[10px] text-slate-400"><span>En yeni mesaj üstte · Geçmiş için aşağı kaydırın</span><span>Açıkken 20 saniyede değişiklik kontrolü</span></div>
     {error && <p role="alert" className="m-3 rounded-xl bg-red-50 p-3 text-xs text-red-700">{error}</p>}
     <div aria-label="Mesaj geçmişi" className="h-[48vh] min-h-64 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6" onScroll={event => { const el=event.currentTarget; if (cursor && !busy && el.scrollHeight-el.scrollTop-el.clientHeight<80) load(cursor); }}>
@@ -175,10 +185,10 @@ function Conversation({conversation,cache,onBack}) {
         {(index===0 || message.timestamp.slice(0,10)!==ordered[index-1].timestamp.slice(0,10)) && <div className="mb-5 flex justify-center"><span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[10px] text-slate-400">{day}</span></div>}
         <div className={`flex ${outgoing?'justify-end':'justify-start'}`}><article className={`max-w-[92%] rounded-2xl p-3.5 shadow-sm sm:max-w-[78%] ${outgoing?'rounded-tr-sm bg-[#1c354b] text-white':'rounded-tl-sm border border-slate-200 bg-white text-slate-800'}`}>
           <p className={`mb-2 flex items-center gap-1.5 text-[10px] font-semibold ${outgoing?'text-blue-200':'text-slate-400'}`}>{outgoing ? message.source==='phone' ? <><Smartphone size={11}/>Siz · Telefondan</> : <><Check size={11}/>Siz · Panelden</> : 'Müşteri'}</p>
-          <p className="whitespace-pre-wrap break-words text-[13px] leading-6">{message.type==='text'?message.text:`Ekli mesaj: ${message.type} (önizleme henüz desteklenmiyor)`}</p>
+          <p className="whitespace-pre-wrap break-words text-[13px] leading-6">{message.type==='text'?message.text:message.type==='image' && message.productCardName ? `Ürün kartı: ${message.productCardName}\n${message.text}` : `Ekli mesaj: ${message.type} (önizleme henüz desteklenmiyor)`}</p>
           {message.translationTr && message.translationTr.text.trim()!==message.text.trim() && <div className={`mt-3 border-t pt-2.5 ${outgoing?'border-white/15':'border-slate-100'}`}><p className={`mb-1 flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider ${outgoing?'text-blue-200':'text-orange-600'}`}><Languages size={10}/>Türkçe çeviri</p><p className={`whitespace-pre-wrap break-words text-[12px] leading-5 ${outgoing?'text-blue-50':'text-slate-600'}`}>{message.translationTr.text}</p></div>}
           {message.sendState==='rejected' && <p className="mt-2 text-xs text-red-200">{formatSendRejection(message.sendDiagnostics)}</p>}
-          <footer className={`mt-2 flex items-center justify-end gap-2 text-[9px] ${outgoing?'text-blue-200/75':'text-slate-400'}`}><span>{outgoing && message.source!=='phone' ? ({accepted:'Kabul edildi · teslimat doğrulanmadı',rejected:'Reddedildi',sending:'Gönderiliyor',unknown:'Sonuç belirsiz'})[message.sendState] : ''}</span><time dateTime={message.timestamp}>{time(message.timestamp)}</time></footer>
+          <footer className={`mt-2 flex items-center justify-end gap-2 text-[9px] ${outgoing?'text-blue-200/75':'text-slate-400'}`}><span>{outgoing && message.source!=='phone' ? ({accepted:({sent:'Gönderildi',delivered:'Teslim edildi',read:'Okundu',failed:'Teslim edilemedi'})[message.deliveryStatus] || 'Kabul edildi · teslimat doğrulanmadı',rejected:'Reddedildi',sending:'Gönderiliyor',unknown:'Sonuç belirsiz'})[message.sendState] : ''}</span><time dateTime={message.timestamp}>{time(message.timestamp)}</time></footer>
         </article></div>
       </li>; })}</ol>
       {!busy && !messages.length && <p className="py-10 text-center text-xs text-slate-400">Bu konuşmada henüz mesaj yok.</p>}

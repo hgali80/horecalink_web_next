@@ -756,6 +756,7 @@ export default function OfferEditor({ offerId = null, sourceRequestId = null }) 
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {offerId && <Link href={`/satissitok/admin/crm?sourceType=offer&sourceId=${encodeURIComponent(offerId)}`} className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">Takip oluştur</Link>}
               <OfferSaleTransfer offerId={offerId} offer={{ ...form, items: calculated.items, totals: calculated.totals }} disabled={saving} />
               <CustomerExcelButton document={form} calculated={calculated} onError={setMessage} />
               <button

@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sync:catalog": "node scripts/sync-catalog-structure.mjs"
+    "sync:catalog": "node scripts/sync-catalog-structure.mjs",
+    "test:crm": "node --test scripts/test-crm-followups.mjs scripts/test-crm-followups-api.mjs scripts/test-crm-automation.mjs scripts/test-crm-push-client.mjs scripts/test-whatsapp-inbox.mjs scripts/test-whatsapp-replies.mjs scripts/test-whatsapp-product-card.mjs scripts/test-whatsapp-followups.mjs",
+    "lint:crm": "eslint \"app/lib/crmFollowups.mjs\" \"app/lib/crmPushClient.js\" \"app/lib/server/crmAutomationCore.mjs\" \"app/lib/server/crmAutomation.js\" \"app/lib/server/whatsappDeliveryCore.mjs\" \"app/lib/server/whatsappFollowupCore.mjs\" \"app/lib/server/whatsappTemplates.js\" \"app/lib/server/whatsappProductCardCore.mjs\" \"app/lib/server/whatsappProductCard.js\" \"app/lib/server/whatsappReplyCore.mjs\" \"app/api/admin/crm/followups/route.js\" \"app/api/admin/crm/notifications/route.js\" \"app/api/admin/crm/notifications/subscription/route.js\" \"app/api/jobs/crm-followups/route.js\" \"app/api/admin/whatsapp/templates/route.js\" \"app/api/admin/whatsapp/products/card/route.js\" \"app/api/admin/whatsapp/conversations/[conversationId]/followup/route.js\" \"app/api/admin/whatsapp/conversations/[conversationId]/reply/route.js\" \"app/api/admin/whatsapp/conversations/[conversationId]/messages/route.js\" \"app/api/webhooks/whatsapp/route.js\" \"app/firebase-messaging-sw.js/route.js\" \"app/admin/whatsapp/ReplyComposer.jsx\" \"app/admin/whatsapp/ProductShare.jsx\" \"app/admin/whatsapp/FollowupPanel.jsx\" \"app/admin/whatsapp/page.jsx\" \"app/satissitok/admin/crm/page.jsx\" \"app/satissitok/admin/crm/NotificationCenter.jsx\" \"app/satissitok/admin/page.jsx\" \"app/satissitok/admin/commercial-offers/OfferEditor.jsx\" \"app/satissitok/admin/erp/caris/[cariId]/page.jsx\" \"app/context/AuthContext.jsx\" \"firebase/index.js\" \"firebase/config.js\" \"scripts/check-crm-readiness.mjs\" \"scripts/test-crm-followups.mjs\" \"scripts/test-crm-followups-api.mjs\" \"scripts/test-crm-automation.mjs\" \"scripts/test-crm-push-client.mjs\" \"scripts/test-whatsapp-inbox.mjs\" \"scripts/test-whatsapp-replies.mjs\" \"scripts/test-whatsapp-product-card.mjs\" \"scripts/test-whatsapp-followups.mjs\"",
+    "check:crm": "node scripts/check-crm-readiness.mjs",
+    "verify:crm": "npm run test:crm && npm run lint:crm && npm run build"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",

@@ -1,0 +1,91 @@
+{
+  "project": "horecakatalog-e2d10",
+  "checkedAt": "2026-10-27T16:29:43.500128+00:00",
+  "explicitRetentionApproval": true,
+  "settings": [
+    {
+      "group": "whatsapp_conversations",
+      "result": "configuration_submitted",
+      "scanned": 10,
+      "expired": 0,
+      "state": "CREATING",
+      "operation": "projects/horecakatalog-e2d10/databases/(default)/operations/AyA5ZWM5NWJmZDcwNTUtNTBmOS03NGM0LTc0M2EtNzdjMjdjOTYkGnNlbmlsZXBpcAkKMxI",
+      "done": false,
+      "operationError": null,
+      "verifiedState": "ACTIVE",
+      "verifiedAt": "2026-10-27T16:44:36.635544+00:00"
+    },
+    {
+      "group": "messages",
+      "result": "configuration_submitted",
+      "scanned": 165,
+      "expired": 0,
+      "state": "CREATING",
+      "operation": "projects/horecakatalog-e2d10/databases/(default)/operations/AyBkNzdhZWQ4NjY2ODQtZmEyYi04Nzg0LWEwZWMtMjk5ZjQ4NjEkGnNlbmlsZXBpcAkKMxI",
+      "done": false,
+      "operationError": null,
+      "verifiedState": "ACTIVE",
+      "verifiedAt": "2026-10-27T16:44:38.796249+00:00"
+    },
+    {
+      "group": "whatsapp_reply_limits",
+      "result": "configuration_submitted",
+      "scanned": 2,
+      "expired": 0,
+      "state": "CREATING",
+      "operation": "projects/horecakatalog-e2d10/databases/(default)/operations/AyBlZjk2ZmIyODgwMzUtMDMwYi0wNzQ0LWE2ZjEtNWVlMWYyMjIkGnNlbmlsZXBpcAkKMxI",
+      "done": false,
+      "operationError": null,
+      "verifiedState": "ACTIVE",
+      "verifiedAt": "2026-10-27T16:44:40.954293+00:00"
+    },
+    {
+      "group": "whatsapp_card_limits",
+      "result": "configuration_submitted",
+      "scanned": 0,
+      "expired": 0,
+      "state": "CREATING",
+      "operation": "projects/horecakatalog-e2d10/databases/(default)/operations/AyA0ZjZlM2YxZjQ1MTEtYjhkYS05NTg0LTMxYjAtODI4OTVmMTAkGnNlbmlsZXBpcAkKMxI",
+      "done": false,
+      "operationError": null,
+      "verifiedState": "ACTIVE",
+      "verifiedAt": "2026-10-27T16:44:43.095067+00:00"
+    },
+    {
+      "group": "whatsapp_delivery_receipts",
+      "result": "configuration_submitted",
+      "scanned": 0,
+      "expired": 0,
+      "state": "CREATING",
+      "operation": "projects/horecakatalog-e2d10/databases/(default)/operations/AyA5ZWRlYWRkYmZhYjktMTZiOC05YWY0LTY4NWItODdkYzMwMDkkGnNlbmlsZXBpcAkKMxI",
+      "done": false,
+      "operationError": null,
+      "verifiedState": "ACTIVE",
+      "verifiedAt": "2026-10-27T16:44:45.256421+00:00"
+    },
+    {
+      "group": "crm_notifications",
+      "result": "configuration_submitted",
+      "scanned": 0,
+      "expired": 0,
+      "state": "CREATING",
+      "operation": "projects/horecakatalog-e2d10/databases/(default)/operations/AyBhYWE1ZTZiYzNhMjUtMDBiOC1lZjk0LTcxYzUtNzhkZTIyOTUkGnNlbmlsZXBpcAkKMxI",
+      "done": false,
+      "operationError": null,
+      "verifiedState": "ACTIVE",
+      "verifiedAt": "2026-10-27T16:44:47.357423+00:00"
+    },
+    {
+      "group": "crm_push_subscriptions",
+      "result": "configuration_submitted",
+      "scanned": 0,
+      "expired": 0,
+      "state": "CREATING",
+      "operation": "projects/horecakatalog-e2d10/databases/(default)/operations/AyBlZGVmYWMwNGQxZDYtZDQ5YS00ZDY0LTlmYTktYTQ0NjVhN2YkGnNlbmlsZXBpcAkKMxI",
+      "done": false,
+      "operationError": null,
+      "verifiedState": "ACTIVE",
+      "verifiedAt": "2026-10-27T16:44:49.523071+00:00"
+    }
+  ]
+}

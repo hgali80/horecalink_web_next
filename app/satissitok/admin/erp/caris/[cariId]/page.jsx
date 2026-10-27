@@ -69,6 +69,7 @@ export default function ErpCariDetailPage({ params }) {
         </div>
 
         <div className="flex flex-wrap gap-3">
+          <Link href={`/satissitok/admin/crm?sourceType=customer&sourceId=${encodeURIComponent(params.cariId)}`} className="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700">Takip oluştur</Link>
           <Link
             href="/satissitok/admin/erp/caris"
             className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
