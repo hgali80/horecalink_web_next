@@ -4,7 +4,7 @@ Bu değişiklikler henüz dağıtılmadı. Varsayılan: önce onay, duraklatılm
 
 ## Ekran ve davranış
 
-`/admin/social`, yönetim panelindeki Yayın Merkezi kartından açılır. Aktif admin/super_admin yetkisi hem arayüzde hem API'de denetlenir. Ürün listesi 50'şer yüklenir; arama yüklenen ürünlerde çalışır. Son 50 yayın, 200 kanal işi ve 100 olay görüntülenir.
+`/admin/social`, yönetim panelindeki Yayın Merkezi kartından açılır. Aktif admin/super_admin yetkisi hem arayüzde hem API'de denetlenir. Tek arama/seçim kutusu webde yayındaki tüm aktif ürünlerin hafif alan listesini yükler. Rusça/Türkçe ad, SKU, üretici kodu ve marka üzerinde filtreleme yapılır; Türkçe karakterler sadeleştirilir. Liste içinde kaydırma ile satırlar gösterilir; arama her zaman tüm katalogda çalışır. Son 50 yayın, 200 kanal işi ve 100 olay görüntülenir.
 
 Her taslakta ürün, dört bağımsız kanal, Almatı (UTC+5) yayın zamanı, Facebook/Instagram metinleri ve her kanal için webden/PC'den görsel seçilir. Tek özel görsel desteklenir; video, Reels, carousel ve WhatsApp müşteri mesajı bu sürümde yoktur. JPEG/PNG/WebP en fazla 10 MB ve 40 milyon piksel; sunucu JPEG 1080×1350 türevi oluşturur ve metadata'yı çıkarır. Özel taslaklar `social_media` altında private tutulur; önizleme yetkili sunucu API'sinden alınır. Yayın anında Meta'ya altı saatlik okuma URL'si verilir. Web/WhatsApp için onaylı görsel mevcut public `product_images` alanına kopyalanır. Web seçimi `image_names` alanını değiştirir; WhatsApp seçimi ayrı `whatsapp_image_names` alanını kullanır. Web görseline dönüş WhatsApp override alanını kaldırır.
 

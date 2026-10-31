@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { auth } from '@/firebase/index';
 import { CHANNELS, CHANNEL_LABELS, DEFAULT_SETTINGS, almatyToUtc } from '@/app/lib/socialPublishing.mjs';
+import ProductSearch from './ProductSearch';
 
 const labels = { pending_approval: 'Onay bekliyor', scheduled: 'Takvimde', queued: 'Sırada', publishing: 'Yayınlanıyor', published: 'Yayınlandı', cancelled: 'İptal edildi', needs_review: 'İnceleme gerekli' };
 const dateText = value => new Date(value).toLocaleString('tr-TR', { timeZone: 'Asia/Almaty', dateStyle: 'short', timeStyle: 'short' });
@@ -27,18 +28,18 @@ export default function SocialPage() {
 }
 function PublishingCenter() {
   const [data, setData] = useState({ posts: [], logs: [], jobs: [], settings: DEFAULT_SETTINGS, connection: {} });
-  const [products, setProducts] = useState([]), [cursor, setCursor] = useState(null);
-  const [productId, setProductId] = useState(''), [search, setSearch] = useState('');
+  const [products, setProducts] = useState([]), [productsLoading, setProductsLoading] = useState(true);
+  const [productId, setProductId] = useState('');
   const [channels, setChannels] = useState(['instagram', 'facebook']), [media, setMedia] = useState({}), [captions, setCaptions] = useState({}), [scheduledAt, setScheduledAt] = useState('');
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [busy, setBusy] = useState(false);
   const [view, setView] = useState('calendar'), [preview, setPreview] = useState(null);
   const refresh = useCallback(async () => setData(await api()), []);
-  const loadProducts = useCallback(async (after = '') => {
-    const result = await api(`?products=1${after ? `&cursor=${encodeURIComponent(after)}` : ''}`);
-    setProducts(old => after ? [...new Map([...old, ...result.products].map(p => [p.id, p])).values()] : result.products);
-    setCursor(result.nextCursor);
+  useEffect(() => {
+    let live = true;
+    api().then(state => { if (live) setData(state); }).catch(err => { if (live) setError(err.message); });
+    api('?products=1').then(catalog => { if (live) setProducts(catalog.products); }).catch(err => { if (live) setError(err.message); }).finally(() => { if (live) setProductsLoading(false); });
+    return () => { live = false; };
   }, []);
-  useEffect(() => { let live = true; Promise.all([api(), api('?products=1')]).then(([state, catalog]) => { if (live) { setData(state); setProducts(catalog.products); setCursor(catalog.nextCursor); } }).catch(err => { if (live) setError(err.message); }); return () => { live = false; }; }, []);
   async function act(fn, success) {
     setBusy(true); setError(''); setMessage('');
     try { await fn(); await refresh(); setMessage(success); } catch (err) { setError(err.message); } finally { setBusy(false); }
@@ -54,7 +55,6 @@ function PublishingCenter() {
   }
   const product = products.find(p => p.id === productId);
   const missingCustomMedia = channels.some(channel => media[channel]?.source === 'custom' && !media[channel]?.assetId);
-  const filtered = products.filter(p => `${p.name} ${p.sku}`.toLocaleLowerCase('tr-TR').includes(search.toLocaleLowerCase('tr-TR')));
   async function showPreview(post) {
     setBusy(true); setError('');
     const images = {};
@@ -85,8 +85,7 @@ function PublishingCenter() {
       <p className="w-full text-xs text-slate-500">Otomatik takvim, yeni hazırladığınız yayınları ayrıca onay beklemeden sıraya alır. WhatsApp seçimi ürün kataloğunu günceller; müşterilere mesaj göndermez.</p>
     </section>
     <section className="rounded-xl border p-5"><h2 className="mb-4 text-lg font-semibold">Yeni yayın</h2>
-      <div className="grid gap-4 md:grid-cols-2"><label className="text-sm">Ürün ara<input value={search} onChange={e => setSearch(e.target.value)} placeholder="Yüklenen ürünlerde ad veya SKU" className="mt-1 w-full rounded-lg border p-3" /></label><label className="text-sm">Ürün<select disabled={busy} value={productId} onChange={e => { setProductId(e.target.value); setMedia({}); setCaptions({}); }} className="mt-1 w-full rounded-lg border p-3"><option value="">Ürün seçin</option>{filtered.map(p => <option key={p.id} value={p.id}>{p.sku} · {p.name}</option>)}</select></label></div>
-      {cursor && <button disabled={busy} onClick={() => act(() => loadProducts(cursor), 'Daha fazla ürün yüklendi.')} className="mt-3 text-sm underline">Daha fazla ürün yükle</button>}
+      <ProductSearch products={products} value={productId} disabled={busy} loading={productsLoading} onChange={id => { setProductId(id); setMedia({}); setCaptions({}); }} />
       {product && <p className="mt-3 text-xs text-slate-500">Mevcut durum: Web {product.webPublished ? 'açık' : 'kapalı'} · WhatsApp katalog {product.whatsappPublished ? 'açık' : 'kapalı'}{!product.active && ' · Ürün pasif; yayınlanamaz.'}</p>}
       <div className="my-5 flex flex-wrap gap-5">{CHANNELS.map(channel => <label key={channel} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={channels.includes(channel)} disabled={busy} onChange={e => setChannels(old => e.target.checked ? [...old, channel] : old.filter(c => c !== channel))} />{CHANNEL_LABELS[channel]}</label>)}</div>
       <div className="grid gap-4 md:grid-cols-2">{channels.map(channel => <fieldset key={channel} className="space-y-3 rounded-xl border p-4"><legend className="px-2 font-medium">{CHANNEL_LABELS[channel]}</legend>

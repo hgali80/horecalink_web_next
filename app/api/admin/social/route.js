@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authorizeAdminRequest } from '@/app/lib/server/firebaseAdmin';
 import { createPost, transitionPost, saveSettings, settings, connectionConfig } from '@/app/lib/server/socialPublishing';
-import { getStoredProductImageNames } from '@/app/lib/productImageNames.mjs';
 
 export const runtime = 'nodejs';
 const roles = new Set(['admin', 'super_admin']);
@@ -12,11 +11,11 @@ export async function GET(request) {
     if (!auth.ok) return auth.response;
     const db = auth.adminDb, url = new URL(request.url);
     if (url.searchParams.has('products')) {
-      const cursor = url.searchParams.get('cursor');
-      let query = db.collection('products').orderBy('__name__').limit(50);
-      if (cursor) query = query.startAfter(cursor);
-      const result = await query.get();
-      return reply({ products: result.docs.map(doc => { const p = doc.data(); return { id: doc.id, name: String(p.name_ru || p.name || ''), sku: String(p.sku || ''), webPublished: p.webPublished === true, whatsappPublished: p.whatsappPublished === true, active: p.active === true, imageNames: getStoredProductImageNames(p) }; }), nextCursor: result.size === 50 ? result.docs.at(-1).id : null });
+      const fields = ['name', 'name_ru', 'name_tr', 'name_en', 'name_kk', 'sku', 'stock_code', 'manufacturerCode', 'brand', 'active', 'webPublished', 'whatsappPublished'];
+      const result = await db.collection('products').where('active', '==', true).where('webPublished', '==', true).select(...fields).get();
+      const products = result.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      products.sort((a, b) => String(a.sku || a.stock_code || '').localeCompare(String(b.sku || b.stock_code || ''), 'ru', { numeric: true }) || a.id.localeCompare(b.id));
+      return reply({ products });
     }
     const [posts, logs, jobs, config] = await Promise.all([
       db.collection('social_posts').orderBy('createdAt', 'desc').limit(50).get(),
