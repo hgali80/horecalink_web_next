@@ -46,6 +46,7 @@ export default function SalesStockDashboard() {
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-6">
           <VisitorAnalyticsCard />
+          {canUseImport && <DashboardCard title="Yayın Merkezi" desc="Web, WhatsApp, Instagram ve Facebook yayınlarını planla" href="/admin/social" color="purple" icon={<Images />} />}
           <DashboardCard title="Müşteri Takibi" desc="Bugünkü, geciken ve planlı müşteri takiplerini yönet" href="/satissitok/admin/crm" color="blue" icon={<ClipboardList />} />
           <DashboardCard title="Bayram ve Özel Günler" desc="Bayram kutlamalarını önizle, aktif veya pasif et" href="/satissitok/admin/celebrations" color="blue" icon={<Images />} />
           <DashboardCard

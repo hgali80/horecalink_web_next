@@ -10,7 +10,8 @@ export function buildWhatsAppPayload(product, options = {}) {
   const labels = { material: 'Материал', dimensions: 'Размеры', capacity: 'Объем', power: 'Мощность', voltage: 'Напряжение', fuelType: 'Тип топлива', warranty: 'Гарантия' };
   const description = [text(product.specs), ...Object.entries(labels).map(([key, label]) => text(product[key]) ? `${label}: ${text(product[key])}` : '')].filter(Boolean).join('\n');
   const bucket = options.bucket || 'horecakatalog-e2d10.firebasestorage.app';
-  const images = getStoredProductImageNames(product).map(file => `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(`product_images/${file}`)}?alt=media`);
+  const customImages = Array.isArray(product.whatsapp_image_names) ? product.whatsapp_image_names.filter(file => typeof file === 'string' && file && !/[/\\]/.test(file)) : [];
+  const images = (customImages.length ? customImages : getStoredProductImageNames(product)).map(file => `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(`product_images/${file}`)}?alt=media`);
   if (!sku || !name || !brand || !description || !images.length || !Number.isFinite(price) || price < 0 || (hasPrice && (!Number.isSafeInteger(Math.round(price * 100)) || Math.round(price * 100) <= 0))) {
     throw new Error('WhatsApp için SKU, Rusça ad, marka, teknik özellik, görsel gerekli; fiyat boş, sıfır veya geçerli pozitif bir sayı olmalı.');
   }

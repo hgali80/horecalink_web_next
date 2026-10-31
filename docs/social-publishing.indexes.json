@@ -1,0 +1,7 @@
+{
+  "indexes": [
+    { "collectionGroup": "social_publish_jobs", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "nextAttemptAt", "order": "ASCENDING" }] },
+    { "collectionGroup": "social_publish_jobs", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "leaseUntil", "order": "ASCENDING" }] }
+  ],
+  "fieldOverrides": []
+}
