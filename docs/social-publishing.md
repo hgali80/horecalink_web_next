@@ -22,6 +22,20 @@ Yeni API'ler erişim anahtarı veya ham Meta yanıtı loglamaz. İşçi bir ça�
 
 ## Etkinleştirme için gerekenler
 
+### AI açıklama ve hashtag taslakları
+
+Ürün seçimi sonrasında paylaşım adı düzenlenebilir. `displayName` yayın anlık görüntüsünde tutulur; katalogdaki ürün adını değiştirmez ve işçinin ürün doğrulama hash'inden ayrıdır. Önizlemede/yayın listesinde bu ad gösterilir.
+
+`/api/admin/social/captions` yalnızca aktif yöneticinin açık düğme eylemiyle çağrılır; otomatik üretim, görsel analizi, araç kullanımı, sohbet geçmişi veya otomatik tekrar denemesi yoktur. İki kanala ayrı açıklama ve hashtag tek Responses API çağrısında hazırlanır. Metinler düzenlenebilir; bu işlem onay/yayın yapmaz. Dil seçenekleri ru/tr/kk/en; fiyat varsayılan kapalıdır.
+
+Mevcut `OPENAI_API_KEY` sunucuda kullanılır. Model: `OPENAI_SOCIAL_MODEL` varsa o, yoksa `gpt-4.1-mini`; mevcut WhatsApp `OPENAI_MODEL` ayarı değiştirilmez. Ürün verisi kısa alanlarla sınırlandırılır, çıktı üst sınırı 1.400 token, `store:false`, strict JSON schema kullanılır. API key istemciye verilmez.
+
+Cache: ürünün kullanılan bilgileri, paylaşım adı, dil, fiyat tercihi, model ve prompt sürümü hash'lenir. Sonuç `social_ai_cache` içinde 30 gün tekrar kullanılabilir; aynı istek yeni ücretli üretim yapmaz. Kullanılan ürün bilgisi veya ayarlar değişince anahtar değişir. Cache kilidi eşzamanlı aynı istekleri engeller. `social_ai_usage` içinde transaction ile günlük genel/kullanıcı sayaçları tutulur. Varsayılan genel 20 (`SOCIAL_AI_DAILY_LIMIT`), kullanıcı 10 (`SOCIAL_AI_USER_DAILY_LIMIT`), yeni üretimler arasında 15 saniye; hata alan denemeler de sayılır. Limitler maliyet garantisi değildir; OpenAI faturalaması token kullanımına ve model fiyatına bağlıdır. Kayıtlı öneri limit dolduğunda da ücretsiz API tekrarı olmadan kullanılabilir. Otomatik silme/TTL kurulmadı; yeni koleksiyonlar mevcut default deny ve Admin SDK yaklaşımını kullanır.
+
+Resmi kaynaklar: [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [GPT-4.1 Mini](https://developers.openai.com/api/docs/models/gpt-4.1-mini).
+
+Yerel ek test: `node --test scripts/test-social-ai.mjs`. Testler sahte API ile cache, aynı anda tek çağrı, kota ve isim ayrımını kontrol eder; gerçek API testi ayrı ve tek çağrıyla yapılmalıdır.
+
 1. Kod incelemesi, yerel test/lint/build ve preview kabulü.
 2. Mevcut Vercel Production secret'ları: `META_SOCIAL_ACCESS_TOKEN`, `META_SOCIAL_PAGE_ID`, `META_SOCIAL_INSTAGRAM_ID`. Son iki değer de Secret olabilir. `META_SOCIAL_GRAPH_API_VERSION=v26.0` mevcut katalog sürümüyle aynı varsayılandır; açık Config olarak eklenebilir.
 3. `docs/social-publishing.indexes.json` içindeki iki indeks mevcut canlı indeksler korunarak ayrı eklenmeli; bu dosya firebase.json'a otomatik bağlanmadı. Hazır olmadan işçi çalıştırılmamalı.

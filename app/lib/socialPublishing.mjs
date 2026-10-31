@@ -11,6 +11,8 @@ export function normalizeDraft(body, now = Date.now()) {
   const channels = CHANNELS.filter(channel => body.channels?.includes(channel));
   if (!channels.length || !Array.isArray(body.channels) || channels.length !== body.channels.length) throw invalid('Geçerli yayın kanalları seçin.');
   const scheduledAt = Date.parse(body.scheduledAt);
+  if (body.displayName !== undefined && (typeof body.displayName !== 'string' || body.displayName.length > 180)) throw invalid('Paylaşım ürün adı en fazla 180 karakter olabilir.');
+  const displayName = (body.displayName || '').trim();
   if (!Number.isFinite(scheduledAt) || scheduledAt < now - 60000 || scheduledAt > now + 366 * 86400000) throw invalid('Takvim zamanı geçersiz; gelecek bir tarih seçin.');
   const media = {}, captions = {};
   for (const channel of channels) {
@@ -22,7 +24,7 @@ export function normalizeDraft(body, now = Date.now()) {
     if (typeof caption !== 'string' || caption.length > (channel === 'instagram' ? 2200 : 5000)) throw invalid('Yayın metni çok uzun.');
     captions[channel] = caption.trim();
   }
-  return { productId: body.productId, channels, scheduledAt, media, captions };
+  return { productId: body.productId, displayName, channels, scheduledAt, media, captions };
 }
 export function approvalValid(post) { return post.approvedRevision === post.revision && post.approvedHash === post.contentHash; }
 export function canClaim(post, job, settings, now) {

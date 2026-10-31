@@ -37,7 +37,7 @@ export async function createPost(db, body, uid) {
       }
     }
     const facts = productFacts(product, draft.productId);
-    const snapshot = { ...draft, media: selections, product: facts };
+    const snapshot = { ...draft, displayName: draft.displayName || facts.name, media: selections, product: facts };
     const contentHash = digest(snapshot);
     const automatic = global.mode === 'automatic';
     const post = { ...snapshot, contentHash, revision: 1, status: automatic ? 'scheduled' : 'pending_approval', createdBy: uid, createdAt: Date.now(), updatedAt: Date.now(), approvedRevision: automatic ? 1 : null, approvedHash: automatic ? contentHash : null, approvedBy: automatic ? uid : null, approvalMode: automatic ? 'automatic' : null };
@@ -81,6 +81,6 @@ export async function saveSettings(db, body, uid) {
   });
 }
 export function connectionConfig() {
-  return { tokenConfigured: !!process.env.META_SOCIAL_ACCESS_TOKEN, pageConfigured: !!process.env.META_SOCIAL_PAGE_ID, instagramConfigured: !!process.env.META_SOCIAL_INSTAGRAM_ID, workerEnabled: process.env.SOCIAL_PUBLISHING_ENABLED === 'true' };
+  return { tokenConfigured: !!process.env.META_SOCIAL_ACCESS_TOKEN, pageConfigured: !!process.env.META_SOCIAL_PAGE_ID, instagramConfigured: !!process.env.META_SOCIAL_INSTAGRAM_ID, workerEnabled: process.env.SOCIAL_PUBLISHING_ENABLED === 'true', aiConfigured: !!process.env.OPENAI_API_KEY };
 }
 export const newOwner = () => randomUUID();

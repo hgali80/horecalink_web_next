@@ -75,3 +75,11 @@ test('cross-product/channel custom asset is rejected without creating a post', a
   await assert.rejects(createPost(db, draft, 'admin'), /ait değil/);
   assert.equal([...db.records.keys()].filter(k => k.startsWith('social_posts/')).length, 0);
 });
+test('editable publishing name is separate from catalog facts and participates in approval content', async () => {
+  const db = new DB({ 'products/p1': product });
+  const id = await createPost(db, { ...body(), displayName: 'Paylaşım için özel ad' }, 'admin');
+  const post = db.records.get(`social_posts/${id}`);
+  assert.equal(post.displayName, 'Paylaşım için özel ad');
+  assert.equal(post.product.name, product.name_ru);
+  assert.equal(db.records.get('products/p1').name_ru, product.name_ru);
+});
