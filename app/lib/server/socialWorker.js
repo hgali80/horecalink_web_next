@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import { canClaim, DEFAULT_SETTINGS, productFacts } from '../socialPublishing.mjs';
 import { getAdminServices } from './firebaseAdmin';
 import { addLog, newOwner, digest } from './socialPublishing';
-import { getStoredProductImageNames } from '../productImageNames.mjs';
+import { resolveSocialImages } from './socialImages.mjs';
 import { publishSocial } from './socialMeta.mjs';
 import { syncWhatsAppProduct } from './whatsappCatalog';
 import { revalidatePublicProductPages } from './productPageCache';
@@ -44,8 +44,17 @@ export async function processSocialJobs(services) {
       if (!canClaim(post, job, currentSettings, now)) return null;
       const product = await tx.get(db.collection('products').doc(job.productId));
       if (!product.exists || product.data().active !== true) { tx.update(live.ref, { status: 'cancelled', error: 'PRODUCT_UNAVAILABLE' }); addLog(tx, db, job.postId, 'cancelled', 'worker', { channel: job.channel, code: 'PRODUCT_UNAVAILABLE' }); return null; }
+      let imageNames = [];
+      if (post.media[job.channel].source === 'web') {
+        try { imageNames = (await resolveSocialImages({ ...product.data(), id: job.productId }, bucket)).imageNames; }
+        catch {
+          tx.update(live.ref, { status: 'needs_review', error: 'MEDIA_UNAVAILABLE' });
+          addLog(tx, db, job.postId, 'needs_review', 'worker', { channel: job.channel, code: 'MEDIA_UNAVAILABLE' });
+          return null;
+        }
+      }
       if (digest(productFacts(product.data(), job.productId)) !== digest(post.product)
-        || (post.media[job.channel].source === 'web' && JSON.stringify(getStoredProductImageNames(product.data())) !== JSON.stringify(post.media[job.channel].imageNames))) {
+        || (post.media[job.channel].source === 'web' && JSON.stringify(imageNames) !== JSON.stringify(post.media[job.channel].imageNames))) {
         tx.update(live.ref, { status: 'needs_review', error: 'PRODUCT_CHANGED' }); addLog(tx, db, job.postId, 'needs_review', 'worker', { channel: job.channel, code: 'PRODUCT_CHANGED' }); return null;
       }
       tx.update(live.ref, { status: 'publishing', owner, leaseUntil: now + 300000, attempts: job.attempts + 1 });
@@ -58,6 +67,7 @@ export async function processSocialJobs(services) {
     let outcome;
     try {
       const selection = post.media[job.channel];
+      const socialFiles = [];
       let file = bucket.file(selection.source === 'custom' ? selection.storagePath : `product_images/${selection.imageNames[0]}`);
       if (selection.source === 'custom') {
         const [bytes] = await file.download();
@@ -69,11 +79,15 @@ export async function processSocialJobs(services) {
         }
         if (['instagram', 'facebook'].includes(job.channel)) {
           // Freeze the approved source generation before giving Meta a URL.
-          const source = bucket.file(`product_images/${selection.imageNames[0]}`, { generation: selection.generations[0] });
-          const [bytes] = await source.download();
-          const photo = await sharp(bytes, { limitInputPixels: 40000000 }).rotate().resize(1080, 1350, { fit: 'contain', background: '#ffffff' }).jpeg({ quality: 90 }).toBuffer();
-          file = bucket.file(`social_media/publish/${candidate.id}.jpg`);
-          await file.save(photo, { resumable: false, contentType: 'image/jpeg', metadata: { cacheControl: 'private, max-age=0' } });
+          if (selection.imageNames.length > 10) throw new Error('TOO_MANY_SOCIAL_IMAGES');
+          for (let i = 0; i < selection.imageNames.length; i++) {
+            const source = bucket.file(`product_images/${selection.imageNames[i]}`, { generation: selection.generations[i] });
+            const [bytes] = await source.download();
+            const photo = await sharp(bytes, { limitInputPixels: 40000000 }).rotate().resize(1080, 1350, { fit: 'contain', background: '#ffffff' }).jpeg({ quality: 90 }).toBuffer();
+            const prepared = bucket.file(`social_media/publish/${candidate.id}-${i}.jpg`);
+            await prepared.save(photo, { resumable: false, contentType: 'image/jpeg', metadata: { cacheControl: 'private, max-age=0' } });
+            socialFiles.push(prepared);
+          }
         }
       }
       if (job.channel === 'web' || job.channel === 'whatsapp') {
@@ -88,10 +102,10 @@ export async function processSocialJobs(services) {
         else await syncWhatsAppProduct(db, job.productId);
         outcome = { status: 'published' };
       } else {
-        const [imageUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 6 * 3600000 });
-        outcome = await publishSocial(job, post.captions[job.channel], imageUrl, async containerId => {
+        const imageUrls = await Promise.all((socialFiles.length ? socialFiles : [file]).map(async image => (await image.getSignedUrl({ action: 'read', expires: Date.now() + 6 * 3600000 }))[0]));
+        outcome = await publishSocial(job, post.captions[job.channel], imageUrls, async containerId => {
           await candidate.ref.update({ containerId });
-        });
+        }, patch => candidate.ref.update(patch));
       }
     } catch (error) {
       outcome = { status: 'needs_review', error: /^[A-Z_0-9]{1,80}$/.test(error.message) ? error.message : 'PUBLICATION_RESULT_UNKNOWN' };

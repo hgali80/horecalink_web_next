@@ -9,6 +9,7 @@ const source = (await readFile(new URL('../app/lib/server/socialWorker.js', impo
   .replace("import 'server-only';", '')
   .replace("from '../socialPublishing.mjs'", `from '${core}'`)
   .replace("from '../productImageNames.mjs'", `from '${images}'`)
+  .replace("from './socialImages.mjs'", `from '${new URL('../app/lib/server/socialImages.mjs', import.meta.url).href}'`)
   .replace("import { FieldValue } from 'firebase-admin/firestore';", 'const FieldValue = { delete: () => null };')
   .replace("import sharp from 'sharp';", "const sharp = () => ({ rotate() { return this; }, resize() { return this; }, jpeg() { return this; }, toBuffer: async () => Buffer.from('photo') });")
   .replace("import { getAdminServices } from './firebaseAdmin';", 'const getAdminServices = () => { throw new Error("Use test services"); };')
@@ -85,4 +86,15 @@ test('scheduler rejects missing/incorrect credentials', () => {
   const previous = process.env.SOCIAL_CRON_SECRET;
   try { process.env.SOCIAL_CRON_SECRET = 'x'.repeat(32); assert.equal(authorizedWorker(new Request('https://example.com')), false); assert.equal(authorizedWorker(new Request('https://example.com', { headers: { Authorization: `Bearer ${'x'.repeat(32)}` } })), true); }
   finally { if (previous === undefined) delete process.env.SOCIAL_CRON_SECRET; else process.env.SOCIAL_CRON_SECRET = previous; }
+});
+
+test('worker prepares and passes every approved web image in order', async () => {
+ const {db,calls,services}=setup(async()=>({status:'published',remoteId:'remote'}));
+ const names=['image.jpg','image-1.jpg','image-2.jpg'];
+ db.records.get('products/p1').image_names=names;
+ db.records.get('social_posts/post').media.instagram={source:'web',imageNames:names,generations:['1','1','1']};
+ await processSocialJobs(services);
+ assert.equal(calls.length,1);
+ assert.equal(calls[0][2].length,3);
+ assert.equal(db.records.get('social_publish_jobs/job').status,'published');
 });

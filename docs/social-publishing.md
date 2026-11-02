@@ -51,3 +51,11 @@ Meta kimlik testi daha önce kullanıcı bilgisayarında salt okunur başarılı
 `node --test scripts/test-social-publishing.mjs scripts/test-social-transactions.mjs scripts/test-social-worker.mjs scripts/test-whatsapp-catalog.mjs scripts/test-whatsapp-sync.mjs`
 
 `npm run build`
+
+## Web görselleri ve çok görselli sosyal gönderi (2 Kasım 2026)
+
+Yayın merkezi, image_names/imageBase doluysa bu sırayı koruyarak dosyaları doğrular. Liste boşsa ProductGallery ile aynı kod/sku tabanlı 12 aday JPG adını yalnızca Storage metadata sorgularıyla kontrol eder; tüm bucket taranmaz, ürün kaydı değiştirilmez. 404 olmayan depolama hataları boş görsel gibi değerlendirilmez. Görsel nesil numaraları onay içeriğine sabitlenir, işçi göndermeden önce yeniden doğrular.
+
+Web kaynağındaki tüm görseller sırayla hazırlanır. Instagram: her resim için carousel child, tamamlanmalarının kontrolü, caption içeren tek parent ve tek media_publish. Child/parent kimlikleri kalıcıdır; işleme devam edildiğinde yeniden oluşturulmaz. Facebook: her görsel published=false ile yüklenir, hepsi tamamlanınca tek feed gönderisine attached_media ile bağlanır. Belirsiz hata otomatik tekrar yayınlanmaz, needs_review olur. Tek görsel ve PC'den tek özel görsel akışı korunur. Sosyal kanalda 10'dan fazla görsel varsa sessizce eksiltmek yerine işlem engellenir.
+
+Yayın ekranında seçilen ürünün mevcut web görselleri ve sayısı gösterilir; onay önizlemesinde de tüm görseller kaydırılabilir. Motorun kapalı olması ve duraklatma ayarları bu değişiklikle değiştirilmez.

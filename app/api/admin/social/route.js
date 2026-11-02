@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { authorizeAdminRequest } from '@/app/lib/server/firebaseAdmin';
 import { createPost, transitionPost, saveSettings, settings, connectionConfig } from '@/app/lib/server/socialPublishing';
+import { resolveSocialImages } from '@/app/lib/server/socialImages.mjs';
+import { validId } from '@/app/lib/socialPublishing.mjs';
+import { getAdminServices } from '@/app/lib/server/firebaseAdmin';
 
 export const runtime = 'nodejs';
 const roles = new Set(['admin', 'super_admin']);
@@ -10,6 +13,13 @@ export async function GET(request) {
     const auth = await authorizeAdminRequest(request, roles);
     if (!auth.ok) return auth.response;
     const db = auth.adminDb, url = new URL(request.url);
+    if (url.searchParams.has('productImages')) {
+      const id = url.searchParams.get('productImages');
+      if (!validId(id)) return reply({ error: 'Ürün seçin.' }, 400);
+      const product = await db.collection('products').doc(id).get();
+      if (!product.exists) return reply({ error: 'Ürün bulunamadı.' }, 404);
+      return reply(await resolveSocialImages({ ...product.data(), id }, getAdminServices().adminStorage.bucket()));
+    }
     if (url.searchParams.has('products')) {
       const fields = ['name', 'name_ru', 'name_tr', 'name_en', 'name_kk', 'sku', 'stock_code', 'manufacturerCode', 'brand', 'active', 'webPublished', 'whatsappPublished'];
       const result = await db.collection('products').where('active', '==', true).where('webPublished', '==', true).select(...fields).get();

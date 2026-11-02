@@ -8,6 +8,7 @@ const source = (await readFile(new URL('../app/lib/server/socialPublishing.js', 
   .replace("import 'server-only';", '')
   .replace("from '../socialPublishing.mjs'", `from '${core}'`)
   .replace("from '../productImageNames.mjs'", `from '${images}'`)
+  .replace("from './socialImages.mjs'", `from '${new URL('../app/lib/server/socialImages.mjs', import.meta.url).href}'`)
   .replace("import { getAdminServices } from './firebaseAdmin';", "const getAdminServices = () => ({ adminStorage: { bucket: () => ({ file: () => ({ getMetadata: async () => [{ generation: '1' }] }) }) } });");
 const { createPost, transitionPost, saveSettings } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 

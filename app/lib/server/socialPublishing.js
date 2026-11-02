@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHash, randomUUID } from 'node:crypto';
 import { DEFAULT_SETTINGS, normalizeDraft, invalid, validId, productFacts } from '../socialPublishing.mjs';
-import { getStoredProductImageNames } from '../productImageNames.mjs';
+import { resolveSocialImages } from './socialImages.mjs';
 import { getAdminServices } from './firebaseAdmin';
 
 export const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -19,7 +19,7 @@ export async function createPost(db, body, uid) {
     if (!productSnap.exists) throw invalid('Ürün bulunamadı.', 404);
     const product = productSnap.data();
     if (product.active !== true) throw invalid('Pasif ürün için yayın hazırlanamaz.', 409);
-    const images = getStoredProductImageNames(product);
+    let webImages;
     const selections = {};
     for (const channel of draft.channels) {
       if (draft.media[channel].source === 'custom') {
@@ -27,13 +27,10 @@ export async function createPost(db, body, uid) {
         if (!asset || asset.productId !== draft.productId || asset.channel !== channel || asset.status !== 'ready') throw invalid('Görsel bu ürün ve kanala ait değil.');
         selections[channel] = { ...draft.media[channel], storagePath: asset.storagePath, hash: asset.hash };
       } else {
-        if (!images.length || images.some(name => /[/\\\u0000-\u001f]/.test(name))) throw invalid('Ürüne önce web görseli ekleyin.');
-        const { adminStorage } = getAdminServices();
-        const generations = await Promise.all(images.map(async name => {
-          const [metadata] = await adminStorage.bucket().file(`product_images/${name}`).getMetadata();
-          return String(metadata.generation);
-        }));
-        selections[channel] = { source: 'web', imageNames: images, generations };
+        webImages ||= await resolveSocialImages({ ...product, id: draft.productId }, getAdminServices().adminStorage.bucket());
+        if (!webImages.imageNames.length) throw invalid('Ürüne ait web görseli depoda bulunamadı.');
+        if (['instagram', 'facebook'].includes(channel) && webImages.imageNames.length > 10) throw invalid('Sosyal gönderide en fazla 10 görsel desteklenir; görseller eksiltilmeden işlem durduruldu.');
+        selections[channel] = { source: 'web', ...webImages };
       }
     }
     const facts = productFacts(product, draft.productId);
