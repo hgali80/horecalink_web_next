@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useLang } from '../context/LanguageContext';
 import { CELEBRATIONS } from '../lib/celebrations';
 import CelebrationWelcome from './CelebrationWelcome';
+import WelcomeShowcaseGate from './welcome-showcase/WelcomeShowcaseGate';
 
 const CelebrationContext = createContext(null);
 const isInternal = path => path.startsWith('/satissitok') || path.startsWith('/admin') || path === '/login' || path === '/forgot-password';
@@ -67,5 +68,5 @@ function CelebrationOpening() {
   const celebration = useContext(CelebrationContext);
   const { lang } = useLang();
   const pathname = usePathname();
-  return <CelebrationWelcome celebration={celebration} language={lang} enabled={pathname === '/'} />;
+  return <WelcomeShowcaseGate enabled={pathname === '/'}><CelebrationWelcome celebration={celebration} language={lang} enabled={pathname === '/'} /></WelcomeShowcaseGate>;
 }
