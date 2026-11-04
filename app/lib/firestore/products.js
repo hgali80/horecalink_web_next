@@ -2,7 +2,6 @@
 import {
   collection,
   doc,
-  documentId,
   getDoc,
   getDocs,
   limit,
@@ -320,15 +319,22 @@ export async function getRelatedProducts(product, maxItems = 8) {
 export async function getProductFamilyVariants(product) {
   const family = getProductFamilyKey(product);
   if (!family) return [];
+  const familySkus = getProductFamilySkus(family);
   const filters = [[where("productFamilyKey", "==", family)]];
-  // Legacy products derive their family from SKU (or ID when SKU is absent).
-  // Query both so mapped products do not need a database migration.
-  for (const skus of queryValueChunks(getProductFamilySkus(family))) {
+  // Public product rules allow SKU queries, but reject document-ID `in` queries.
+  // Keep legacy ID-only records available through individual published reads.
+  for (const skus of queryValueChunks(familySkus)) {
     filters.push([where("sku", "in", skus)]);
-    filters.push([where(documentId(), "in", skus)]);
   }
   const candidates = await getPublishedCandidates(filters);
-  return candidates
+  const foundSkus = new Set(candidates.map((item) => item.sku).filter(Boolean));
+  const legacyCandidates = (await Promise.all(
+    familySkus
+      .filter((sku) => !foundSkus.has(sku))
+      .map(getPublishedProductById)
+  )).filter(Boolean);
+  return [...new Map([...candidates, ...legacyCandidates].map((item) => [item.id, item])).values()]
+    .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
     .filter((item) => getProductFamilyKey(item) === family)
     .sort((a, b) => (a.dimensions || a.manufacturerCode).localeCompare(
       b.dimensions || b.manufacturerCode, "ru", { numeric: true }));

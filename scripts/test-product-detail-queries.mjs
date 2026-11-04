@@ -17,11 +17,13 @@ function harness(rows) {
     collection: () => 'products',
     doc: (db, collection, id) => ({ id }),
     getDoc: async ({ id }) => {
-      calls.push({ id });
+      const call = { id, count: 0 };
+      calls.push(call);
       const document = documents.find(item => item.id === id);
       if (!document || document.data().active !== true || document.data().webPublished !== true) {
         throw Object.assign(new Error('Private or missing product'), { code: 'permission-denied' });
       }
+      call.count = 1;
       return { ...document, exists: () => true };
     },
     documentId: () => '__name__',
