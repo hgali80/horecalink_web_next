@@ -335,6 +335,15 @@ export async function createQuoteRequest({ user, form, items, production }) {
 
   const ref = await addDoc(collection(db, COLLECTION_NAME), payload);
 
+  // Quote creation remains successful even when the optional admin push is
+  // temporarily unavailable. The server claims and sends at most one push.
+  await fetch("/api/quotes/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify({ requestId: ref.id }),
+  }).catch((error) => console.error("Admin quote notification failed:", error));
+
   if (!user?.uid) {
     saveGuestQuoteAccess(ref.id, accessKey);
   }
