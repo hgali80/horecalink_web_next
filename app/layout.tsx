@@ -5,6 +5,7 @@ import PwaInstallBanner from "./components/PwaInstallBanner";
 import Header from "./components/Header";
 import { CelebrationProvider, CelebrationBanner } from "./components/Celebration";
 import VisitorTracker from "./components/VisitorTracker";
+import GoogleAnalytics from "./components/GoogleAnalytics";
 import { AuthProvider } from "./context/AuthContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import { getBaseUrl, getGoogleSiteVerification } from "./lib/server/siteConfig";
@@ -65,6 +66,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <CelebrationProvider>
             <PwaInstallBanner />
             <VisitorTracker />
+            <GoogleAnalytics />
             <CelebrationBanner />
             <Header />
             {children}

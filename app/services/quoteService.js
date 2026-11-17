@@ -335,6 +335,15 @@ export async function createQuoteRequest({ user, form, items, production }) {
 
   const ref = await addDoc(collection(db, COLLECTION_NAME), payload);
 
+  if (typeof window !== "undefined" && typeof window.gtag === "function") {
+    window.gtag("event", "generate_lead", {
+      currency: "KZT",
+      ...(listAmount > 0 ? { value: listAmount } : {}),
+      lead_source: isProduction ? "production_request" : "quote_request",
+      item_count: normalizedItems.length,
+    });
+  }
+
   // Quote creation remains successful even when the optional admin push is
   // temporarily unavailable. The server claims and sends at most one push.
   await fetch("/api/quotes/notify", {

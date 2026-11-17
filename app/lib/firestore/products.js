@@ -113,7 +113,7 @@ function normalizeUnknown(value) {
   return value;
 }
 
-function normalizeProduct(doc) {
+export function normalizeProduct(doc) {
   const data = doc.data();
   const imageNames = normalizeArray(data.image_names);
   const fallbackImageBase = cleanText(data.imageBase);
