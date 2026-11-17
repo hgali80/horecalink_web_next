@@ -15,10 +15,20 @@ export async function POST(request) {
     );
     if (!authorization.ok) return authorization.response;
 
-    revalidatePublicProductPages();
+    const cacheRevalidated = revalidatePublicProductPages();
+    if (!cacheRevalidated) {
+      return NextResponse.json(
+        {
+          ok: false,
+          cacheRevalidated: false,
+          error: "Ürün değişikliği kaydedildi; ürün sayfası önbelleği yenilenemedi.",
+        },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
+    }
 
     return NextResponse.json(
-      { ok: true },
+      { ok: true, cacheRevalidated: true },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {

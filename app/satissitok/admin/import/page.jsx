@@ -101,12 +101,19 @@ export default function ProductImportPage() {
 
       setResult(data.result || null);
       setDetails([]);
-      setMessage(
-        dryRun
-          ? "Onizleme tamamlandi. Sonuclari inceleyip gercek importu calistirabilirsin."
-          : "Import tamamlandi. Firestore products koleksiyonu Excel ile senkronize edildi."
-      );
-      setMessageTone("green");
+      if (data.result?.dryRun === false && data.cacheRevalidated === false) {
+        setMessage(
+          data.warning || "Import tamamlandı; ürün sayfası önbelleği yenilenemedi. Aynı importu yeniden çalıştırmayın."
+        );
+        setMessageTone("amber");
+      } else {
+        setMessage(
+          dryRun
+            ? "Onizleme tamamlandi. Sonuclari inceleyip gercek importu calistirabilirsin."
+            : "Import tamamlandi. Firestore products koleksiyonu Excel ile senkronize edildi."
+        );
+        setMessageTone("green");
+      }
     } catch (error) {
       setMessage(error?.message || "Import islemi basarisiz oldu.");
       setMessageTone("red");
@@ -321,7 +328,9 @@ export default function ProductImportPage() {
                   ? "border-emerald-200 bg-emerald-50 text-emerald-900"
                   : messageTone === "red"
                     ? "border-rose-200 bg-rose-50 text-rose-900"
-                    : "border-slate-200 bg-slate-50 text-slate-800"
+                    : messageTone === "amber"
+                      ? "border-amber-200 bg-amber-50 text-amber-900"
+                      : "border-slate-200 bg-slate-50 text-slate-800"
               }`}
             >
               {message}

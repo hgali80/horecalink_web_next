@@ -134,7 +134,17 @@ export async function POST(request) {
     }
 
     if (result?.dryRun === false) {
-      revalidatePublicProductPages();
+      const cacheRevalidated = revalidatePublicProductPages();
+      return NextResponse.json({
+        ok: true,
+        result,
+        cacheRevalidated,
+        ...(cacheRevalidated
+          ? {}
+          : {
+              warning: "Import tamamlandı; ürün sayfası önbelleği yenilenemedi. Aynı importu yeniden çalıştırmayın.",
+            }),
+      });
     }
 
     return NextResponse.json({ ok: true, result });

@@ -202,7 +202,7 @@ function buildPackagingSummary(product, t) {
   };
 }
 
-export default function ProductDetailClient({ product, relatedProducts, familyVariants = [] }) {
+export default function ProductDetailClient({ product, relatedProducts, familyVariants = [], familyVariantsStatus = "fulfilled" }) {
   const { t } = useLang();
   const [activeTab, setActiveTab] = useState("description");
   const productTitle =
@@ -412,7 +412,12 @@ export default function ProductDetailClient({ product, relatedProducts, familyVa
           </div>
         </div>
 
-        <ProductFamilyVariants key={product.id} product={product} variants={familyVariants} />
+        <ProductFamilyVariants
+          key={product.id}
+          product={product}
+          variants={familyVariants}
+          status={familyVariantsStatus}
+        />
 
         <div className="mt-24">
           <div className="flex overflow-x-auto border-b border-[#e6e8ea]">

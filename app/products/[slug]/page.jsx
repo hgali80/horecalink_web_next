@@ -221,7 +221,11 @@ export default async function ProductDetailPage({ params }) {
     notFound();
   }
 
-  const { relatedProducts, familyVariants } = pageData;
+  const {
+    relatedProducts,
+    familyVariants,
+    familyVariantsStatus = "fulfilled",
+  } = pageData;
   const productJsonLd = buildProductJsonLd(hydratedProduct);
 
   return (
@@ -232,7 +236,12 @@ export default async function ProductDetailPage({ params }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
         />
       ) : null}
-      <ProductDetailClient product={hydratedProduct} relatedProducts={relatedProducts} familyVariants={familyVariants} />
+      <ProductDetailClient
+        product={hydratedProduct}
+        relatedProducts={relatedProducts}
+        familyVariants={familyVariants}
+        familyVariantsStatus={familyVariantsStatus}
+      />
     </>
   );
 }

@@ -7,10 +7,30 @@ import { getProductFamilyTitle } from "../lib/catalog/productFamilies";
 import { familyLabels } from "../lib/catalog/familyLabels";
 import ProductQuoteActions from "./ProductQuoteActions";
 
-export default function ProductFamilyVariants({ product, variants = [] }) {
+export default function ProductFamilyVariants({ product, variants = [], status = "fulfilled" }) {
   const { lang } = useLang();
   const labels = familyLabels[lang] || familyLabels.ru;
   const [search, setSearch] = useState("");
+
+  if (status === "rejected") {
+    const unavailable = {
+      ru: "Не удалось загрузить полный список вариантов. Попробуйте открыть страницу позже.",
+      tr: "Seçeneklerin tam listesi yüklenemedi. Lütfen sayfayı daha sonra tekrar açın.",
+      en: "The complete variant list could not be loaded. Please try again later.",
+      kz: "Нұсқалардың толық тізімін жүктеу мүмкін болмады. Бетті кейінірек қайта ашыңыз.",
+    }[lang] || "The complete variant list could not be loaded. Please try again later.";
+
+    return (
+      <section
+        role="status"
+        aria-live="polite"
+        className="mt-12 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:p-6"
+      >
+        {unavailable}
+      </section>
+    );
+  }
+
   if (!variants.length) return null;
   const matching = variants.filter((item) =>
     [item.dimensions, item.manufacturerCode, item.sku].join(" ").toLowerCase().includes(search.trim().toLowerCase()));
