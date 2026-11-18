@@ -44,11 +44,12 @@ function load(name) {
   const names = [...source.matchAll(/export (?:async )?(?:function|const) (\w+)/g)].map(match => match[1]);
   vm.runInContext(`(() => { ${source.replace(/^import[\s\S]*?from\s+["'][^"']+["'];\s*/gm, "").replace(/^export /gm, "")} Object.assign(globalThis, { ${names.join(",")} }); })()`, context, { filename: name });
 }
-for (const name of ["erpCollections.js", "erpCashAccountRules.js", "erpDocumentsService.js", "erpFinanceService.js", "erpDocumentMutationService.js", "erpCancellationStock.js", "erpDocumentCancellationService.js", "erpCariBalance.js"]) load(name);
+for (const name of ["erpCollections.js", "erpVat.js", "erpCashAccountRules.js", "erpDocumentsService.js", "erpFinanceService.js", "erpSalesStockCost.js", "erpDocumentMutationService.js", "erpCancellationStock.js", "erpDocumentCancellationService.js", "erpCariBalance.js"]) load(name);
 context.listErpProductOptions = async () => [{ id: "p1", name: "Product", sku: "P1" }];
 context.listErpCaris = async () => [];
 context.getErpSettings = async () => ({ salesPlatforms: [] });
 load("erpStockService.js");
+load("erpReportVat.js");
 load("erpReportsService.js");
 load("erpPriceMemoryService.js");
 const get = (name, id) => records.get(`${name}/${id}`);
@@ -106,18 +107,31 @@ async function main() {
   assert.equal(balance().rAvgCost, 0);
   assert.equal(list("erp_stock_movements").filter(row => row.status !== "cancelled").length, 0);
 
-  // Multiple identical product rows, mixed buckets, manual cost and additional costs.
+  // Both rows use the document bucket, even with a conflicting legacy stock source.
   reset();
   const duplicate = await confirm("purchases", [item(2, 10), item(3, 20)], { additionalCostTotal: 10 });
   assert.equal(balance().rQty, 5);
   assert.equal(balance().rAvgCost, 18);
   const fPurchase = await confirm("purchases", [item(5, 50)], { docType: "F" });
-  const mixed = await confirm("sales", [item(1, 70, { stockSourceType: "R", manualUnitCost: 7 }), item(1, 70, { stockSourceType: "F" })], { additionalCostTotal: 4 });
-  assert.equal(get("erp_sales", mixed).realizedCostTotal, 61);
+  const saleWithCostChoice = await confirm("sales", [
+    item(1, 70, { stockSourceType: "R", manualUnitCost: 7 }),
+    item(1, 70, { useOfficialCost: true }),
+    item(1, 70),
+  ], { docType: "F", additionalCostTotal: 6 });
+  assert.equal(get("erp_sales", saleWithCostChoice).realizedCostTotal, 113);
+  assert.equal(balance().rQty, 5);
+  assert.equal(balance().fQty, 2);
   await cancel("purchases", fPurchase);
-  assert.equal(get("erp_sales", mixed).realizedCostTotal, 29); // manual 7 + fallback R18 + extras4
-  assert.equal(balance().fQty, -1);
-  await cancel("sales", mixed);
+  assert.equal(get("erp_sales", saleWithCostChoice).realizedCostTotal, 31); // manual 7 + selected R18 + extras6
+  assert.equal(balance().fQty, -3);
+  const saleMovements = list("erp_stock_movements").filter(row => row.documentId === saleWithCostChoice);
+  assert.equal(saleMovements[1].costBucketUsed, "R");
+  assert.equal(saleMovements[2].effectiveUnitCost, 0);
+  await cancel("sales", saleWithCostChoice);
+  const officialSale = await confirm("sales", [item(1, 70, { stockSourceType: "F" })]);
+  assert.equal(balance().rQty, 4);
+  assert.equal(balance().fQty, 0);
+  await cancel("sales", officialSale);
   await cancel("purchases", duplicate);
   assert.equal(balance().totalQty, 0);
 

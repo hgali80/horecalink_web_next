@@ -29,7 +29,7 @@ const context = vm.createContext({
     return result;
   },
 });
-for (const name of ["erpCollections.js", "erpCashAccountRules.js", "erpFinanceService.js"]) {
+for (const name of ["erpCollections.js", "erpVat.js", "erpSalesStockCost.js", "erpCashAccountRules.js", "erpFinanceService.js"]) {
   const source = fs.readFileSync(path.join(base, name), "utf8")
     .replace(/^import[\s\S]*?from\s+["'][^"']+["'];\s*/gm, "")
     .replace(/^export /gm, "");

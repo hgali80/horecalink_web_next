@@ -8,7 +8,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, CopyPlus, PlusCircle, Search, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, CopyPlus, PlusCircle, Trash2, X } from "lucide-react";
 import { listErpCariOptions } from "../_services/erpCarisService";
 import { getCounterPreview } from "../_services/erpCounterService";
 import { getErpDocument } from "../_services/erpDocumentsService";
@@ -26,6 +26,7 @@ import {
 import { listErpProductOptions } from "../_services/erpProductsService";
 import { getErpSettings } from "../_services/erpSettingsService";
 import { listErpStockBalances } from "../_services/erpStockService";
+import { resolveErpSalesStockCost } from "../_services/erpSalesStockCost";
 import ErpSalesPdfButton from "./ErpSalesPdfButton";
 import ErpDocumentCancellation from "./ErpDocumentCancellation";
 
@@ -86,7 +87,7 @@ function newRowId() {
   return `row_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function emptyItem(defaultBucket) {
+function emptyItem() {
   return {
     rowId: newRowId(),
     productId: "",
@@ -95,7 +96,6 @@ function emptyItem(defaultBucket) {
     unit: "adet",
     quantity: 1,
     unitPrice: 0,
-    stockSourceType: defaultBucket,
     stockTracked: true,
     webPublished: false,
     manualUnitCost: "",
@@ -136,38 +136,7 @@ function allocateAdditionalCost(items = [], additionalCostTotal = 0) {
   });
 }
 
-function resolveStockCost(balance, bucket) {
-  const current = balance || {};
-  const preferredAvg = bucket === "F" ? num(current.fAvgCost, 0) : num(current.rAvgCost, 0);
-  const preferredQty = bucket === "F" ? num(current.fQty, 0) : num(current.rQty, 0);
-  const fallbackAvg = bucket === "F" ? num(current.rAvgCost, 0) : num(current.fAvgCost, 0);
-  const fallbackBucket = bucket === "F" ? "R" : "F";
-
-  if (preferredQty > 0 && preferredAvg > 0) {
-    return { unitCost: round2(preferredAvg), source: bucket, fallback: false };
-  }
-
-  if (preferredAvg > 0) {
-    return { unitCost: round2(preferredAvg), source: bucket, fallback: false };
-  }
-
-  if (fallbackAvg > 0) {
-    return { unitCost: round2(fallbackAvg), source: fallbackBucket, fallback: true };
-  }
-
-  return { unitCost: 0, source: bucket, fallback: false };
-}
-
-function mergeableKey(item) {
-  return [
-    text(item.productId),
-    round2(item.unitPrice),
-    text(item.stockSourceType || "R"),
-    round2(item.manualUnitCost),
-  ].join("__");
-}
-
-function buildProductSeed(product, docType) {
+function buildProductSeed(product) {
   return {
     rowId: newRowId(),
     productId: product.id,
@@ -176,7 +145,6 @@ function buildProductSeed(product, docType) {
     unit: product.unit || "adet",
     quantity: 1,
     unitPrice: num(product.price, 0),
-    stockSourceType: docType,
     stockTracked: product.stockTracked !== false,
     webPublished: product.webPublished === true,
     manualUnitCost: "",
@@ -232,9 +200,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
   const [productOptions, setProductOptions] = useState([]);
   const [stockBalanceMap, setStockBalanceMap] = useState(new Map());
   const [priceMemory, setPriceMemory] = useState({ sales: [], purchases: [] });
-  const [productQuery, setProductQuery] = useState("");
-  const [selectedProductId, setSelectedProductId] = useState("");
-  const [separateLineMode, setSeparateLineMode] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [pickerState, setPickerState] = useState({ rowId: "", query: "" });
   const [previews, setPreviews] = useState({ draft: "", document: "", invoice: "" });
@@ -264,19 +229,11 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
   const warehouseOptions = useMemo(() => settings?.warehouses || [], [settings]);
   const platformOptions = useMemo(() => settings?.salesPlatforms || [], [settings]);
   const paymentMethods = useMemo(() => settings?.paymentMethods || [], [settings]);
-  const selectedProduct = useMemo(
-    () => productOptions.find((item) => item.id === selectedProductId) || null,
-    [productOptions, selectedProductId]
-  );
   const pickerRow = useMemo(
     () => (pickerState.rowId ? (form.items || []).find((item) => item.rowId === pickerState.rowId) || null : null),
     [form.items, pickerState.rowId]
   );
 
-  const filteredProducts = useMemo(
-    () => filterProducts(productOptions, productQuery, isSales),
-    [isSales, productOptions, productQuery]
-  );
   const pickerProducts = useMemo(
     () => filterProducts(productOptions, pickerState.query, isSales),
     [isSales, pickerState.query, productOptions]
@@ -286,9 +243,10 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
     return (form.items || []).map((item) => {
       const quantity = num(item.quantity, 0);
       const unitPrice = num(item.unitPrice, 0);
-      const stockSourceType = text(item.stockSourceType || form.docType).toUpperCase() === "F" ? "F" : "R";
       const balance = stockBalanceMap.get(text(item.productId)) || null;
-      const stockCost = resolveStockCost(balance, stockSourceType);
+      const stockCost = resolveErpSalesStockCost(balance, form.docType, item.useOfficialCost === true);
+      const officialCost = resolveErpSalesStockCost(balance, form.docType, true);
+      const canUseOfficialCost = isSales && officialCost.usedFallback;
       const manualUnitCost = isSales ? round2(item.manualUnitCost) : 0;
       const vat = calculateErpVatLine(quantity, unitPrice, form.docType, form.vatMode);
       const baseCostUnit = isSales
@@ -319,11 +277,11 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
         unitPrice,
         ...vat,
         lineTotal,
-        stockSourceType,
+        canUseOfficialCost,
         manualUnitCost: manualUnitCost > 0 ? manualUnitCost : "",
         systemCostUnit: stockCost.unitCost,
-        stockCostSource: stockCost.source,
-        usedFallback: stockCost.fallback,
+        stockCostSource: stockCost.costBucket,
+        usedFallback: stockCost.usedFallback,
         baseCostUnit,
         baseCostLineTotal,
         salesHints,
@@ -424,13 +382,13 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                     unit: text(item.unit || "adet"),
                     quantity: num(item.quantity, 1),
                     unitPrice: num(item.unitPrice, 0),
-                    stockSourceType: text(item.stockSourceType || existingDocument.docType || "R"),
+                    useOfficialCost: item.useOfficialCost === true,
                     stockTracked: item.stockTracked !== false,
                     webPublished: item.webPublished === true,
                     manualUnitCost: item?.manualUnitCost ? String(num(item.manualUnitCost, 0)) : "",
                     notes: text(item.notes),
                   }))
-                : [emptyItem(existingDocument.docType || "R")],
+                : [emptyItem()],
               documentNo: text(existingDocument.documentNo),
               invoiceNo: text(existingDocument.invoiceNo),
               instantPaymentEnabled: existingDocument?.payment?.enabled === true,
@@ -448,7 +406,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
             platformKey: current.platformKey || defaultPlatform?.key || "",
             paymentMethod: current.paymentMethod || defaultPayment?.key || "",
             accountId: current.accountId || nextAccounts?.[0]?.value || "",
-            items: current.items?.length ? current.items : [emptyItem(current.docType || "R")],
+            items: current.items?.length ? current.items : [emptyItem()],
           };
         });
       } catch (err) {
@@ -523,7 +481,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
 
   function createSeedFromProduct(product) {
     return {
-      ...buildProductSeed(product, form.docType),
+      ...buildProductSeed(product),
       unitPrice: resolveInitialUnitPrice(product),
       automaticSalesPrice: isSales,
       defaultSalesPrice: num(product.price, 0),
@@ -571,7 +529,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       const nextItems = (current.items || []).filter((item) => item.rowId !== rowId);
       return {
         ...current,
-        items: nextItems.length ? nextItems : [emptyItem(current.docType)],
+        items: nextItems.length ? nextItems : [emptyItem()],
       };
     });
   }
@@ -588,7 +546,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
   }
 
   function addManualItem() {
-    const nextItem = emptyItem(form.docType);
+    const nextItem = emptyItem();
     setForm((current) => ({
       ...current,
       items: [...(current.items || []), nextItem],
@@ -608,33 +566,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
     }));
   }
 
-  function addSelectedProduct() {
-    const product = productOptions.find((item) => item.id === selectedProductId);
-    if (!product) return;
-
-    const productSeed = createSeedFromProduct(product);
-    setForm((current) => {
-      const currentItems = [...(current.items || [])];
-      const mergeKey = mergeableKey(productSeed);
-      const existingIndex = currentItems.findIndex((item) => mergeableKey(item) === mergeKey);
-
-      if (!separateLineMode && existingIndex >= 0) {
-        currentItems[existingIndex] = {
-          ...currentItems[existingIndex],
-          quantity: round2(num(currentItems[existingIndex].quantity, 0) + 1),
-        };
-        setNotice(`${product.name} mevcut satira eklendi (+1).`);
-        return { ...current, items: currentItems };
-      }
-
-      setNotice(`${product.name} yeni satir olarak eklendi.`);
-      return { ...current, items: [...currentItems, productSeed] };
-    });
-
-    setSelectedProductId("");
-    setProductQuery("");
-  }
-
   function assignProductToRow(rowId, product) {
     if (!rowId || !product) return;
     const productSeed = createSeedFromProduct(product);
@@ -651,6 +582,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
               unitPrice: productSeed.unitPrice,
               automaticSalesPrice: productSeed.automaticSalesPrice,
               defaultSalesPrice: productSeed.defaultSalesPrice,
+              useOfficialCost: item.productId === productSeed.productId && item.useOfficialCost === true,
               stockTracked: productSeed.stockTracked,
               webPublished: productSeed.webPublished,
             }
@@ -852,14 +784,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">
-              <input
-                type="checkbox"
-                checked={separateLineMode}
-                onChange={(event) => setSeparateLineMode(event.target.checked)}
-              />
-              Hizli eklemede ayri satir kullan
-            </label>
             <button
               type="button"
               onClick={addManualItem}
@@ -868,47 +792,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
               <PlusCircle size={14} />
               Satir Ekle
             </button>
-          </div>
-        </div>
-
-        <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
-          <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-            <Search size={14} />
-            Hizli Ekle
-          </div>
-          <div className="grid gap-3 xl:grid-cols-[1.15fr_1fr_auto]">
-            <InputShell
-              value={productQuery}
-              onChange={(event) => setProductQuery(event.target.value)}
-              placeholder="Turkce, Rusca, SKU, barkod veya marka ara"
-            />
-            <SelectShell value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}>
-              <option value="">Urun sec</option>
-              {filteredProducts.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} {item.nameRu ? ` / ${item.nameRu}` : ""} {item.sku ? `(${item.sku})` : ""}
-                </option>
-              ))}
-            </SelectShell>
-            <button
-              type="button"
-              onClick={addSelectedProduct}
-              disabled={!selectedProductId}
-              className="rounded-2xl bg-[#1d3246] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#243f58] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Urun Ekle
-            </button>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-            <div>{filteredProducts.length} urun listeleniyor</div>
-            {selectedProduct ? (
-              <div className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700">
-                Secili: {selectedProduct.name} {selectedProduct.sku ? ` - ${selectedProduct.sku}` : ""}
-              </div>
-            ) : (
-              <div>Bu alan opsiyonel hizli ekleme icin duruyor; ana kullanim satir icinden urun secmek.</div>
-            )}
           </div>
         </div>
 
@@ -922,7 +805,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                 <th className="px-3 py-3 font-semibold min-w-[100px]">Birim</th>
                 <th className="px-3 py-3 font-semibold min-w-[140px]">{isSales ? "Satis Fiyati" : "Alis Fiyati"}</th>
                 <th className="px-3 py-3 font-semibold min-w-[130px]">Tutar</th>
-                <th className="px-3 py-3 font-semibold min-w-[140px]">{isSales ? "Stok Kaynagi" : "Efektif Maliyet"}</th>
+                <th className="px-3 py-3 font-semibold min-w-[140px]">{isSales ? "Birim Maliyet" : "Efektif Maliyet"}</th>
                 <th className="px-3 py-3 font-semibold min-w-[160px]">{isSales ? "Satir Kar" : "Son Fiyat"}</th>
                 <th className="px-3 py-3 font-semibold min-w-[220px]">Islem</th>
               </tr>
@@ -1021,14 +904,19 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                       <td className="px-3 py-3 font-semibold text-slate-900">{fmtMoney(item.grossTotal)} KZT</td>
                       <td className="px-3 py-3">
                         {isSales ? (
-                          <select
-                            value={item.stockSourceType || form.docType}
-                            onChange={(event) => updateItem(item.rowId, "stockSourceType", event.target.value)}
-                            className={selectClassName("min-w-[110px]")}
-                          >
-                            <option value="R">R stok</option>
-                            <option value="F">F stok</option>
-                          </select>
+                          <div className="space-y-1">
+                            <div className="font-semibold text-slate-900">{fmtMoney(item.baseCostUnit)} KZT</div>
+                            {item.canUseOfficialCost && !item.manualUnitCost ? (
+                              <label className="flex items-start gap-2 text-xs text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={item.useOfficialCost === true}
+                                  onChange={(event) => updateItem(item.rowId, "useOfficialCost", event.target.checked)}
+                                />
+                                <span>Resmî maliyeti kullan ({fmtMoney(item.balance.rAvgCost)} KZT)</span>
+                              </label>
+                            ) : null}
+                          </div>
                         ) : (
                           <div className="space-y-1">
                             <div className="font-semibold text-slate-900">{fmtMoney(item.effectiveUnitCost)} KZT</div>
@@ -1111,7 +999,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                                       item.manualUnitCost
                                         ? "manuel"
                                         : item.usedFallback
-                                          ? `fallback (${item.stockCostSource})`
+                                          ? "Resmî alış maliyeti"
                                           : `${item.stockCostSource} stok`
                                     }
                                   />
@@ -1439,18 +1327,6 @@ function inputClassName(extra = "") {
 
 function selectClassName(extra = "") {
   return `rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white ${extra}`.trim();
-}
-
-function InputShell({ value, onChange, placeholder = "" }) {
-  return <input value={value} onChange={onChange} placeholder={placeholder} className={inputClassName("w-full px-4 py-3 rounded-2xl")} />;
-}
-
-function SelectShell({ value, onChange, children }) {
-  return (
-    <select value={value} onChange={onChange} className={selectClassName("w-full px-4 py-3 rounded-2xl")}>
-      {children}
-    </select>
-  );
 }
 
 function InputField({ label, value, onChange, type = "text", placeholder = "", compact = false }) {

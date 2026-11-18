@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
+import { resolveErpSalesStockCost } from "./erpSalesStockCost";
 import { calculateErpVatLine, summarizeErpVat } from "./erpVat";
 import { db } from "@/firebase";
 import { ERP_COLLECTIONS } from "./erpCollections";
@@ -79,7 +80,8 @@ function normalizeItems(items = [], fallbackBucket = "R", vatMode = "unknown") {
         quantity,
         unitPrice,
         ...calculateErpVatLine(quantity, unitPrice, fallbackBucket, vatMode),
-        stockSourceType: text(item?.stockSourceType).toUpperCase() === "F" ? "F" : fallbackBucket,
+        stockSourceType: fallbackBucket,
+        useOfficialCost: item?.useOfficialCost === true,
         stockTracked: item?.stockTracked !== false,
         webPublished: item?.webPublished === true,
         manualUnitCost: manualUnitCost > 0 ? round2(manualUnitCost) : 0,
@@ -280,27 +282,6 @@ function normalizePayload(kind, payload = {}) {
   return base;
 }
 
-function resolveOutgoingCost(balanceData = {}, bucket = "R") {
-  const preferredQty = bucket === "R" ? num(balanceData.rQty, 0) : num(balanceData.fQty, 0);
-  const preferredAvg = bucket === "R" ? num(balanceData.rAvgCost, 0) : num(balanceData.fAvgCost, 0);
-  const otherAvg = bucket === "R" ? num(balanceData.fAvgCost, 0) : num(balanceData.rAvgCost, 0);
-  const otherBucket = bucket === "R" ? "F" : "R";
-
-  if (preferredQty > 0 && preferredAvg > 0) {
-    return { unitCost: round2(preferredAvg), costBucket: bucket, usedFallback: false };
-  }
-
-  if (preferredAvg > 0) {
-    return { unitCost: round2(preferredAvg), costBucket: bucket, usedFallback: false };
-  }
-
-  if (otherAvg > 0) {
-    return { unitCost: round2(otherAvg), costBucket: otherBucket, usedFallback: true };
-  }
-
-  return { unitCost: 0, costBucket: bucket, usedFallback: false };
-}
-
 async function applyStockEffects({
   transaction,
   deferredWrites,
@@ -317,12 +298,7 @@ async function applyStockEffects({
   for (const item of normalized.items || []) {
     if (!item.productId || item.stockTracked === false || num(item.quantity, 0) <= 0) continue;
 
-    const bucket =
-      kind === "purchases"
-        ? normalized.docType
-        : text(item.stockSourceType).toUpperCase() === "F"
-          ? "F"
-          : "R";
+    const bucket = normalized.docType;
     const quantity = num(item.quantity, 0);
     const balanceRef = doc(db, ERP_COLLECTIONS.STOCK_BALANCES, item.productId);
     const balanceSnap = await transaction.get(balanceRef);
@@ -370,7 +346,7 @@ async function applyStockEffects({
         manualCostApplied = true;
         costSource = "manual";
       } else {
-        const outgoing = resolveOutgoingCost(balanceData, bucket);
+        const outgoing = resolveErpSalesStockCost(balanceData, bucket, item.useOfficialCost);
         movementUnitCost = round2(outgoing.unitCost);
         costBucketUsed = outgoing.costBucket;
         usedFallback = outgoing.usedFallback === true;
@@ -424,6 +400,7 @@ async function applyStockEffects({
       effectiveLineCost: movementLineCost,
       costBucketUsed,
       usedCostFallback: usedFallback,
+      ...(kind === "sales" ? { useOfficialCost: item.useOfficialCost } : {}),
       manualCostApplied,
       manualUnitCost: round2(item.manualUnitCost),
       costSource,

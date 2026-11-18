@@ -1,3 +1,5 @@
+import { resolveErpSalesStockCost } from "./erpSalesStockCost";
+
 // Replay the existing moving-average ledger, without deleting its audit trail.
 const round = value => Math.round(Number(value) * 100) / 100;
 const number = value => Number(value || 0);
@@ -24,13 +26,23 @@ function replay(origin, rows) {
       balance[`${bucket}Qty`] = next;
     } else {
       const manual = row.manualCostApplied === true || number(row.manualUnitCost) > 0;
-      const fallback = !manual && balance[`${bucket}AvgCost`] <= 0 && balance[`${other}AvgCost`] > 0;
-      const unitCost = round(manual ? row.manualUnitCost || row.effectiveUnitCost
-        : balance[`${fallback ? other : bucket}AvgCost`]);
+      const stockBucket = bucket.toUpperCase();
+      // Older movements used automatic cross-bucket costing.
+      const legacyFallback = row.useOfficialCost === undefined
+        && balance[`${bucket}AvgCost`] <= 0 && balance[`${other}AvgCost`] > 0;
+      const outgoing = row.useOfficialCost === undefined
+        ? {
+            unitCost: round(balance[`${legacyFallback ? other : bucket}AvgCost`]),
+            costBucket: legacyFallback ? other.toUpperCase() : stockBucket,
+            usedFallback: legacyFallback,
+          }
+        : resolveErpSalesStockCost(balance, stockBucket, row.useOfficialCost);
+      const fallback = !manual && outgoing.usedFallback;
+      const unitCost = manual ? round(row.manualUnitCost || row.effectiveUnitCost) : outgoing.unitCost;
       costs.set(row.id, {
         effectiveUnitCost: unitCost,
         effectiveLineCost: round(unitCost * qty + number(row.additionalCostShare)),
-        costBucketUsed: (fallback ? other : bucket).toUpperCase(),
+        costBucketUsed: manual ? stockBucket : outgoing.costBucket,
         usedCostFallback: fallback,
         costSource: manual ? "manual" : fallback ? "fallback" : "stock_average",
       });
