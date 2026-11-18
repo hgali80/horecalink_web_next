@@ -36,9 +36,10 @@ function buildPriceHint(label, value, meta = {}) {
 
 function hintPrice(match, docType, vatMode) {
   const price = num(match.item.unitPrice);
+  const sourceVatMode = match.item.vatMode ?? match.row.vatMode;
   if (match.row.docType !== "R" || docType !== "R" ||
-      !["included", "excluded"].includes(match.row.vatMode) ||
-      !["included", "excluded"].includes(vatMode) || match.row.vatMode === vatMode) return price;
+      !["included", "excluded"].includes(sourceVatMode) ||
+      !["included", "excluded"].includes(vatMode) || sourceVatMode === vatMode) return price;
   return vatMode === "included" ? price * 1.16 : price / 1.16;
 }
 
@@ -87,7 +88,7 @@ export function resolveErpSalesPriceHints({ rows, productId, cariId, docType, va
       ? buildPriceHint("Bu cariye son satis", hintPrice(byCari, docType, vatMode), {
           documentNo: text(byCari.row.documentNo),
           sourceDocType: byCari.row.docType,
-          sourceVatMode: byCari.row.vatMode || "unknown",
+          sourceVatMode: byCari.item.vatMode ?? byCari.row.vatMode ?? "unknown",
         })
       : null,
     lastSaleByDocType: byDocType
@@ -103,7 +104,7 @@ export function resolveErpSalesPriceHints({ rows, productId, cariId, docType, va
 export function refreshAutomaticSalesPrices(items, rows, { cariId, docType, vatMode }) {
   return items.map((item) => {
     if (!item.automaticSalesPrice || !item.productId) return item;
-    const hints = resolveErpSalesPriceHints({ rows, productId: item.productId, cariId, docType, vatMode });
+    const hints = resolveErpSalesPriceHints({ rows, productId: item.productId, cariId, docType, vatMode: item.vatMode ?? vatMode });
     return { ...item, unitPrice: round2(hints.lastSaleByCari?.value ?? hints.lastSale?.value ?? item.defaultSalesPrice ?? 0) };
   });
 }

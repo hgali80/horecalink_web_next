@@ -78,6 +78,10 @@ export default function ErpSalesPdf({ record, seller = {}, fontUrl, language = "
   const buyer = record.cariSnapshot || {};
   const status = record.status === "confirmed" ? t.confirmed : record.status === "cancelled" ? t.cancelled : t.draft;
   const items = Array.isArray(record.items) ? record.items : [];
+  const showRowVatMode = official && record.vatMode === "mixed";
+  const vatPriceLabels = language === "kz"
+    ? { included: "ҚҚС-пен", excluded: "ҚҚС-сыз" }
+    : { included: "С НДС", excluded: "Без НДС" };
   return h(Document, { title: `${official ? t.saleTitle : t.dispatchTitle} ${number}`, author: "HorecaLink" },
     h(Page, { size: "A4", style: s.page, wrap: true },
       h(View, { style: s.block },
@@ -101,12 +105,12 @@ export default function ErpSalesPdf({ record, seller = {}, fontUrl, language = "
       ...items.map((item, index) => h(View, { style: s.row, key: index, wrap: false },
         cell([text(item.productName) || t.product, text(item.productSku)].filter(Boolean).join("\n"), "44%"),
         cell(money(item.quantity), "12%", true), cell(text(item.unit), "10%"),
-        cell(money(item.unitPrice), "17%", true), cell(money(item.grossTotal ?? item.lineTotal ?? Number(item.quantity) * Number(item.unitPrice)), "17%", true),
+        cell([money(item.unitPrice), showRowVatMode && vatPriceLabels[item.vatMode]].filter(Boolean).join("\n"), "17%", true), cell(money(item.grossTotal ?? item.lineTotal ?? Number(item.quantity) * Number(item.unitPrice)), "17%", true),
       )),
       h(View, { style: s.totals, wrap: false },
         line(`${t.currency}: KZT`),
         h(Text, { style: s.total }, `${t.total}: ${money(record.totalAmount)} KZT`),
-        official && record.vatSummary && ["included", "excluded"].includes(record.vatMode) ? h(View, null,
+        official && record.vatSummary && ["included", "excluded", "mixed"].includes(record.vatMode) ? h(View, null,
           line(`${language === "kz" ? "ҚҚС-сыз" : "Без НДС"}: ${money(record.vatSummary.netTotal)} KZT`),
           line(`${language === "kz" ? "ҚҚС" : "НДС"} ${record.vatRate}%: ${money(record.vatSummary.vatTotal)} KZT`),
           line(`${language === "kz" ? "ҚҚС-пен" : "С НДС"}: ${money(record.vatSummary.grossTotal)} KZT`)

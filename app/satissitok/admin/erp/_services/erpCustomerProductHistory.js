@@ -10,9 +10,10 @@ export function buildCustomerProductHistory(documents = [], { vatMode = "include
   for (const doc of rows) {
     const date = String(doc.documentDate || doc.invoiceDate || "").slice(0, 10);
     if ((from && (!date || date < from)) || (to && (!date || date > to)) || (docType && doc.docType !== docType)) continue;
-    const knownVat = doc.docType === "R" && ["included", "excluded"].includes(doc.vatMode);
-    const basis = doc.docType === "F" ? "F" : knownVat ? "R" : "R-unknown";
     for (const [index, item] of (doc.items || []).entries()) {
+      const rowVatMode = item.vatMode ?? doc.vatMode;
+      const knownVat = doc.docType === "R" && ["included", "excluded"].includes(rowVatMode);
+      const basis = doc.docType === "F" ? "F" : knownVat ? "R" : "R-unknown";
       const quantity = number(item.quantity);
       if (quantity <= 0) continue;
       if (search && !`${item.productName || ""} ${item.productSku || ""}`.toLocaleLowerCase("tr-TR").includes(search)) continue;
@@ -21,7 +22,7 @@ export function buildCustomerProductHistory(documents = [], { vatMode = "include
       const unit = item.unit || "adet";
       const key = JSON.stringify([productKey, unit, basis]);
       const originalPrice = number(item.unitPrice);
-      const price = knownVat && doc.vatMode !== vatMode
+      const price = knownVat && rowVatMode !== vatMode
         ? vatMode === "included" ? originalPrice * 1.16 : originalPrice / 1.16
         : originalPrice;
       if (!groups.has(key)) groups.set(key, {

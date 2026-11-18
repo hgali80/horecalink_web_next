@@ -96,6 +96,7 @@ function emptyItem() {
     unit: "adet",
     quantity: 1,
     unitPrice: 0,
+    vatMode: "included",
     stockTracked: true,
     webPublished: false,
     manualUnitCost: "",
@@ -208,7 +209,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
   const [form, setForm] = useState({
     id: "",
     docType: "R",
-    vatMode: "included",
     documentDate: defaultDate(),
     cariId: "",
     cariName: "",
@@ -248,7 +248,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       const officialCost = resolveErpSalesStockCost(balance, form.docType, true);
       const canUseOfficialCost = isSales && officialCost.usedFallback;
       const manualUnitCost = isSales ? round2(item.manualUnitCost) : 0;
-      const vat = calculateErpVatLine(quantity, unitPrice, form.docType, form.vatMode);
+      const vat = calculateErpVatLine(quantity, unitPrice, form.docType, item.vatMode);
       const baseCostUnit = isSales
         ? manualUnitCost > 0
           ? manualUnitCost
@@ -261,14 +261,14 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
         productId: item.productId,
         cariId: form.cariId,
         docType: form.docType,
-      vatMode: form.vatMode,
+        vatMode: item.vatMode,
       });
       const purchaseHints = resolveErpPurchasePriceHints({
         rows: priceMemory.purchases,
         productId: item.productId,
         cariId: form.cariId,
         docType: form.docType,
-      vatMode: form.vatMode,
+        vatMode: item.vatMode,
       });
 
       return {
@@ -289,9 +289,11 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
         balance,
       };
     });
-  }, [form.cariId, form.docType, form.vatMode, form.items, isSales, priceMemory.purchases, priceMemory.sales, stockBalanceMap]);
+  }, [form.cariId, form.docType, form.items, isSales, priceMemory.purchases, priceMemory.sales, stockBalanceMap]);
 
   const vatSummary = useMemo(() => summarizeErpVat(calculatedItems), [calculatedItems]);
+  const hasKnownVat = calculatedItems.some((item) => item.vatRate > 0);
+  const hasUnknownVat = form.docType === "R" && calculatedItems.some((item) => item.vatMode === "unknown");
   const goodsTotal = useMemo(
     () => round2(calculatedItems.reduce((sum, item) => sum + num(item.lineTotal, 0), 0)),
     [calculatedItems]
@@ -366,7 +368,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
               sourceCommercialOfferNo: text(existingDocument.sourceCommercialOfferNo),
               cariSnapshot: existingDocument.cariSnapshot || null,
               docType: existingDocument.docType || "R",
-              vatMode: existingDocument.vatMode || "unknown",
               documentDate: text(existingDocument.documentDate) || defaultDate(),
               cariId: text(existingDocument.cariId || existingDocument?.cariSnapshot?.id),
               cariName: text(existingDocument.cariName || existingDocument?.cariSnapshot?.name),
@@ -382,6 +383,8 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                     unit: text(item.unit || "adet"),
                     quantity: num(item.quantity, 1),
                     unitPrice: num(item.unitPrice, 0),
+                    vatMode: item.vatMode ?? (["included", "excluded"].includes(existingDocument.vatMode)
+                      ? existingDocument.vatMode : "unknown"),
                     useOfficialCost: item.useOfficialCost === true,
                     stockTracked: item.stockTracked !== false,
                     webPublished: item.webPublished === true,
@@ -443,34 +446,34 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
     };
   }, [form.docType, form.documentDate, kind, settings]);
 
-  function getProductPurchaseHints(productId) {
+  function getProductPurchaseHints(productId, vatMode) {
     return resolveErpPurchasePriceHints({
       rows: priceMemory.purchases,
       productId,
       cariId: form.cariId,
       docType: form.docType,
-      vatMode: form.vatMode,
+      vatMode,
     });
   }
 
-  function getProductSalesHints(productId) {
+  function getProductSalesHints(productId, vatMode) {
     return resolveErpSalesPriceHints({
       rows: priceMemory.sales,
       productId,
       cariId: form.cariId,
       docType: form.docType,
-      vatMode: form.vatMode,
+      vatMode,
     });
   }
 
-  function resolveInitialUnitPrice(product) {
+  function resolveInitialUnitPrice(product, vatMode) {
     if (!product?.id) return 0;
     if (isSales) {
-      const salesHints = getProductSalesHints(product.id);
+      const salesHints = getProductSalesHints(product.id, vatMode);
       return round2(salesHints.lastSaleByCari?.value ?? salesHints.lastSale?.value ?? num(product.price, 0));
     }
 
-    const purchaseHints = getProductPurchaseHints(product.id);
+    const purchaseHints = getProductPurchaseHints(product.id, vatMode);
     return round2(
       purchaseHints.lastPurchaseByCari?.value ??
         purchaseHints.lastPurchase?.value ??
@@ -479,10 +482,10 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
     );
   }
 
-  function createSeedFromProduct(product) {
+  function createSeedFromProduct(product, vatMode) {
     return {
       ...buildProductSeed(product),
-      unitPrice: resolveInitialUnitPrice(product),
+      unitPrice: resolveInitialUnitPrice(product, vatMode),
       automaticSalesPrice: isSales,
       defaultSalesPrice: num(product.price, 0),
     };
@@ -491,7 +494,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
   function setField(field, value) {
     setForm((current) => {
       const next = { ...current, [field]: value };
-      if (isSales && ["docType", "vatMode"].includes(field)) {
+      if (isSales && field === "docType") {
         next.items = refreshAutomaticSalesPrices(current.items || [], priceMemory.sales, next);
       }
       return next;
@@ -501,10 +504,18 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
   function updateItem(rowId, field, value) {
     setForm((current) => ({
       ...current,
-      items: (current.items || []).map((item) => (item.rowId === rowId ? {
-        ...item, [field]: value,
-        ...(field === "unitPrice" ? { automaticSalesPrice: false } : {}),
-      } : item)),
+      items: (current.items || []).map((item) => {
+        if (item.rowId !== rowId) return item;
+        const updated = {
+          ...item,
+          [field]: value,
+          ...(field === "unitPrice" ? { automaticSalesPrice: false } : {}),
+        };
+        if (isSales && field === "vatMode") {
+          return refreshAutomaticSalesPrices([updated], priceMemory.sales, current)[0];
+        }
+        return updated;
+      }),
     }));
   }
 
@@ -568,7 +579,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
 
   function assignProductToRow(rowId, product) {
     if (!rowId || !product) return;
-    const productSeed = createSeedFromProduct(product);
+    const productSeed = createSeedFromProduct(product, pickerRow?.vatMode ?? "included");
     setForm((current) => ({
       ...current,
       items: (current.items || []).map((item) =>
@@ -684,15 +695,6 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
       {error ? <Banner tone="red" text={error} /> : null}
 
       <fieldset disabled={saving || ["confirmed", "cancelled"].includes(loadedStatus)} className="min-w-0 space-y-6">
-        {form.docType === "R" ? <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <label className="block text-sm font-bold">KDV %16 — birim fiyat</label>
-          <select aria-label="KDV fiyat türü" className="mt-2 rounded-xl border p-3" value={form.vatMode} onChange={(e) => setField("vatMode", e.target.value)}>
-            {form.vatMode === "unknown" ? <option value="unknown">Eski kayıt — KDV bilgisi yok</option> : null}
-            <option value="included">KDV dahil</option>
-            <option value="excluded">KDV hariç</option>
-          </select>
-          <p className="mt-2 text-sm text-slate-600">KDV dahil fiyatın içinden ayrıştırılır; KDV hariç fiyatın üzerine eklenir. Ek masraf ayrı maliyet olarak eklenir, bu alana ayrıca KDV hesaplanmaz.</p>
-        </section> : null}
       <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SelectField
@@ -886,6 +888,18 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                           onChange={(event) => updateItem(item.rowId, "unitPrice", event.target.value)}
                           className={inputClassName("w-[120px]")}
                         />
+                        {form.docType === "R" ? (
+                          <select
+                            aria-label={`KDV fiyat türü: ${item.productName || "Ürün satırı"}`}
+                            value={item.vatMode}
+                            onChange={(event) => updateItem(item.rowId, "vatMode", event.target.value)}
+                            className={selectClassName("mt-2 w-full text-xs")}
+                          >
+                            {item.vatMode === "unknown" ? <option value="unknown">KDV bilgisi yok</option> : null}
+                            <option value="included">KDV dahil</option>
+                            <option value="excluded">KDV hariç</option>
+                          </select>
+                        ) : null}
                         {isSales && form.cariId ? (
                           <div className="mt-1 max-w-[180px] text-[11px] leading-4 text-slate-500">
                             {item.salesHints.lastSaleByCari ? (
@@ -895,7 +909,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                                   ? "F · Kayıtlı fiyat"
                                   : item.salesHints.lastSaleByCari.sourceVatMode === "unknown"
                                     ? "Eski kayıt · KDV bilgisi yok"
-                                    : form.docType === "R" ? `KDV ${form.vatMode === "included" ? "dahil" : form.vatMode === "excluded" ? "hariç" : "bilgisi kaynak belgede"}` : "R · Kayıtlı fiyat"}</div>
+                                    : form.docType === "R" ? `KDV ${item.vatMode === "included" ? "dahil" : item.vatMode === "excluded" ? "hariç" : "bilgisi kaynak belgede"}` : "R · Kayıtlı fiyat"}</div>
                               </>
                             ) : "Bu cariye önceki satış yok"}
                           </div>
@@ -1033,7 +1047,7 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                                   <InfoRow label="Satir tutar" value={`${fmtMoney(item.lineTotal)} KZT`} />
                                 </>
                               )}
-                              {form.docType === "R" && form.vatMode !== "unknown" ? <>
+                              {item.vatRate > 0 ? <>
                                 <InfoRow label="KDV oranı" value="%16" />
                                 <InfoRow label="KDV hariç tutar" value={`${fmtMoney(item.netTotal)} KZT`} />
                                 <InfoRow label="KDV tutarı" value={`${fmtMoney(item.vatTotal)} KZT`} />
@@ -1088,8 +1102,8 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <MiniMetric label={form.docType === "R" && form.vatMode !== "unknown" ? "KDV Hariç Ürün Toplamı" : "Ara Toplam"} value={`${fmtMoney(goodsTotal)} KZT`} tone="slate" />
-            {form.docType === "R" && form.vatMode !== "unknown" ? <MiniMetric label="Toplam KDV %16" value={`${fmtMoney(vatSummary.vatTotal)} KZT`} tone="blue" /> : null}
+            <MiniMetric label={hasKnownVat && !hasUnknownVat ? "KDV Hariç Ürün Toplamı" : "Ara Toplam"} value={`${fmtMoney(goodsTotal)} KZT`} tone="slate" />
+            {hasKnownVat ? <MiniMetric label={hasUnknownVat ? "Bilinen KDV Toplamı" : "Toplam KDV %16"} value={`${fmtMoney(vatSummary.vatTotal)} KZT`} tone="blue" /> : null}
             <MiniMetric label="Ek Masraf" value={`${fmtMoney(additionalCostTotal)} KZT`} tone="amber" />
             <MiniMetric label="Belge Toplami" value={`${fmtMoney(documentTotal)} KZT`} tone="blue" />
             <MiniMetric label="Toplam Maliyet" value={`${fmtMoney(totalCost)} KZT`} tone="red" />

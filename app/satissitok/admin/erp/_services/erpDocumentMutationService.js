@@ -71,6 +71,7 @@ function normalizeItems(items = [], fallbackBucket = "R", vatMode = "unknown") {
       const quantity = num(item?.quantity, 0);
       const unitPrice = num(item?.unitPrice, 0);
       const manualUnitCost = num(item?.manualUnitCost, 0);
+      const rowVatMode = ["included", "excluded", "unknown"].includes(item?.vatMode) ? item.vatMode : vatMode;
       return {
         rowId: text(item?.rowId || `row_${index + 1}`),
         productId: text(item?.productId),
@@ -79,7 +80,8 @@ function normalizeItems(items = [], fallbackBucket = "R", vatMode = "unknown") {
         unit: text(item?.unit || "adet"),
         quantity,
         unitPrice,
-        ...calculateErpVatLine(quantity, unitPrice, fallbackBucket, vatMode),
+        vatMode: rowVatMode,
+        ...calculateErpVatLine(quantity, unitPrice, fallbackBucket, rowVatMode),
         stockSourceType: fallbackBucket,
         useOfficialCost: item?.useOfficialCost === true,
         stockTracked: item?.stockTracked !== false,
@@ -215,8 +217,13 @@ function buildCariMovementDirection(kind) {
 function normalizePayload(kind, payload = {}) {
   const docType = normalizeDocType(payload.docType);
   const documentDate = text(payload.documentDate) || new Date().toISOString().slice(0, 10);
-  const vatMode = ["included", "excluded"].includes(payload.vatMode) ? payload.vatMode : "unknown";
-  const items = normalizeItems(payload.items, docType, vatMode);
+  const legacyVatMode = ["included", "excluded"].includes(payload.vatMode) ? payload.vatMode : "unknown";
+  const items = normalizeItems(payload.items, docType, legacyVatMode);
+  const rowVatModes = new Set(items.map((item) => item.vatMode));
+  let vatMode = legacyVatMode;
+  if (rowVatModes.has("unknown")) vatMode = "unknown";
+  else if (rowVatModes.size > 1) vatMode = "mixed";
+  else if (items.length) vatMode = items[0].vatMode;
   const vatSummary = summarizeErpVat(items);
   const additionalCostTotal = round2(payload.additionalCostTotal);
   const costSummary = buildCostSummary(kind, items, additionalCostTotal);
@@ -245,7 +252,7 @@ function normalizePayload(kind, payload = {}) {
     warehouseKey: text(payload.warehouseKey),
     totalAmount,
     vatMode,
-    vatRate: docType === "R" && vatMode !== "unknown" ? 16 : 0,
+    vatRate: items.find((item) => item.vatRate > 0)?.vatRate ?? 0,
     vatSummary,
     goodsTotal: costSummary.goodsTotal,
     additionalCostTotal: costSummary.additionalCostTotal,

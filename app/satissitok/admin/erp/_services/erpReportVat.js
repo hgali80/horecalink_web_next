@@ -8,7 +8,7 @@ export function buildReportVat(sales, purchases) {
       if (row.status !== "confirmed" || row.docType !== "R") continue;
       documentCount += 1;
       const amount = row.vatSummary?.vatTotal;
-      if (!["included", "excluded"].includes(row.vatMode) ||
+      if (!["included", "excluded", "mixed"].includes(row.vatMode) ||
           amount === null || amount === undefined || amount === "" || !Number.isFinite(Number(amount))) {
         missingCount += 1;
       } else {
