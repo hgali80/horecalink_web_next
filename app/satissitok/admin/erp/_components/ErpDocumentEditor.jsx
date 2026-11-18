@@ -849,18 +849,10 @@ export default function ErpDocumentEditor({ kind, documentId = "" }) {
                               </div>
                             </button>
                           </div>
-                          {!item.productId ? (
-                            <input
-                              value={item.productName}
-                              onChange={(event) => updateItem(item.rowId, "productName", event.target.value)}
-                              className={inputClassName("w-full")}
-                              placeholder="Manuel satirsa urun adini yaz"
-                            />
-                          ) : null}
                           <div className="flex flex-wrap gap-2">
                             {item.webPublished ? <Tag tone="blue" label="Webde yayinda" /> : <Tag tone="slate" label="Web disi" />}
                             {item.stockTracked === false ? <Tag tone="amber" label="Stok takipsiz" /> : null}
-                            {item.productId ? <Tag tone="green" label="Listeden secildi" /> : <Tag tone="amber" label="Manuel satir" />}
+                            {item.productId ? <Tag tone="green" label="Listeden secildi" /> : item.productName ? <Tag tone="amber" label="Manuel satir" /> : null}
                             {isSales && item.manualUnitCost ? <Tag tone="amber" label="Manuel maliyet" /> : null}
                             {isSales && item.usedFallback ? <Tag tone="red" label="Fallback" /> : null}
                           </div>
