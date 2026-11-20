@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Database,
+  Download,
   FileSpreadsheet,
   Home,
   RefreshCw,
@@ -46,6 +47,7 @@ export default function ProductImportPage() {
   const [dryRun, setDryRun] = useState(true);
   const [selectedFileName, setSelectedFileName] = useState("");
   const [working, setWorking] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState("slate");
   const [result, setResult] = useState(null);
@@ -120,6 +122,42 @@ export default function ProductImportPage() {
       setDetails(Array.isArray(error?.details) ? error.details : []);
     } finally {
       setWorking(false);
+    }
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    setMessage("");
+    setMessageTone("slate");
+
+    try {
+      const idToken = await getIdTokenOrThrow();
+      const response = await fetch("/api/admin/products/export", {
+        headers: { Authorization: `Bearer ${idToken}` },
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || "Excel disa aktarimi basarisiz oldu.");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `horecalink_urunler_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setMessage("Guncel urun Excel dosyasi indirildi. Bu dosyayi duzenleyip tekrar import edebilirsin.");
+      setMessageTone("green");
+    } catch (error) {
+      setMessage(error?.message || "Excel disa aktarimi basarisiz oldu.");
+      setMessageTone("red");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -198,6 +236,15 @@ export default function ProductImportPage() {
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
                 Bu ekran Excel dosyasini kaynak kabul eder. Her calistirmada yeni urunleri ekler, mevcut urunlerdeki farklari Excel&apos;e gore gunceller ve Excel&apos;de artik bulunmayan urunleri Firestore `products` koleksiyonundan siler.
               </p>
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={exporting}
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-wait disabled:opacity-60"
+              >
+                <Download size={17} />
+                {exporting ? "Excel hazirlaniyor..." : "Guncel urunleri Excel’e aktar"}
+              </button>
             </div>
           </div>
 
