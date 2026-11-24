@@ -49,7 +49,8 @@ const source = (await readFile(new URL('../app/api/admin/whatsapp/conversations/
   .replace("import { authorizeWhatsAppRequest, inboxJson } from '@/app/lib/server/whatsappInbox';", 'const authorizeWhatsAppRequest = async () => globalThis.__replyAuth; const inboxJson = (body,status=200) => Response.json(body,{status});')
   .replace("'@/app/lib/server/whatsappInboxCore.mjs'", JSON.stringify(new URL('../app/lib/server/whatsappInboxCore.mjs', import.meta.url).href))
   .replace("'@/app/lib/server/whatsappReplyCore.mjs'", JSON.stringify(new URL('../app/lib/server/whatsappReplyCore.mjs', import.meta.url).href))
-  .replaceAll("'@/app/lib/server/whatsappDeliveryCore.mjs'", JSON.stringify(new URL('../app/lib/server/whatsappDeliveryCore.mjs', import.meta.url).href));
+  .replaceAll("'@/app/lib/server/whatsappDeliveryCore.mjs'", JSON.stringify(new URL('../app/lib/server/whatsappDeliveryCore.mjs', import.meta.url).href))
+  .replaceAll("'@/app/lib/server/whatsappScheduledCore.mjs'", JSON.stringify(new URL('../app/lib/server/whatsappScheduledCore.mjs', import.meta.url).href));
 const route = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 test('actual reply route gates authorization, claims sends atomically and never retries ambiguous sends', async () => {
   const originalFetch = globalThis.fetch;

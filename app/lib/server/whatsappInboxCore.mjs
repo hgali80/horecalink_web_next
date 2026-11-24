@@ -85,6 +85,10 @@ export async function persistIncoming(db, messages, now = Date.now()) {
     // All reads precede writes; transaction retries make duplicate deliveries safe.
     const existing = await Promise.all(refs.map(ref => tx.get(ref)));
     const current = new Map(await Promise.all([...conversations].map(async ([id, ref]) => [id, (await tx.get(ref)).data() || {}])));
+    const scheduleSnapshots = new Map(await Promise.all([...conversations].map(async ([id]) => {
+      const plans = db.collection('whatsapp_scheduled_messages');
+      return [id, plans.where ? await tx.get(plans.where('conversationId', '==', id).where('status', 'in', ['scheduled', 'sending'])) : { docs: [] }];
+    })));
     const updates = new Map();
     const revisions = new Map();
     const activities = new Map();
@@ -100,6 +104,9 @@ export async function persistIncoming(db, messages, now = Date.now()) {
       if (message.direction !== 'outgoing' && message.timestamp >= (prior.lastIncomingAt?.getTime?.() || prior.lastIncomingAt?.toMillis?.() || 0)) {
         updates.set(message.conversationId, { ...prior, lastIncomingAt: new Date(message.timestamp) });
       }
+      if (message.direction === 'outgoing' && message.timestamp >= (prior.lastOutgoingAt?.getTime?.() || prior.lastOutgoingAt?.toMillis?.() || 0)) {
+        updates.set(message.conversationId, { ...(updates.get(message.conversationId) || prior), lastOutgoingAt: new Date(message.timestamp) });
+      }
       if (message.timestamp >= (prior.lastMessageAt?.getTime?.() || prior.lastMessageAt?.toMillis?.() || prior.updatedAt?.getTime?.() || prior.updatedAt?.toMillis?.() || 0)) {
         updates.set(message.conversationId, {
           ...(updates.get(message.conversationId) || {}),
@@ -112,5 +119,19 @@ export async function persistIncoming(db, messages, now = Date.now()) {
       }
     });
     for (const [id, activityRevision] of activities) tx.set(conversations.get(id), { ...(updates.get(id) || {}), activityRevision, ...(revisions.has(id) ? { lastIncomingRevision: revisions.get(id) } : {}) }, { merge: true });
+    for (const [conversationId, snapshot] of scheduleSnapshots) {
+      const newActivities = messages.map((message, index) => ({ message, exists: existing[index].exists }))
+        .filter(row => row.message.conversationId === conversationId && !row.exists);
+      for (const plan of snapshot.docs) {
+        if (!['scheduled', 'sending'].includes(plan.data().status)) continue;
+        const createdAt = plan.data().createdAt?.toMillis?.() ?? plan.data().createdAt?.getTime?.() ?? 0;
+        const activity = newActivities.map(row => row.message).filter(message => message.timestamp > createdAt).sort((a,b) => a.timestamp - b.timestamp)[0];
+        if (!activity) continue;
+        const reason = activity.direction === 'outgoing' ? 'Siz mesaj gönderdiniz' : 'Müşteri mesaj gönderdi';
+        tx.update(plan.ref, { status: 'cancelled', cancelReason: reason, cancelledAt: new Date(activity.timestamp), updatedAt: new Date(now) });
+        const conversation = current.get(conversationId);
+        if (conversation?.pendingSendId === `scheduled:${plan.id}`) tx.update(conversations.get(conversationId), { pendingSendId: null });
+      }
+    }
   });
 }

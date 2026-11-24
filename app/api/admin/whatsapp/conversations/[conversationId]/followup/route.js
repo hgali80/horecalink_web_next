@@ -4,6 +4,7 @@ import { INBOX_COLLECTION, validInboxId, readBoundedBody } from '@/app/lib/serve
 import { digest, millis, replyError, resolveReplyRecipient, safeSendDiagnostics } from '@/app/lib/server/whatsappReplyCore.mjs';
 import { PREFERENCES, TASKS, followupId, checkTask, checkPermission, checkCooldown, assertTemplateConversation, consentBody, templateRequest, renderTemplate } from '@/app/lib/server/whatsappFollowupCore.mjs';
 import { approvedTemplate } from '@/app/lib/server/whatsappTemplates';
+import { cancelScheduledPlans } from '@/app/lib/server/whatsappScheduledCore.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -71,11 +72,12 @@ async function sendTemplate(auth, body) {
     const recipient = resolveReplyRecipient(conversation, process.env.WHATSAPP_TEST_RECIPIENT_MAP);
     if (recipient !== body.reviewedRecipient) throw replyError('Alıcı ayarı değişti. Alıcıyı yeniden kontrol edin.', 409);
     const now = Date.now();
+    await cancelScheduledPlans(tx, auth.adminDb, auth.conversationId, now);
     tx.create(messageRef, { type: 'text', text, direction: 'outgoing', source: 'panel', sendState: 'sending', sendFingerprint: fingerprint,
       timestamp: now, receivedAt: new Date(now), approvedAt: new Date(now), approvedBy: auth.uid, senderId: conversation.senderId, apiRecipient: recipient,
       phoneNumberId: phoneId, followupId: body.followupId, followupRevision: body.followupRevision, permissionRevision: body.permissionRevision,
       template: { id: template.id, name: template.name, language: template.language, category: template.category, revision: template.revision, parameters: body.parameters }, expiresAt: new Date(now + 90 * 86400000) });
-    tx.update(auth.ref, { pendingSendId: id });
+    tx.update(auth.ref, { pendingSendId: id, lastOutgoingAt: new Date(now) });
     return { recipient, canonicalRecipient: conversation.senderId };
   });
   if (claim.existing) return inboxJson(claim.existing);

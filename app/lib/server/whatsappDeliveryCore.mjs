@@ -42,19 +42,21 @@ export async function persistStatuses(db, events, now = Date.now()) {
       const ref = db.collection(RECEIPTS).doc(id), current = (await tx.get(ref)).data();
       const merged = mergeReceipt(current, event);
       if (merged === current) continue;
-      let messageRef = null, message = null, conversationRef = null, conversation = null;
+      let messageRef = null, message = null, conversationRef = null, conversation = null, planRef = null, plan = null;
       if (current?.conversationId && current?.messageId && current.recipientId === event.receiptRecipientId) {
         conversationRef = db.collection('whatsapp_conversations').doc(current.conversationId);
         messageRef = conversationRef.collection('messages').doc(current.messageId);
         message = (await tx.get(messageRef)).data(); conversation = (await tx.get(conversationRef)).data();
+        if (message?.scheduledId) { planRef = db.collection('whatsapp_scheduled_messages').doc(message.scheduledId); plan = (await tx.get(planRef)).data(); }
       }
-      rows.push({ ref, merged, current, messageRef, message, conversationRef, conversation });
+      rows.push({ ref, merged, current, messageRef, message, conversationRef, conversation, planRef, plan });
     }
     for (const row of rows) {
       tx.set(row.ref, { ...row.merged, expiresAt: row.current?.expiresAt || new Date(now + 90 * 86400000) });
       if (row.message && row.message.metaMessageId === row.merged.metaMessageId && row.message.phoneNumberId === row.merged.phoneNumberId && row.message.senderId === row.merged.receiptRecipientId) {
         tx.update(row.messageRef, { ...deliveryPatch(row.merged, row.message.senderId), ...(['unknown', 'sending'].includes(row.message.sendState) ? { sendState: 'accepted' } : {}) });
         if (row.conversation) tx.update(row.conversationRef, { activityRevision: hash(`${row.merged.id}:${row.merged.deliveryStatus}`), ...(row.conversation.pendingSendId === row.current.messageId ? { pendingSendId: null } : {}) });
+        if (row.plan && row.planRef) tx.update(row.planRef, { deliveryStatus: row.merged.deliveryStatus, deliveryAt: row.merged.deliveryAt, updatedAt: new Date() });
       }
     }
   });

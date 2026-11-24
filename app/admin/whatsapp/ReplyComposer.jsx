@@ -7,6 +7,7 @@ import { Languages, Send, Sparkles, ArrowRight, Link2 } from 'lucide-react';
 import ProductPicker from './ProductPicker';
 import ProductShare from './ProductShare';
 import FollowupPanel from './FollowupPanel';
+import ScheduledSend from './ScheduledSend';
 
 export default function ReplyComposer({ conversation, baseIncomingAt, baseRevision, replyRecipient, onSent, readInbox, suggestedLanguage, suggestion }) {
   const [text, setText] = useState('');
@@ -31,6 +32,7 @@ export default function ReplyComposer({ conversation, baseIncomingAt, baseRevisi
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [locked, setLocked] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const requestId = useRef(null);
   const active = useRef(true);
   const guard = useRef(false);
@@ -97,7 +99,8 @@ export default function ReplyComposer({ conversation, baseIncomingAt, baseRevisi
       <div><label htmlFor="reply-final" className="mb-1.5 block text-[11px] font-semibold text-slate-500">Müşteriye gönderilecek metin</label><textarea id="reply-final" aria-label="Yanıt metni" value={text} maxLength={4096} rows={4} disabled={busy || locked} onChange={event => edit(event.target.value)} className="w-full resize-y rounded-xl border border-slate-200 bg-white p-3 text-sm leading-6 outline-none focus:border-blue-400" placeholder="Çeviri burada görünür. Doğrudan da yazabilirsiniz."/><div className="mt-1.5 flex flex-wrap gap-2"><button type="button" disabled={busy || locked || !baseIncomingAt || followupContext?.blocked} onClick={() => action('draft')} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 disabled:opacity-40"><Sparkles size={12}/>{followupContext?.id ? 'Takip mesajı öner' : 'Yanıt öner'}</button>{product && <button type="button" disabled={busy || locked} onClick={() => edit(`${text}${text?'\n\n':''}${product.url}`.slice(0,4096))} className="inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] text-slate-500"><Link2 size={12}/>Ürün bağlantısı ekle</button>}</div></div>
     </div>
     <p className="text-[10px] leading-4 text-slate-400">Çeviri anlamı korur; yanıt önerisi yeni bir taslak üretir. Metinler çeviri/taslak için OpenAI ile paylaşılır. Fiyat, stok ve teslimatı kontrol edin. Kendiliğinden gönderim yapılmaz.</p>
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3"><label className="flex max-w-lg items-start gap-2 text-[11px] leading-5 text-slate-500"><input type="checkbox" checked={reviewed} disabled={busy || locked || !ready} onChange={event => setReviewed(event.target.checked)} className="mt-1 accent-orange-600"/><span>Metni{isImage ? ', ürün kartını' : ''} ve +{conversation.senderId} alıcısını kontrol ettim.{replyRecipient && replyRecipient!==conversation.senderId && <span className="block">Test alıcısı: +{replyRecipient}</span>}</span></label><button type="button" disabled={busy || locked || !replyRecipient || !reviewed || !ready || !baseIncomingAt} onClick={() => action('send')} className="inline-flex items-center gap-2 rounded-xl bg-[#1c354b] px-5 py-2.5 text-xs font-semibold text-white shadow-sm disabled:opacity-35"><Send size={14}/>{busy?'İşleniyor…':'İnceledim, gönder'}</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3"><label className="flex max-w-lg items-start gap-2 text-[11px] leading-5 text-slate-500"><input type="checkbox" checked={reviewed} disabled={busy || locked || !ready} onChange={event => setReviewed(event.target.checked)} className="mt-1 accent-orange-600"/><span>Metni{isImage ? ', ürün kartını' : ''} ve +{conversation.senderId} alıcısını kontrol ettim.{replyRecipient && replyRecipient!==conversation.senderId && <span className="block">Test alıcısı: +{replyRecipient}</span>}</span></label><div className="flex items-center gap-2"><button type="button" disabled={busy || locked || followupBusy || imageMode || !finalText.trim()} onClick={() => { setScheduleOpen(true); setNotice(''); }} className="rounded-xl border border-sky-300 bg-white px-4 py-2.5 text-xs font-semibold text-sky-800 disabled:opacity-40">Zamanla</button><button type="button" disabled={busy || locked || !replyRecipient || !reviewed || !ready || !baseIncomingAt} onClick={() => action('send')} className="inline-flex items-center gap-2 rounded-xl bg-[#1c354b] px-5 py-2.5 text-xs font-semibold text-white shadow-sm disabled:opacity-35"><Send size={14}/>{busy?'İşleniyor…':'İnceledim, gönder'}</button></div></div>
+    <ScheduledSend conversation={conversation} baseIncomingAt={baseIncomingAt} baseRevision={baseRevision} replyRecipient={replyRecipient} text={finalText} readInbox={readInbox} imageMode={isImage} open={scheduleOpen} onOpenChange={setScheduleOpen}/>
     {notice && <p role="status" className="rounded-xl bg-slate-100 p-3 text-xs text-slate-600">{notice}</p>}
     {locked && <p className="text-xs text-amber-700">Gönderim sonucu netleşmeden yeni bir yanıt göndermeyin.</p>}
   </div>;

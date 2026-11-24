@@ -1,6 +1,7 @@
 import { authorizeWhatsAppRequest, inboxJson } from '@/app/lib/server/whatsappInbox';
 import { INBOX_COLLECTION, readBoundedBody, validInboxId } from '@/app/lib/server/whatsappInboxCore.mjs';
 import { assertSendable, digest, incomingRevision, millis, parseDraft, replyError, resolveReplyRecipient, safeSendDiagnostics, validateReply } from '@/app/lib/server/whatsappReplyCore.mjs';
+import { cancelScheduledPlans } from '@/app/lib/server/whatsappScheduledCore.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -111,11 +112,12 @@ async function send(auth, ref, body) {
       followupCore.checkTask(task, ref.id, body.followupRevision); followupCore.checkPermission(permission); followupCore.checkCooldown(task);
     }
     const now = Date.now();
+    await cancelScheduledPlans(tx, auth.adminDb, ref.id, now);
     tx.create(messageRef, { ...(followupCore ? { followupId: body.followupId, followupRevision: body.followupRevision } : {}), type: isImage ? 'image' : 'text', text, sendFingerprint: fingerprint,
       ...(isImage ? { productCard, productRevision: body.productRevision, cardRevision: body.cardRevision } : {}), direction: 'outgoing', sendState: 'sending', timestamp: now,
       receivedAt: new Date(now), source: 'panel', approvedBy: auth.uid, approvedAt: new Date(now), baseIncomingAt: body.baseIncomingAt, baseRevision: body.baseRevision,
       senderId: conversation.senderId, apiRecipient: recipient, phoneNumberId: phoneId, expiresAt: new Date(now + 90 * 86400000) });
-    tx.update(ref, { pendingSendId: id });
+    tx.update(ref, { pendingSendId: id, lastOutgoingAt: new Date(now) });
     return { recipient, canonicalRecipient: conversation.senderId, productCard };
   });
   if (claim.existing) return inboxJson({ ok: true, state: claim.state, issue: claim.issue, diagnostics: claim.diagnostics });

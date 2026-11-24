@@ -70,6 +70,7 @@ routeCode = routeCode.replace("import { authorizeWhatsAppRequest, inboxJson } fr
   .replaceAll("'@/app/lib/server/whatsappReplyCore.mjs'", JSON.stringify(new URL('../app/lib/server/whatsappReplyCore.mjs', import.meta.url).href))
   .replaceAll("'@/app/lib/server/whatsappProductCardCore.mjs'", JSON.stringify(coreUrl))
   .replaceAll("'@/app/lib/server/whatsappDeliveryCore.mjs'", JSON.stringify(new URL('../app/lib/server/whatsappDeliveryCore.mjs', import.meta.url).href))
+  .replaceAll("'@/app/lib/server/whatsappScheduledCore.mjs'", JSON.stringify(new URL('../app/lib/server/whatsappScheduledCore.mjs', import.meta.url).href))
   .replaceAll("'@/app/lib/server/whatsappProductCard'", JSON.stringify(rendererStub));
 const route = await import(`data:text/javascript;base64,${Buffer.from(routeCode).toString('base64')}`);
 

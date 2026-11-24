@@ -18,7 +18,7 @@ const serviceUrl = dataModule(serviceSource);
 async function loadRoute(path) {
   let code = await readFile(new URL(path, import.meta.url), 'utf8');
   code = code.replace(/import \{ authorizeWhatsAppRequest, inboxJson(?:, inboxIso)? \} from '@\/app\/lib\/server\/whatsappInbox';/, 'const authorizeWhatsAppRequest = async () => globalThis.__followAuth; const inboxJson = (body,status=200) => Response.json(body,{status}); const inboxIso = value => value?.toISOString?.() || null;');
-  for (const name of ['whatsappInboxCore.mjs', 'whatsappReplyCore.mjs', 'whatsappFollowupCore.mjs', 'whatsappDeliveryCore.mjs']) code = code.replaceAll(`'@/app/lib/server/${name}'`, JSON.stringify(moduleUrl(name)));
+  for (const name of ['whatsappInboxCore.mjs', 'whatsappReplyCore.mjs', 'whatsappFollowupCore.mjs', 'whatsappDeliveryCore.mjs', 'whatsappScheduledCore.mjs']) code = code.replaceAll(`'@/app/lib/server/${name}'`, JSON.stringify(moduleUrl(name)));
   code = code.replaceAll("'@/app/lib/server/whatsappTemplates'", JSON.stringify(serviceUrl));
   return import(dataModule(code));
 }

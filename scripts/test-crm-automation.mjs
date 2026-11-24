@@ -20,11 +20,11 @@ function database(initial = []) {
   const ref = path => ({ path, id: path.split('/').at(-1), get: async () => snapshot(path, records.get(path)), collection: name => collection(`${path}/${name}`), set: async (value, options) => records.set(path, options?.merge ? { ...records.get(path), ...value } : value), update: async value => { assert.ok(records.has(path)); records.set(path, { ...records.get(path), ...value }); }, delete: async () => { records.delete(path); } });
   function collection(path, filters = [], order = 'asc', cursor = null, count = Infinity) {
     const query = {
-      doc: (id = randomUUID()) => ref(`${path}/${id}`), where: (field, op, value) => { assert.equal(op, '=='); return collection(path, [...filters, [field, value]], order, cursor, count); },
+      doc: (id = randomUUID()) => ref(`${path}/${id}`), where: (field, op, value) => { assert.ok(['==', 'in'].includes(op)); return collection(path, [...filters, [field, op, value]], order, cursor, count); },
       orderBy: (field, direction = 'asc') => { assert.equal(field, '__name__'); return collection(path, filters, direction, cursor, count); },
       startAfter: value => collection(path, filters, order, typeof value === 'string' ? value : value.id, count), limit: value => collection(path, filters, order, cursor, value),
       get: async () => {
-        let docs = [...records].filter(([key, value]) => key.startsWith(`${path}/`) && key.split('/').length === path.split('/').length + 1 && filters.every(([field, expected]) => value[field] === expected)).map(([key, value]) => snapshot(key, value));
+        let docs = [...records].filter(([key, value]) => key.startsWith(`${path}/`) && key.split('/').length === path.split('/').length + 1 && filters.every(([field, op, expected]) => op === 'in' ? expected.includes(value[field]) : value[field] === expected)).map(([key, value]) => snapshot(key, value));
         docs.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) * (order === 'desc' ? -1 : 1));
         if (cursor) docs = docs.filter(doc => order === 'desc' ? doc.id < cursor : doc.id > cursor);
         docs = docs.slice(0, count); return { docs, size: docs.length };
@@ -124,7 +124,7 @@ async function route(path, substitutions = {}) {
   source = source.replace("import { inboxJson } from '@/app/lib/server/whatsappInbox';", 'const inboxJson = (body,status=200) => Response.json(body,{status});');
   source = source.replace("import { getAdminServices } from '@/app/lib/server/firebaseAdmin';", 'const getAdminServices = () => ({adminDb: globalThis.__automationDb});');
   source = source.replace("import { getMessaging } from 'firebase-admin/messaging';", 'const getMessaging = () => {throw new Error("LIVE_PUSH_FORBIDDEN");};');
-  for (const name of ['crmAutomationCore.mjs', 'whatsappDeliveryCore.mjs', 'whatsappInboxCore.mjs', 'whatsappReplyCore.mjs']) source = source.replaceAll(`'@/app/lib/server/${name}'`, JSON.stringify(new URL(`../app/lib/server/${name}`, import.meta.url).href));
+  for (const name of ['crmAutomationCore.mjs', 'whatsappDeliveryCore.mjs', 'whatsappInboxCore.mjs', 'whatsappReplyCore.mjs', 'whatsappScheduledCore.mjs']) source = source.replaceAll(`'@/app/lib/server/${name}'`, JSON.stringify(new URL(`../app/lib/server/${name}`, import.meta.url).href));
   source = source.replaceAll("'@/app/lib/server/crmAutomation'", JSON.stringify(serviceUrl));
   source = source.replace("'@/app/lib/crmFollowups.mjs'", JSON.stringify(new URL('../app/lib/crmFollowups.mjs', import.meta.url).href));
   for (const [old, value] of Object.entries(substitutions)) source = source.replace(old, value);
