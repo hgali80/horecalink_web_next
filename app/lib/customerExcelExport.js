@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { loadCustomerExportImages } from "@/app/lib/customerMediaExport";
 
 const numeric = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const text = (value) => String(value ?? "");
@@ -152,45 +153,10 @@ export function buildCustomerWorkbook({ document, calculated, t, images = new Ma
   return workbook;
 }
 
-async function loadExcelPicture(source) {
-  const url = new URL(source, window.location.origin);
-  if (!["http:", "https:", "data:", "blob:"].includes(url.protocol)) throw new Error("Unsupported image URL");
-  const src = url.hostname === "firebasestorage.googleapis.com"
-    ? `/api/pdf-image?url=${encodeURIComponent(url.href)}` : url.href;
-  const response = await fetch(src, { signal: AbortSignal.timeout(15000) });
-  if (!response.ok) throw new Error(`Image request failed: ${response.status}`);
-  const bitmap = await createImageBitmap(await response.blob());
-  try {
-    // Normalize JPEG/PNG/WebP to a small PNG supported by desktop Excel.
-    const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 192;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas unavailable");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const scale = Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
-    const width = bitmap.width * scale;
-    const height = bitmap.height * scale;
-    ctx.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
-    return canvas.toDataURL("image/png");
-  } finally {
-    bitmap.close();
-  }
-}
-
 export async function downloadCustomerExcel(options) {
   const items = options.calculated ? options.calculated.items : options.document.items || [];
   const sources = [...new Set(items.map(item => text(item.imageUrl).trim()).filter(Boolean))];
-  const images = new Map();
-  let next = 0;
-  await Promise.all(Array.from({ length: Math.min(4, sources.length) }, async () => {
-    while (next < sources.length) {
-      const source = sources[next++];
-      try { images.set(source, await loadExcelPicture(source)); }
-      catch { /* Keep the export usable and report missing photos to the user. */ }
-    }
-  }));
+  const images = await loadCustomerExportImages(sources);
   const workbook = buildCustomerWorkbook({ ...options, images });
   const buffer = await workbook.xlsx.writeBuffer();
   const url = URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));

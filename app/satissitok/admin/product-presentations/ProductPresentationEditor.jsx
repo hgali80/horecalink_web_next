@@ -33,6 +33,21 @@ import {
 
 const PAGE_SIZE = 60;
 const LOGO_SRC = "/horecalink_offer_logo_white_v2.png";
+const PDF_RENDER_TIMEOUT_MS = 60_000;
+
+async function waitForPdf(blobPromise) {
+  let timeoutId;
+  try {
+    return await Promise.race([
+      blobPromise,
+      new Promise((_, reject) => {
+        timeoutId = window.setTimeout(() => reject(new Error("PDF hazırlama süresi aşıldı. Tekrar deneyebilirsin.")), PDF_RENDER_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
 
 function text(value) {
   return String(value ?? "");
@@ -350,16 +365,22 @@ export default function ProductPresentationEditor({ presentationId = null }) {
     try {
       setSavingPdf(true);
       setMessage("");
-      const [{ pdf }, { default: ProductPresentationPdf }] = await Promise.all([
+      const [{ pdf }, { default: ProductPresentationPdf }, { loadCustomerExportImages }] = await Promise.all([
         import("@react-pdf/renderer"),
         import("./ProductPresentationPdf"),
+        import("@/app/lib/customerMediaExport"),
       ]);
       const origin = window.location.origin;
+      const sources = form.items.map((item) => getPrintableImageSrc(item.imageUrl)).filter(Boolean);
+      const images = await loadCustomerExportImages(sources, { concurrency: 8, timeoutMs: 5_000 });
+      let missingImages = 0;
       const presentation = {
         ...form,
         items: form.items.map((item) => {
           const src = getPrintableImageSrc(item.imageUrl);
-          return { ...item, pdfImageUrl: src ? new URL(src, origin).href : "" };
+          const pdfImageUrl = src ? images.get(src) || "" : "";
+          if (src && !pdfImageUrl) missingImages += 1;
+          return { ...item, pdfImageUrl };
         }),
       };
       const documentElement = createElement(ProductPresentationPdf, {
@@ -367,7 +388,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
         logoUrl: new URL("/pdf/horecalink_logo_white_v2.png", origin).href,
         fontUrl: new URL("/pdf/NotoSans.ttf", origin).href,
       });
-      const blob = await pdf(documentElement).toBlob();
+      const blob = await waitForPdf(pdf(documentElement).toBlob());
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -376,9 +397,10 @@ export default function ProductPresentationEditor({ presentationId = null }) {
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (missingImages) setMessage(`PDF indirildi. ${missingImages} ürün görseli alınamadığı için fotoğraf alanı boş bırakıldı.`);
     } catch (error) {
       console.error("Product presentation PDF error:", error);
-      setMessage("PDF oluşturulamadı.");
+      setMessage(error?.message || "PDF oluşturulamadı.");
     } finally {
       setSavingPdf(false);
     }
