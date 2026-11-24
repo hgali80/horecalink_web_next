@@ -17,6 +17,10 @@ export async function GET() {
 
 export async function POST(request) {
   if (!secretMatches(request.headers.get('x-whatsapp-scheduler-secret'), process.env.WHATSAPP_SCHEDULER_SECRET)) return json({ error: 'Unauthorized' }, 401);
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID, version = process.env.WHATSAPP_GRAPH_API_VERSION;
+  if (process.env.WHATSAPP_SEND_ENABLED !== 'true' || !process.env.WHATSAPP_ACCESS_TOKEN || !/^\d{1,40}$/.test(phoneId || '') || !/^v\d+\.\d+$/.test(version || '')) {
+    return json({ error: 'WhatsApp sending is not enabled or configured' }, 503);
+  }
   const db = getAdminServices().adminDb, now = Date.now();
   let due;
   try {
