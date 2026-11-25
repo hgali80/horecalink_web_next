@@ -484,7 +484,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
                 onDrop={(event) => event.preventDefault()}
                 onDragEnd={handleDragEnd}
                 aria-grabbed={draggedRowId === item.rowId}
-                className={`grid cursor-grab gap-4 rounded-2xl border p-4 transition active:cursor-grabbing xl:grid-cols-[120px_minmax(0,1.2fr)_minmax(0,2fr)_100px_150px_70px_150px_92px] ${draggedRowId === item.rowId ? "border-[#e87524] bg-orange-50/50 opacity-60 shadow-lg" : "border-slate-200"}`}
+                className={`grid cursor-grab gap-4 rounded-2xl border p-4 transition active:cursor-grabbing xl:grid-cols-[120px_minmax(0,1fr)_minmax(0,3fr)_100px_150px_70px_150px_92px] ${draggedRowId === item.rowId ? "border-[#e87524] bg-orange-50/50 opacity-60 shadow-lg" : "border-slate-200"}`}
               >
                 <ProductImage src={item.imageUrl} alt={item.name || "Ürün"} className="h-28 w-full rounded-xl border border-slate-100" />
                 <div className="space-y-3"><label className="block text-xs font-bold text-slate-500">Ürün adı<input value={item.name} onChange={(event) => updateItem(item.rowId, "name", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold" /></label><label className="block text-xs font-bold text-slate-500">Marka<input value={item.brand} onChange={(event) => updateItem(item.rowId, "brand", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label></div>
