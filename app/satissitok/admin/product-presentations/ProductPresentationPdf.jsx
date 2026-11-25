@@ -12,9 +12,9 @@ const colors = {
 
 const styles = StyleSheet.create({
   page: { padding: 28, paddingBottom: 38, fontFamily: "NotoSans", color: colors.navy, backgroundColor: "#ffffff" },
-  header: { paddingTop: 8, paddingBottom: 9, paddingLeft: 18, paddingRight: 18, marginBottom: 14, borderRadius: 8, backgroundColor: colors.navy, alignItems: "center" },
+  header: { paddingTop: 8, paddingBottom: 9, paddingLeft: 18, paddingRight: 18, marginBottom: 14, borderRadius: 8, borderWidth: 1, borderColor: colors.navy, backgroundColor: "#ffffff", alignItems: "center" },
   logo: { width: 260, height: 39, objectFit: "contain", marginBottom: 3 },
-  contact: { color: "#ffffff", fontSize: 9, marginTop: 0 },
+  contact: { color: colors.navy, fontSize: 9, marginTop: 0 },
   table: { borderWidth: 1, borderColor: colors.border, borderRadius: 6 },
   row: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border, minHeight: 86 },
   lastRow: { borderBottomWidth: 0 },

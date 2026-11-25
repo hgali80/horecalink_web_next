@@ -135,7 +135,19 @@ export function buildCustomerWorkbook({ document, calculated, t, language = "tr"
     });
     row.height = Math.min(409, Math.max(27, lines * 16 + 10));
   });
-  for (const row of [sheet.getRow(1), header]) {
+  for (let column = 1; column <= fields.length; column++) {
+    const cell = brandRow.getCell(column);
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
+    cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: navy } };
+    cell.alignment = { vertical: "middle", wrapText: true };
+    cell.border = {
+      top: { style: "thin", color: { argb: navy } },
+      bottom: { style: "thin", color: { argb: navy } },
+      ...(column === 1 ? { left: { style: "thin", color: { argb: navy } } } : {}),
+      ...(column === fields.length ? { right: { style: "thin", color: { argb: navy } } } : {}),
+    };
+  }
+  for (const row of [header]) {
     for (let column = 1; column <= fields.length; column++) {
       const cell = row.getCell(column);
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: navy } };
