@@ -266,6 +266,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
           ...buildDefaultPresentation(),
           ...saved,
           priceColumns: getPresentationPriceColumns(saved),
+          visibility: { showWebsite: true, ...saved.visibility },
           items: (saved.items || []).map((item) => ({ pricePercent: 0, adjustedUnitPrice: null, ...item })),
         } : buildDefaultPresentation());
       } catch (error) {
@@ -399,7 +400,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
       ]);
       const origin = window.location.origin;
       const sources = form.items.map((item) => getPrintableImageSrc(item.imageUrl)).filter(Boolean);
-      const images = await loadCustomerExportImages(sources, { concurrency: 8, timeoutMs: 5_000 });
+      const images = await loadCustomerExportImages(sources, { concurrency: 4, timeoutMs: 15_000, retries: 1 });
       let missingImages = 0;
       const presentation = {
         ...form,
@@ -451,10 +452,11 @@ export default function ProductPresentationEditor({ presentationId = null }) {
 
       {message ? <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">{message}</div> : null}
 
-      <section className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[minmax(0,1fr)_180px_150px]">
+      <section className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[minmax(0,1fr)_180px_150px_auto]">
         <label className="space-y-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Sunum adı (sadece admin)</span><input value={form.title} onChange={(event) => updateField("title", event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#1d3246]" /></label>
         <label className="space-y-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Durum</span><select value={form.status} onChange={(event) => updateField("status", event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"><option value="draft">Taslak</option><option value="ready">Hazır</option></select></label>
         <label className="space-y-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Para birimi</span><select value={form.currency} onChange={(event) => updateField("currency", event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"><option value="KZT">KZT (₸)</option><option value="TRY">TRY (TL)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option></select></label>
+        <label className="flex items-center gap-2 self-end rounded-xl border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700"><input type="checkbox" checked={form.visibility?.showWebsite !== false} onChange={(event) => updateField("visibility", { ...form.visibility, showWebsite: event.target.checked })} />Web adresini PDF ve Excel'de göster</label>
       </section>
 
       <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
@@ -500,7 +502,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
       </section>
 
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
-        <div className="flex flex-col items-center bg-[#1d3246] px-6 py-7 text-white"><Image src={LOGO_SRC} alt="HorecaLink" width={220} height={60} unoptimized className="h-14 w-auto object-contain" /><div className="mt-2 text-sm font-semibold">{form.contact?.phone}</div><div className="mt-1 text-sm">{form.contact?.website}</div></div>
+        <div className="flex flex-col items-center bg-[#1d3246] px-6 py-7 text-white"><Image src={LOGO_SRC} alt="HorecaLink" width={220} height={60} unoptimized className="h-14 w-auto object-contain" /><div className="mt-2 text-sm font-semibold">{form.contact?.phone}</div>{form.visibility?.showWebsite !== false ? <div className="mt-1 text-sm">{form.contact?.website}</div> : null}</div>
         <div className="overflow-x-auto p-4 md:p-6"><table className="w-full min-w-[760px] border-collapse overflow-hidden text-left"><thead><tr className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600"><th className="w-36 border border-slate-200 p-3">Fotoğraf</th><th className="border border-slate-200 p-3">Ürün</th><th className="w-32 border border-slate-200 p-3 text-center">Birim</th><th className="w-44 border border-slate-200 p-3 text-right"><label className="inline-flex items-center justify-end gap-2"><input type="checkbox" checked={getPresentationPriceColumns(form).base} onChange={(event) => togglePriceColumn("base", event.target.checked)} />Mevcut fiyat</label></th><th className="w-44 border border-slate-200 p-3 text-right"><label className="inline-flex items-center justify-end gap-2"><input type="checkbox" checked={getPresentationPriceColumns(form).adjusted} onChange={(event) => togglePriceColumn("adjusted", event.target.checked)} />Yeni fiyat</label></th></tr></thead><tbody>{form.items.map((item) => <tr key={`preview_${item.rowId}`}><td className="border border-slate-200 p-3"><ProductImage src={item.imageUrl} alt={item.name} className="mx-auto h-24 w-28" /></td><td className="border border-slate-200 p-4 align-top"><div className="font-extrabold text-[#1d3246]">{item.name}</div>{item.brand ? <div className="mt-1 text-sm font-bold text-[#e87524]">{item.brand}</div> : null}{item.description ? <div className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{item.description}</div> : null}</td><td className="border border-slate-200 p-3 text-center text-sm font-semibold">{item.unit}</td><td className="border border-slate-200 p-3 text-right text-sm font-extrabold text-[#1d3246]">{money(item.unitPrice, form.currency)}</td><td className="border border-slate-200 p-3 text-right text-sm font-extrabold text-[#1d3246]">{money(getAdjustedPresentationPrice(item), form.currency)}</td></tr>)}</tbody></table>{!form.items.length ? <div className="py-12 text-center text-sm text-slate-400">Önizlemek için ürün ekle.</div> : null}</div>
       </section>
 

@@ -99,6 +99,7 @@ export function buildDefaultPresentation() {
     currency: "KZT",
     defaultPricePercent: "",
     priceColumns: { base: true, adjusted: false },
+    visibility: { showWebsite: true },
     contact: {
       phone: "+7 700 444 69 11",
       website: "www.horecalink.kz",

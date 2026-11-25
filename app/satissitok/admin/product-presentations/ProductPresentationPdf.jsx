@@ -14,7 +14,7 @@ const styles = StyleSheet.create({
   header: { padding: 18, marginBottom: 18, borderRadius: 8, backgroundColor: colors.navy, alignItems: "center" },
   logo: { width: 170, height: 45, objectFit: "contain", marginBottom: 8 },
   contact: { color: "#ffffff", fontSize: 10, marginTop: 2 },
-  table: { borderWidth: 1, borderColor: colors.border, borderRadius: 6, overflow: "hidden" },
+  table: { borderWidth: 1, borderColor: colors.border, borderRadius: 6 },
   row: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border, minHeight: 86 },
   lastRow: { borderBottomWidth: 0 },
   headerRow: { minHeight: 28, backgroundColor: colors.soft, alignItems: "center" },
@@ -63,7 +63,7 @@ export default function ProductPresentationPdf({ presentation, logoUrl, fontUrl 
         <View style={styles.header} wrap={false}>
           <Image src={logoUrl} style={styles.logo} alt="HorecaLink" />
           <Text style={styles.contact}>{presentation.contact?.phone || "+7 700 444 69 11"}</Text>
-          <Text style={styles.contact}>{presentation.contact?.website || "www.horecalink.kz"}</Text>
+          {presentation.visibility?.showWebsite !== false ? <Text style={styles.contact}>{presentation.contact?.website || "www.horecalink.kz"}</Text> : null}
         </View>
 
         <View style={styles.table}>

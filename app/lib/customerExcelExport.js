@@ -55,7 +55,7 @@ export function buildCustomerWorkbook({ document, calculated, t, images = new Ma
     }
   }
   addMeta("phone", document.contact?.phone);
-  addMeta("website", document.contact?.website);
+  if (offer || document.visibility?.showWebsite !== false) addMeta("website", document.contact?.website);
   addMeta("intro", document.introText);
   sheet.addRow([]);
   const header = sheet.addRow(fields.map(label));
