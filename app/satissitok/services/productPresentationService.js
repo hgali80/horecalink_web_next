@@ -72,6 +72,23 @@ export function buildPresentationItemFromProduct(product = {}) {
     description,
     unit: text(product.unit || product.unitType || "Adet"),
     unitPrice: number(product.price),
+    pricePercent: 0,
+    adjustedUnitPrice: null,
+  };
+}
+
+export function getAdjustedPresentationPrice(item = {}) {
+  const manualPrice = Number(item.adjustedUnitPrice);
+  if (item.adjustedUnitPrice !== null && item.adjustedUnitPrice !== undefined && Number.isFinite(manualPrice)) return manualPrice;
+  const basePrice = number(item.unitPrice);
+  const percent = number(item.pricePercent);
+  return Math.round((basePrice * (1 + percent / 100) + Number.EPSILON) * 100) / 100;
+}
+
+export function getPresentationPriceColumns(presentation = {}) {
+  return {
+    base: presentation.priceColumns?.base !== false,
+    adjusted: presentation.priceColumns?.adjusted === true,
   };
 }
 
@@ -80,6 +97,8 @@ export function buildDefaultPresentation() {
     title: `Ürün fiyat sunumu - ${new Date().toLocaleDateString("tr-TR")}`,
     status: "draft",
     currency: "KZT",
+    defaultPricePercent: "",
+    priceColumns: { base: true, adjusted: false },
     contact: {
       phone: "+7 700 444 69 11",
       website: "www.horecalink.kz",

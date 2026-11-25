@@ -26,7 +26,9 @@ import {
   buildDefaultPresentation,
   buildPresentationItemFromProduct,
   createProductPresentation,
+  getAdjustedPresentationPrice,
   getProductPresentation,
+  getPresentationPriceColumns,
   getPresentationProductImageUrl,
   saveProductPresentation,
 } from "@/app/satissitok/services/productPresentationService";
@@ -238,6 +240,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
   const [savingPdf, setSavingPdf] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [bulkPercent, setBulkPercent] = useState("");
   const [draggedRowId, setDraggedRowId] = useState(null);
   const draggedRowIdRef = useRef(null);
   const lastDragTargetRowIdRef = useRef(null);
@@ -258,7 +261,13 @@ export default function ProductPresentationEditor({ presentationId = null }) {
         }
         setProducts(catalog);
         setUnits((settings.units || []).filter((item) => item.active !== false));
-        setForm(saved || buildDefaultPresentation());
+        setBulkPercent(saved?.defaultPricePercent ?? "");
+        setForm(saved ? {
+          ...buildDefaultPresentation(),
+          ...saved,
+          priceColumns: getPresentationPriceColumns(saved),
+          items: (saved.items || []).map((item) => ({ pricePercent: 0, adjustedUnitPrice: null, ...item })),
+        } : buildDefaultPresentation());
       } catch (error) {
         console.error("Product presentation load error:", error);
         if (alive) setMessage("Sunum bilgileri yüklenemedi.");
@@ -279,8 +288,26 @@ export default function ProductPresentationEditor({ presentationId = null }) {
     setForm((current) => ({ ...current, items: current.items.map((item) => item.rowId === rowId ? { ...item, [field]: value } : item) }));
   }
 
+  function updateItemPercent(rowId, value) {
+    setForm((current) => ({ ...current, items: current.items.map((item) => item.rowId === rowId ? { ...item, pricePercent: value, adjustedUnitPrice: null } : item) }));
+  }
+
+  function applyBulkPercent() {
+    const percent = Number(bulkPercent);
+    if (!Number.isFinite(percent) || percent < -100 || percent > 10000) return setMessage("Yüzde -100 ile 10000 arasında olmalıdır.");
+    setForm((current) => ({ ...current, defaultPricePercent: percent, items: current.items.map((item) => ({ ...item, pricePercent: percent, adjustedUnitPrice: null })) }));
+    setMessage(`%${percent} tüm ürünlere uygulandı. Ürün bazında değiştirebilirsin.`);
+  }
+
+  function togglePriceColumn(column, checked) {
+    const next = { ...getPresentationPriceColumns(form), [column]: checked };
+    if (!next.base && !next.adjusted) return setMessage("PDF veya Excel çıktısında en az bir fiyat sütunu seçili olmalıdır.");
+    updateField("priceColumns", next);
+  }
+
   function addProducts(chosen) {
-    const additions = chosen.filter((product) => !existingProductIds.has(text(product.id || product.stock_code))).map(buildPresentationItemFromProduct);
+    const percent = number(form?.defaultPricePercent);
+    const additions = chosen.filter((product) => !existingProductIds.has(text(product.id || product.stock_code))).map((product) => ({ ...buildPresentationItemFromProduct(product), pricePercent: percent }));
     setForm((current) => ({ ...current, items: [...current.items, ...additions] }));
     setPickerOpen(false);
     setMessage(`${additions.length} ürün sunuma eklendi.`);
@@ -433,6 +460,14 @@ export default function ProductPresentationEditor({ presentationId = null }) {
       <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-extrabold text-slate-900">Ürünler ({form.items.length})</h2><p className="text-sm text-slate-500">Bilgiler bu sunuma özel değiştirilebilir; ürün kataloğu etkilenmez. Kartı tutup sürükleyerek sıralayabilirsin.</p></div><button type="button" onClick={() => setPickerOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#e87524] px-4 py-2.5 text-sm font-bold text-white"><PlusCircle size={18} /> Ürün Ekle</button></div>
 
+        <div className="grid gap-4 rounded-2xl border border-orange-100 bg-orange-50/60 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <label className="block text-xs font-bold text-slate-600">Tüm ürünlere uygulanacak yüzde <span className="font-normal">(+ artış, - indirim)</span><div className="mt-1 flex max-w-sm overflow-hidden rounded-lg border border-slate-300 bg-white"><input type="number" min="-100" max="10000" step="0.01" value={bulkPercent} onChange={(event) => setBulkPercent(event.target.value)} className="min-w-0 flex-1 px-3 py-2.5 text-sm outline-none" /><span className="border-l border-slate-300 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-500">%</span></div></label>
+          <button type="button" onClick={applyBulkPercent} disabled={!form.items.length || bulkPercent === ""} className="rounded-xl bg-[#1d3246] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40">Tüm ürünlere uygula</button>
+          <p className="text-xs text-slate-500 md:col-span-2">Uygulandığında ürünlerdeki önceki yüzdeler ve elle düzenlenmiş yeni fiyatlar yeniden hesaplanır. Daha sonra yüzdeyi ürün bazında değiştirebilirsiniz.</p>
+        </div>
+
+        <p className="text-xs text-slate-500">PDF ve Excel çıktısına eklenecek fiyat sütunlarını aşağıdaki tablo başlıklarındaki kutulardan seçebilirsiniz.</p>
+
         {form.items.length ? (
           <div className="space-y-3">
             {form.items.map((item, index) => (
@@ -449,13 +484,15 @@ export default function ProductPresentationEditor({ presentationId = null }) {
                 onDrop={(event) => event.preventDefault()}
                 onDragEnd={handleDragEnd}
                 aria-grabbed={draggedRowId === item.rowId}
-                className={`grid cursor-grab gap-4 rounded-2xl border p-4 transition active:cursor-grabbing lg:grid-cols-[120px_minmax(0,1.2fr)_minmax(0,1.5fr)_130px_160px_92px] ${draggedRowId === item.rowId ? "border-[#e87524] bg-orange-50/50 opacity-60 shadow-lg" : "border-slate-200"}`}
+                className={`grid cursor-grab gap-4 rounded-2xl border p-4 transition active:cursor-grabbing xl:grid-cols-[120px_minmax(0,1.2fr)_minmax(0,1.5fr)_100px_140px_110px_150px_92px] ${draggedRowId === item.rowId ? "border-[#e87524] bg-orange-50/50 opacity-60 shadow-lg" : "border-slate-200"}`}
               >
                 <ProductImage src={item.imageUrl} alt={item.name || "Ürün"} className="h-28 w-full rounded-xl border border-slate-100" />
                 <div className="space-y-3"><label className="block text-xs font-bold text-slate-500">Ürün adı<input value={item.name} onChange={(event) => updateItem(item.rowId, "name", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold" /></label><label className="block text-xs font-bold text-slate-500">Marka<input value={item.brand} onChange={(event) => updateItem(item.rowId, "brand", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label></div>
                 <label className="block text-xs font-bold text-slate-500">Teknik özellikler<textarea value={item.description} onChange={(event) => updateItem(item.rowId, "description", event.target.value)} rows={5} className="mt-1 w-full resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label>
                 <label className="block text-xs font-bold text-slate-500">Birim<select value={item.unit} onChange={(event) => updateItem(item.rowId, "unit", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value={item.unit}>{item.unit || "Seç"}</option>{units.filter((unit) => unit.label !== item.unit).map((unit) => <option key={unit.key} value={unit.label}>{unit.label}</option>)}</select></label>
-                <label className="block text-xs font-bold text-slate-500">Birim fiyat<div className="mt-1 flex overflow-hidden rounded-lg border border-slate-300"><input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateItem(item.rowId, "unitPrice", number(event.target.value))} className="min-w-0 flex-1 px-3 py-2 text-sm font-bold outline-none" /><span className="border-l border-slate-300 bg-slate-50 px-2 py-2 text-xs font-bold text-slate-500">{form.currency}</span></div></label>
+                <label className="block text-xs font-bold text-slate-500">Mevcut fiyat<div className="mt-1 flex overflow-hidden rounded-lg border border-slate-300"><input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateItem(item.rowId, "unitPrice", number(event.target.value))} className="min-w-0 flex-1 px-3 py-2 text-sm font-bold outline-none" /><span className="border-l border-slate-300 bg-slate-50 px-2 py-2 text-xs font-bold text-slate-500">{form.currency}</span></div></label>
+                <label className="block text-xs font-bold text-slate-500">Yeni fiyat<div className="mt-1 flex overflow-hidden rounded-lg border border-[#e87524]/60 bg-white"><input type="number" min="0" step="0.01" value={getAdjustedPresentationPrice(item)} onChange={(event) => updateItem(item.rowId, "adjustedUnitPrice", number(event.target.value))} className="min-w-0 flex-1 px-3 py-2 text-sm font-bold outline-none" /><span className="border-l border-slate-300 bg-slate-50 px-2 py-2 text-xs font-bold text-slate-500">{form.currency}</span></div>{item.adjustedUnitPrice !== null && item.adjustedUnitPrice !== undefined ? <button type="button" onClick={() => updateItem(item.rowId, "adjustedUnitPrice", null)} className="mt-1 text-[11px] font-semibold text-[#e87524] underline">Yüzdeye göre hesapla</button> : null}</label>
+                <label className="block text-xs font-bold text-slate-500">Yüzde (+ / -)<div className="mt-1 flex overflow-hidden rounded-lg border border-slate-300 bg-white"><input type="text" inputMode="decimal" value={item.pricePercent ?? 0} onChange={(event) => updateItemPercent(item.rowId, event.target.value)} onBlur={() => updateItemPercent(item.rowId, String(Math.min(10000, Math.max(-100, number(item.pricePercent)))))} className="min-w-0 flex-1 px-3 py-2 text-sm outline-none" /><span className="border-l border-slate-300 bg-slate-50 px-2 py-2 text-xs font-bold text-slate-500">%</span></div></label>
                 <div className="flex items-start justify-end gap-1 lg:flex-col"><span className="flex items-center justify-center rounded-lg border border-dashed border-slate-300 p-2 text-slate-400" title="Kartı tutup sürükleyerek sırala" aria-hidden="true"><GripVertical size={17} /></span><button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Yukarı taşı"><ArrowUp size={17} /></button><button type="button" onClick={() => moveItem(index, 1)} disabled={index === form.items.length - 1} className="rounded-lg border border-slate-200 p-2 text-slate-500 disabled:opacity-25" aria-label="Aşağı taşı"><ArrowDown size={17} /></button><button type="button" onClick={() => removeItem(item.rowId)} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label="Ürünü kaldır"><Trash2 size={17} /></button></div>
               </div>
             ))}
@@ -465,7 +502,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
 
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
         <div className="flex flex-col items-center bg-[#1d3246] px-6 py-7 text-white"><Image src={LOGO_SRC} alt="HorecaLink" width={220} height={60} unoptimized className="h-14 w-auto object-contain" /><div className="mt-2 text-sm font-semibold">{form.contact?.phone}</div><div className="mt-1 text-sm">{form.contact?.website}</div></div>
-        <div className="overflow-x-auto p-4 md:p-6"><table className="w-full min-w-[760px] border-collapse overflow-hidden text-left"><thead><tr className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600"><th className="w-36 border border-slate-200 p-3">Fotoğraf</th><th className="border border-slate-200 p-3">Ürün</th><th className="w-32 border border-slate-200 p-3 text-center">Birim</th><th className="w-44 border border-slate-200 p-3 text-right">Birim Fiyat</th></tr></thead><tbody>{form.items.map((item) => <tr key={`preview_${item.rowId}`}><td className="border border-slate-200 p-3"><ProductImage src={item.imageUrl} alt={item.name} className="mx-auto h-24 w-28" /></td><td className="border border-slate-200 p-4 align-top"><div className="font-extrabold text-[#1d3246]">{item.name}</div>{item.brand ? <div className="mt-1 text-sm font-bold text-[#e87524]">{item.brand}</div> : null}{item.description ? <div className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{item.description}</div> : null}</td><td className="border border-slate-200 p-3 text-center text-sm font-semibold">{item.unit}</td><td className="border border-slate-200 p-3 text-right text-sm font-extrabold text-[#1d3246]">{money(item.unitPrice, form.currency)}</td></tr>)}</tbody></table>{!form.items.length ? <div className="py-12 text-center text-sm text-slate-400">Önizlemek için ürün ekle.</div> : null}</div>
+        <div className="overflow-x-auto p-4 md:p-6"><table className="w-full min-w-[760px] border-collapse overflow-hidden text-left"><thead><tr className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600"><th className="w-36 border border-slate-200 p-3">Fotoğraf</th><th className="border border-slate-200 p-3">Ürün</th><th className="w-32 border border-slate-200 p-3 text-center">Birim</th><th className="w-44 border border-slate-200 p-3 text-right"><label className="inline-flex items-center justify-end gap-2"><input type="checkbox" checked={getPresentationPriceColumns(form).base} onChange={(event) => togglePriceColumn("base", event.target.checked)} />Mevcut fiyat</label></th><th className="w-44 border border-slate-200 p-3 text-right"><label className="inline-flex items-center justify-end gap-2"><input type="checkbox" checked={getPresentationPriceColumns(form).adjusted} onChange={(event) => togglePriceColumn("adjusted", event.target.checked)} />Yeni fiyat</label></th></tr></thead><tbody>{form.items.map((item) => <tr key={`preview_${item.rowId}`}><td className="border border-slate-200 p-3"><ProductImage src={item.imageUrl} alt={item.name} className="mx-auto h-24 w-28" /></td><td className="border border-slate-200 p-4 align-top"><div className="font-extrabold text-[#1d3246]">{item.name}</div>{item.brand ? <div className="mt-1 text-sm font-bold text-[#e87524]">{item.brand}</div> : null}{item.description ? <div className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{item.description}</div> : null}</td><td className="border border-slate-200 p-3 text-center text-sm font-semibold">{item.unit}</td><td className="border border-slate-200 p-3 text-right text-sm font-extrabold text-[#1d3246]">{money(item.unitPrice, form.currency)}</td><td className="border border-slate-200 p-3 text-right text-sm font-extrabold text-[#1d3246]">{money(getAdjustedPresentationPrice(item), form.currency)}</td></tr>)}</tbody></table>{!form.items.length ? <div className="py-12 text-center text-sm text-slate-400">Önizlemek için ürün ekle.</div> : null}</div>
       </section>
 
       <ProductPicker open={pickerOpen} products={products} existingProductIds={existingProductIds} onClose={() => setPickerOpen(false)} onAdd={addProducts} />

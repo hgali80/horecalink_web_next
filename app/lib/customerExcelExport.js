@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { loadCustomerExportImages } from "@/app/lib/customerMediaExport";
+import { getAdjustedPresentationPrice, getPresentationPriceColumns } from "@/app/satissitok/services/productPresentationService";
 
 const numeric = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const text = (value) => String(value ?? "");
@@ -12,7 +13,7 @@ export function buildCustomerWorkbook({ document, calculated, t, images = new Ma
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "HorecaLink";
   workbook.calcProperties.fullCalcOnLoad = true;
-  const label = (key) => t(`customerExcel.${key}`);
+  const label = (key) => t(`customerExcel.${key === "adjustedUnitPrice" ? "newPrice" : key}`);
   const sheet = workbook.addWorksheet(label(offer ? "offer" : "presentation"), {
     pageSetup: {
       paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0,
@@ -20,10 +21,11 @@ export function buildCustomerWorkbook({ document, calculated, t, images = new Ma
     },
     headerFooter: { oddFooter: "&LHorecaLink&R&P / &N" },
   });
+  const priceColumns = getPresentationPriceColumns(document);
   const fields = offer
     ? ["sku", "name", "description", "brand", "quantity", "unit", "unitPrice", "total", "image"]
-    : ["sku", "name", "description", "brand", "unit", "unitPrice", "image"];
-  const widths = { sku: 20, name: 32, description: 44, brand: 17, quantity: 12, unit: 13, unitPrice: 20, total: 20, image: 20 };
+    : ["sku", "name", "description", "brand", "unit", ...(priceColumns.base ? ["unitPrice"] : []), ...(priceColumns.adjusted ? ["adjustedUnitPrice"] : []), "image"];
+  const widths = { sku: 20, name: 32, description: 44, brand: 17, quantity: 12, unit: 13, unitPrice: 20, adjustedUnitPrice: 20, total: 20, image: 20 };
   const imageRows = [];
   sheet.columns = fields.map((key) => ({ key, width: widths[key] }));
   const currency = document.currency || "KZT";
@@ -65,9 +67,11 @@ export function buildCustomerWorkbook({ document, calculated, t, images = new Ma
       description: text(item.description || item.specs || item.technicalDetails),
       brand: text(item.brand), unit: text(item.unit),
       unitPrice: numeric(item.unitPrice), quantity: numeric(item.quantity),
+      adjustedUnitPrice: getAdjustedPresentationPrice(item),
     };
     const row = sheet.addRow(values);
-    row.getCell("unitPrice").numFmt = moneyFormat;
+    if (offer || priceColumns.base) row.getCell("unitPrice").numFmt = moneyFormat;
+    if (!offer && priceColumns.adjusted) row.getCell("adjustedUnitPrice").numFmt = moneyFormat;
     if (offer) {
       row.getCell("quantity").numFmt = "0.####";
       row.getCell("total").value = { formula: `E${row.number}*G${row.number}`, result: item.lineTotal };

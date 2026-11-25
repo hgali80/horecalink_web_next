@@ -1,4 +1,5 @@
 import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { getAdjustedPresentationPrice, getPresentationPriceColumns } from "@/app/satissitok/services/productPresentationService";
 
 const colors = {
   navy: "#1d3246",
@@ -23,6 +24,7 @@ const styles = StyleSheet.create({
   details: { width: "47%" },
   unit: { width: "13%", alignItems: "center" },
   price: { width: "22%", alignItems: "flex-end" },
+  secondaryPrice: { width: "17%", alignItems: "flex-end" },
   imageBox: { width: 72, height: 72, alignItems: "center", justifyContent: "center" },
   image: { width: 68, height: 68, objectFit: "contain" },
   placeholder: { fontSize: 8, color: colors.muted },
@@ -49,6 +51,11 @@ function Cell({ style, last = false, children }) {
 export default function ProductPresentationPdf({ presentation, logoUrl, fontUrl }) {
   Font.register({ family: "NotoSans", fonts: [{ src: fontUrl, fontWeight: 400 }, { src: fontUrl, fontWeight: 700 }] });
   const items = Array.isArray(presentation.items) ? presentation.items : [];
+  const priceColumns = getPresentationPriceColumns(presentation);
+  const hasBothPrices = priceColumns.base && priceColumns.adjusted;
+  const photoStyle = hasBothPrices ? { ...styles.photo, width: "16%" } : styles.photo;
+  const detailsStyle = hasBothPrices ? { ...styles.details, width: "38%" } : styles.details;
+  const unitStyle = hasBothPrices ? { ...styles.unit, width: "12%" } : styles.unit;
 
   return (
     <Document title={presentation.title || "HorecaLink ürün fiyat sunumu"} author="HorecaLink">
@@ -61,25 +68,27 @@ export default function ProductPresentationPdf({ presentation, logoUrl, fontUrl 
 
         <View style={styles.table}>
           <View style={[styles.row, styles.headerRow]} fixed>
-            <Cell style={styles.photo}><Text style={styles.heading}>FOTOĞRAF</Text></Cell>
-            <Cell style={styles.details}><Text style={styles.heading}>ÜRÜN</Text></Cell>
-            <Cell style={styles.unit}><Text style={styles.heading}>BİRİM</Text></Cell>
-            <Cell style={styles.price} last><Text style={styles.heading}>BİRİM FİYAT</Text></Cell>
+            <Cell style={photoStyle}><Text style={styles.heading}>FOTOĞRAF</Text></Cell>
+            <Cell style={detailsStyle}><Text style={styles.heading}>ÜRÜN</Text></Cell>
+            <Cell style={unitStyle}><Text style={styles.heading}>BİRİM</Text></Cell>
+            {priceColumns.base ? <Cell style={hasBothPrices ? styles.secondaryPrice : styles.price} last={!priceColumns.adjusted}><Text style={styles.heading}>MEVCUT FİYAT</Text></Cell> : null}
+            {priceColumns.adjusted ? <Cell style={hasBothPrices ? styles.secondaryPrice : styles.price} last><Text style={styles.heading}>YENİ FİYAT</Text></Cell> : null}
           </View>
           {items.map((item, index) => (
             <View key={item.rowId || `${index}`} style={[styles.row, index === items.length - 1 && styles.lastRow]} wrap={false}>
-              <Cell style={styles.photo}>
+              <Cell style={photoStyle}>
                 <View style={styles.imageBox}>
                   {item.pdfImageUrl ? <Image src={item.pdfImageUrl} style={styles.image} alt="" /> : <Text style={styles.placeholder}>Görsel yok</Text>}
                 </View>
               </Cell>
-              <Cell style={styles.details}>
+              <Cell style={detailsStyle}>
                 <Text style={styles.name}>{String(item.name || "Ürün")}</Text>
                 {item.brand ? <Text style={styles.brand}>{String(item.brand)}</Text> : null}
                 {item.description ? <Text style={styles.description}>{String(item.description)}</Text> : null}
               </Cell>
-              <Cell style={styles.unit}><Text style={styles.body}>{String(item.unit || "-")}</Text></Cell>
-              <Cell style={styles.price} last><Text style={styles.money}>{money(item.unitPrice, presentation.currency)}</Text></Cell>
+              <Cell style={unitStyle}><Text style={styles.body}>{String(item.unit || "-")}</Text></Cell>
+              {priceColumns.base ? <Cell style={hasBothPrices ? styles.secondaryPrice : styles.price} last={!priceColumns.adjusted}><Text style={styles.money}>{money(item.unitPrice, presentation.currency)}</Text></Cell> : null}
+              {priceColumns.adjusted ? <Cell style={hasBothPrices ? styles.secondaryPrice : styles.price} last><Text style={styles.money}>{money(getAdjustedPresentationPrice(item), presentation.currency)}</Text></Cell> : null}
             </View>
           ))}
         </View>

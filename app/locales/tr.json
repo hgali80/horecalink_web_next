@@ -19,6 +19,7 @@
     "quantity": "Miktar",
     "unit": "Birim",
     "unitPrice": "Birim fiyat",
+    "newPrice": "Yeni fiyat",
     "total": "Toplam",
     "image": "Fotoğraf",
     "imageUnavailable": "Görsel yok",
