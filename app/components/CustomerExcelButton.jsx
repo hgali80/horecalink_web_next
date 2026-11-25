@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
 import { useLang } from "@/app/context/LanguageContext";
 
-export default function CustomerExcelButton({ document, calculated, onError }) {
+export default function CustomerExcelButton({ document, calculated, language = "tr", onError }) {
   const { t } = useLang();
   const [busy, setBusy] = useState(false);
 
@@ -14,7 +14,7 @@ export default function CustomerExcelButton({ document, calculated, onError }) {
     onError("");
     try {
       const { downloadCustomerExcel } = await import("@/app/lib/customerExcelExport");
-      const { missingImages } = await downloadCustomerExcel({ document, calculated, t });
+      const { missingImages } = await downloadCustomerExcel({ document, calculated, t, language });
       if (missingImages) onError(t("customerExcel.imageWarning", { count: missingImages }));
     } catch (error) {
       console.error("Customer Excel export failed:", error);

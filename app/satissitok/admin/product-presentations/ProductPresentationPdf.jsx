@@ -1,4 +1,5 @@
 import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { getProductPresentationExportLabel } from "@/app/lib/productPresentationExportLabels";
 import { getAdjustedPresentationPrice, getPresentationPriceColumns } from "@/app/satissitok/services/productPresentationService";
 
 const colors = {
@@ -11,9 +12,9 @@ const colors = {
 
 const styles = StyleSheet.create({
   page: { padding: 28, paddingBottom: 38, fontFamily: "NotoSans", color: colors.navy, backgroundColor: "#ffffff" },
-  header: { padding: 18, marginBottom: 18, borderRadius: 8, backgroundColor: colors.navy, alignItems: "center" },
-  logo: { width: 170, height: 45, objectFit: "contain", marginBottom: 8 },
-  contact: { color: "#ffffff", fontSize: 10, marginTop: 2 },
+  header: { paddingTop: 8, paddingBottom: 9, paddingLeft: 18, paddingRight: 18, marginBottom: 14, borderRadius: 8, backgroundColor: colors.navy, alignItems: "center" },
+  logo: { width: 260, height: 39, objectFit: "contain", marginBottom: 3 },
+  contact: { color: "#ffffff", fontSize: 9, marginTop: 0 },
   table: { borderWidth: 1, borderColor: colors.border, borderRadius: 6 },
   row: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border, minHeight: 86 },
   lastRow: { borderBottomWidth: 0 },
@@ -48,8 +49,9 @@ function Cell({ style, last = false, children }) {
   return <View style={[styles.cell, style, last && styles.lastCell]}>{children}</View>;
 }
 
-export default function ProductPresentationPdf({ presentation, logoUrl, fontUrl }) {
+export default function ProductPresentationPdf({ presentation, logoUrl, fontUrl, language = "tr" }) {
   Font.register({ family: "NotoSans", fonts: [{ src: fontUrl, fontWeight: 400 }, { src: fontUrl, fontWeight: 700 }] });
+  const label = (key) => getProductPresentationExportLabel(language, key);
   const items = Array.isArray(presentation.items) ? presentation.items : [];
   const priceColumns = getPresentationPriceColumns(presentation);
   const hasBothPrices = priceColumns.base && priceColumns.adjusted;
@@ -58,27 +60,29 @@ export default function ProductPresentationPdf({ presentation, logoUrl, fontUrl 
   const unitStyle = hasBothPrices ? { ...styles.unit, width: "12%" } : styles.unit;
 
   return (
-    <Document title={presentation.title || "HorecaLink ürün fiyat sunumu"} author="HorecaLink">
+    <Document title={label("presentation")} author="HorecaLink">
       <Page size="A4" style={styles.page} wrap>
         <View style={styles.header} wrap={false}>
           <Image src={logoUrl} style={styles.logo} alt="HorecaLink" />
-          <Text style={styles.contact}>{presentation.contact?.phone || "+7 700 444 69 11"}</Text>
-          {presentation.visibility?.showWebsite !== false ? <Text style={styles.contact}>{presentation.contact?.website || "www.horecalink.kz"}</Text> : null}
+          <Text style={styles.contact}>
+            {presentation.contact?.phone || "+7 700 444 69 11"}
+            {presentation.visibility?.showWebsite !== false ? `   ·   ${presentation.contact?.website || "www.horecalink.kz"}` : ""}
+          </Text>
         </View>
 
         <View style={styles.table}>
           <View style={[styles.row, styles.headerRow]} fixed>
-            <Cell style={photoStyle}><Text style={styles.heading}>FOTOĞRAF</Text></Cell>
-            <Cell style={detailsStyle}><Text style={styles.heading}>ÜRÜN</Text></Cell>
-            <Cell style={unitStyle}><Text style={styles.heading}>BİRİM</Text></Cell>
-            {priceColumns.base ? <Cell style={hasBothPrices ? styles.secondaryPrice : styles.price} last={!priceColumns.adjusted}><Text style={styles.heading}>MEVCUT FİYAT</Text></Cell> : null}
-            {priceColumns.adjusted ? <Cell style={hasBothPrices ? styles.secondaryPrice : styles.price} last><Text style={styles.heading}>YENİ FİYAT</Text></Cell> : null}
+            <Cell style={photoStyle}><Text style={styles.heading}>{label("photoHeader")}</Text></Cell>
+            <Cell style={detailsStyle}><Text style={styles.heading}>{label("productHeader")}</Text></Cell>
+            <Cell style={unitStyle}><Text style={styles.heading}>{label("unitHeader")}</Text></Cell>
+            {priceColumns.base ? <Cell style={hasBothPrices ? styles.secondaryPrice : styles.price} last={!priceColumns.adjusted}><Text style={styles.heading}>{label("basePriceHeader")}</Text></Cell> : null}
+            {priceColumns.adjusted ? <Cell style={hasBothPrices ? styles.secondaryPrice : styles.price} last><Text style={styles.heading}>{label("newPriceHeader")}</Text></Cell> : null}
           </View>
           {items.map((item, index) => (
             <View key={item.rowId || `${index}`} style={[styles.row, index === items.length - 1 && styles.lastRow]} wrap={false}>
               <Cell style={photoStyle}>
                 <View style={styles.imageBox}>
-                  {item.pdfImageUrl ? <Image src={item.pdfImageUrl} style={styles.image} alt="" /> : <Text style={styles.placeholder}>Görsel yok</Text>}
+                  {item.pdfImageUrl ? <Image src={item.pdfImageUrl} style={styles.image} alt="" /> : <Text style={styles.placeholder}>{label("imageUnavailable")}</Text>}
                 </View>
               </Cell>
               <Cell style={detailsStyle}>
@@ -95,7 +99,7 @@ export default function ProductPresentationPdf({ presentation, logoUrl, fontUrl 
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>HorecaLink</Text>
-          <Text style={styles.footerText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+          <Text style={styles.footerText} render={({ pageNumber, totalPages }) => `${label("page")} ${pageNumber} / ${totalPages}`} />
         </View>
       </Page>
     </Document>

@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { loadCustomerExportImages } from "@/app/lib/customerMediaExport";
-import { getAdjustedPresentationPrice, getPresentationPriceColumns } from "@/app/satissitok/services/productPresentationService";
+import { getProductPresentationExportLabel } from "@/app/lib/productPresentationExportLabels";
+import { getAdjustedPresentationPrice, getLocalizedPresentationItemDescription, getLocalizedPresentationItemName, getPresentationPriceColumns } from "@/app/satissitok/services/productPresentationService";
 
 const numeric = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const text = (value) => String(value ?? "");
@@ -8,12 +9,14 @@ const navy = "FF1D3246";
 const border = { style: "thin", color: { argb: "FFD9E1E8" } };
 
 // The offer editor supplies the same normalized items/totals used by its PDF.
-export function buildCustomerWorkbook({ document, calculated, t, images = new Map() }) {
+export function buildCustomerWorkbook({ document, calculated, t, language = "tr", images = new Map(), logoSource = "" }) {
   const offer = Boolean(calculated);
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "HorecaLink";
   workbook.calcProperties.fullCalcOnLoad = true;
-  const label = (key) => t(`customerExcel.${key === "adjustedUnitPrice" ? "newPrice" : key}`);
+  const label = (key) => offer
+    ? t(`customerExcel.${key === "adjustedUnitPrice" ? "newPrice" : key}`)
+    : getProductPresentationExportLabel(language, key === "adjustedUnitPrice" ? "newPrice" : key);
   const sheet = workbook.addWorksheet(label(offer ? "offer" : "presentation"), {
     pageSetup: {
       paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0,
@@ -38,7 +41,8 @@ export function buildCustomerWorkbook({ document, calculated, t, images = new Ma
     row.getCell(1).font = { name: "Calibri", size: 11, bold: true, color: { argb: navy } };
     return row;
   }
-  sheet.addRow(["HorecaLink", label(offer ? "offer" : "presentation")]);
+  const brandRow = sheet.addRow(offer ? ["HorecaLink", label("offer")] : []);
+  if (!offer) brandRow.getCell(fields.length).value = label("presentation");
   // Presentation titles are internal admin labels, never customer-facing content.
   addMeta("offerNo", document.offerNo);
   if (document.issueDate) {
@@ -63,8 +67,8 @@ export function buildCustomerWorkbook({ document, calculated, t, images = new Ma
   const items = offer ? calculated.items : (document.items || []);
   for (const item of items) {
     const values = {
-      sku: text(item.sku || item.stock_code), name: text(item.name),
-      description: text(item.description || item.specs || item.technicalDetails),
+      sku: text(item.sku || item.stock_code), name: offer ? text(item.name) : getLocalizedPresentationItemName(item, language),
+      description: offer ? text(item.description || item.specs || item.technicalDetails) : getLocalizedPresentationItemDescription(item, language),
       brand: text(item.brand), unit: text(item.unit),
       unitPrice: numeric(item.unitPrice), quantity: numeric(item.quantity),
       adjustedUnitPrice: getAdjustedPresentationPrice(item),
@@ -140,6 +144,14 @@ export function buildCustomerWorkbook({ document, calculated, t, images = new Ma
     }
     row.height = Math.max(36, row.height);
   }
+  if (!offer) {
+    const logo = images.get(text(logoSource));
+    if (logo) {
+      const logoId = workbook.addImage({ base64: logo, extension: "png" });
+      sheet.addImage(logoId, { tl: { col: 0.15, row: 0.08 }, ext: { width: 250, height: 37.5 }, editAs: "oneCell" });
+    }
+    brandRow.getCell(fields.length).alignment = { vertical: "middle", horizontal: "right" };
+  }
   for (const { row, picture } of imageRows) {
     row.height = Math.max(row.height, 84);
     const imageId = workbook.addImage({ base64: picture, extension: "png" });
@@ -159,9 +171,14 @@ export function buildCustomerWorkbook({ document, calculated, t, images = new Ma
 
 export async function downloadCustomerExcel(options) {
   const items = options.calculated ? options.calculated.items : options.document.items || [];
+  const logoSource = options.calculated ? "" : new URL("/horecalink_logo_price_presentation.png", window.location.origin).href;
   const sources = [...new Set(items.map(item => text(item.imageUrl).trim()).filter(Boolean))];
-  const images = await loadCustomerExportImages(sources);
-  const workbook = buildCustomerWorkbook({ ...options, images });
+  const [images, logoImages] = await Promise.all([
+    loadCustomerExportImages(sources),
+    logoSource ? loadCustomerExportImages([logoSource], { dimensions: { width: 1000, height: 150 } }) : Promise.resolve(new Map()),
+  ]);
+  if (logoSource) images.set(logoSource, logoImages.get(logoSource));
+  const workbook = buildCustomerWorkbook({ ...options, images, logoSource });
   const buffer = await workbook.xlsx.writeBuffer();
   const url = URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
   const link = document.createElement("a");

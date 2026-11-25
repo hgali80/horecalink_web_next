@@ -27,6 +27,8 @@ import {
   buildPresentationItemFromProduct,
   createProductPresentation,
   getAdjustedPresentationPrice,
+  getLocalizedPresentationItemDescription,
+  getLocalizedPresentationItemName,
   getProductPresentation,
   getPresentationPriceColumns,
   getPresentationProductImageUrl,
@@ -241,6 +243,7 @@ export default function ProductPresentationEditor({ presentationId = null }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [bulkPercent, setBulkPercent] = useState("");
+  const [exportLanguage, setExportLanguage] = useState("tr");
   const [draggedRowId, setDraggedRowId] = useState(null);
   const draggedRowIdRef = useRef(null);
   const lastDragTargetRowIdRef = useRef(null);
@@ -262,12 +265,26 @@ export default function ProductPresentationEditor({ presentationId = null }) {
         setProducts(catalog);
         setUnits((settings.units || []).filter((item) => item.active !== false));
         setBulkPercent(saved?.defaultPricePercent ?? "");
+        const catalogById = new Map(catalog.map((product) => [text(product.id || product.stock_code), product]));
         setForm(saved ? {
           ...buildDefaultPresentation(),
           ...saved,
           priceColumns: getPresentationPriceColumns(saved),
           visibility: { showWebsite: true, ...saved.visibility },
-          items: (saved.items || []).map((item) => ({ pricePercent: 0, adjustedUnitPrice: null, ...item })),
+          items: (saved.items || []).map((item) => {
+            const product = catalogById.get(text(item.productId));
+            return {
+              pricePercent: 0,
+              adjustedUnitPrice: null,
+              nameTr: item.nameTr || product?.name_tr || "",
+              nameRu: item.nameRu || product?.name_ru || "",
+              nameKz: item.nameKz || product?.name_kz || product?.name_kk || "",
+              descriptionTr: item.descriptionTr || product?.specs_tr || product?.description_tr || "",
+              descriptionRu: item.descriptionRu || product?.specs_ru || product?.description_ru || "",
+              descriptionKz: item.descriptionKz || product?.specs_kz || product?.specs_kk || product?.description_kz || product?.description_kk || "",
+              ...item,
+            };
+          }),
         } : buildDefaultPresentation());
       } catch (error) {
         console.error("Product presentation load error:", error);
@@ -286,7 +303,15 @@ export default function ProductPresentationEditor({ presentationId = null }) {
   }
 
   function updateItem(rowId, field, value) {
-    setForm((current) => ({ ...current, items: current.items.map((item) => item.rowId === rowId ? { ...item, [field]: value } : item) }));
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item) => item.rowId === rowId ? {
+        ...item,
+        [field]: value,
+        ...(field === "name" ? { nameTr: value } : {}),
+        ...(field === "description" ? { descriptionTr: value } : {}),
+      } : item),
+    }));
   }
 
   function updateItemPercent(rowId, value) {
@@ -408,12 +433,18 @@ export default function ProductPresentationEditor({ presentationId = null }) {
           const src = getPrintableImageSrc(item.imageUrl);
           const pdfImageUrl = src ? images.get(src) || "" : "";
           if (src && !pdfImageUrl) missingImages += 1;
-          return { ...item, pdfImageUrl };
+          return {
+            ...item,
+            name: getLocalizedPresentationItemName(item, exportLanguage),
+            description: getLocalizedPresentationItemDescription(item, exportLanguage),
+            pdfImageUrl,
+          };
         }),
       };
       const documentElement = createElement(ProductPresentationPdf, {
         presentation,
-        logoUrl: new URL("/pdf/horecalink_logo_white_v2.png", origin).href,
+        language: exportLanguage,
+        logoUrl: new URL("/horecalink_logo_price_presentation.png", origin).href,
         fontUrl: new URL("/pdf/NotoSans.ttf", origin).href,
       });
       const blob = await waitForPdf(pdf(documentElement).toBlob());
@@ -444,7 +475,8 @@ export default function ProductPresentationEditor({ presentationId = null }) {
           <div><h1 className="text-2xl font-extrabold text-slate-900">{presentationId ? "Ürün Fiyat Sunumunu Düzenle" : "Yeni Ürün Fiyat Sunumu"}</h1><p className="text-sm text-slate-500">Sunum adını müşteri görmez; yalnızca admin listesinde kullanılır.</p></div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <CustomerExcelButton document={form} onError={setMessage} />
+          <label className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700"><span>Çıktı dili</span><select value={exportLanguage} onChange={(event) => setExportLanguage(event.target.value)} className="bg-transparent py-0.5 outline-none"><option value="tr">Türkçe</option><option value="ru">Русский</option><option value="kz">Қазақша</option></select></label>
+          <CustomerExcelButton document={form} language={exportLanguage} onError={setMessage} />
           <button type="button" onClick={handlePdf} disabled={savingPdf} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50"><FileDown size={17} /> {savingPdf ? "PDF hazırlanıyor..." : "PDF İndir"}</button>
           <button type="button" onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-[#1d3246] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>
         </div>

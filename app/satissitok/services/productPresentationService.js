@@ -68,6 +68,12 @@ export function buildPresentationItemFromProduct(product = {}) {
     imageName,
     imageUrl: getPresentationProductImageUrl(product),
     name: text(product.name || product.name_tr || product.name_ru || "Ürün"),
+    nameTr: text(product.name_tr),
+    nameRu: text(product.name_ru || product.name),
+    nameKz: text(product.name_kz || product.name_kk),
+    descriptionTr: text(product.specs_tr || product.description_tr || product.technicalDetails_tr),
+    descriptionRu: text(product.specs_ru || product.description_ru || product.technicalDetails_ru),
+    descriptionKz: text(product.specs_kz || product.specs_kk || product.description_kz || product.description_kk || product.technicalDetails_kz || product.technicalDetails_kk),
     brand: text(product.brand),
     description,
     unit: text(product.unit || product.unitType || "Adet"),
@@ -75,6 +81,16 @@ export function buildPresentationItemFromProduct(product = {}) {
     pricePercent: 0,
     adjustedUnitPrice: null,
   };
+}
+
+export function getLocalizedPresentationItemName(item = {}, language = "tr") {
+  const localized = language === "ru" ? item.nameRu : language === "kz" ? item.nameKz : item.nameTr;
+  return text(localized) || text(item.name) || (language === "ru" ? "Товар" : language === "kz" ? "Өнім" : "Ürün");
+}
+
+export function getLocalizedPresentationItemDescription(item = {}, language = "tr") {
+  const localized = language === "ru" ? item.descriptionRu : language === "kz" ? item.descriptionKz : item.descriptionTr;
+  return text(localized) || text(item.description);
 }
 
 export function getAdjustedPresentationPrice(item = {}) {
