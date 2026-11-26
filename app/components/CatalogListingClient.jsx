@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   CheckCircle2,
   ChevronDown,
@@ -94,21 +94,51 @@ function getGroupHref(groupKey) {
   return `/catalog/${groupKey}`;
 }
 
+function serializeSearchParams(searchParams = {}) {
+  const params = new URLSearchParams();
+
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => params.append(key, item));
+    } else if (value !== undefined && value !== null) {
+      params.set(key, value);
+    }
+  });
+
+  return params.toString();
+}
+
 export default function CatalogListingClient({
   group: rawGroup,
   category: rawCategory = null,
   subcategory: rawSubcategory = null,
+  initialProducts = null,
+  initialSearchParams = {},
 }) {
   const { group, category, subcategory } = normalizeCatalogPath({
     group: rawGroup, category: rawCategory, subcategory: rawSubcategory,
   });
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { t, lang } = useLang();
 
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const initialQueryString = useMemo(
+    () => serializeSearchParams(initialSearchParams),
+    [initialSearchParams]
+  );
+  const [queryString, setQueryString] = useState(initialQueryString);
+  const searchParams = useMemo(() => new URLSearchParams(queryString), [queryString]);
+
+  useEffect(() => {
+    setQueryString(initialQueryString);
+  }, [initialQueryString]);
+
+  const [clientProducts, setClientProducts] = useState(null);
+  const products = useMemo(
+    () => (Array.isArray(initialProducts) ? initialProducts : clientProducts || []),
+    [clientProducts, initialProducts]
+  );
+  const loading = !Array.isArray(initialProducts) && clientProducts === null;
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   const normalizedGroup = useMemo(() => normalizeCatalogGroupKey(group), [group]);
@@ -128,11 +158,11 @@ export default function CatalogListingClient({
   const pageValue = Number(searchParams.get("page") || 1);
 
   useEffect(() => {
+    if (Array.isArray(initialProducts)) return;
+
     let cancelled = false;
 
     async function load() {
-      setLoading(true);
-
       try {
         const items = await getCatalogProducts({
           groupKey: normalizedGroup,
@@ -141,16 +171,12 @@ export default function CatalogListingClient({
         });
 
         if (!cancelled) {
-          setProducts(items);
+          setClientProducts(items);
         }
       } catch (error) {
         console.error("Catalog load error:", error);
         if (!cancelled) {
-          setProducts([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
+          setClientProducts([]);
         }
       }
     }
@@ -160,7 +186,7 @@ export default function CatalogListingClient({
     return () => {
       cancelled = true;
     };
-  }, [category, normalizedGroup, subcategory]);
+  }, [category, initialProducts, normalizedGroup, subcategory]);
 
   const availableBrands = useMemo(
     () => [...new Set(products.map(getBrandLabel))].sort((a, b) => a.localeCompare(b, "ru")),
@@ -203,6 +229,7 @@ export default function CatalogListingClient({
     }
 
     const queryString = params.toString();
+    setQueryString(queryString);
     router.replace(queryString ? `${pathname}?${queryString}` : pathname);
   }
 

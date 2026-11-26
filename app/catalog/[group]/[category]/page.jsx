@@ -1,10 +1,10 @@
 //app/catalog/[group]/[category]/page.jsx
-import { Suspense } from "react";
-
 import CatalogListingClient from "../../../components/CatalogListingClient";
-import CatalogListingFallback from "../../../components/CatalogListingFallback";
 import { getCatalogCategoryStaticParams } from "../../../lib/catalog/catalogStaticParams";
+import { getServerCatalogProducts } from "../../../lib/server/catalogProducts";
 import { buildCatalogMetadata } from "../../../lib/server/catalogSeo";
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return getCatalogCategoryStaticParams();
@@ -16,12 +16,12 @@ export async function generateMetadata({ params }) {
   return buildCatalogMetadata({ group, category });
 }
 
-export default async function CatalogCategoryPage({ params }) {
-  const { group, category } = await params;
+export default async function CatalogCategoryPage({ params, searchParams }) {
+  const [{ group, category }, initialSearchParams] = await Promise.all([params, searchParams]);
+  const initialProducts = await getServerCatalogProducts({
+    groupKey: group,
+    categoryKey: category,
+  });
 
-  return (
-    <Suspense fallback={<CatalogListingFallback />}>
-      <CatalogListingClient group={group} category={category} />
-    </Suspense>
-  );
+  return <CatalogListingClient group={group} category={category} initialProducts={initialProducts} initialSearchParams={initialSearchParams} />;
 }
