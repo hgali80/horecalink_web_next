@@ -12,6 +12,7 @@ function quoteHarness() {
     db: {}, collection: (_db, path) => path,
     serverTimestamp: () => 'timestamp',
     addDoc: async (path, payload) => { writes.push({ path, payload }); return { id: 'test-request' }; },
+    fetch: async () => ({ ok: true, json: async () => ({}) }),
   });
   vm.runInContext(source, context);
   return { create: context.createQuoteRequest, writes };
