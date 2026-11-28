@@ -69,12 +69,9 @@ function money(value) {
   return `${amount} KZT`;
 }
 
-export function buildChatgptCommerceProduct(product, stockBalance = {}) {
+export function buildChatgptCommerceProduct(product) {
   if (product?.active !== true || product?.webPublished !== true || product?.saleEnabled === false) return null;
   if (product?.productType && product.productType !== "sale_item") return null;
-
-  const stockTotal = Number(stockBalance?.rQty || 0) + Number(stockBalance?.fQty || 0);
-  if (product?.stockTracked === false || !Number.isFinite(stockTotal) || stockTotal <= 0) return null;
 
   const itemId = clean(product.sku);
   const title = clean(product.name_ru || product.name);
@@ -95,7 +92,7 @@ export function buildChatgptCommerceProduct(product, stockBalance = {}) {
     brand,
     seller_name: "HorecaLink",
     image_url: imageUrl,
-    availability: "in_stock",
+    availability: "unknown",
     price,
     target_countries: "[\"KZ\"]",
     store_country: "KZ",
