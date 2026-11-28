@@ -11,8 +11,7 @@ export async function GET() {
   try {
     const { adminDb } = getAdminServices();
     const productsRef = adminDb.collection("products");
-    const [productsSnapshot, stockSnapshot] = await Promise.all([
-      productsRef
+    const productsSnapshot = await productsRef
         .where("active", "==", true)
         .where("webPublished", "==", true)
         .select(
@@ -20,15 +19,11 @@ export async function GET() {
           "specs_ru", "technicalDetails_ru", "technical_specs_ru", "specs", "material_ru", "dimensions_ru",
           "capacity_ru", "power_ru", "voltage_ru", "fuelType_ru", "weight_ru", "warranty_ru", "brand",
           "price", "slug", "image_names", "imageBase", "active", "webPublished", "saleEnabled",
-          "stockTracked", "productType"
+          "productType"
         )
-        .get(),
-      adminDb.collection("erp_stock_balances").select("rQty", "fQty").get(),
-    ]);
-
-    const stockByProductId = new Map(stockSnapshot.docs.map((doc) => [doc.id, doc.data()]));
+        .get();
     const rows = productsSnapshot.docs
-      .map((doc) => buildChatgptCommerceProduct({ id: doc.id, ...doc.data() }, stockByProductId.get(doc.id)))
+      .map((doc) => buildChatgptCommerceProduct({ id: doc.id, ...doc.data() }))
       .filter(Boolean);
 
     return new Response(serializeChatgptCommerceCsv(rows), {
